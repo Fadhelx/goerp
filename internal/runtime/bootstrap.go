@@ -313,6 +313,11 @@ func uniqueInt64s(values []int64) []int64 {
 }
 
 func oiManifests() []module.Manifest {
+	dependencies := accounting.DependencyManifests()
+	accountingManifests := []module.Manifest{}
+	if runtimeAccountingEnabled() {
+		accountingManifests = append(accountingManifests, accounting.Manifest())
+	}
 	return uniqueManifests(
 		[]module.Manifest{base.Manifest()},
 		oi_workflow.DependencyManifests(),
@@ -320,12 +325,12 @@ func oiManifests() []module.Manifest {
 		oi_delegation.DependencyManifests(),
 		oi_login_as.DependencyManifests(),
 		aiaddon.DependencyManifests(),
-		accounting.DependencyManifests(),
+		dependencies,
 		hr.DependencyManifests(),
+		accountingManifests,
 		[]module.Manifest{
 			hr.Manifest(),
 			aiaddon.Manifest(),
-			accounting.Manifest(),
 			oi_base.Manifest(),
 			oi_workflow.Manifest(),
 			oi_workflow_advance.Manifest(),
@@ -333,6 +338,15 @@ func oiManifests() []module.Manifest {
 			oi_login_as.Manifest(),
 		},
 	)
+}
+
+func runtimeAccountingEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GORP_ENABLE_ACCOUNTING"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func uniqueManifests(groups ...[]module.Manifest) []module.Manifest {
@@ -473,12 +487,36 @@ func loadBootstrapData(root string, env *record.Env, externalIDs map[string]data
 	}{
 		{base.Manifest().TechnicalName, filepath.Join(root, "internal/base"), base.Manifest().Data},
 		{aiaddon.ModuleName, filepath.Join(root, "addons/ai"), aiaddon.Manifest().Data},
-		{accounting.ModuleName, filepath.Join(root, "addons/accounting"), accounting.Manifest().Data},
-		{oi_base.ModuleName, filepath.Join(root, "addons/oi_base"), oi_base.Manifest().Data},
-		{oi_workflow.ModuleName, filepath.Join(root, "addons/oi_workflow"), oi_workflow.Manifest().Data},
-		{oi_delegation.ModuleName, filepath.Join(root, "addons/oi_delegation"), oi_delegation.Manifest().Data},
-		{oi_workflow_advance.ModuleName, filepath.Join(root, "addons/oi_workflow_advance"), oi_workflow_advance.Manifest().Data},
 	}
+	if runtimeAccountingEnabled() {
+		loads = append(loads, struct {
+			moduleName string
+			baseDir    string
+			paths      []string
+		}{accounting.ModuleName, filepath.Join(root, "addons/accounting"), accounting.Manifest().Data})
+	}
+	loads = append(loads,
+		struct {
+			moduleName string
+			baseDir    string
+			paths      []string
+		}{oi_base.ModuleName, filepath.Join(root, "addons/oi_base"), oi_base.Manifest().Data},
+		struct {
+			moduleName string
+			baseDir    string
+			paths      []string
+		}{oi_workflow.ModuleName, filepath.Join(root, "addons/oi_workflow"), oi_workflow.Manifest().Data},
+		struct {
+			moduleName string
+			baseDir    string
+			paths      []string
+		}{oi_delegation.ModuleName, filepath.Join(root, "addons/oi_delegation"), oi_delegation.Manifest().Data},
+		struct {
+			moduleName string
+			baseDir    string
+			paths      []string
+		}{oi_workflow_advance.ModuleName, filepath.Join(root, "addons/oi_workflow_advance"), oi_workflow_advance.Manifest().Data},
+	)
 	for _, load := range loads {
 		if err := loadManifestData(env, externalIDs, load.moduleName, load.baseDir, load.paths); err != nil {
 			return err

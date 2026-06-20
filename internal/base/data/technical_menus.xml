@@ -1,0 +1,338 @@
+<odoo>
+    <data noupdate="1">
+        <record id="action_res_config_settings" model="ir.actions.act_window">
+            <field name="name">Settings</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="base.res_config_settings_view_form"/>
+            <field name="target">current</field>
+        </record>
+
+        <record id="action_res_users" model="ir.actions.act_window">
+            <field name="name">Users</field>
+            <field name="res_model">res.users</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">users</field>
+        </record>
+
+        <record id="action_res_groups" model="ir.actions.act_window">
+            <field name="name">Groups</field>
+            <field name="res_model">res.groups</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">groups</field>
+        </record>
+
+        <record id="action_res_company" model="ir.actions.act_window">
+            <field name="name">Companies</field>
+            <field name="res_model">res.company</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">companies</field>
+        </record>
+
+        <record id="action_ir_actions_server" model="ir.actions.act_window">
+            <field name="name">Server Actions</field>
+            <field name="res_model">ir.actions.server</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">server-actions</field>
+        </record>
+
+        <record id="action_ir_cron" model="ir.actions.act_window">
+            <field name="name">Scheduled Actions</field>
+            <field name="res_model">ir.cron</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">scheduled-actions</field>
+        </record>
+
+        <record id="action_base_automation" model="ir.actions.act_window">
+            <field name="name">Automation Rules</field>
+            <field name="res_model">base.automation</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">automation-rules</field>
+        </record>
+
+        <record id="action_ir_ui_view" model="ir.actions.act_window">
+            <field name="name">Views</field>
+            <field name="res_model">ir.ui.view</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">views</field>
+        </record>
+
+        <record id="action_ir_ui_menu" model="ir.actions.act_window">
+            <field name="name">Menu Items</field>
+            <field name="res_model">ir.ui.menu</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">menus</field>
+        </record>
+
+        <record id="action_ir_model" model="ir.actions.act_window">
+            <field name="name">Models</field>
+            <field name="res_model">ir.model</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">models</field>
+        </record>
+
+        <record id="action_ir_model_fields" model="ir.actions.act_window">
+            <field name="name">Fields</field>
+            <field name="res_model">ir.model.fields</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">fields</field>
+        </record>
+
+        <record id="action_ir_model_access" model="ir.actions.act_window">
+            <field name="name">Access Rights</field>
+            <field name="res_model">ir.model.access</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">access-rights</field>
+        </record>
+
+        <record id="action_ir_rule" model="ir.actions.act_window">
+            <field name="name">Record Rules</field>
+            <field name="res_model">ir.rule</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">record-rules</field>
+        </record>
+
+        <record id="action_ir_module_module" model="ir.actions.act_window">
+            <field name="name">Apps</field>
+            <field name="res_model">ir.module.module</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">apps</field>
+        </record>
+
+        <record id="action_mail_template" model="ir.actions.act_window">
+            <field name="name">Email Templates</field>
+            <field name="res_model">mail.template</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">email-templates</field>
+        </record>
+
+        <record id="action_ir_mail_server" model="ir.actions.act_window">
+            <field name="name">Outgoing Mail Servers</field>
+            <field name="res_model">ir.mail_server</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">outgoing-mail-servers</field>
+        </record>
+
+        <record id="action_fetchmail_server" model="ir.actions.act_window">
+            <field name="name">Incoming Mail Servers</field>
+            <field name="res_model">fetchmail.server</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">incoming-mail-servers</field>
+        </record>
+
+        <record id="action_mail_mail" model="ir.actions.act_window">
+            <field name="name">Emails</field>
+            <field name="res_model">mail.mail</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">emails</field>
+        </record>
+
+        <record id="action_mail_message" model="ir.actions.act_window">
+            <field name="name">Messages</field>
+            <field name="res_model">mail.message</field>
+            <field name="view_mode">list,form</field>
+            <field name="path">messages</field>
+        </record>
+
+        <record id="menu_administration" model="ir.ui.menu">
+            <field name="name">Settings</field>
+            <field name="sequence">900</field>
+            <field name="action">ir.actions.act_window,action_res_config_settings</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+            <field name="web_icon">fa-cog,#ffffff,#714b67</field>
+        </record>
+
+        <record id="menu_users" model="ir.ui.menu">
+            <field name="name">Users &amp; Companies</field>
+            <field name="parent_id" ref="menu_administration"/>
+            <field name="sequence">10</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_users_users" model="ir.ui.menu">
+            <field name="name">Users</field>
+            <field name="parent_id" ref="menu_users"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_res_users</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_users_groups" model="ir.ui.menu">
+            <field name="name">Groups</field>
+            <field name="parent_id" ref="menu_users"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_res_groups</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_users_companies" model="ir.ui.menu">
+            <field name="name">Companies</field>
+            <field name="parent_id" ref="menu_users"/>
+            <field name="sequence">30</field>
+            <field name="action">ir.actions.act_window,action_res_company</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical" model="ir.ui.menu">
+            <field name="name">Technical</field>
+            <field name="parent_id" ref="menu_administration"/>
+            <field name="sequence">90</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical_actions" model="ir.ui.menu">
+            <field name="name">Actions</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">10</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_actions_server" model="ir.ui.menu">
+            <field name="name">Server Actions</field>
+            <field name="parent_id" ref="menu_technical_actions"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_ir_actions_server</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_cron" model="ir.ui.menu">
+            <field name="name">Scheduled Actions</field>
+            <field name="parent_id" ref="menu_technical_actions"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_ir_cron</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_base_automation" model="ir.ui.menu">
+            <field name="name">Automation Rules</field>
+            <field name="parent_id" ref="menu_technical_actions"/>
+            <field name="sequence">30</field>
+            <field name="action">ir.actions.act_window,action_base_automation</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical_user_interface" model="ir.ui.menu">
+            <field name="name">User Interface</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">20</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_ui_view" model="ir.ui.menu">
+            <field name="name">Views</field>
+            <field name="parent_id" ref="menu_technical_user_interface"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_ir_ui_view</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_ui_menu" model="ir.ui.menu">
+            <field name="name">Menu Items</field>
+            <field name="parent_id" ref="menu_technical_user_interface"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_ir_ui_menu</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical_database_structure" model="ir.ui.menu">
+            <field name="name">Database Structure</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">30</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_model" model="ir.ui.menu">
+            <field name="name">Models</field>
+            <field name="parent_id" ref="menu_technical_database_structure"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_ir_model</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_model_fields" model="ir.ui.menu">
+            <field name="name">Fields</field>
+            <field name="parent_id" ref="menu_technical_database_structure"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_ir_model_fields</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical_security" model="ir.ui.menu">
+            <field name="name">Security</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">40</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_model_access" model="ir.ui.menu">
+            <field name="name">Access Rights</field>
+            <field name="parent_id" ref="menu_technical_security"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_ir_model_access</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_rule" model="ir.ui.menu">
+            <field name="name">Record Rules</field>
+            <field name="parent_id" ref="menu_technical_security"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_ir_rule</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_technical_email" model="ir.ui.menu">
+            <field name="name">Email</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">50</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_mail_template" model="ir.ui.menu">
+            <field name="name">Email Templates</field>
+            <field name="parent_id" ref="menu_technical_email"/>
+            <field name="sequence">10</field>
+            <field name="action">ir.actions.act_window,action_mail_template</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_mail_server" model="ir.ui.menu">
+            <field name="name">Outgoing Mail Servers</field>
+            <field name="parent_id" ref="menu_technical_email"/>
+            <field name="sequence">20</field>
+            <field name="action">ir.actions.act_window,action_ir_mail_server</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_fetchmail_server" model="ir.ui.menu">
+            <field name="name">Incoming Mail Servers</field>
+            <field name="parent_id" ref="menu_technical_email"/>
+            <field name="sequence">30</field>
+            <field name="action">ir.actions.act_window,action_fetchmail_server</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_mail_mail" model="ir.ui.menu">
+            <field name="name">Emails</field>
+            <field name="parent_id" ref="menu_technical_email"/>
+            <field name="sequence">40</field>
+            <field name="action">ir.actions.act_window,action_mail_mail</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_mail_message" model="ir.ui.menu">
+            <field name="name">Messages</field>
+            <field name="parent_id" ref="menu_technical_email"/>
+            <field name="sequence">50</field>
+            <field name="action">ir.actions.act_window,action_mail_message</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+
+        <record id="menu_ir_module_module" model="ir.ui.menu">
+            <field name="name">Apps</field>
+            <field name="parent_id" ref="menu_technical"/>
+            <field name="sequence">60</field>
+            <field name="action">ir.actions.act_window,action_ir_module_module</field>
+            <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        </record>
+    </data>
+</odoo>

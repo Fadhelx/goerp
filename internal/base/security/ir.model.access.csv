@@ -108,6 +108,11 @@ access_res_users_settings_user,res.users.settings,model_res_users_settings,group
 "access_ir_actions_server_history_group_system","ir_actions_server_history_group_system","model_ir_actions_server_history","group_system",1,1,1,0
 "access_ir_embedded_actions_group_user","ir_embedded_actions_group_user","model_ir_embedded_actions","group_user",1,1,1,1
 "access_ir_actions_client","ir_actions_client all","model_ir_actions_client","group_system",1,1,1,1
+"access_base_automation_group_system","base_automation_group_system","model_base_automation","group_system",1,1,1,1
+"access_mail_template_group_system","mail_template_group_system","model_mail_template","group_system",1,1,1,1
+"access_fetchmail_server_group_system","fetchmail_server_group_system","model_fetchmail_server","group_system",1,1,1,1
+"access_mail_mail_group_system","mail_mail_group_system","model_mail_mail","group_system",1,1,1,1
+"access_mail_message_group_system","mail_message_group_system","model_mail_message","group_system",1,1,1,1
 "access_res_bank_group_system","res_bank_group_system","model_res_bank","group_system",1,1,1,1
 "access_res_bank_group_partner_manager","res_bank_group_partner_manager","model_res_bank","group_partner_manager",1,1,1,1
 "access_res_bank_user","res_bank user","model_res_bank","group_user",1,0,0,0

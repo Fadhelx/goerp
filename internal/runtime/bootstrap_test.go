@@ -57,7 +57,6 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 		"digest",
 		hr.ModuleName,
 		aiaddon.ModuleName,
-		accounting.ModuleName,
 		oi_base.ModuleName,
 		oi_workflow.ModuleName,
 		oi_workflow_advance.ModuleName,
@@ -70,6 +69,12 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 		if app.Modules[name].TechnicalName != name {
 			t.Fatalf("server module %s missing: %+v", name, app.Modules[name])
 		}
+	}
+	if app.ModuleRegistry.States[accounting.ModuleName] == "installed" {
+		t.Fatal("accounting should be skipped in phase 1 by default")
+	}
+	if _, ok := app.Modules[accounting.ModuleName]; ok {
+		t.Fatal("accounting module should not be exposed in default runtime")
 	}
 	found, err := app.Env.Model("ir.module.module").Search(domain.And())
 	if err != nil {
@@ -85,7 +90,7 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 			installed[row["name"].(string)] = true
 		}
 	}
-	for _, name := range []string{"base_setup", "onboarding", "uom", "product", "analytic", "portal", "digest", hr.ModuleName, aiaddon.ModuleName, accounting.ModuleName, oi_workflow.ModuleName, oi_delegation.ModuleName, oi_login_as.ModuleName} {
+	for _, name := range []string{"base_setup", "onboarding", "uom", "product", "analytic", "portal", "digest", hr.ModuleName, aiaddon.ModuleName, oi_workflow.ModuleName, oi_delegation.ModuleName, oi_login_as.ModuleName} {
 		if !installed[name] {
 			t.Fatalf("missing ir.module.module row %s in %+v", name, rows)
 		}
@@ -105,8 +110,8 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 	if _, ok := app.Modules[aiaddon.ModuleName]; !ok || app.Server().AIChatFactory == nil {
 		t.Fatalf("ai runtime not wired: modules=%+v server=%+v", app.Modules, app.Server())
 	}
-	if app.ExternalIDs["account.account_payment_term_immediate"].ResID == 0 {
-		t.Fatalf("missing accounting data external id: %+v", app.ExternalIDs)
+	if app.ExternalIDs["account.account_payment_term_immediate"].ResID != 0 {
+		t.Fatalf("accounting data loaded while disabled: %+v", app.ExternalIDs["account.account_payment_term_immediate"])
 	}
 	if app.ExternalIDs["oi_login_as.portal_login_as_banner"].ResID == 0 {
 		t.Fatalf("missing persisted template external id: %+v", app.ExternalIDs)
@@ -175,6 +180,23 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 	}
 	if app.Delegation == nil || app.Security.Delegations == nil {
 		t.Fatal("delegation runtime provider not wired")
+	}
+}
+
+func TestBootstrapOIAccountingPhaseGate(t *testing.T) {
+	t.Setenv("GORP_ENABLE_ACCOUNTING", "1")
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.ModuleRegistry.States[accounting.ModuleName] != "installed" {
+		t.Fatalf("accounting state = %q", app.ModuleRegistry.States[accounting.ModuleName])
+	}
+	if app.Modules[accounting.ModuleName].TechnicalName != accounting.ModuleName {
+		t.Fatalf("accounting module missing: %+v", app.Modules[accounting.ModuleName])
+	}
+	if app.ExternalIDs["account.account_payment_term_immediate"].ResID == 0 {
+		t.Fatalf("missing accounting external id: %+v", app.ExternalIDs["account.account_payment_term_immediate"])
 	}
 }
 
@@ -4331,22 +4353,22 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 		t.Fatalf("missing mail compose view external id: %+v", app.ExternalIDs)
 	}
 
-	body := getBody(t, handler, "/web/session/modules")
+	sessionCookie := runtimeSessionCookie(t, app)
+	body := getBodyWithCookie(t, handler, "/web/session/modules", sessionCookie)
 	modulesPayload := decodeRuntimeJSON(t, []byte(body))
 	installedModules := map[string]bool{}
 	for _, name := range runtimeStringSlice(modulesPayload["installed_modules"]) {
 		installedModules[name] = true
 	}
-	for _, want := range []string{"base_setup", "onboarding", "uom", "product", "analytic", "portal", "digest", "account", "oi_base", "oi_workflow", "oi_workflow_advance", "oi_delegation", "oi_login_as"} {
+	for _, want := range []string{"base_setup", "onboarding", "uom", "product", "analytic", "portal", "digest", "oi_base", "oi_workflow", "oi_workflow_advance", "oi_delegation", "oi_login_as"} {
 		if !installedModules[want] {
 			t.Fatalf("modules response missing %s: %s", want, body)
 		}
 	}
-	modules := runtimeMapValue(modulesPayload["modules"])
-	accountModule := runtimeMapValue(modules["account"])
-	if got := strings.Join(runtimeStringSlice(accountModule["depends"]), ","); got != "base_setup,onboarding,product,analytic,portal,digest" {
-		t.Fatalf("account depends = %s in %s", got, body)
+	if installedModules[accounting.ModuleName] {
+		t.Fatalf("accounting should not be installed by default: %s", body)
 	}
+	modules := runtimeMapValue(modulesPayload["modules"])
 	for _, name := range []string{"base_setup", "onboarding", "uom", "product", "analytic", "portal", "digest"} {
 		modulePayload := runtimeMapValue(modules[name])
 		if modulePayload["technical_name"] != name || modulePayload["state"] != "installed" || modulePayload["installable"] != true {
@@ -4365,21 +4387,42 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 		t.Fatalf("bundle response = %s", body)
 	}
 
-	sessionCookie := runtimeSessionCookie(t, app)
 	body = getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
-	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons"} {
+	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Technical", "Server Actions", "Scheduled Actions", "Automation Rules", "Access Rights", "Record Rules"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("menu response missing %s: %s", want, body)
 		}
 	}
 	menuPayload := decodeRuntimeJSON(t, []byte(body))
-	accountMenu := runtimeMenuByXMLID(menuPayload, "account.menu_board_journal_1")
-	if accountMenu["name"] != "Accounting" || accountMenu["is_app"] != true {
-		t.Fatalf("account menu = %+v", accountMenu)
+	settingsMenu := runtimeMenuByXMLID(menuPayload, "base.menu_administration")
+	if settingsMenu["name"] != "Settings" || settingsMenu["is_app"] != true || settingsMenu["actionModel"] != "ir.actions.act_window" || int64Value(settingsMenu["actionID"]) == 0 {
+		t.Fatalf("settings menu = %+v", settingsMenu)
 	}
-	customersMenu := runtimeMenuByXMLID(menuPayload, "account.menu_finance_receivables")
-	if customersMenu["name"] != "Customers" || customersMenu["actionModel"] != "ir.actions.act_window" || int64Value(customersMenu["actionID"]) == 0 {
-		t.Fatalf("customers menu = %+v", customersMenu)
+	technicalMenu := runtimeMenuByXMLID(menuPayload, "base.menu_technical")
+	if technicalMenu["name"] != "Technical" || int64Value(technicalMenu["parent_id"]) != int64Value(settingsMenu["id"]) {
+		t.Fatalf("technical menu = %+v settings=%+v", technicalMenu, settingsMenu)
+	}
+	serverActionsMenu := runtimeMenuByXMLID(menuPayload, "base.menu_ir_actions_server")
+	if serverActionsMenu["name"] != "Server Actions" || serverActionsMenu["actionModel"] != "ir.actions.act_window" || int64Value(serverActionsMenu["actionID"]) == 0 || int64Value(serverActionsMenu["parent_id"]) == 0 {
+		t.Fatalf("server actions menu = %+v", serverActionsMenu)
+	}
+	recordRulesMenu := runtimeMenuByXMLID(menuPayload, "base.menu_ir_rule")
+	if recordRulesMenu["name"] != "Record Rules" || recordRulesMenu["actionModel"] != "ir.actions.act_window" || int64Value(recordRulesMenu["actionID"]) == 0 {
+		t.Fatalf("record rules menu = %+v", recordRulesMenu)
+	}
+	actionViews := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"ir.actions.server","method":"get_views","kwargs":{"views":[[false,"list"],[false,"form"]],"options":{}}}`, sessionCookie)
+	views := runtimeMapValue(actionViews["views"])
+	actionListArch := stringValue(runtimeMapValue(views["list"])["arch"])
+	actionFormArch := stringValue(runtimeMapValue(views["form"])["arch"])
+	for _, want := range []string{`name="name"`, `name="state"`, `name="model_name"`} {
+		if !strings.Contains(actionListArch, want) {
+			t.Fatalf("server action list view missing %s: %s", want, actionListArch)
+		}
+	}
+	for _, want := range []string{`name="name"`, `name="model_id"`, `name="state"`, `name="code"`} {
+		if !strings.Contains(actionFormArch, want) {
+			t.Fatalf("server action form view missing %s: %s", want, actionFormArch)
+		}
 	}
 
 	body = getBodyWithCookie(t, handler, "/web/view/load?model="+internalworkflow.ModelWorkflow, sessionCookie)

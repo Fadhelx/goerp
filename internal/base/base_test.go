@@ -118,6 +118,41 @@ func TestManifestDataFilesLoad(t *testing.T) {
 		"base.properties_base_definition_rule_admin",
 		"base.res_config_settings_view_form",
 		"base.action_currency_form",
+		"base.view_ir_actions_server_list",
+		"base.view_ir_actions_server_form",
+		"base.view_ir_cron_list",
+		"base.view_ir_cron_form",
+		"base.view_base_automation_list",
+		"base.view_base_automation_form",
+		"base.view_ir_model_access_list",
+		"base.view_ir_model_access_form",
+		"base.view_ir_rule_list",
+		"base.view_ir_rule_form",
+		"base.view_mail_template_list",
+		"base.view_mail_template_form",
+		"base.action_res_config_settings",
+		"base.action_ir_actions_server",
+		"base.action_ir_cron",
+		"base.action_base_automation",
+		"base.action_ir_ui_view",
+		"base.action_ir_model_access",
+		"base.action_ir_rule",
+		"base.access_base_automation_group_system",
+		"base.access_mail_template_group_system",
+		"base.access_fetchmail_server_group_system",
+		"base.access_mail_mail_group_system",
+		"base.access_mail_message_group_system",
+		"base.menu_administration",
+		"base.menu_users",
+		"base.menu_users_users",
+		"base.menu_technical",
+		"base.menu_technical_actions",
+		"base.menu_ir_actions_server",
+		"base.menu_ir_cron",
+		"base.menu_base_automation",
+		"base.menu_ir_ui_view",
+		"base.menu_ir_model_access",
+		"base.menu_ir_rule",
 		"web.action_base_document_layout_configurator",
 		"mail.email_compose_message_wizard_form",
 		"mail.action_email_compose_message_wizard",
@@ -148,7 +183,7 @@ func TestManifestDataFilesLoad(t *testing.T) {
 	assertRecordCount(t, env, "res.partner.industry", 21)
 	assertRecordCount(t, env, "res.groups", 13)
 	assertRecordCount(t, env, "res.groups.privilege", 3)
-	assertRecordCount(t, env, "ir.model.access", 146)
+	assertRecordCount(t, env, "ir.model.access", 151)
 	assertRecordCount(t, env, "ir.rule", 32)
 	assertField(t, env, "res.company", ids["base.main_company"].ResID, "currency_id", ids["base.USD"].ResID)
 	assertField(t, env, "res.company", ids["base.main_company"].ResID, "partner_id", ids["base.main_partner"].ResID)

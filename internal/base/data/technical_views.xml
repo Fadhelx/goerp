@@ -1,0 +1,185 @@
+<odoo>
+    <data noupdate="1">
+        <record id="view_ir_actions_server_list" model="ir.ui.view">
+            <field name="name">ir.actions.server.list</field>
+            <field name="model">ir.actions.server</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="state"/&gt;&lt;field name="model_name"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_actions_server_form" model="ir.ui.view">
+            <field name="name">ir.actions.server.form</field>
+            <field name="model">ir.actions.server</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="model_name"/&gt;&lt;field name="state"/&gt;&lt;field name="active"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_cron_list" model="ir.ui.view">
+            <field name="name">ir.cron.list</field>
+            <field name="model">ir.cron</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="active"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="state"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_cron_form" model="ir.ui.view">
+            <field name="name">ir.cron.form</field>
+            <field name="model">ir.cron</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="active"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="ir_actions_server_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="state"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_base_automation_list" model="ir.ui.view">
+            <field name="name">base.automation.list</field>
+            <field name="model">base.automation</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model_name"/&gt;&lt;field name="trigger"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_base_automation_form" model="ir.ui.view">
+            <field name="name">base.automation.form</field>
+            <field name="model">base.automation</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="active"/&gt;&lt;field name="model_id"/&gt;&lt;field name="model_name"/&gt;&lt;field name="trigger"/&gt;&lt;field name="action_server_id"/&gt;&lt;field name="description"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_ui_view_list" model="ir.ui.view">
+            <field name="name">ir.ui.view.list</field>
+            <field name="model">ir.ui.view</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="type"/&gt;&lt;field name="mode"/&gt;&lt;field name="priority"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_ui_view_form" model="ir.ui.view">
+            <field name="name">ir.ui.view.form</field>
+            <field name="model">ir.ui.view</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="type"/&gt;&lt;field name="mode"/&gt;&lt;field name="priority"/&gt;&lt;field name="active"/&gt;&lt;field name="arch"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_ui_menu_list" model="ir.ui.view">
+            <field name="name">ir.ui.menu.list</field>
+            <field name="model">ir.ui.menu</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="parent_id"/&gt;&lt;field name="action"/&gt;&lt;field name="sequence"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_ui_menu_form" model="ir.ui.view">
+            <field name="name">ir.ui.menu.form</field>
+            <field name="model">ir.ui.menu</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="parent_id"/&gt;&lt;field name="action"/&gt;&lt;field name="sequence"/&gt;&lt;field name="groups_id"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_model_list" model="ir.ui.view">
+            <field name="name">ir.model.list</field>
+            <field name="model">ir.model</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="model"/&gt;&lt;field name="name"/&gt;&lt;field name="transient"/&gt;&lt;field name="is_mail_thread"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_model_form" model="ir.ui.view">
+            <field name="name">ir.model.form</field>
+            <field name="model">ir.model</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="model"/&gt;&lt;field name="name"/&gt;&lt;field name="transient"/&gt;&lt;field name="is_mail_thread"/&gt;&lt;field name="is_mail_activity"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_model_fields_list" model="ir.ui.view">
+            <field name="name">ir.model.fields.list</field>
+            <field name="model">ir.model.fields</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="model"/&gt;&lt;field name="name"/&gt;&lt;field name="ttype"/&gt;&lt;field name="relation"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_model_fields_form" model="ir.ui.view">
+            <field name="name">ir.model.fields.form</field>
+            <field name="model">ir.model.fields</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="model"/&gt;&lt;field name="name"/&gt;&lt;field name="ttype"/&gt;&lt;field name="relation"/&gt;&lt;field name="relation_field"/&gt;&lt;field name="groups"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_model_access_list" model="ir.ui.view">
+            <field name="name">ir.model.access.list</field>
+            <field name="model">ir.model.access</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="group_id"/&gt;&lt;field name="perm_read"/&gt;&lt;field name="perm_write"/&gt;&lt;field name="perm_create"/&gt;&lt;field name="perm_unlink"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_model_access_form" model="ir.ui.view">
+            <field name="name">ir.model.access.form</field>
+            <field name="model">ir.model.access</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="group_id"/&gt;&lt;field name="perm_read"/&gt;&lt;field name="perm_write"/&gt;&lt;field name="perm_create"/&gt;&lt;field name="perm_unlink"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_rule_list" model="ir.ui.view">
+            <field name="name">ir.rule.list</field>
+            <field name="model">ir.rule</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="global"/&gt;&lt;field name="active"/&gt;&lt;field name="perm_read"/&gt;&lt;field name="perm_write"/&gt;&lt;field name="perm_create"/&gt;&lt;field name="perm_unlink"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_rule_form" model="ir.ui.view">
+            <field name="name">ir.rule.form</field>
+            <field name="model">ir.rule</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="domain_force"/&gt;&lt;field name="groups"/&gt;&lt;field name="global"/&gt;&lt;field name="active"/&gt;&lt;field name="perm_read"/&gt;&lt;field name="perm_write"/&gt;&lt;field name="perm_create"/&gt;&lt;field name="perm_unlink"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_mail_template_list" model="ir.ui.view">
+            <field name="name">mail.template.list</field>
+            <field name="model">mail.template</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="subject"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_mail_template_form" model="ir.ui.view">
+            <field name="name">mail.template.form</field>
+            <field name="model">mail.template</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="subject"/&gt;&lt;field name="email_from"/&gt;&lt;field name="email_to"/&gt;&lt;field name="body_html"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_ir_mail_server_list" model="ir.ui.view">
+            <field name="name">ir.mail_server.list</field>
+            <field name="model">ir.mail_server</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="smtp_host"/&gt;&lt;field name="smtp_port"/&gt;&lt;field name="smtp_encryption"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_ir_mail_server_form" model="ir.ui.view">
+            <field name="name">ir.mail_server.form</field>
+            <field name="model">ir.mail_server</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="smtp_host"/&gt;&lt;field name="smtp_port"/&gt;&lt;field name="smtp_encryption"/&gt;&lt;field name="smtp_authentication"/&gt;&lt;field name="smtp_user"/&gt;&lt;field name="smtp_pass"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_fetchmail_server_list" model="ir.ui.view">
+            <field name="name">fetchmail.server.list</field>
+            <field name="model">fetchmail.server</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="server_type"/&gt;&lt;field name="server"/&gt;&lt;field name="port"/&gt;&lt;field name="state"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_fetchmail_server_form" model="ir.ui.view">
+            <field name="name">fetchmail.server.form</field>
+            <field name="model">fetchmail.server</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="server_type"/&gt;&lt;field name="server"/&gt;&lt;field name="port"/&gt;&lt;field name="is_ssl"/&gt;&lt;field name="user"/&gt;&lt;field name="password"/&gt;&lt;field name="object_id"/&gt;&lt;field name="priority"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_mail_mail_list" model="ir.ui.view">
+            <field name="name">mail.mail.list</field>
+            <field name="model">mail.mail</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="subject"/&gt;&lt;field name="email_to"/&gt;&lt;field name="state"/&gt;&lt;field name="scheduled_date"/&gt;&lt;field name="failure_type"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_mail_mail_form" model="ir.ui.view">
+            <field name="name">mail.mail.form</field>
+            <field name="model">mail.mail</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="subject"/&gt;&lt;field name="email_from"/&gt;&lt;field name="email_to"/&gt;&lt;field name="state"/&gt;&lt;field name="scheduled_date"/&gt;&lt;field name="body_html"/&gt;&lt;field name="failure_reason"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+
+        <record id="view_mail_message_list" model="ir.ui.view">
+            <field name="name">mail.message.list</field>
+            <field name="model">mail.message</field>
+            <field name="type">list</field>
+            <field name="arch">&lt;list&gt;&lt;field name="subject"/&gt;&lt;field name="message_type"/&gt;&lt;field name="model"/&gt;&lt;field name="res_id"/&gt;&lt;field name="email_from"/&gt;&lt;field name="date"/&gt;&lt;/list&gt;</field>
+        </record>
+        <record id="view_mail_message_form" model="ir.ui.view">
+            <field name="name">mail.message.form</field>
+            <field name="model">mail.message</field>
+            <field name="type">form</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="subject"/&gt;&lt;field name="message_type"/&gt;&lt;field name="model"/&gt;&lt;field name="res_id"/&gt;&lt;field name="email_from"/&gt;&lt;field name="date"/&gt;&lt;field name="body"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+        </record>
+    </data>
+</odoo>
