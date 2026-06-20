@@ -236,7 +236,6 @@ func TestAdvancedCommitteePartialApprovalExcludesDoneUsers(t *testing.T) {
 	w.Nodes[1].ResponsibleCommitteeLimit = 2
 	w.Nodes[1].Transitions[0].GroupIDs = nil
 	w.Nodes[1].Transitions[0].Committee = true
-	w.Nodes[1].Transitions[0].CommitteeLimit = 2
 	ctx := EvaluationContext{
 		UserID:       7,
 		UserGroupIDs: []int64{42},
@@ -293,6 +292,91 @@ func TestAdvancedCommitteePartialApprovalExcludesDoneUsers(t *testing.T) {
 	}
 	if len(logs) != 3 || logs[1].OldNodeID != 20 || logs[1].NewNodeID != 20 || logs[2].OldNodeID != 20 || logs[2].NewNodeID != 30 {
 		t.Fatalf("committee logs = %+v", logs)
+	}
+}
+
+func TestAdvancedCommitteeLimitUsesSourceFinalizationRule(t *testing.T) {
+	w := testWorkflow()
+	w.Nodes[1].ResponsibleUserIDs = []int64{7, 9}
+	w.Nodes[1].ResponsibleGroupIDs = nil
+	w.Nodes[1].ResponsibleCommittee = true
+	w.Nodes[1].Transitions[0].GroupIDs = nil
+	w.Nodes[1].Transitions[0].Committee = true
+	w.Nodes[1].Transitions[0].CommitteeLimit = 2
+	ctx := EvaluationContext{
+		UserID:       7,
+		UserGroupIDs: []int64{42},
+		CompanyID:    1,
+		CompanyIDs:   []int64{1},
+		Model:        "purchase.order",
+		RecordID:     99,
+		Values: map[string]any{
+			"amount":     1500,
+			"state":      "draft",
+			"company_id": int64(1),
+		},
+		Now: time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC),
+	}
+	var logs []ApprovalLogEvent
+	hooks := Hooks{ApprovalLog: func(event ApprovalLogEvent) error {
+		logs = append(logs, event)
+		return nil
+	}}
+	process, _, err := w.Start(ctx, hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	process, _, err = w.ApplyTransition(process, 200, ctx, hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if process.NodeID != 30 || process.Active || len(process.ApprovalDoneUserIDs) != 0 || len(process.ApprovalUserIDs) != 0 {
+		t.Fatalf("committee limit process = %+v", process)
+	}
+	if len(logs) != 2 || logs[1].OldNodeID != 20 || logs[1].NewNodeID != 30 || logs[1].Committee != true {
+		t.Fatalf("committee limit logs = %+v", logs)
+	}
+}
+
+func TestAdvancedCommitteeSuperuserBypassesPartialApproval(t *testing.T) {
+	w := testWorkflow()
+	w.Nodes[1].ResponsibleUserIDs = []int64{7, 9}
+	w.Nodes[1].ResponsibleGroupIDs = nil
+	w.Nodes[1].ResponsibleCommittee = true
+	w.Nodes[1].Transitions[0].GroupIDs = nil
+	w.Nodes[1].Transitions[0].Committee = true
+	ctx := EvaluationContext{
+		UserID:       1,
+		UserGroupIDs: []int64{42},
+		CompanyID:    1,
+		CompanyIDs:   []int64{1},
+		Model:        "purchase.order",
+		RecordID:     99,
+		Values: map[string]any{
+			"amount":     1500,
+			"state":      "draft",
+			"company_id": int64(1),
+		},
+		Now: time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC),
+	}
+	var logs []ApprovalLogEvent
+	hooks := Hooks{ApprovalLog: func(event ApprovalLogEvent) error {
+		logs = append(logs, event)
+		return nil
+	}}
+	process, _, err := w.Start(ctx, hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	process, _, err = w.ApplyTransition(process, 200, ctx, hooks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if process.NodeID != 30 || process.Active || len(process.ApprovalDoneUserIDs) != 0 || len(process.ApprovalUserIDs) != 0 {
+		t.Fatalf("superuser committee process = %+v", process)
+	}
+	if len(logs) != 2 || logs[1].OldNodeID != 20 || logs[1].NewNodeID != 30 {
+		t.Fatalf("superuser committee logs = %+v", logs)
 	}
 }
 

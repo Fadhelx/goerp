@@ -1106,14 +1106,11 @@ func transitionWillRunAsSuperuser(process Process, transition Transition, ctx Ev
 	if !transition.RunAsSuperuser {
 		return false
 	}
-	if !transition.Committee || transition.CommitteeLimit <= 0 {
+	if !transition.Committee || ctx.UserID == 1 {
 		return true
 	}
-	done := append([]int64(nil), process.ApprovalDoneUserIDs...)
-	if ctx.UserID != 0 && !containsInt64(done, ctx.UserID) {
-		done = append(done, ctx.UserID)
-	}
-	return len(uniqueSortedIDs(done)) >= transition.CommitteeLimit
+	done := advancedCommitteeDoneUserIDs(process, ctx)
+	return len(advancedCommitteeRemainingUserIDs(process, transition, done)) == 0
 }
 
 func defaultMailComposeFormID(env *record.Env) int64 {

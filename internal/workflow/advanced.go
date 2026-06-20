@@ -531,29 +531,29 @@ func (w Workflow) ApplyTransition(process Process, transitionID int64, ctx Evalu
 		}
 		return process, []ActionResult{result}, nil
 	}
-	if transition.Committee && !containsInt64(process.ApprovalDoneUserIDs, ctx.UserID) {
-		process.ApprovalDoneUserIDs = append(process.ApprovalDoneUserIDs, ctx.UserID)
-	}
-	if transition.Committee {
-		process.ApprovalUserIDs = withoutIDs(process.ApprovalUserIDs, process.ApprovalDoneUserIDs)
-	}
-	if transition.Committee && transition.CommitteeLimit > 0 && len(process.ApprovalDoneUserIDs) < transition.CommitteeLimit {
-		logAt := ctx.now()
-		if err := emitApprovalLog(process, ctx, hooks, ApprovalLogEvent{
-			WorkflowID:   w.ID,
-			Model:        process.Model,
-			RecordID:     process.RecordID,
-			OldNodeID:    process.NodeID,
-			NewNodeID:    process.NodeID,
-			TransitionID: transition.ID,
-			Committee:    true,
-			At:           logAt,
-			Details:      approvalLogDurationDetails(process.UpdatedAt, logAt),
-		}); err != nil {
-			return process, nil, err
+	if transition.Committee && ctx.UserID != 1 {
+		done := advancedCommitteeDoneUserIDs(process, ctx)
+		remaining := advancedCommitteeRemainingUserIDs(process, transition, done)
+		process.ApprovalDoneUserIDs = done
+		process.ApprovalUserIDs = remaining
+		if len(remaining) > 0 {
+			logAt := ctx.now()
+			if err := emitApprovalLog(process, ctx, hooks, ApprovalLogEvent{
+				WorkflowID:   w.ID,
+				Model:        process.Model,
+				RecordID:     process.RecordID,
+				OldNodeID:    process.NodeID,
+				NewNodeID:    process.NodeID,
+				TransitionID: transition.ID,
+				Committee:    true,
+				At:           logAt,
+				Details:      approvalLogDurationDetails(process.UpdatedAt, logAt),
+			}); err != nil {
+				return process, nil, err
+			}
+			process.UpdatedAt = logAt
+			return process, nil, nil
 		}
-		process.UpdatedAt = logAt
-		return process, nil, nil
 	}
 	if transition.RunAsSuperuser {
 		ctx.RunAsSuperuser = true
@@ -629,6 +629,21 @@ func (w Workflow) Graph() GraphMetadata {
 		}
 	}
 	return graph
+}
+
+func advancedCommitteeDoneUserIDs(process Process, ctx EvaluationContext) []int64 {
+	done := append([]int64(nil), process.ApprovalDoneUserIDs...)
+	if ctx.UserID != 0 && !containsInt64(done, ctx.UserID) {
+		done = append(done, ctx.UserID)
+	}
+	return uniqueSortedIDs(done)
+}
+
+func advancedCommitteeRemainingUserIDs(process Process, transition Transition, done []int64) []int64 {
+	if transition.CommitteeLimit > 0 && len(done) > 0 && transition.CommitteeLimit >= len(done) {
+		return nil
+	}
+	return withoutIDs(process.ApprovalUserIDs, done)
 }
 
 func (w Workflow) Flowchart() string {
