@@ -89,6 +89,8 @@ type Node struct {
 	ResponsibleGroupIDs       []int64
 	ResponsibleUserIDs        []int64
 	ResponsiblePythonCode     string
+	ResponsibleValue          string
+	ResponsibleFilter         string
 	ResponsibleCondition      Condition
 	ResponsibleCommittee      bool
 	ResponsibleCommitteeLimit int
@@ -1551,6 +1553,8 @@ func nodeModel() model.Model {
 		field.New("responsible_group_ids", field.Many2Many).WithRelation("res.groups"),
 		field.New("responsible_user_ids", field.Many2Many).WithRelation("res.users"),
 		field.New("responsible_python_code", field.Char),
+		field.New("responsible_value", field.Char),
+		field.New("responsible_filter", field.Char),
 		field.New("responsible_condition", field.Char),
 		field.New("responsible_committee", field.Bool),
 		field.New("responsible_committee_limit", field.Int),

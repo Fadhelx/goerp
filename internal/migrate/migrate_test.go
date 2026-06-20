@@ -179,6 +179,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"account_structural_metadata_parity",
 		"workflow_node_responsible_python_code",
 		"workflow_node_schedule_activity_field",
+		"workflow_node_responsible_value_filter",
 		"mail_activity_hide_in_chatter",
 		"approval_buttons_email_compose_fields",
 	} {
@@ -1384,6 +1385,9 @@ func TestWorkflowNodeMigrationExposesResponsiblePythonCode(t *testing.T) {
 	if !strings.Contains(sqlByName["workflow_node"], "responsible_python_code") {
 		t.Fatalf("workflow_node missing responsible_python_code: %s", sqlByName["workflow_node"])
 	}
+	if !strings.Contains(sqlByName["workflow_node"], "responsible_value") || !strings.Contains(sqlByName["workflow_node"], "responsible_filter") {
+		t.Fatalf("workflow_node missing responsible value/filter: %s", sqlByName["workflow_node"])
+	}
 	if !strings.Contains(sqlByName["workflow_node"], "schedule_activity_field_id") {
 		t.Fatalf("workflow_node missing schedule_activity_field_id: %s", sqlByName["workflow_node"])
 	}
@@ -1392,6 +1396,9 @@ func TestWorkflowNodeMigrationExposesResponsiblePythonCode(t *testing.T) {
 	}
 	if !strings.Contains(sqlByName["workflow_node_schedule_activity_field"], "schedule_activity_field_id") {
 		t.Fatalf("workflow_node_schedule_activity_field migration incomplete: %s", sqlByName["workflow_node_schedule_activity_field"])
+	}
+	if !strings.Contains(sqlByName["workflow_node_responsible_value_filter"], "responsible_value") || !strings.Contains(sqlByName["workflow_node_responsible_value_filter"], "responsible_filter") {
+		t.Fatalf("workflow_node_responsible_value_filter migration incomplete: %s", sqlByName["workflow_node_responsible_value_filter"])
 	}
 	if !strings.Contains(sqlByName["mail_activity_hide_in_chatter"], "hide_in_chatter") {
 		t.Fatalf("mail_activity_hide_in_chatter migration incomplete: %s", sqlByName["mail_activity_hide_in_chatter"])

@@ -682,7 +682,7 @@ func loadAdvancedWorkflows(env *record.Env) ([]Workflow, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeRows, err := allRows(env, ModelNode, "name", "code", "workflow_id", "model", "sequence", "active", "type", "responsible_group_ids", "responsible_user_ids", "responsible_python_code", "responsible_condition", "responsible_committee", "responsible_committee_limit", "schedule_activity", "schedule_activity_enabled", "schedule_activity_field_id", "schedule_activity_days", "state", "button_type", "button_name", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "allow_forward", "escalation", "escalation_delay_type", "escalation_delay", "escalation_node_id")
+	nodeRows, err := allRows(env, ModelNode, "name", "code", "workflow_id", "model", "sequence", "active", "type", "responsible_group_ids", "responsible_user_ids", "responsible_python_code", "responsible_value", "responsible_filter", "responsible_condition", "responsible_committee", "responsible_committee_limit", "schedule_activity", "schedule_activity_enabled", "schedule_activity_field_id", "schedule_activity_days", "state", "button_type", "button_name", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "allow_forward", "escalation", "escalation_delay_type", "escalation_delay", "escalation_node_id")
 	if err != nil {
 		return nil, err
 	}
@@ -712,6 +712,8 @@ func loadAdvancedWorkflows(env *record.Env) ([]Workflow, error) {
 			ResponsibleGroupIDs:       idsFromAny(row["responsible_group_ids"]),
 			ResponsibleUserIDs:        idsFromAny(row["responsible_user_ids"]),
 			ResponsiblePythonCode:     stringFromAny(row["responsible_python_code"]),
+			ResponsibleValue:          stringFromAny(row["responsible_value"]),
+			ResponsibleFilter:         stringFromAny(row["responsible_filter"]),
 			ResponsibleCondition:      Expr(stringFromAny(row["responsible_condition"])),
 			ResponsibleCommittee:      boolFromAny(row["responsible_committee"]),
 			ResponsibleCommitteeLimit: int(int64FromAny(row["responsible_committee_limit"])),
@@ -1743,8 +1745,51 @@ func nodeResponsibleUserIDsForRecord(env *record.Env, modelName string, recordID
 		userIDs = append(userIDs, dynamicUserIDs...)
 		return uniqueSortedIDs(userIDs), nil
 	}
-	userIDs = append(userIDs, userIDsForGroups(env, node.ResponsibleGroupIDs)...)
+	groupUserIDs := userIDsForGroups(env, node.ResponsibleGroupIDs)
+	if strings.TrimSpace(node.ResponsibleFilter) != "" {
+		filtered, err := filterResponsibleGroupUsers(env, modelName, recordID, groupUserIDs, node.ResponsibleFilter)
+		if err != nil {
+			return nil, fmt.Errorf("workflow.node %d responsible_filter: %w", node.ID, err)
+		}
+		groupUserIDs = filtered
+	}
+	userIDs = append(userIDs, groupUserIDs...)
+	if strings.TrimSpace(node.ResponsibleValue) != "" {
+		dynamicUserIDs, err := evalApprovalUserExpression(env, modelName, recordID, node.ResponsibleValue)
+		if err != nil {
+			return nil, fmt.Errorf("workflow.node %d responsible_value: %w", node.ID, err)
+		}
+		userIDs = append(userIDs, dynamicUserIDs...)
+	}
 	return uniqueSortedIDs(userIDs), nil
+}
+
+func filterResponsibleGroupUsers(env *record.Env, modelName string, recordID int64, userIDs []int64, expression string) ([]int64, error) {
+	userIDs = uniqueSortedIDs(userIDs)
+	if len(userIDs) == 0 || strings.TrimSpace(expression) == "" {
+		return userIDs, nil
+	}
+	condition := Expr(expression)
+	out := make([]int64, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID == 1 {
+			out = append(out, userID)
+			continue
+		}
+		candidateEnv := env.WithContext(approvalCandidateContext(env, userID))
+		ctx, err := evalContextForRecord(candidateEnv, modelName, recordID, evalContextBase(candidateEnv, modelName))
+		if err != nil {
+			return nil, err
+		}
+		ok, err := condition.Evaluate(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, userID)
+		}
+	}
+	return uniqueSortedIDs(out), nil
 }
 
 func userIDsForGroups(env *record.Env, groupIDs []int64) []int64 {
@@ -1906,6 +1951,10 @@ func evalApprovalUserPythonCode(env *record.Env, modelName string, recordID int6
 	if !ok {
 		return nil, fmt.Errorf("missing result assignment")
 	}
+	return evalApprovalUserExpression(env, modelName, recordID, expr)
+}
+
+func evalApprovalUserExpression(env *record.Env, modelName string, recordID int64, expr string) ([]int64, error) {
 	expr = normalizeApprovalUserExpression(expr)
 	ids, err := data.SafeEvalIDs(expr, data.SafeEvalOptions{
 		Env:      env,

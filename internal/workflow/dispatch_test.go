@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -2698,6 +2699,100 @@ func TestDispatcherAutoStartResponsiblePythonCodeSelectsDynamicApprover(t *testi
 		Args:   []any{[]any{recordID}, approveTransitionID},
 	}); err != nil || !handled {
 		t.Fatalf("owner handled=%v err=%v", handled, err)
+	}
+}
+
+func TestDispatcherAutoStartResponsibleValueAndFilterSelectApprovers(t *testing.T) {
+	env := dispatchEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Filtered Approvers"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerPartnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Owner Approver", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	valuePartnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Value Approver", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerID, err := env.Model("res.users").Create(map[string]any{"login": "filter.owner", "name": "Filter Owner", "active": true, "groups_id": []int64{groupID}, "partner_id": ownerPartnerID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	valueID, err := env.Model("res.users").Create(map[string]any{"login": "value.approver", "name": "Value Approver", "active": true, "partner_id": valuePartnerID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deniedID, err := env.Model("res.users").Create(map[string]any{"login": "filter.denied", "name": "Filter Denied", "active": true, "groups_id": []int64{groupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflowID, err := env.Model(ModelWorkflow).Create(map[string]any{
+		"name":      "Responsible Value Filter",
+		"model":     "purchase.order",
+		"sequence":  int64(10),
+		"active":    true,
+		"on_create": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	startNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Start",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeAuto),
+		"state":       "started",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":                  "Pending",
+		"workflow_id":           workflowID,
+		"type":                  string(NodeTypeUser),
+		"state":                 "pending",
+		"responsible_group_ids": []int64{groupID},
+		"responsible_filter":    "user.id == record.owner_user_id",
+		"responsible_value":     "[" + strconv.FormatInt(valueID, 10) + "]",
+		"active":                true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelWorkflow).Browse(workflowID).Write(map[string]any{"start_node_id": startNodeID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelTransition).Create(map[string]any{
+		"name":         "Submit",
+		"workflow_id":  workflowID,
+		"node_id":      startNodeID,
+		"next_node_id": pendingNodeID,
+		"active":       true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	env.RegisterAfterCreateHook((Dispatcher{}).AutoStartCreateHook())
+	recordID, err := env.Model("purchase.order").Create(map[string]any{
+		"name":          "PO Responsible Value Filter",
+		"state":         "draft",
+		"owner_user_id": ownerID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("approval_user_ids", "approval_partner_ids")
+	if err != nil {
+		t.Fatal(err)
+	}
+	approvalUsers := idsFromAny(rows[0]["approval_user_ids"])
+	if len(approvalUsers) != 2 || !containsInt64(approvalUsers, ownerID) || !containsInt64(approvalUsers, valueID) || containsInt64(approvalUsers, deniedID) {
+		t.Fatalf("approval_user_ids = %+v", rows[0]["approval_user_ids"])
+	}
+	approvalPartners := idsFromAny(rows[0]["approval_partner_ids"])
+	if len(approvalPartners) != 2 || !containsInt64(approvalPartners, ownerPartnerID) || !containsInt64(approvalPartners, valuePartnerID) {
+		t.Fatalf("approval_partner_ids = %+v", rows[0]["approval_partner_ids"])
 	}
 }
 
