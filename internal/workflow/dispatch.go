@@ -682,10 +682,11 @@ func loadAdvancedWorkflows(env *record.Env) ([]Workflow, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeRows, err := allRows(env, ModelNode, "name", "code", "workflow_id", "model", "sequence", "active", "type", "responsible_group_ids", "responsible_user_ids", "responsible_python_code", "responsible_value", "responsible_filter", "responsible_condition", "responsible_committee", "responsible_committee_limit", "schedule_activity", "schedule_activity_enabled", "schedule_activity_field_id", "schedule_activity_days", "state", "button_type", "button_name", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "allow_forward", "escalation", "escalation_delay_type", "escalation_delay", "escalation_node_id")
+	nodeRows, err := allRows(env, ModelNode, "name", "code", "workflow_id", "model", "sequence", "active", "type", "responsible_group_ids", "responsible_user_ids", "responsible_python_code", "responsible_value", "responsible_filter", "responsible_condition", "responsible_committee", "responsible_committee_limit", "schedule_activity", "schedule_activity_enabled", "schedule_activity_field_id", "schedule_activity_days", "state", "button_type", "button_name", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "allow_forward", "escalation", "escalation_delay_type", "escalation_delay", "escalation_node_id", "trg_date_calendar_id")
 	if err != nil {
 		return nil, err
 	}
+	calendarAttendances := loadResourceCalendarAttendances(env)
 	transitionRows, err := allRows(env, ModelTransition, "name", "code", "node_id", "workflow_id", "sequence", "active", "run_as_superuser", "condition", "next_node_id", "groups_ids", "comment", "button_class", "wizard_view_id", "context", "icon", "committee", "committee_limit", "validate_form", "trigger", "is_email", "email_template_id", "email_wizard_form_id", "is_hidden")
 	if err != nil {
 		return nil, err
@@ -732,7 +733,9 @@ func loadAdvancedWorkflows(env *record.Env) ([]Workflow, error) {
 			EscalationDelayType:       DelayType(stringFromAny(row["escalation_delay_type"])),
 			EscalationDelay:           int(int64FromAny(row["escalation_delay"])),
 			EscalationNodeID:          int64FromAny(row["escalation_node_id"]),
+			EscalationCalendarID:      int64FromAny(row["trg_date_calendar_id"]),
 		}
+		node.EscalationCalendar = append([]CalendarAttendance(nil), calendarAttendances[node.EscalationCalendarID]...)
 		nodesByWorkflow[node.WorkflowID] = append(nodesByWorkflow[node.WorkflowID], node)
 	}
 	for workflowID, nodes := range nodesByWorkflow {
@@ -1355,6 +1358,7 @@ func (d Dispatcher) AutoStartWorkflowForRecord(env *record.Env, modelName string
 	if err != nil {
 		return false, err
 	}
+	ctx.Now = d.now()
 	store := NewProcessStore(env)
 	if _, ok, err := store.Find(modelName, id); err != nil {
 		return false, err
@@ -2246,6 +2250,48 @@ func allRows(env *record.Env, modelName string, fields ...string) ([]map[string]
 	return found.Read(fields...)
 }
 
+func loadResourceCalendarAttendances(env *record.Env) map[int64][]CalendarAttendance {
+	if env == nil {
+		return nil
+	}
+	if _, ok := env.ModelMetadata("resource.calendar.attendance"); !ok {
+		return nil
+	}
+	calendarTwoWeeks := map[int64]bool{}
+	if _, ok := env.ModelMetadata("resource.calendar"); ok {
+		rows, err := allRows(env, "resource.calendar", "two_weeks_calendar")
+		if err == nil {
+			for _, row := range rows {
+				calendarTwoWeeks[int64FromAny(row["id"])] = boolFromAny(row["two_weeks_calendar"])
+			}
+		}
+	}
+	rows, err := allRows(env, "resource.calendar.attendance", "calendar_id", "dayofweek", "hour_from", "hour_to", "day_period", "week_type", "display_type", "sequence")
+	if err != nil {
+		return nil
+	}
+	out := map[int64][]CalendarAttendance{}
+	for _, row := range rows {
+		calendarID := int64FromAny(row["calendar_id"])
+		if calendarID == 0 {
+			continue
+		}
+		out[calendarID] = append(out[calendarID], CalendarAttendance{
+			ID:         int64FromAny(row["id"]),
+			CalendarID: calendarID,
+			DayOfWeek:  int(int64FromAny(row["dayofweek"])),
+			HourFrom:   floatFromAny(row["hour_from"]),
+			HourTo:     floatFromAny(row["hour_to"]),
+			DayPeriod:  stringFromAny(row["day_period"]),
+			WeekType:   stringFromAny(row["week_type"]),
+			Display:    stringFromAny(row["display_type"]),
+			Sequence:   int(int64FromAny(row["sequence"])),
+			TwoWeeks:   calendarTwoWeeks[calendarID],
+		})
+	}
+	return out
+}
+
 func modelFieldName(env *record.Env, id int64) string {
 	if id == 0 {
 		return ""
@@ -2465,6 +2511,27 @@ func int64FromAny(value any) int64 {
 	case string:
 		id, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
 		return id
+	default:
+		return 0
+	}
+}
+
+func floatFromAny(value any) float64 {
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case json.Number:
+		value, _ := typed.Float64()
+		return value
+	case string:
+		value, _ := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		return value
 	default:
 		return 0
 	}

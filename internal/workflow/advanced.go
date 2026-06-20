@@ -111,6 +111,20 @@ type Node struct {
 	EscalationDelay           int
 	EscalationNodeID          int64
 	EscalationCalendarID      int64
+	EscalationCalendar        []CalendarAttendance
+}
+
+type CalendarAttendance struct {
+	ID         int64
+	CalendarID int64
+	DayOfWeek  int
+	HourFrom   float64
+	HourTo     float64
+	DayPeriod  string
+	WeekType   string
+	Display    string
+	Sequence   int
+	TwoWeeks   bool
 }
 
 type Transition struct {
@@ -930,6 +944,11 @@ func nodeEscalationDate(node Node, at time.Time) time.Time {
 		return time.Time{}
 	}
 	delay := node.EscalationDelay
+	if (node.EscalationDelayType == DelayDays || node.EscalationDelayType == "") && node.EscalationCalendarID != 0 {
+		if planned, ok := planCalendarDays(node.EscalationCalendar, delay, at); ok {
+			return planned
+		}
+	}
 	switch node.EscalationDelayType {
 	case DelayMinutes:
 		return at.Add(time.Duration(delay) * time.Minute)
@@ -942,6 +961,145 @@ func nodeEscalationDate(node Node, at time.Time) time.Time {
 	default:
 		return at.AddDate(0, 0, delay)
 	}
+}
+
+func planCalendarDays(attendances []CalendarAttendance, days int, at time.Time) (time.Time, bool) {
+	usable := usableCalendarAttendances(attendances)
+	if len(usable) == 0 {
+		return time.Time{}, false
+	}
+	if days == 0 {
+		return at, true
+	}
+	if days > 0 {
+		return planCalendarDaysForward(usable, days, at)
+	}
+	return planCalendarDaysBackward(usable, -days, at)
+}
+
+func usableCalendarAttendances(attendances []CalendarAttendance) []CalendarAttendance {
+	var usable []CalendarAttendance
+	for _, attendance := range attendances {
+		if attendance.Display != "" || attendance.DayPeriod == "lunch" {
+			continue
+		}
+		if attendance.DayOfWeek < 0 || attendance.DayOfWeek > 6 {
+			continue
+		}
+		usable = append(usable, attendance)
+	}
+	sort.SliceStable(usable, func(i, j int) bool {
+		if usable[i].Sequence != usable[j].Sequence {
+			return usable[i].Sequence < usable[j].Sequence
+		}
+		if usable[i].WeekType != usable[j].WeekType {
+			return usable[i].WeekType < usable[j].WeekType
+		}
+		if usable[i].DayOfWeek != usable[j].DayOfWeek {
+			return usable[i].DayOfWeek < usable[j].DayOfWeek
+		}
+		if usable[i].HourFrom != usable[j].HourFrom {
+			return usable[i].HourFrom < usable[j].HourFrom
+		}
+		return usable[i].ID < usable[j].ID
+	})
+	return usable
+}
+
+func planCalendarDaysForward(attendances []CalendarAttendance, days int, at time.Time) (time.Time, bool) {
+	found := map[string]bool{}
+	day := calendarDayStart(at)
+	for i := 0; i < 14*100; i++ {
+		for _, attendance := range calendarAttendancesForDay(attendances, day) {
+			_, stop := calendarAttendanceBounds(day, attendance)
+			if !stop.After(at) {
+				continue
+			}
+			key := calendarDateKey(day)
+			if !found[key] {
+				found[key] = true
+			}
+			if len(found) == days {
+				return stop, true
+			}
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return time.Time{}, false
+}
+
+func planCalendarDaysBackward(attendances []CalendarAttendance, days int, at time.Time) (time.Time, bool) {
+	found := map[string]bool{}
+	day := calendarDayStart(at)
+	for i := 0; i < 14*100; i++ {
+		daily := calendarAttendancesForDay(attendances, day)
+		for index := len(daily) - 1; index >= 0; index-- {
+			start, _ := calendarAttendanceBounds(day, daily[index])
+			if !start.Before(at) {
+				continue
+			}
+			key := calendarDateKey(day)
+			if !found[key] {
+				found[key] = true
+			}
+			if len(found) == days {
+				return start, true
+			}
+		}
+		day = day.AddDate(0, 0, -1)
+	}
+	return time.Time{}, false
+}
+
+func calendarAttendancesForDay(attendances []CalendarAttendance, day time.Time) []CalendarAttendance {
+	weekday := (int(day.Weekday()) + 6) % 7
+	weekType := calendarWeekType(day)
+	var daily []CalendarAttendance
+	for _, attendance := range attendances {
+		if attendance.DayOfWeek != weekday {
+			continue
+		}
+		if attendance.TwoWeeks && attendance.WeekType != "" && attendance.WeekType != weekType {
+			continue
+		}
+		daily = append(daily, attendance)
+	}
+	return daily
+}
+
+func calendarAttendanceBounds(day time.Time, attendance CalendarAttendance) (time.Time, time.Time) {
+	return calendarFloatTime(day, attendance.HourFrom), calendarFloatTime(day, attendance.HourTo)
+}
+
+func calendarFloatTime(day time.Time, hour float64) time.Time {
+	if hour >= 24 {
+		return day.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	}
+	if hour < 0 {
+		hour = 0
+	}
+	wholeHour := int(hour)
+	minuteFloat := (hour - float64(wholeHour)) * 60
+	minute := int(minuteFloat)
+	secondFloat := (minuteFloat - float64(minute)) * 60
+	second := int(secondFloat)
+	nanosecond := int((secondFloat - float64(second)) * float64(time.Second))
+	return time.Date(day.Year(), day.Month(), day.Day(), wholeHour, minute, second, nanosecond, day.Location())
+}
+
+func calendarDayStart(at time.Time) time.Time {
+	return time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
+}
+
+func calendarDateKey(day time.Time) string {
+	return day.Format("2006-01-02")
+}
+
+func calendarWeekType(day time.Time) string {
+	year, month, date := day.Date()
+	previousYear := year - 1
+	ordinal := 365*previousYear + previousYear/4 - previousYear/100 + previousYear/400 + time.Date(year, month, date, 0, 0, 0, 0, time.UTC).YearDay()
+	return strconv.Itoa(((ordinal - 1) / 7) % 2)
 }
 
 func emitApprovalLog(process Process, ctx EvaluationContext, hooks Hooks, event ApprovalLogEvent) error {

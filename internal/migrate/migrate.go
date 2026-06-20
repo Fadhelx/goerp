@@ -2480,4 +2480,60 @@ ALTER TABLE workflow_node ADD COLUMN IF NOT EXISTS button_validate_form BOOLEAN 
 ALTER TABLE workflow_node ADD COLUMN IF NOT EXISTS wizard_view_id BIGINT;
 ALTER TABLE workflow_node ADD COLUMN IF NOT EXISTS trg_date_calendar_id BIGINT;
 `},
+	{Version: 216, Name: "resource_calendar_models", SQL: `
+CREATE TABLE IF NOT EXISTS resource_calendar (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  company_id BIGINT,
+  attendance_ids TEXT,
+  leave_ids TEXT,
+  global_leave_ids TEXT,
+  schedule_type TEXT,
+  duration_based BOOLEAN NOT NULL DEFAULT false,
+  flexible_hours BOOLEAN NOT NULL DEFAULT false,
+  full_time_required_hours DOUBLE PRECISION,
+  hours_per_day DOUBLE PRECISION,
+  hours_per_week DOUBLE PRECISION,
+  two_weeks_calendar BOOLEAN NOT NULL DEFAULT false,
+  tz TEXT
+);
+CREATE TABLE IF NOT EXISTS resource_calendar_attendance (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  dayofweek TEXT NOT NULL,
+  hour_from DOUBLE PRECISION NOT NULL DEFAULT 0,
+  hour_to DOUBLE PRECISION NOT NULL DEFAULT 0,
+  duration_hours DOUBLE PRECISION,
+  duration_days DOUBLE PRECISION,
+  calendar_id BIGINT NOT NULL,
+  duration_based BOOLEAN NOT NULL DEFAULT false,
+  day_period TEXT,
+  week_type TEXT,
+  two_weeks_calendar BOOLEAN NOT NULL DEFAULT false,
+  display_type TEXT,
+  sequence INTEGER NOT NULL DEFAULT 10
+);
+CREATE TABLE IF NOT EXISTS resource_calendar_leaves (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT,
+  company_id BIGINT,
+  calendar_id BIGINT,
+  date_from TIMESTAMPTZ NOT NULL,
+  date_to TIMESTAMPTZ NOT NULL,
+  resource_id BIGINT,
+  time_type TEXT
+);
+CREATE TABLE IF NOT EXISTS resource_resource (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  company_id BIGINT,
+  resource_type TEXT,
+  user_id BIGINT,
+  time_efficiency DOUBLE PRECISION,
+  calendar_id BIGINT,
+  tz TEXT
+);
+`},
 }

@@ -1484,6 +1484,91 @@ func TestDispatcherProcessEscalationsPersistsProcessRecordAndLog(t *testing.T) {
 	}
 }
 
+func TestDispatcherAutoStartEscalationUsesResourceCalendarWorkingDays(t *testing.T) {
+	now := time.Date(2026, 6, 19, 18, 0, 0, 0, time.UTC)
+	env := dispatchEnv(t)
+	calendarID, err := env.Model("resource.calendar").Create(map[string]any{
+		"name":               "Weekdays",
+		"active":             true,
+		"two_weeks_calendar": false,
+		"tz":                 "UTC",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, weekday := range []string{"0", "1", "2", "3", "4"} {
+		if _, err := env.Model("resource.calendar.attendance").Create(map[string]any{
+			"name":        "Workday",
+			"calendar_id": calendarID,
+			"dayofweek":   weekday,
+			"hour_from":   float64(9),
+			"hour_to":     float64(17),
+			"day_period":  "full_day",
+			"sequence":    int64(10),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workflowID, err := env.Model(ModelWorkflow).Create(map[string]any{
+		"name":      "PO Working Day Escalation",
+		"model":     "purchase.order",
+		"active":    true,
+		"on_create": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":                  "Pending",
+		"workflow_id":           workflowID,
+		"type":                  string(NodeTypeUser),
+		"state":                 "pending",
+		"escalation":            true,
+		"escalation_delay_type": string(DelayDays),
+		"escalation_delay":      int64(1),
+		"trg_date_calendar_id":  calendarID,
+		"active":                true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doneNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Done",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeEnd),
+		"state":       "approved",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelNode).Browse(pendingNodeID).Write(map[string]any{"escalation_node_id": doneNodeID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelWorkflow).Browse(workflowID).Write(map[string]any{"start_node_id": pendingNodeID}); err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{"name": "PO Calendar", "state": "draft"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := (Dispatcher{Now: func() time.Time { return now }}).AutoStartWorkflowForRecord(env, "purchase.order", recordID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !started {
+		t.Fatal("workflow not started")
+	}
+	process, ok, err := NewProcessStore(env).Find("purchase.order", recordID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 6, 22, 17, 0, 0, 0, time.UTC)
+	if !ok || !process.EscalationDate.Equal(want) {
+		t.Fatalf("calendar escalation date = %s found=%v want %s", process.EscalationDate, ok, want)
+	}
+}
+
 func TestDispatcherAdvancedTransitionOpensCommentWizard(t *testing.T) {
 	env := dispatchEnv(t)
 	workflowID, err := env.Model(ModelWorkflow).Create(map[string]any{
@@ -3537,7 +3622,7 @@ func dispatchEnv(t *testing.T) *record.Env {
 	reg := record.NewRegistry()
 	for _, m := range base.Models() {
 		switch m.Name {
-		case "ir.model.data", "ir.model.fields", "ir.actions.server", "mail.activity", "mail.activity.type":
+		case "ir.model.data", "ir.model.fields", "ir.actions.server", "mail.activity", "mail.activity.type", "resource.calendar", "resource.calendar.attendance":
 			if err := reg.Register(m); err != nil {
 				t.Fatal(err)
 			}

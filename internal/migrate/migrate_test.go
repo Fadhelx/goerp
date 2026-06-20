@@ -181,6 +181,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"workflow_node_schedule_activity_field",
 		"workflow_node_responsible_value_filter",
 		"workflow_node_advanced_metadata_fields",
+		"resource_calendar_models",
 		"mail_activity_hide_in_chatter",
 		"approval_buttons_email_compose_fields",
 	} {
@@ -1374,6 +1375,24 @@ func TestApprovalConfigMigrationExposesProgressionFields(t *testing.T) {
 	for _, column := range []string{"model_id", "setting_id", "settings_id", "state", "sequence", "group_ids", "user_python_code", "condition", "auto_approve", "user_ids", "committee", "is_voting"} {
 		if !strings.Contains(sqlByName["approval_config"], column) {
 			t.Fatalf("approval_config missing %s: %s", column, sqlByName["approval_config"])
+		}
+	}
+}
+
+func TestResourceCalendarMigrationExposesOdooResourceModels(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	sql := sqlByName["resource_calendar_models"]
+	for _, table := range []string{"resource_calendar", "resource_calendar_attendance", "resource_calendar_leaves", "resource_resource"} {
+		if !strings.Contains(sql, "CREATE TABLE IF NOT EXISTS "+table) {
+			t.Fatalf("resource calendar migration missing table %s: %s", table, sql)
+		}
+	}
+	for _, column := range []string{"two_weeks_calendar", "tz", "dayofweek", "hour_from", "hour_to", "day_period", "week_type", "display_type", "date_from", "date_to", "resource_type", "time_efficiency"} {
+		if !strings.Contains(sql, column) {
+			t.Fatalf("resource calendar migration missing column %s: %s", column, sql)
 		}
 	}
 }
