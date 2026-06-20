@@ -224,6 +224,193 @@ func TestDelegationDefaultsAndLineCommandMaterialization(t *testing.T) {
 	}
 }
 
+func TestDelegationPersistedDateSelfAndActiveParity(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	delegatorUserID, err := env.Model("res.users").Create(map[string]any{"login": "owner", "name": "Owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Owner", "user_id": delegatorUserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2099-02-01", "date_to": "2099-01-01", "employee_id": delegatorEmployeeID}); err == nil || !strings.Contains(err.Error(), "From Date > To Date") {
+		t.Fatalf("expected source date range error, got %v", err)
+	}
+	if _, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2099-01-01", "date_to": "2099-02-01", "employee_id": delegatorEmployeeID, "delegateTo_employee_id": delegatorEmployeeID}); err == nil || !strings.Contains(err.Error(), "delegator") {
+		t.Fatalf("expected source self-delegation error, got %v", err)
+	}
+	activeID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "delegateTo_employee_id": delegateEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inactiveID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "state": "revoked"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(ModelDelegation).Browse(activeID, inactiveID).Read("isactive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0]["isactive"] != true || rows[1]["isactive"] != false {
+		t.Fatalf("isactive rows = %+v", rows)
+	}
+}
+
+func TestDelegationConfirmGuardsRolesPastDateAndOverlap(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Expense", "full_name": "Role / Expense", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	multipleGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Multiple", "full_name": "Role / Multiple", "allow_delegation": true, "allow_multiple_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, delegateEmployeeID := createDelegationEmployees(t, env, "owner")
+	_, secondDelegateID := createDelegationEmployees(t, env, "delegate2")
+
+	existingID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2098-12-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": existingID, "group_id": groupID, "employee_id": delegateEmployeeID}); err != nil {
+		t.Fatal(err)
+	}
+	candidateID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2099-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": delegatorEmployeeID,
+		"lines":       []any{[]any{int64(0), false, map[string]any{"group_id": groupID, "employee_id": secondDelegateID}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(candidateID).Write(map[string]any{"state": "confirmed"}); err == nil || !strings.Contains(err.Error(), "overlapped delegation") {
+		t.Fatalf("expected overlap error, got %v", err)
+	}
+
+	noRoleID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2099-01-01", "date_to": "2099-01-31", "employee_id": delegatorEmployeeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(noRoleID).Write(map[string]any{"state": "confirmed"}); err == nil || !strings.Contains(err.Error(), "No roles assigned") {
+		t.Fatalf("expected roles assigned error, got %v", err)
+	}
+
+	pastID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2000-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": delegatorEmployeeID,
+		"lines":       []any{[]any{int64(0), false, map[string]any{"group_id": multipleGroupID, "employee_id": delegateEmployeeID}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(pastID).Write(map[string]any{"state": "confirmed"}); err == nil || !strings.Contains(err.Error(), "old date") {
+		t.Fatalf("expected old-date error, got %v", err)
+	}
+
+	allowedExistingID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2098-12-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": allowedExistingID, "group_id": multipleGroupID, "employee_id": delegateEmployeeID}); err != nil {
+		t.Fatal(err)
+	}
+	allowedID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2099-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": delegatorEmployeeID,
+		"lines":       []any{[]any{int64(0), false, map[string]any{"group_id": multipleGroupID, "employee_id": secondDelegateID}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(allowedID).Write(map[string]any{"state": "confirmed"}); err != nil {
+		t.Fatalf("allow_multiple_delegation should skip overlap: %v", err)
+	}
+}
+
+func TestDelegationRevokeAndExpireActionsSyncState(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, delegateEmployeeID := createDelegationEmployees(t, env, "revoke")
+	currentID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineID, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": currentID, "group_id": groupID, "employee_id": delegateEmployeeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(currentID).ActionRevokeDelegation(); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(ModelDelegation).Browse(currentID).Read("state", "isactive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineRows, err := env.Model(ModelDelegationLine).Browse(lineID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "revoked" || rows[0]["isactive"] != false || lineRows[0]["state"] != "revoked" {
+		t.Fatalf("revoke rows = %+v line=%+v", rows, lineRows)
+	}
+
+	pastID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2000-01-01", "date_to": "2000-12-31", "employee_id": delegatorEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(pastID).ActionRevokeDelegation(); err == nil || !strings.Contains(err.Error(), "old date") {
+		t.Fatalf("expected old revoke error, got %v", err)
+	}
+
+	expireID, err := env.Model(ModelDelegation).Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorEmployeeID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expireLineID, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": expireID, "group_id": groupID, "employee_id": delegateEmployeeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(expireID).ExpireDelegation(); err != nil {
+		t.Fatal(err)
+	}
+	expiredRows, err := env.Model(ModelDelegationLine).Browse(expireLineID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expiredRows[0]["state"] != "expired" {
+		t.Fatalf("expired line rows = %+v", expiredRows)
+	}
+}
+
+func createDelegationEmployees(t *testing.T, env *record.Env, prefix string) (int64, int64) {
+	t.Helper()
+	userID, err := env.Model("res.users").Create(map[string]any{"login": prefix + "-user", "name": prefix + " User"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorID, err := env.Model("hr.employee").Create(map[string]any{"name": prefix + " Delegator", "user_id": userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateID, err := env.Model("hr.employee").Create(map[string]any{"name": prefix + " Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return delegatorID, delegateID
+}
+
 func TestMailMailCreateTemplateIDExpandsDelegationCC(t *testing.T) {
 	env := delegationFixtureEnv(t)
 	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})

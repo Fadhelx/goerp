@@ -8846,6 +8846,38 @@ func (s Server) dispatchFetchmailServerMethod(env *record.Env, req callKWRequest
 	}
 }
 
+func (s Server) dispatchDelegationMethod(env *record.Env, req callKWRequest) (any, bool, error) {
+	if env == nil || req.Model != "delegation" {
+		return nil, false, nil
+	}
+	ids := int64Slice(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"]))
+	records := env.Model("delegation").Browse(ids...)
+	switch req.Method {
+	case "action_confirm":
+		if err := records.ActionConfirmDelegation(); err != nil {
+			return nil, true, err
+		}
+		return true, true, nil
+	case "action_submit":
+		if err := records.ActionSubmitDelegation(); err != nil {
+			return nil, true, err
+		}
+		return true, true, nil
+	case "action_revoked", "action_revoke":
+		if err := records.ActionRevokeDelegation(); err != nil {
+			return nil, true, err
+		}
+		return true, true, nil
+	case "expire_delegation":
+		if err := records.ExpireDelegation(); err != nil {
+			return nil, true, err
+		}
+		return true, true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
 func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 	if result, handled, err := s.dispatchResPartnerMethod(env, req); handled {
 		return result, err
@@ -8890,6 +8922,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		return result, err
 	}
 	if result, handled, err := s.dispatchFetchmailServerMethod(env, req); handled {
+		return result, err
+	}
+	if result, handled, err := s.dispatchDelegationMethod(env, req); handled {
 		return result, err
 	}
 	if result, handled, err := s.dispatchMailActivityMethod(env, req); handled {

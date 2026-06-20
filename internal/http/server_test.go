@@ -16810,6 +16810,82 @@ func testDelegationHTTPServer(t *testing.T) Server {
 	return Server{Env: env, Views: view.NewRegistry()}
 }
 
+func TestCallKWDelegationLifecycleMethods(t *testing.T) {
+	server := testDelegationHTTPServer(t)
+	handler := server.Handler()
+	env := server.Env
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := env.Model("res.users").Create(map[string]any{"login": "owner", "name": "Owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorID, err := env.Model("hr.employee").Create(map[string]any{"name": "Owner", "user_id": userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	confirmID, err := env.Model("delegation").Create(map[string]any{
+		"date_from":   "2099-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": delegatorID,
+		"lines":       []any{[]any{int64(0), false, map[string]any{"group_id": groupID, "employee_id": delegateID}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"delegation","method":"action_confirm","args":[[%d]]}`, confirmID))
+	confirmRows, err := env.Model("delegation").Browse(confirmID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if confirmRows[0]["state"] != "confirmed" {
+		t.Fatalf("confirm state = %+v", confirmRows)
+	}
+
+	revokeID, err := env.Model("delegation").Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"delegation","method":"action_revoked","args":[[%d]]}`, revokeID))
+	revokeRows, err := env.Model("delegation").Browse(revokeID).Read("state", "isactive")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revokeRows[0]["state"] != "revoked" || revokeRows[0]["isactive"] != false {
+		t.Fatalf("revoke state = %+v", revokeRows)
+	}
+
+	expireID, err := env.Model("delegation").Create(map[string]any{"date_from": "2020-01-01", "date_to": "2099-12-31", "employee_id": delegatorID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"delegation","method":"expire_delegation","args":[[%d]]}`, expireID))
+	expireRows, err := env.Model("delegation").Browse(expireID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expireRows[0]["state"] != "expired" {
+		t.Fatalf("expire state = %+v", expireRows)
+	}
+
+	pastID, err := env.Model("delegation").Create(map[string]any{"date_from": "2000-01-01", "date_to": "2000-12-31", "employee_id": delegatorID, "state": "confirmed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", bytes.NewBufferString(fmt.Sprintf(`{"model":"delegation","method":"action_revoked","args":[[%d]]}`, pastID))))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "old date") {
+		t.Fatalf("past revoke response %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func testContainsRecordID(value any, target int64) bool {
 	switch typed := value.(type) {
 	case []int64:

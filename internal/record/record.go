@@ -466,6 +466,8 @@ func (m ModelSet) Create(values map[string]any) (int64, error) {
 			}
 			row["lines"] = lineIDs
 		}
+		m.syncDelegationDerivedFields(row, time.Now().UTC())
+		m.syncDelegationLineRelatedFields(id)
 	}
 	for _, hook := range m.env.afterCreateHooks {
 		if err := hook(m.env, m.model.Name, id, copyValues(row)); err != nil {
@@ -1863,6 +1865,10 @@ func (m ModelSet) validateModelConstraints(row map[string]any) error {
 		if err := m.validateIrModelData(row); err != nil {
 			return err
 		}
+	case "delegation":
+		if err := m.validateDelegation(row); err != nil {
+			return err
+		}
 	case "delegation.line":
 		if err := m.validateDelegationLine(row); err != nil {
 			return err
@@ -2392,6 +2398,9 @@ func (m ModelSet) validateDelegationLine(row map[string]any) error {
 	rowID := numericID(row["id"])
 	delegationID := numericID(row["delegation_id"])
 	groupID := numericID(row["group_id"])
+	if employeeID := numericID(row["employee_id"]); employeeID != 0 && employeeID == numericID(row["delegator_id"]) {
+		return fmt.Errorf("the delegator should not been able to delegate himself")
+	}
 	if delegationID == 0 || groupID == 0 {
 		return nil
 	}
@@ -2404,6 +2413,164 @@ func (m ModelSet) validateDelegationLine(row map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func (m ModelSet) validateDelegation(row map[string]any) error {
+	dateFrom := dateOnlyTime(recordDateValue(row["date_from"]))
+	dateTo := dateOnlyTime(recordDateValue(row["date_to"]))
+	if !dateFrom.IsZero() && !dateTo.IsZero() && dateFrom.After(dateTo) {
+		return fmt.Errorf("From Date > To Date")
+	}
+	delegatorID := numericID(row["employee_id"])
+	delegateID := numericID(firstNonZero(row["delegateTo_employee_id"], row["delegate_to_employee_id"]))
+	if delegatorID != 0 && delegateID != 0 && delegatorID == delegateID {
+		return fmt.Errorf("the delegator should not been able to delegate himself")
+	}
+	return nil
+}
+
+func (m ModelSet) validateDelegationStateTransition(oldRow map[string]any, row map[string]any, at time.Time) error {
+	oldState := stringValue(safeRowValue(oldRow, "state"))
+	state := stringValue(row["state"])
+	switch {
+	case state == "confirmed" && oldState != "confirmed":
+		return m.validateDelegationSubmit(row, at)
+	case state == "revoked" && oldState != "revoked":
+		return m.validateDelegationRevoke(row, at)
+	}
+	return nil
+}
+
+func (m ModelSet) validateDelegationSubmit(row map[string]any, at time.Time) error {
+	if !m.delegationHasAssignedRole(numericID(row["id"])) {
+		return fmt.Errorf("No roles assigned")
+	}
+	dateFrom := dateOnlyTime(recordDateValue(row["date_from"]))
+	today := dateOnlyTime(at)
+	if !dateFrom.IsZero() && dateFrom.Before(today) {
+		return fmt.Errorf("You cannot submit a delegation with old date")
+	}
+	return m.validateDelegationOverlap(row)
+}
+
+func (m ModelSet) validateDelegationRevoke(row map[string]any, at time.Time) error {
+	dateTo := dateOnlyTime(recordDateValue(row["date_to"]))
+	today := dateOnlyTime(at)
+	if !dateTo.IsZero() && dateTo.Before(today) {
+		return fmt.Errorf("You cannot revoke a delegation with old date")
+	}
+	return nil
+}
+
+func (m ModelSet) delegationHasAssignedRole(delegationID int64) bool {
+	if delegationID == 0 {
+		return false
+	}
+	for _, line := range m.rows("delegation.line") {
+		if numericID(line["delegation_id"]) == delegationID && numericID(line["employee_id"]) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (m ModelSet) validateDelegationOverlap(row map[string]any) error {
+	delegationID := numericID(row["id"])
+	delegatorID := numericID(row["employee_id"])
+	dateFrom := dateOnlyTime(recordDateValue(row["date_from"]))
+	dateTo := dateOnlyTime(recordDateValue(row["date_to"]))
+	if delegationID == 0 || delegatorID == 0 || dateFrom.IsZero() || dateTo.IsZero() {
+		return nil
+	}
+	for _, line := range m.rows("delegation.line") {
+		if numericID(line["delegation_id"]) != delegationID || numericID(line["employee_id"]) == 0 {
+			continue
+		}
+		groupID := numericID(line["group_id"])
+		if groupID == 0 || m.delegationGroupAllowsMultiple(groupID) {
+			continue
+		}
+		if m.delegationOverlapsGroup(delegationID, delegatorID, groupID, dateFrom, dateTo) {
+			return fmt.Errorf("You cannot submit overlapped delegation for %s", m.delegationGroupDisplayName(groupID))
+		}
+	}
+	return nil
+}
+
+func (m ModelSet) delegationOverlapsGroup(delegationID int64, delegatorID int64, groupID int64, dateFrom time.Time, dateTo time.Time) bool {
+	for _, existing := range m.rows("delegation") {
+		existingID := numericID(existing["id"])
+		if existingID == delegationID || numericID(existing["employee_id"]) != delegatorID || stringValue(existing["state"]) != "confirmed" {
+			continue
+		}
+		existingFrom := dateOnlyTime(recordDateValue(existing["date_from"]))
+		existingTo := dateOnlyTime(recordDateValue(existing["date_to"]))
+		if existingFrom.IsZero() || existingTo.IsZero() || dateFrom.After(existingTo) || dateTo.Before(existingFrom) {
+			continue
+		}
+		for _, existingLine := range m.rows("delegation.line") {
+			activeValue, ok := existingLine["active"]
+			if !ok {
+				activeValue = true
+			}
+			if numericID(existingLine["delegation_id"]) == existingID && numericID(existingLine["group_id"]) == groupID && truthyRecordValue(activeValue) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (m ModelSet) delegationGroupAllowsMultiple(groupID int64) bool {
+	group := m.rowByID("res.groups", groupID)
+	return group != nil && truthyRecordValue(group["allow_multiple_delegation"])
+}
+
+func (m ModelSet) delegationGroupDisplayName(groupID int64) string {
+	group := m.rowByID("res.groups", groupID)
+	if group == nil {
+		return fmt.Sprintf("res.groups,%d", groupID)
+	}
+	for _, fieldName := range []string{"name_delegation", "full_name", "name"} {
+		if value := strings.TrimSpace(stringValue(group[fieldName])); value != "" {
+			return value
+		}
+	}
+	return fmt.Sprintf("res.groups,%d", groupID)
+}
+
+func (m ModelSet) syncDelegationDerivedFields(row map[string]any, at time.Time) {
+	if row == nil || !m.fieldExists("delegation", "isactive") {
+		return
+	}
+	today := dateOnlyTime(at)
+	row["isactive"] = stringValue(row["state"]) == "confirmed" && dateInRange(today, dateOnlyTime(recordDateValue(row["date_from"])), dateOnlyTime(recordDateValue(row["date_to"])))
+}
+
+func (m ModelSet) syncDelegationLineRelatedFields(delegationID int64) {
+	if delegationID == 0 {
+		return
+	}
+	delegationRow := m.rowByID("delegation", delegationID)
+	if delegationRow == nil {
+		return
+	}
+	for _, line := range m.rows("delegation.line") {
+		if numericID(line["delegation_id"]) != delegationID {
+			continue
+		}
+		for _, fieldName := range []string{"one_employee", "state", "date_from", "date_to"} {
+			if m.fieldExists("delegation.line", fieldName) {
+				line[fieldName] = delegationRow[fieldName]
+			}
+		}
+		if m.fieldExists("delegation.line", "delegator_id") {
+			line["delegator_id"] = delegationRow["employee_id"]
+		}
+		if m.fieldExists("delegation.line", "delegator_user_id") {
+			line["delegator_user_id"] = delegationRow["user_id"]
+		}
+	}
 }
 
 func (m ModelSet) normalizeMailBlacklistValues(existing map[string]any, values map[string]any) map[string]any {
@@ -6238,21 +6405,26 @@ func (r RecordSet) Write(values map[string]any) error {
 		}
 	}
 	if r.model.model.Name == "delegation" {
+		now := time.Now().UTC()
 		for _, id := range r.ids {
 			row, ok := r.model.store.records[id]
 			if !ok {
 				continue
 			}
-			lineCommands, ok := writeValues[id]["lines"]
-			if !ok {
-				continue
+			if lineCommands, ok := writeValues[id]["lines"]; ok {
+				lineIDs, err := r.model.materializeDelegationLineCommands(id, lineCommands)
+				if err != nil {
+					r.model.restoreEnv(envSnapshot)
+					return err
+				}
+				row["lines"] = lineIDs
 			}
-			lineIDs, err := r.model.materializeDelegationLineCommands(id, lineCommands)
-			if err != nil {
+			r.model.syncDelegationDerivedFields(row, now)
+			r.model.syncDelegationLineRelatedFields(id)
+			if err := r.model.validateDelegationStateTransition(oldRows[id], row, now); err != nil {
 				r.model.restoreEnv(envSnapshot)
 				return err
 			}
-			row["lines"] = lineIDs
 		}
 	}
 	if r.model.model.Name == "account.move" {
@@ -6445,6 +6617,46 @@ func (r RecordSet) Write(values map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func (r RecordSet) ActionConfirmDelegation() error {
+	if r.model.err != nil {
+		return r.model.err
+	}
+	if r.model.model.Name != "delegation" {
+		return fmt.Errorf("action_confirm is not available on %s", r.model.model.Name)
+	}
+	return r.Write(map[string]any{"state": "confirmed"})
+}
+
+func (r RecordSet) ActionSubmitDelegation() error {
+	if r.model.err != nil {
+		return r.model.err
+	}
+	if r.model.model.Name != "delegation" {
+		return fmt.Errorf("action_submit is not available on %s", r.model.model.Name)
+	}
+	return nil
+}
+
+func (r RecordSet) ActionRevokeDelegation() error {
+	if r.model.err != nil {
+		return r.model.err
+	}
+	if r.model.model.Name != "delegation" {
+		return fmt.Errorf("action_revoked is not available on %s", r.model.model.Name)
+	}
+	return r.Write(map[string]any{"state": "revoked"})
+}
+
+func (r RecordSet) ExpireDelegation() error {
+	if r.model.err != nil {
+		return r.model.err
+	}
+	if r.model.model.Name != "delegation" {
+		return fmt.Errorf("expire_delegation is not available on %s", r.model.model.Name)
+	}
+	return r.Write(map[string]any{"state": "expired"})
 }
 
 func accountMoveWriteRecomputesLines(values map[string]any) bool {
@@ -6831,7 +7043,7 @@ func (m ModelSet) normalizeRecordWriteValues(existing map[string]any, values map
 			}
 		}
 	case "delegation":
-		for _, fieldName := range []string{"employee_id", "delegateTo_employee_id", "delegate_to_employee_id"} {
+		for _, fieldName := range []string{"employee_id", "delegateTo_employee_id", "delegate_to_employee_id", "date_from", "date_to", "state", "one_employee", "lines"} {
 			if _, ok := values[fieldName]; ok {
 				return m.normalizeDelegationValues(existing, values)
 			}

@@ -639,6 +639,12 @@ func (d Dispatcher) engineFromEnv(env *record.Env) (*Engine, error) {
 	engine.SetNow(d.now)
 	engine.Actions = d.Actions
 	engine.Mailer = d.Mailer
+	_ = engine.RegisterMethod("expire_delegation", func(_ context.Context, rec *Record, _ Button, _ Input) error {
+		if rec == nil || rec.Model != "delegation" {
+			return nil
+		}
+		return nil
+	})
 	if err := loadSettings(env, engine); err != nil {
 		return nil, err
 	}
