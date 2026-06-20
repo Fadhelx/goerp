@@ -1452,10 +1452,15 @@ func persistAdvancedRecordState(env *record.Env, workflow Workflow, process Proc
 		return err
 	}
 	activityOpts := advancedApprovalActivityOptions(workflow, process, at)
+	transitionIDs, err := advancedAvailableTransitionIDsForRecord(env, workflow, process)
+	if err != nil {
+		return err
+	}
 	values := map[string]any{
 		"state":                           process.State,
 		"workflow_node_id":                process.NodeID,
 		"_workflow_transition_id":         process.LastTransitionID,
+		"workflow_transition_ids":         transitionIDs,
 		"approval_user_ids":               process.ApprovalUserIDs,
 		"approval_done_user_ids":          process.ApprovalDoneUserIDs,
 		"approval_partner_ids":            process.ApprovalPartnerIDs,
@@ -1467,6 +1472,33 @@ func persistAdvancedRecordState(env *record.Env, workflow Workflow, process Proc
 		return err
 	}
 	return syncApprovalActivities(env, activityOpts)
+}
+
+func advancedAvailableTransitionIDsForRecord(env *record.Env, workflow Workflow, process Process) ([]int64, error) {
+	if env == nil || !process.Active || !process.UserCanApprove {
+		return nil, nil
+	}
+	node, ok := workflow.nodeByID(process.NodeID)
+	if !ok || node.Type != NodeTypeUser {
+		return nil, nil
+	}
+	ctx, err := evalContextForRecord(env, process.Model, process.RecordID, evalContextBase(env, process.Model))
+	if err != nil {
+		return nil, err
+	}
+	transitions := orderedTransitions(node.Transitions)
+	ids := make([]int64, 0, len(transitions))
+	for _, transition := range transitions {
+		ok, err := transition.Available(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		ids = append(ids, transition.ID)
+	}
+	return ids, nil
 }
 
 func advancedApprovalActivityOptions(workflow Workflow, process Process, at time.Time) approvalActivityOptions {

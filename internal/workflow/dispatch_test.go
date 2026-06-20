@@ -1987,6 +1987,16 @@ func TestDispatcherAutoStartsWorkflowOnCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	doneNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Done",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeEnd),
+		"state":       "approved",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := env.Model(ModelWorkflow).Browse(workflowID).Write(map[string]any{"start_node_id": startNodeID}); err != nil {
 		t.Fatal(err)
 	}
@@ -1995,6 +2005,16 @@ func TestDispatcherAutoStartsWorkflowOnCreate(t *testing.T) {
 		"workflow_id":  workflowID,
 		"node_id":      startNodeID,
 		"next_node_id": pendingNodeID,
+		"active":       true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	approveID, err := env.Model(ModelTransition).Create(map[string]any{
+		"name":         "Approve",
+		"workflow_id":  workflowID,
+		"node_id":      pendingNodeID,
+		"next_node_id": doneNodeID,
 		"active":       true,
 	})
 	if err != nil {
@@ -2010,7 +2030,7 @@ func TestDispatcherAutoStartsWorkflowOnCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows, err := env.Model("purchase.order").Browse(recordID).Read("state", "workflow_node_id", "_workflow_transition_id", "workflow_view_id", "approval_user_ids", "approval_partner_ids", "user_can_approve")
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("state", "workflow_node_id", "_workflow_transition_id", "workflow_view_id", "workflow_transition_ids", "approval_user_ids", "approval_partner_ids", "user_can_approve")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2025,6 +2045,9 @@ func TestDispatcherAutoStartsWorkflowOnCreate(t *testing.T) {
 	}
 	if rows[0]["user_can_approve"] != true {
 		t.Fatalf("user_can_approve = %+v", rows[0]["user_can_approve"])
+	}
+	if got := idsFromAny(rows[0]["workflow_transition_ids"]); len(got) != 1 || got[0] != approveID {
+		t.Fatalf("workflow_transition_ids = %+v", rows[0]["workflow_transition_ids"])
 	}
 	processes, err := env.Model(ModelProcess).Search(domain.And())
 	if err != nil {
@@ -3451,6 +3474,7 @@ func dispatchEnv(t *testing.T) *record.Env {
 	po.AddField(field.New("approval_forward_user_ids", field.Many2Many).WithRelation("res.users"))
 	po.AddField(field.New("approval_activity_date_deadline", field.Date))
 	po.AddField(field.New("workflow_node_id", field.Many2One).WithRelation(ModelNode))
+	po.AddField(field.New("workflow_transition_ids", field.Many2Many).WithRelation(ModelTransition))
 	po.AddField(field.New("workflow_view_id", field.Many2One).WithRelation("ir.ui.view"))
 	po.AddField(field.New("_workflow_transition_id", field.Many2One).WithRelation(ModelTransition))
 	po.AddField(field.New("_approval_comment", field.Char))
