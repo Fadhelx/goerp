@@ -674,7 +674,7 @@ func (l *Loader) loadRecord(item xmlRecord, noupdate bool) error {
 		if err != nil {
 			return err
 		}
-		values[itemField.Name] = value
+		values[l.canonicalFieldName(item.Model, itemField.Name)] = value
 	}
 	if item.Model == "ir.cron" {
 		if err := l.prepareCronDelegation(item.ID, values); err != nil {
@@ -758,18 +758,19 @@ func (l *Loader) modelNameByID(modelID int64) string {
 
 func (l *Loader) loadNestedFields(modelName string, parentID int64, fields []xmlField, noupdate bool) error {
 	for _, itemField := range fields {
-		info, err := l.fieldInfo(modelName, itemField.Name)
+		fieldName := l.canonicalFieldName(modelName, itemField.Name)
+		info, err := l.fieldInfo(modelName, fieldName)
 		if err != nil {
 			return err
 		}
 		if !isX2Many(info.Kind) {
-			return fmt.Errorf("nested records require x2many field %s.%s", modelName, itemField.Name)
+			return fmt.Errorf("nested records require x2many field %s.%s", modelName, fieldName)
 		}
 		if info.Relation == "" {
-			return fmt.Errorf("nested records require relation model for %s.%s", modelName, itemField.Name)
+			return fmt.Errorf("nested records require relation model for %s.%s", modelName, fieldName)
 		}
 		if info.RelationField == "" {
-			return fmt.Errorf("nested records require relation field for %s.%s", modelName, itemField.Name)
+			return fmt.Errorf("nested records require relation field for %s.%s", modelName, fieldName)
 		}
 		ids := make([]int64, 0, len(itemField.Records))
 		for _, recordItem := range itemField.Records {
@@ -779,7 +780,7 @@ func (l *Loader) loadNestedFields(modelName string, parentID int64, fields []xml
 			}
 			ids = append(ids, childID)
 		}
-		if err := l.env.Model(modelName).Browse(parentID).Write(map[string]any{itemField.Name: ids}); err != nil {
+		if err := l.env.Model(modelName).Browse(parentID).Write(map[string]any{fieldName: ids}); err != nil {
 			return err
 		}
 	}
@@ -802,7 +803,7 @@ func (l *Loader) loadNestedRecord(info xmlFieldInfo, parentID int64, item xmlRec
 		if err != nil {
 			return 0, err
 		}
-		values[itemField.Name] = value
+		values[l.canonicalFieldName(modelName, itemField.Name)] = value
 	}
 	id, err := l.loadValues(modelName, item.ID, values, noupdate)
 	if err != nil {
@@ -835,6 +836,11 @@ func (l *Loader) loadMenuItem(item xmlMenuItem, noupdate bool) error {
 			return fmt.Errorf("menuitem %s action: %w", item.ID, err)
 		}
 		values["action"] = actionValue
+		if values["name"] == nil {
+			if name := l.menuActionName(actionValue); name != "" {
+				values["name"] = name
+			}
+		}
 	}
 	if item.Sequence != "" {
 		sequence, err := strconv.ParseInt(strings.TrimSpace(item.Sequence), 10, 64)
@@ -1810,7 +1816,8 @@ func (l *Loader) applyX2ManyFieldCommand(info xmlFieldInfo, ids []int64, command
 func (l *Loader) normalizeEvalValues(modelName string, values map[string]any) (map[string]any, error) {
 	out := make(map[string]any, len(values))
 	for fieldName, value := range values {
-		info, err := l.fieldInfo(modelName, fieldName)
+		canonicalField := l.canonicalFieldName(modelName, fieldName)
+		info, err := l.fieldInfo(modelName, canonicalField)
 		if err != nil {
 			return nil, err
 		}
@@ -1820,7 +1827,7 @@ func (l *Loader) normalizeEvalValues(modelName string, values map[string]any) (m
 				return nil, err
 			}
 			if ok {
-				out[fieldName] = ids
+				out[canonicalField] = ids
 				continue
 			}
 		}
@@ -1830,10 +1837,10 @@ func (l *Loader) normalizeEvalValues(modelName string, values map[string]any) (m
 			if err != nil {
 				return nil, err
 			}
-			out[fieldName] = string(encoded)
+			out[canonicalField] = string(encoded)
 			continue
 		}
-		out[fieldName] = normalized
+		out[canonicalField] = normalized
 	}
 	return out, nil
 }
@@ -2051,6 +2058,7 @@ type xmlFieldInfo struct {
 }
 
 func (l *Loader) fieldInfo(modelName string, fieldName string) (xmlFieldInfo, error) {
+	fieldName = l.canonicalFieldName(modelName, fieldName)
 	fields, err := l.env.Model(modelName).FieldsGet([]string{fieldName}, []string{"type", "relation", "relation_field"})
 	if err != nil {
 		return xmlFieldInfo{}, err
@@ -2063,6 +2071,13 @@ func (l *Loader) fieldInfo(modelName string, fieldName string) (xmlFieldInfo, er
 	relation, _ := description["relation"].(string)
 	relationField, _ := description["relation_field"].(string)
 	return xmlFieldInfo{Kind: field.Kind(kind), Relation: relation, RelationField: relationField}, nil
+}
+
+func (l *Loader) canonicalFieldName(modelName string, fieldName string) string {
+	if modelName == "res.groups" && fieldName == "users" {
+		return "user_ids"
+	}
+	return fieldName
 }
 
 func isX2Many(kind field.Kind) bool {
@@ -2246,6 +2261,23 @@ func (l *Loader) menuActionValue(raw string) (string, error) {
 		return "", err
 	}
 	return modelName + "," + strconv.FormatInt(ref.ResID, 10), nil
+}
+
+func (l *Loader) menuActionName(actionValue string) string {
+	parts := strings.Split(actionValue, ",")
+	if len(parts) != 2 {
+		return ""
+	}
+	modelName := strings.TrimSpace(parts[0])
+	id, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	if err != nil || id == 0 {
+		return ""
+	}
+	rows, err := l.env.Model(modelName).Browse(id).Read("name")
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(stringFromAny(rows[0]["name"]))
 }
 
 func (l *Loader) concreteActionModelForExternalID(ref ExternalID) (string, error) {

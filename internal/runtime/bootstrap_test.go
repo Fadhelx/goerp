@@ -496,6 +496,30 @@ func TestBootstrapOIRegistersWorkflowEscalationAction(t *testing.T) {
 	}
 }
 
+func TestBootstrapOIRegistersDelegationClearAccessCacheAction(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := app.ServerActions.RunNamed(context.Background(), "delegation_clear_expired_access", serveractions.ExecutionContext{
+		UserID: 1,
+		Now:    time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Kind != serveractions.KindGo || result.GoActionName != "delegation_clear_expired_access" || result.Metadata["cache_invalidated"] != true {
+		t.Fatalf("result = %+v", result)
+	}
+	found, err := app.Env.Model("delegation.cache.event").Search(domain.Cond("reason", "=", "clear_access_cache"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Len() != 1 {
+		t.Fatalf("cache events = %d, want 1", found.Len())
+	}
+}
+
 func TestViewsFromEnvHydratesActivePriorityAndGroups(t *testing.T) {
 	registry := record.NewRegistry()
 	for _, m := range internalbase.Models() {

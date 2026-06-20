@@ -1,4 +1,5 @@
 <odoo>
+  <menuitem id="menu_delegation" action="act_delegation" web_icon="oi_delegation,static/description/icon.png"/>
   <record id="menu_oi_delegation_root" model="ir.ui.menu">
     <field name="name">Delegation</field>
   </record>

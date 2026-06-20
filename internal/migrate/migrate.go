@@ -2544,4 +2544,19 @@ ALTER TABLE approval_log ALTER COLUMN duration_seconds TYPE DOUBLE PRECISION USI
 ALTER TABLE delegation ADD COLUMN IF NOT EXISTS "delegateTo_employee_id" BIGINT;
 CREATE UNIQUE INDEX IF NOT EXISTS delegation_line_delegation_group_unique ON delegation_line(delegation_id, group_id);
 `},
+	{Version: 219, Name: "delegation_cache_event_workflow_hook", SQL: `
+CREATE TABLE IF NOT EXISTS delegation_cache_event (
+  id BIGSERIAL PRIMARY KEY,
+  user_ids TEXT,
+  reason TEXT,
+  created_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS delegation_workflow_hook (
+  id BIGSERIAL PRIMARY KEY,
+  delegation_id BIGINT,
+  event TEXT,
+  state TEXT,
+  payload TEXT
+);
+`},
 }

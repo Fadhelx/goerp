@@ -163,6 +163,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"delegation",
 		"delegation_line",
 		"delegation_mail_template_metadata",
+		"delegation_cache_event_workflow_hook",
 		"login_as_audit",
 		"login_as_route",
 		"account_dependency_anchor_tables",
@@ -1400,6 +1401,19 @@ func TestApprovalConfigMigrationExposesProgressionFields(t *testing.T) {
 	for _, column := range []string{"model_id", "setting_id", "settings_id", "state", "sequence", "group_ids", "user_python_code", "condition", "auto_approve", "user_ids", "committee", "is_voting"} {
 		if !strings.Contains(sqlByName["approval_config"], column) {
 			t.Fatalf("approval_config missing %s: %s", column, sqlByName["approval_config"])
+		}
+	}
+}
+
+func TestDelegationCacheEventWorkflowHookMigration(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	sql := sqlByName["delegation_cache_event_workflow_hook"]
+	for _, want := range []string{"CREATE TABLE IF NOT EXISTS delegation_cache_event", "user_ids TEXT", "reason TEXT", "created_at TIMESTAMPTZ", "CREATE TABLE IF NOT EXISTS delegation_workflow_hook", "delegation_id BIGINT", "payload TEXT"} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("delegation cache/workflow hook migration missing %s: %s", want, sql)
 		}
 	}
 }

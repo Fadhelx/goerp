@@ -8853,6 +8853,8 @@ func (s Server) dispatchDelegationMethod(env *record.Env, req callKWRequest) (an
 	ids := int64Slice(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"]))
 	records := env.Model("delegation").Browse(ids...)
 	switch req.Method {
+	case "_clear_access_cache":
+		return true, true, persistDelegationCacheEventHTTP(env, "clear_access_cache", time.Now().UTC())
 	case "action_confirm":
 		if err := records.ActionConfirmDelegation(); err != nil {
 			return nil, true, err
@@ -8876,6 +8878,24 @@ func (s Server) dispatchDelegationMethod(env *record.Env, req callKWRequest) (an
 	default:
 		return nil, false, nil
 	}
+}
+
+func persistDelegationCacheEventHTTP(env *record.Env, reason string, at time.Time) error {
+	if env == nil {
+		return nil
+	}
+	if _, ok := env.ModelMetadata("delegation.cache.event"); !ok {
+		return nil
+	}
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	_, err := env.Model("delegation.cache.event").Create(map[string]any{
+		"user_ids":   "[]",
+		"reason":     reason,
+		"created_at": at.UTC().Format(time.RFC3339Nano),
+	})
+	return err
 }
 
 func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {

@@ -1,12 +1,19 @@
 <odoo>
+  <record id="act_delegation" model="ir.actions.act_window">
+    <field name="name">Delegation</field>
+    <field name="res_model">delegation</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'delegation' : True}</field>
+  </record>
   <record id="action_delegation" model="ir.actions.act_window">
     <field name="name">Delegations</field>
     <field name="res_model">delegation</field>
-    <field name="view_mode">tree,form</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'delegation' : True}</field>
   </record>
   <record id="action_delegation_lines" model="ir.actions.act_window">
     <field name="name">Delegation Lines</field>
     <field name="res_model">delegation.line</field>
-    <field name="view_mode">tree,form</field>
+    <field name="view_mode">list,form</field>
   </record>
 </odoo>

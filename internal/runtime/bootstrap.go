@@ -172,6 +172,9 @@ func BootstrapOI(root string) (*App, error) {
 	if err := registerWorkflowRuntimeActions(serverActionReg, env, delegationService, actionHooks); err != nil {
 		return nil, err
 	}
+	if err := registerDelegationRuntimeActions(serverActionReg, env); err != nil {
+		return nil, err
+	}
 	if err := registerMailRuntimeActions(serverActionReg, env, app); err != nil {
 		return nil, err
 	}

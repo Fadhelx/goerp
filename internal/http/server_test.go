@@ -16884,6 +16884,15 @@ func TestCallKWDelegationLifecycleMethods(t *testing.T) {
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "old date") {
 		t.Fatalf("past revoke response %d %s", rec.Code, rec.Body.String())
 	}
+
+	postCallKW(t, handler, `{"model":"delegation","method":"_clear_access_cache","args":[]}`)
+	cacheEvents, err := env.Model("delegation.cache.event").Search(domain.Cond("reason", "=", "clear_access_cache"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cacheEvents.Len() != 1 {
+		t.Fatalf("cache events = %d, want 1", cacheEvents.Len())
+	}
 }
 
 func testContainsRecordID(value any, target int64) bool {

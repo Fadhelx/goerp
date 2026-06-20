@@ -2702,6 +2702,21 @@ CREATE TABLE IF NOT EXISTS delegation_mail_template_metadata (
   active BOOLEAN NOT NULL DEFAULT true
 );
 
+CREATE TABLE IF NOT EXISTS delegation_cache_event (
+  id BIGSERIAL PRIMARY KEY,
+  user_ids TEXT,
+  reason TEXT,
+  created_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS delegation_workflow_hook (
+  id BIGSERIAL PRIMARY KEY,
+  delegation_id BIGINT,
+  event TEXT,
+  state TEXT,
+  payload TEXT
+);
+
 CREATE TABLE IF NOT EXISTS login_as_audit (
   id BIGSERIAL PRIMARY KEY,
   action TEXT NOT NULL,

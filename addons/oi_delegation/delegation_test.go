@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -601,10 +602,13 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 		ModuleName + ".button_delegation_confirm",
 		ModuleName + ".view_oi_delegation_form",
 		ModuleName + ".view_approval_log_delegation_list",
+		ModuleName + ".act_delegation",
 		ModuleName + ".action_delegation",
 		ModuleName + ".action_delegation_lines",
+		ModuleName + ".menu_delegation",
 		ModuleName + ".menu_oi_delegation_root",
 		ModuleName + ".menu_oi_delegation_requests",
+		ModuleName + ".cron_clear_access_cache",
 	} {
 		if ids[name].ResID == 0 {
 			t.Fatalf("missing external id %s in %+v", name, ids)
@@ -628,6 +632,8 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 	assertGroupCategory(t, env, ids[ModuleName+".delegation_admin"].ResID, ids[ModuleName+".module_category_delegation"].ResID)
 	assertGroupImplies(t, env, ids[ModuleName+".delegation_manager"].ResID, []int64{ids[ModuleName+".delegation_employee"].ResID})
 	assertGroupImplies(t, env, ids[ModuleName+".delegation_admin"].ResID, []int64{ids[ModuleName+".delegation_manager"].ResID})
+	assertGroupUsers(t, env, ids[ModuleName+".delegation_manager"].ResID, []int64{ids["base.user_root"].ResID, ids["base.user_admin"].ResID})
+	assertGroupUsers(t, env, ids[ModuleName+".delegation_admin"].ResID, []int64{ids["base.user_root"].ResID, ids["base.user_admin"].ResID})
 	assertGroupImplies(t, env, ids[ModuleName+".group_delegation_manager"].ResID, []int64{ids[ModuleName+".group_delegation_user"].ResID})
 	assertGroupImplies(t, env, ids[ModuleName+".group_delegation_admin"].ResID, []int64{ids[ModuleName+".group_delegation_manager"].ResID})
 	sequenceRows, err := env.Model("ir.sequence").Browse(ids[ModuleName+".sequence_delegation"].ResID).Read("code", "padding")
@@ -651,18 +657,26 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 	if buttonRows[0]["action_type"] != "approve" || buttonRows[0]["state_value"] != "draft" || buttonRows[0]["next_state"] != "confirmed" || buttonRows[0]["email_template_id"] == nil {
 		t.Fatalf("button = %+v", buttonRows[0])
 	}
-	actionRows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".action_delegation"].ResID).Read("res_model", "view_mode")
+	sourceActionRows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".act_delegation"].ResID).Read("name", "res_model", "view_mode", "context")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if actionRows[0]["res_model"] != ModelDelegation || actionRows[0]["view_mode"] != "tree,form" {
+	if sourceActionRows[0]["name"] != "Delegation" || sourceActionRows[0]["res_model"] != ModelDelegation ||
+		sourceActionRows[0]["view_mode"] != "list,form" || sourceActionRows[0]["context"] != "{'delegation' : True}" {
+		t.Fatalf("source action = %+v", sourceActionRows[0])
+	}
+	actionRows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".action_delegation"].ResID).Read("res_model", "view_mode", "context")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actionRows[0]["res_model"] != ModelDelegation || actionRows[0]["view_mode"] != "list,form" || actionRows[0]["context"] != "{'delegation' : True}" {
 		t.Fatalf("action = %+v", actionRows[0])
 	}
 	lineActionRows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".action_delegation_lines"].ResID).Read("res_model", "view_mode")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lineActionRows[0]["res_model"] != ModelDelegationLine || lineActionRows[0]["view_mode"] != "tree,form" {
+	if lineActionRows[0]["res_model"] != ModelDelegationLine || lineActionRows[0]["view_mode"] != "list,form" {
 		t.Fatalf("line action = %+v", lineActionRows[0])
 	}
 	viewRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".view_oi_delegation_form"].ResID).Read("model", "arch")
@@ -680,6 +694,32 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 	if menuRows[0]["parent_id"] != ids[ModuleName+".menu_oi_delegation_root"].ResID ||
 		menuRows[0]["action"] != "ir.actions.act_window,action_delegation" {
 		t.Fatalf("menu = %+v", menuRows[0])
+	}
+	sourceMenuRows, err := env.Model("ir.ui.menu").Browse(ids[ModuleName+".menu_delegation"].ResID).Read("name", "action", "web_icon")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceMenuAction := "ir.actions.act_window," + strconv.FormatInt(ids[ModuleName+".act_delegation"].ResID, 10)
+	if sourceMenuRows[0]["name"] != "Delegation" || sourceMenuRows[0]["action"] != sourceMenuAction ||
+		sourceMenuRows[0]["web_icon"] != "oi_delegation,static/description/icon.png" {
+		t.Fatalf("source menu = %+v, want action %s", sourceMenuRows[0], sourceMenuAction)
+	}
+	cronRows, err := env.Model("ir.cron").Browse(ids[ModuleName+".cron_clear_access_cache"].ResID).Read("name", "user_id", "active", "interval_number", "interval_type", "model_id", "state", "code", "action_name", "ir_actions_server_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cronActionID, _ := cronRows[0]["ir_actions_server_id"].(int64)
+	if cronRows[0]["name"] != "Clear Access Cache" ||
+		cronRows[0]["user_id"] != ids["base.user_root"].ResID ||
+		cronRows[0]["active"] != true ||
+		cronRows[0]["interval_number"] != int64(1) ||
+		cronRows[0]["interval_type"] != "days" ||
+		cronRows[0]["model_id"] != ids[ModuleName+".model_delegation"].ResID ||
+		cronRows[0]["state"] != "code" ||
+		cronRows[0]["code"] != "model._clear_access_cache()" ||
+		cronRows[0]["action_name"] != "delegation_clear_expired_access" ||
+		cronActionID == 0 {
+		t.Fatalf("cron = %+v", cronRows[0])
 	}
 
 	engine := security.NewEngine()
@@ -1100,6 +1140,16 @@ func delegationFixtureLoader(t *testing.T, env *record.Env) *data.Loader {
     <field name="name">Internal User</field>
     <field name="category_id" ref="module_category_user_type"/>
   </record>
+  <record id="user_root" model="res.users">
+    <field name="login">root</field>
+    <field name="name">OdooBot</field>
+    <field name="active" eval="True"/>
+  </record>
+  <record id="user_admin" model="res.users">
+    <field name="login">admin</field>
+    <field name="name">Administrator</field>
+    <field name="active" eval="True"/>
+  </record>
 </odoo>`))
 	if err != nil {
 		t.Fatal(err)
@@ -1201,6 +1251,19 @@ func assertGroupImplies(t *testing.T, env *record.Env, groupID int64, want []int
 	}
 }
 
+func assertGroupUsers(t *testing.T, env *record.Env, groupID int64, want []int64) {
+	t.Helper()
+	rows, err := env.Model("res.groups").Browse(groupID).Read("user_ids")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range want {
+		if !containsInt64(rows[0]["user_ids"], id) {
+			t.Fatalf("group %d user_ids missing %d: %+v", groupID, id, rows[0])
+		}
+	}
+}
+
 func assertGroupCategory(t *testing.T, env *record.Env, groupID int64, want int64) {
 	t.Helper()
 	rows, err := env.Model("res.groups").Browse(groupID).Read("category_id")
@@ -1241,6 +1304,15 @@ func int64Slice(value any) []int64 {
 	default:
 		return nil
 	}
+}
+
+func containsInt64(value any, target int64) bool {
+	for _, id := range int64Slice(value) {
+		if id == target {
+			return true
+		}
+	}
+	return false
 }
 
 func delegationFixtureEnv(t *testing.T) *record.Env {
