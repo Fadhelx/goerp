@@ -128,7 +128,7 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 	loader := data.NewLoader(env, ModuleName)
 	seedLoginAsExternalIDs(t, loader)
 
-	for _, rel := range []string{"view/action.xml", "view/login_as.xml"} {
+	for _, rel := range []string{"view/action.xml", "view/login_as.xml", "view/templates.xml"} {
 		file := openFixture(t, baseDir, rel)
 		err := loader.LoadXML(file)
 		closeErr := file.Close()
@@ -158,6 +158,7 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 		ModuleName + ".access_login_as_route_admin",
 		ModuleName + ".act_login_as",
 		ModuleName + ".view_login_as_form",
+		ModuleName + ".user_dropdown",
 	} {
 		if ids[name].ResID == 0 {
 			t.Fatalf("missing external id %s in %+v", name, ids)
@@ -185,6 +186,23 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 	arch, _ := rows[0]["arch"].(string)
 	if rows[0]["model"] != ModelLoginAsWizard || !strings.Contains(arch, `field name="user_id"`) || !strings.Contains(arch, `button name="switch_to_user"`) || strings.Contains(arch, `button name="action_login"`) {
 		t.Fatalf("view row = %+v", rows[0])
+	}
+	rows, err = env.Model("ir.ui.view").Browse(ids[ModuleName+".user_dropdown"].ResID).Read("type", "key", "inherit_id", "inherit_id_ref", "priority", "arch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	templateArch, _ := rows[0]["arch"].(string)
+	if rows[0]["type"] != "qweb" ||
+		rows[0]["key"] != ModuleName+".user_dropdown" ||
+		rows[0]["inherit_id"] != ids["portal.user_dropdown"].ResID ||
+		rows[0]["inherit_id_ref"] != "portal.user_dropdown" ||
+		rows[0]["priority"] != int64(1) ||
+		!strings.Contains(templateArch, `expr="//a[@id='o_logout']"`) ||
+		!strings.Contains(templateArch, `href="/web/login_back"`) ||
+		!strings.Contains(templateArch, `request.session.impersonate_uid`) ||
+		!strings.Contains(templateArch, `Stop impersonation`) ||
+		strings.Contains(templateArch, `oi-login-as-banner`) {
+		t.Fatalf("template row = %+v", rows[0])
 	}
 
 	accessRows, err := env.Model("ir.model.access").Search(domain.And())
@@ -406,6 +424,7 @@ func seedLoginAsExternalIDs(t *testing.T, loader *data.Loader) {
 	seed.WriteString("<odoo>")
 	seed.WriteString(`<record id="base.group_system" model="res.groups"><field name="name">Settings</field></record>`)
 	seed.WriteString(`<record id="base.model_res_users" model="ir.model"><field name="model">res.users</field><field name="name">User</field></record>`)
+	seed.WriteString(`<record id="portal.user_dropdown" model="ir.ui.view"><field name="name">portal.user_dropdown</field><field name="type">qweb</field><field name="key">portal.user_dropdown</field><field name="arch">&lt;t t-name="portal.user_dropdown"&gt;&lt;a id="o_logout" href="/web/session/logout"&gt;Logout&lt;/a&gt;&lt;/t&gt;</field></record>`)
 	for _, group := range SecurityGroups() {
 		id := groupExternalID(group.ID)
 		seed.WriteString(`<record id="` + id + `" model="res.groups">`)

@@ -115,7 +115,7 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 	if app.ExternalIDs["account.account_payment_term_immediate"].ResID != 0 {
 		t.Fatalf("accounting data loaded while disabled: %+v", app.ExternalIDs["account.account_payment_term_immediate"])
 	}
-	if app.ExternalIDs["oi_login_as.portal_login_as_banner"].ResID == 0 {
+	if app.ExternalIDs["oi_login_as.user_dropdown"].ResID == 0 {
 		t.Fatalf("missing persisted template external id: %+v", app.ExternalIDs)
 	}
 	if app.ExternalIDs["ai.ai_default_agent"].ResID == 0 || app.ExternalIDs["ai.ai_composer_mail"].ResID == 0 || app.ExternalIDs["ai.ai_mail_composer"].ResID == 0 || app.ExternalIDs["ai.ai_systray_action"].ResID == 0 {
