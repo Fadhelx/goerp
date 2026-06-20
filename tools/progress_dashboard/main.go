@@ -258,19 +258,17 @@ func parseBacklog(text string) backlogSummary {
 			Source:       fmt.Sprintf("reports/agent_audit_backlog.md:%d", lineIndex+1),
 		}
 		out.DoneSlices = append(out.DoneSlices, slice)
-		out.LatestSlice = slice
+		if out.LatestSlice.Line == 0 {
+			out.LatestSlice = slice
+		}
 		if gaps := gapsFromLine(body); len(gaps) > 0 {
+			if len(out.RemainingGaps) > 0 {
+				continue
+			}
 			out.RemainingGaps = gaps
 		}
 	}
-	reverseDone(out.DoneSlices)
 	return out
-}
-
-func reverseDone(items []doneSlice) {
-	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
-		items[i], items[j] = items[j], items[i]
-	}
 }
 
 func firstSentence(text string) string {
@@ -288,7 +286,7 @@ func verificationLabel(text string) string {
 		return "full CI passed"
 	case strings.Contains(lower, "affected package tests passed"), strings.Contains(lower, "package tests passed"):
 		return "package tests passed"
-	case strings.Contains(lower, "focused tests"):
+	case strings.Contains(lower, "focused tests"), strings.Contains(lower, "focused ") && strings.Contains(lower, "tests passed"):
 		return "focused tests passed"
 	case strings.Contains(lower, "regressions"):
 		return "regression coverage added"

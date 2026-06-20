@@ -9,20 +9,20 @@ import (
 
 func TestParseBacklogFindsDoneSlicesAndLatestGaps(t *testing.T) {
 	text := strings.Join([]string{
-		"- DONE this slice: added base security. Focused tests passed.",
-		"- DONE this slice: closed link tracker parity. Focused HTTP tests, affected package tests, and full CI passed. Remaining deferred gaps: exact digest mail layout, WhatsApp `/r/<code>/w/<message_id>` parity, and full Odoo route validation semantics.",
 		"- DONE this slice: closed WhatsApp tracked links. Focused tests passed. Full `make ci` passed. Remaining deferred gaps: sms composer.",
+		"- DONE this slice: closed link tracker parity. Focused HTTP tests, affected package tests, and full CI passed. Remaining deferred gaps: exact digest mail layout, WhatsApp `/r/<code>/w/<message_id>` parity, and full Odoo route validation semantics.",
+		"- DONE this slice: added base security. Focused tests passed.",
 	}, "\n")
 
 	got := parseBacklog(text)
 	if len(got.DoneSlices) != 3 {
 		t.Fatalf("done slices = %d, want 3", len(got.DoneSlices))
 	}
-	if got.DoneSlices[0].Number != 3 {
-		t.Fatalf("first rendered slice number = %d, want latest slice 3", got.DoneSlices[0].Number)
+	if got.DoneSlices[0].Number != 1 {
+		t.Fatalf("first rendered slice number = %d, want newest slice 1", got.DoneSlices[0].Number)
 	}
-	if got.LatestSlice.Line != 3 {
-		t.Fatalf("latest slice line = %d, want 3", got.LatestSlice.Line)
+	if got.LatestSlice.Line != 1 {
+		t.Fatalf("latest slice line = %d, want 1", got.LatestSlice.Line)
 	}
 	if got.LatestSlice.Verification != "full CI passed" {
 		t.Fatalf("verification = %q, want full CI passed", got.LatestSlice.Verification)
@@ -32,6 +32,13 @@ func TestParseBacklogFindsDoneSlicesAndLatestGaps(t *testing.T) {
 	}
 	if got.RemainingGaps[0].Text != "sms composer" {
 		t.Fatalf("first gap = %q", got.RemainingGaps[0].Text)
+	}
+}
+
+func TestVerificationLabelHandlesFocusedPackageList(t *testing.T) {
+	got := verificationLabel("Focused base/runtime/http/dashboard tests passed.")
+	if got != "focused tests passed" {
+		t.Fatalf("verification = %q, want focused tests passed", got)
 	}
 }
 
