@@ -33,6 +33,8 @@ import (
 	internaldelegation "gorp/internal/delegation"
 	"gorp/internal/domain"
 	internalmail "gorp/internal/mail"
+	"gorp/internal/meta/action"
+	"gorp/internal/meta/menu"
 	"gorp/internal/meta/view"
 	"gorp/internal/module"
 	"gorp/internal/notifications"
@@ -767,6 +769,78 @@ func TestBootstrapOIDelegationProviderAffectsSecurityGroups(t *testing.T) {
 	}
 	if !app.Security.EffectiveGroupIDs(80)[delegableGroupID] {
 		t.Fatalf("delegate effective groups = %+v", app.Security.EffectiveGroupIDs(80))
+	}
+}
+
+func TestBootstrapOIDelegationVisibleMenusUsesRuntimeResolver(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
+	app.Security.SetNow(func() time.Time { return now })
+	app.Delegation.SetNow(func() time.Time { return now })
+	baseUserGroupID := app.ExternalIDs["base.group_user"].ResID
+	noOneGroupID := app.ExternalIDs["base.group_no_one"].ResID
+	if baseUserGroupID == 0 || noOneGroupID == 0 {
+		t.Fatalf("missing base groups: %+v", app.ExternalIDs)
+	}
+
+	impliedGroupID := int64(991001)
+	delegatedGroupID := int64(991002)
+	app.Security.Groups[impliedGroupID] = security.Group{ID: impliedGroupID, Name: "Runtime Delegated Implied"}
+	app.Security.Groups[delegatedGroupID] = security.Group{ID: delegatedGroupID, Name: "Runtime Delegated Parent", ImpliedIDs: []int64{impliedGroupID}}
+	app.Security.Users[991010] = security.User{ID: 991010, Login: "runtime-delegator", Active: true, GroupIDs: []int64{delegatedGroupID}, CompanyID: 1, CompanyIDs: []int64{1}}
+	app.Security.Users[991020] = security.User{ID: 991020, Login: "runtime-delegate", Active: true, GroupIDs: []int64{baseUserGroupID, noOneGroupID}, CompanyID: 1, CompanyIDs: []int64{1}}
+	app.Security.ACLs = append(app.Security.ACLs, security.ACL{Model: "runtime.delegated.menu", GroupID: impliedGroupID, Active: true, PermRead: true})
+	app.Delegation.SetGroupConfig(internaldelegation.GroupConfig{GroupID: delegatedGroupID, Name: "Runtime Delegated Parent", AllowDelegation: true})
+
+	allowedActionID, err := app.Actions.Add(action.Action{Name: "Delegated Runtime Action", Kind: action.ActWindow, ResModel: "runtime.delegated.menu"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deniedActionID, err := app.Actions.Add(action.Action{Name: "Denied Runtime Action", Kind: action.ActWindow, ResModel: "runtime.denied.menu"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootID := app.Menus.Add(menu.Menu{Name: "Delegated Runtime Root"})
+	allowedMenuID := app.Menus.Add(menu.Menu{Name: "Delegated Runtime Menu", ParentID: rootID, Groups: []int64{impliedGroupID}, ActionID: allowedActionID})
+	deniedMenuID := app.Menus.Add(menu.Menu{Name: "Denied Runtime Menu", ParentID: rootID, Groups: []int64{impliedGroupID}, ActionID: deniedActionID})
+	noOneMenuID := app.Menus.Add(menu.Menu{Name: "Debug Runtime Menu", ParentID: rootID, Groups: []int64{noOneGroupID}, ActionID: allowedActionID})
+
+	req, err := app.Delegation.CreateRequest(internaldelegation.RequestInput{
+		DateFrom:        now.Add(-time.Hour),
+		DateTo:          now.Add(time.Hour),
+		DelegatorUserID: 991010,
+		Lines:           []internaldelegation.LineInput{{GroupID: delegatedGroupID, DelegateUserID: 991020}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Delegation.Confirm(req.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := app.Delegation.VisibleMenuIDs(991020, []int64{baseUserGroupID, noOneGroupID}, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsInt64(ids, rootID) || !containsInt64(ids, allowedMenuID) {
+		t.Fatalf("delegated visible menus missing root/action: ids=%+v root=%d menu=%d", ids, rootID, allowedMenuID)
+	}
+	if containsInt64(ids, deniedMenuID) {
+		t.Fatalf("denied action menu visible: ids=%+v denied=%d", ids, deniedMenuID)
+	}
+	if containsInt64(ids, noOneMenuID) {
+		t.Fatalf("group_no_one menu visible without debug: ids=%+v no_one=%d", ids, noOneMenuID)
+	}
+
+	debugIDs, err := app.Delegation.VisibleMenuIDs(991020, []int64{baseUserGroupID, noOneGroupID}, true, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsInt64(debugIDs, noOneMenuID) {
+		t.Fatalf("group_no_one menu missing in debug: ids=%+v no_one=%d", debugIDs, noOneMenuID)
 	}
 }
 

@@ -1002,6 +1002,9 @@ func TestConfigureServiceFromPersistedGroupMetadata(t *testing.T) {
 	if err := ConfigureServiceFromEnv(svc, env); err != nil {
 		t.Fatal(err)
 	}
+	if svc.RestrictedAccess() {
+		t.Fatal("restricted access enabled without config")
+	}
 	role, ok := svc.GroupConfig(ids[ModuleName+".group_delegable_role"].ResID)
 	if !ok || !role.AllowDelegation || role.AllowMultipleDelegation || role.DisplayName != "Delegable Role" || role.RestrictedAccess {
 		t.Fatalf("role config = %+v ok=%v", role, ok)
@@ -1033,6 +1036,16 @@ func TestConfigureServiceFromPersistedGroupMetadata(t *testing.T) {
 	}
 	if rows[0]["restricted_access"] != true {
 		t.Fatalf("stored restricted access = %+v", rows[0])
+	}
+
+	if _, err := env.Model("ir.config_parameter").Create(map[string]any{"key": "restricted_access", "value": "True"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ConfigureServiceFromEnv(svc, env); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.RestrictedAccess() {
+		t.Fatal("restricted access config did not enable service mode")
 	}
 }
 

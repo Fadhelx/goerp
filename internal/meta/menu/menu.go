@@ -50,6 +50,25 @@ func (r *Registry) AddWithID(menu Menu) {
 	}
 }
 
+func (r *Registry) Get(id int64) (Menu, bool) {
+	menu, ok := r.menus[id]
+	return menu, ok
+}
+
+func (r *Registry) All() []Menu {
+	out := make([]Menu, 0, len(r.menus))
+	for _, menu := range r.menus {
+		out = append(out, menu)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Sequence == out[j].Sequence {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Sequence < out[j].Sequence
+	})
+	return out
+}
+
 func (r *Registry) Tree(groupIDs map[int64]bool) []Node {
 	return r.TreeFiltered(groupIDs, nil)
 }

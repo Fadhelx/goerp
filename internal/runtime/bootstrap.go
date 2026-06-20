@@ -127,6 +127,7 @@ func BootstrapOI(root string) (*App, error) {
 	if err := oi_delegation.ConfigureServiceFromEnv(delegationService, env); err != nil {
 		return nil, err
 	}
+	delegationService.SetMenuResolver(newDelegationMenuResolver(securityEngine, menuReg, actionReg, externalIDs["base.group_no_one"].ResID))
 	oi_delegation.BindSecurity(securityEngine, delegationService)
 	env.WithPolicy(securityEngine)
 	impersonationService := impersonationFromExternalIDs(externalIDs)

@@ -326,6 +326,12 @@ func (s *Service) GroupConfig(groupID int64) (GroupConfig, bool) {
 	return config, ok
 }
 
+func (s *Service) SetMenuResolver(resolver MenuResolver) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.menus = resolver
+}
+
 func (s *Service) SetRestrictedAccess(enabled bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -1,6 +1,8 @@
 package oi_delegation
 
 import (
+	"strings"
+
 	"gorp/internal/delegation"
 	"gorp/internal/domain"
 	"gorp/internal/field"
@@ -160,6 +162,7 @@ func ConfigureServiceFromEnv(svc *delegation.Service, env *record.Env) error {
 	if svc == nil || env == nil {
 		return nil
 	}
+	svc.SetRestrictedAccess(configParameterTruthy(env, "restricted_access") || configParameterTruthy(env, "oi_delegation.restricted_access"))
 	found, err := env.Model("res.groups").Search(domain.And())
 	if err != nil {
 		return err
@@ -188,6 +191,25 @@ func ConfigureServiceFromEnv(svc *delegation.Service, env *record.Env) error {
 		})
 	}
 	return nil
+}
+
+func configParameterTruthy(env *record.Env, key string) bool {
+	if env == nil {
+		return false
+	}
+	if _, ok := env.ModelMetadata("ir.config_parameter"); !ok {
+		return false
+	}
+	found, err := env.Model("ir.config_parameter").SearchWithOptions(domain.Cond("key", domain.Equal, key), record.SearchOptions{Limit: 1})
+	if err != nil || found.Len() == 0 {
+		return false
+	}
+	rows, err := found.Read("value")
+	if err != nil || len(rows) == 0 {
+		return false
+	}
+	value := strings.TrimSpace(stringFromAny(rows[0]["value"]))
+	return value == "1" || strings.EqualFold(value, "true")
 }
 
 func DefaultDelegableGroups() []delegation.GroupConfig {
