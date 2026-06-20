@@ -1114,6 +1114,8 @@ func (m ModelSet) normalizeCreateValues(values map[string]any) map[string]any {
 		return m.normalizeMailAliasDomainValues(nil, values)
 	case "mail.blacklist":
 		return m.normalizeMailBlacklistValues(nil, values)
+	case "mail.mail":
+		return m.normalizeMailMailValues(nil, values)
 	case "mailing.contact":
 		return m.normalizeMailingContactValues(nil, values)
 	case "mailing.subscription":
@@ -1934,6 +1936,257 @@ func (m ModelSet) validateMailInboundMessageLockCreate(row map[string]any) error
 		}
 	}
 	return nil
+}
+
+func (m ModelSet) normalizeMailMailValues(existing map[string]any, values map[string]any) map[string]any {
+	out := copyValues(values)
+	templateID := numericID(out["template_id"])
+	delete(out, "template_id")
+	if existing == nil && templateID != 0 {
+		m.addDelegationEmailsToMailValues(out, templateID, time.Now().UTC())
+	}
+	return out
+}
+
+func (m ModelSet) addDelegationEmailsToMailValues(values map[string]any, templateID int64, at time.Time) {
+	groupIDs := m.mailTemplateDelegationGroupIDs(templateID)
+	if len(groupIDs) == 0 {
+		return
+	}
+	employeeIDs := m.mailDelegationRecipientEmployeeIDs(values)
+	if len(employeeIDs) == 0 {
+		return
+	}
+	delegationIDs := m.activeDelegationIDsForEmployees(employeeIDs, at)
+	if len(delegationIDs) == 0 {
+		return
+	}
+	delegateEmployeeIDs := m.delegationLineEmployeeIDs(delegationIDs, groupIDs)
+	if len(delegateEmployeeIDs) == 0 {
+		return
+	}
+	cc := splitMailRecipients(stringValue(values["email_cc"]))
+	cc = append(cc, m.employeeWorkEmails(delegateEmployeeIDs)...)
+	if len(cc) == 0 {
+		return
+	}
+	values["email_cc"] = strings.Join(uniqueRecordStrings(cc), "; ")
+}
+
+func (m ModelSet) mailTemplateDelegationGroupIDs(templateID int64) []int64 {
+	template := m.rowByID("mail.template", templateID)
+	if template == nil {
+		return nil
+	}
+	return uniqueSortedRecordIDs(int64Values(template["delegation_group_ids"]))
+}
+
+func (m ModelSet) mailDelegationRecipientEmployeeIDs(values map[string]any) []int64 {
+	seen := map[int64]bool{}
+	add := func(id int64) {
+		if id != 0 {
+			seen[id] = true
+		}
+	}
+	emails := splitMailRecipients(stringValue(values["email_to"]) + ";" + stringValue(values["email_cc"]))
+	emailSet := map[string]bool{}
+	for _, email := range emails {
+		emailSet[email] = true
+	}
+	if len(emailSet) > 0 {
+		for _, row := range m.rows("hr.employee") {
+			if emailSet[strings.TrimSpace(stringValue(row["work_email"]))] {
+				add(numericID(row["id"]))
+			}
+		}
+	}
+	for _, id := range m.mailDelegationEmployeeIDsByPartnerIDs(mailRecipientPartnerIDs(values["recipient_ids"])) {
+		add(id)
+	}
+	out := make([]int64, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func mailRecipientPartnerIDs(value any) []int64 {
+	switch typed := value.(type) {
+	case []int64, int64, int, float64, string:
+		return uniqueSortedRecordIDs(int64Values(typed))
+	case []any:
+		if len(typed) == 0 {
+			return nil
+		}
+		if x2ManyCommandItems(typed) {
+			ids := []int64{}
+			for _, item := range typed {
+				command := item.([]any)
+				switch numericID(command[0]) {
+				case 4:
+					if len(command) > 1 {
+						ids = appendUniqueID(ids, numericID(command[1]))
+					}
+				case 6:
+					if len(command) > 2 {
+						ids = uniqueRecordIDs(append(ids, int64Values(command[2])...))
+					}
+				}
+			}
+			return uniqueSortedRecordIDs(ids)
+		}
+		return uniqueSortedRecordIDs(int64Values(typed))
+	default:
+		return nil
+	}
+}
+
+func (m ModelSet) mailDelegationEmployeeIDsByPartnerIDs(partnerIDs []int64) []int64 {
+	if len(partnerIDs) == 0 {
+		return nil
+	}
+	partnerSet := map[int64]bool{}
+	for _, id := range partnerIDs {
+		partnerSet[id] = true
+	}
+	userIDs := []int64{}
+	employeeIDs := []int64{}
+	for _, user := range m.rows("res.users") {
+		if !partnerSet[numericID(user["partner_id"])] {
+			continue
+		}
+		userID := numericID(user["id"])
+		userIDs = appendUniqueID(userIDs, userID)
+		employeeIDs = append(employeeIDs, int64Values(user["employee_ids"])...)
+		if id := numericID(user["employee_id"]); id != 0 {
+			employeeIDs = append(employeeIDs, id)
+		}
+	}
+	if len(userIDs) > 0 {
+		userSet := map[int64]bool{}
+		for _, id := range userIDs {
+			userSet[id] = true
+		}
+		for _, employee := range m.rows("hr.employee") {
+			if userSet[numericID(employee["user_id"])] {
+				employeeIDs = append(employeeIDs, numericID(employee["id"]))
+			}
+		}
+	}
+	return uniqueSortedRecordIDs(employeeIDs)
+}
+
+func (m ModelSet) activeDelegationIDsForEmployees(employeeIDs []int64, at time.Time) []int64 {
+	if len(employeeIDs) == 0 {
+		return nil
+	}
+	employeeSet := map[int64]bool{}
+	for _, id := range employeeIDs {
+		employeeSet[id] = true
+	}
+	today := dateOnlyTime(at)
+	var ids []int64
+	for _, row := range m.rows("delegation") {
+		if !employeeSet[numericID(row["employee_id"])] || stringValue(row["state"]) != "confirmed" {
+			continue
+		}
+		if !dateInRange(today, dateOnlyTime(recordDateValue(row["date_from"])), dateOnlyTime(recordDateValue(row["date_to"]))) {
+			continue
+		}
+		ids = append(ids, numericID(row["id"]))
+	}
+	return uniqueSortedRecordIDs(ids)
+}
+
+func (m ModelSet) delegationLineEmployeeIDs(delegationIDs []int64, groupIDs []int64) []int64 {
+	if len(delegationIDs) == 0 || len(groupIDs) == 0 {
+		return nil
+	}
+	delegationSet := map[int64]bool{}
+	for _, id := range delegationIDs {
+		delegationSet[id] = true
+	}
+	groupSet := map[int64]bool{}
+	for _, id := range groupIDs {
+		groupSet[id] = true
+	}
+	var ids []int64
+	for _, row := range m.rows("delegation.line") {
+		if !delegationSet[numericID(row["delegation_id"])] || !groupSet[numericID(row["group_id"])] {
+			continue
+		}
+		if row["active"] == false {
+			continue
+		}
+		if id := numericID(row["employee_id"]); id != 0 {
+			ids = append(ids, id)
+		}
+	}
+	return uniqueSortedRecordIDs(ids)
+}
+
+func (m ModelSet) employeeWorkEmails(employeeIDs []int64) []string {
+	if len(employeeIDs) == 0 {
+		return nil
+	}
+	employeeSet := map[int64]bool{}
+	for _, id := range employeeIDs {
+		employeeSet[id] = true
+	}
+	var emails []string
+	for _, row := range m.rows("hr.employee") {
+		if !employeeSet[numericID(row["id"])] {
+			continue
+		}
+		if email := strings.TrimSpace(stringValue(row["work_email"])); email != "" {
+			emails = append(emails, email)
+		}
+	}
+	return uniqueRecordStrings(emails)
+}
+
+func splitMailRecipients(value string) []string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ';'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if item := strings.TrimSpace(part); item != "" {
+			out = append(out, item)
+		}
+	}
+	return uniqueRecordStrings(out)
+}
+
+func uniqueRecordStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func dateOnlyTime(value time.Time) time.Time {
+	if value.IsZero() {
+		return time.Time{}
+	}
+	value = value.UTC()
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+func dateInRange(date time.Time, from time.Time, to time.Time) bool {
+	if date.IsZero() || from.IsZero() || to.IsZero() {
+		return false
+	}
+	return !date.Before(from) && !date.After(to)
 }
 
 func (m ModelSet) normalizeDelegationValues(existing map[string]any, values map[string]any) map[string]any {
@@ -5963,6 +6216,15 @@ func (r RecordSet) Write(values map[string]any) error {
 			r.model.syncResUserPartnerShare(oldRows[id], row)
 		}
 		r.model.syncAllResGroupsDerivedFields()
+		if hasAnyKey(values, "active", "groups_id", "group_ids") {
+			for _, id := range r.ids {
+				row, ok := r.model.store.records[id]
+				if !ok {
+					continue
+				}
+				r.model.deactivateInvalidDelegationLinesForUser(row, time.Now().UTC())
+			}
+		}
 	}
 	if r.model.model.Name == "res.partner" {
 		for _, id := range r.ids {
@@ -6510,6 +6772,36 @@ func (m ModelSet) normalizeResUsersValues(existing map[string]any, values map[st
 		out["groups_id"] = ids
 	}
 	return out
+}
+
+func (m ModelSet) deactivateInvalidDelegationLinesForUser(user map[string]any, at time.Time) {
+	userID := numericID(user["id"])
+	if userID == 0 {
+		return
+	}
+	today := dateOnlyTime(at)
+	active := m.rowIsActive("res.users", user)
+	groupSet := map[int64]bool{}
+	for _, groupID := range uniqueRecordIDs(append(int64Values(user["groups_id"]), int64Values(user["group_ids"])...)) {
+		groupSet[groupID] = true
+	}
+	store, ok := m.env.stores["delegation.line"]
+	if !ok {
+		return
+	}
+	for _, line := range store.records {
+		if numericID(line["delegator_user_id"]) != userID || line["active"] == false || stringValue(line["state"]) != "confirmed" {
+			continue
+		}
+		dateTo := dateOnlyTime(recordDateValue(line["date_to"]))
+		if dateTo.IsZero() || dateTo.Before(today) {
+			continue
+		}
+		if active && groupSet[numericID(line["group_id"])] {
+			continue
+		}
+		line["active"] = false
+	}
 }
 
 func normalizeX2ManyRecordIDs(current []int64, value any) []int64 {

@@ -146,6 +146,143 @@ func TestDelegationSourceFieldAliasesAndLineUniqueness(t *testing.T) {
 	}
 }
 
+func TestMailMailCreateTemplateIDExpandsDelegationCC(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	partnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Owner", "email": "owner@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorUserID, err := env.Model("res.users").Create(map[string]any{"login": "owner", "name": "Owner", "partner_id": partnerID, "groups_id": []int64{groupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Owner", "user_id": delegatorUserID, "work_email": "owner@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegate", "work_email": "delegate@example.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2020-01-01",
+		"date_to":     "2099-12-31",
+		"employee_id": delegatorEmployeeID,
+		"state":       "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": delegationID, "group_id": groupID, "employee_id": delegateEmployeeID}); err != nil {
+		t.Fatal(err)
+	}
+	templateID, err := env.Model("mail.template").Create(map[string]any{"name": "Delegation CC", "model": "res.partner", "delegation_group_ids": []int64{groupID}, "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mailID, err := env.Model("mail.mail").Create(map[string]any{
+		"template_id":   templateID,
+		"email_to":      "owner@example.com, direct@example.com",
+		"email_cc":      "copy@example.com; delegate@example.com",
+		"recipient_ids": []any{[]any{int64(4), partnerID}},
+		"state":         "outgoing",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model("mail.mail").Browse(mailID).Read("email_to", "email_cc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["email_to"] != "owner@example.com, direct@example.com" || rows[0]["email_cc"] != "copy@example.com; delegate@example.com" {
+		t.Fatalf("mail with delegation cc = %+v", rows)
+	}
+	plainTemplateID, err := env.Model("mail.template").Create(map[string]any{"name": "Plain", "model": "res.partner", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainID, err := env.Model("mail.mail").Create(map[string]any{"template_id": plainTemplateID, "email_to": "owner@example.com", "email_cc": "plain@example.com", "state": "outgoing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainRows, err := env.Model("mail.mail").Browse(plainID).Read("email_cc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plainRows) != 1 || plainRows[0]["email_cc"] != "plain@example.com" {
+		t.Fatalf("plain template cc = %+v", plainRows)
+	}
+}
+
+func TestResUsersWriteDeactivatesInvalidDelegationLines(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	keepGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Keep", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Remove", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorUserID, err := env.Model("res.users").Create(map[string]any{"login": "owner", "name": "Owner", "active": true, "groups_id": []int64{keepGroupID, removeGroupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Owner", "user_id": delegatorUserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keepEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Keep Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Remove Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2020-01-01",
+		"date_to":     "2099-12-31",
+		"employee_id": delegatorEmployeeID,
+		"state":       "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keepLineID, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": delegationID, "group_id": keepGroupID, "employee_id": keepEmployeeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeLineID, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": delegationID, "group_id": removeGroupID, "employee_id": removeEmployeeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model("res.users").Browse(delegatorUserID).Write(map[string]any{"groups_id": []int64{keepGroupID}}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(ModelDelegationLine).Browse(keepLineID, removeLineID).Read("active")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0]["active"] != true || rows[1]["active"] != false {
+		t.Fatalf("group removal active rows = %+v", rows)
+	}
+	if err := env.Model("res.users").Browse(delegatorUserID).Write(map[string]any{"active": false}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = env.Model(ModelDelegationLine).Browse(keepLineID, removeLineID).Read("active")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0]["active"] != false || rows[1]["active"] != false {
+		t.Fatalf("archive active rows = %+v", rows)
+	}
+}
+
 func TestDelegationManifestFixtureFiles(t *testing.T) {
 	manifest := Manifest()
 	for _, path := range manifest.Data {
