@@ -114,7 +114,7 @@ var BaseMigrations = []Migration{
 	{Version: 65, Name: "approval_buttons", SQL: `CREATE TABLE IF NOT EXISTS approval_buttons (id BIGSERIAL PRIMARY KEY, settings_id BIGINT NOT NULL, config_id BIGINT, model TEXT, sequence INTEGER NOT NULL DEFAULT 10, active BOOLEAN NOT NULL DEFAULT true, name TEXT NOT NULL, action_type TEXT NOT NULL, state_value TEXT, next_state TEXT, return_state TEXT, transfer_state TEXT, visible_to TEXT, method TEXT, visible_domain TEXT, server_action_id BIGINT, email_template_id BIGINT, email_wizard_form_id BIGINT, email_next_action TEXT, group_ids TEXT, comment_required BOOLEAN NOT NULL DEFAULT false, confirm_message TEXT, button_class TEXT, vote_threshold INTEGER)`},
 	{Version: 66, Name: "approval_automation", SQL: `CREATE TABLE IF NOT EXISTS approval_automation (id BIGSERIAL PRIMARY KEY, settings_id BIGINT NOT NULL, model TEXT, sequence INTEGER NOT NULL DEFAULT 10, active BOOLEAN NOT NULL DEFAULT true, name TEXT NOT NULL, trigger TEXT, from_states TEXT, to_states TEXT, code TEXT, filter_domain TEXT, template_ids TEXT, server_action_ids TEXT, action_dsl TEXT)`},
 	{Version: 67, Name: "approval_escalation", SQL: `CREATE TABLE IF NOT EXISTS approval_escalation (id BIGSERIAL PRIMARY KEY, settings_id BIGINT NOT NULL, name TEXT NOT NULL, state_value TEXT, delay_seconds INTEGER, user_id BIGINT, server_action_id BIGINT, active BOOLEAN NOT NULL DEFAULT true)`},
-	{Version: 68, Name: "approval_log", SQL: `CREATE TABLE IF NOT EXISTS approval_log (id BIGSERIAL PRIMARY KEY, model TEXT NOT NULL, record_id BIGINT NOT NULL, user_id BIGINT, date TIMESTAMPTZ, description TEXT, old_state TEXT, new_state TEXT, old_status TEXT, new_status TEXT, duration_seconds INTEGER, approval_button_id BIGINT, bulk_approval BOOLEAN NOT NULL DEFAULT false, old_node_id BIGINT, new_node_id BIGINT, workflow_transition_id BIGINT, delegation_id BIGINT, delegation_employee_id BIGINT)`},
+	{Version: 68, Name: "approval_log", SQL: `CREATE TABLE IF NOT EXISTS approval_log (id BIGSERIAL PRIMARY KEY, model TEXT NOT NULL, record_id BIGINT NOT NULL, user_id BIGINT, date TIMESTAMPTZ, description TEXT, old_state TEXT, new_state TEXT, old_status TEXT, new_status TEXT, duration_seconds DOUBLE PRECISION, duration_hours DOUBLE PRECISION, approval_button_id BIGINT, bulk_approval BOOLEAN NOT NULL DEFAULT false, old_node_id BIGINT, new_node_id BIGINT, workflow_transition_id BIGINT, delegation_id BIGINT, delegation_employee_id BIGINT)`},
 	{Version: 69, Name: "approval_log_voting", SQL: `CREATE TABLE IF NOT EXISTS approval_log_voting (id BIGSERIAL PRIMARY KEY, user_id BIGINT, vote TEXT, button_id BIGINT, comment TEXT, model TEXT NOT NULL, record_id BIGINT NOT NULL, state TEXT, button_class TEXT)`},
 	{Version: 70, Name: "approval_forward", SQL: `CREATE TABLE IF NOT EXISTS approval_forward (id BIGSERIAL PRIMARY KEY, model TEXT NOT NULL, record_id BIGINT NOT NULL, approval_state_id BIGINT, state_value TEXT, active BOOLEAN NOT NULL DEFAULT true, user_id BIGINT NOT NULL, forwarder_user_id BIGINT)`},
 	{Version: 71, Name: "cancellation_record", SQL: `CREATE TABLE IF NOT EXISTS cancellation_record (id BIGSERIAL PRIMARY KEY, name TEXT, requester_id BIGINT, model TEXT NOT NULL, record_id BIGINT NOT NULL, reason TEXT, state TEXT)`},
@@ -2535,5 +2535,9 @@ CREATE TABLE IF NOT EXISTS resource_resource (
   calendar_id BIGINT,
   tz TEXT
 );
+`},
+	{Version: 217, Name: "approval_log_duration_fields", SQL: `
+ALTER TABLE approval_log ADD COLUMN IF NOT EXISTS duration_hours DOUBLE PRECISION;
+ALTER TABLE approval_log ALTER COLUMN duration_seconds TYPE DOUBLE PRECISION USING duration_seconds::double precision;
 `},
 }

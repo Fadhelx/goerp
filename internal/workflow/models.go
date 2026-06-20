@@ -187,7 +187,7 @@ func Models() []model.Model {
 			field.New("new_state", field.Char),
 			field.New("old_status", field.Char),
 			field.New("new_status", field.Char),
-			field.New("duration_seconds", field.Int),
+			field.New("duration_seconds", field.Float),
 			field.New("duration_hours", field.Float),
 			field.New("duration", field.Char),
 			field.New("duration_hours_avg", field.Float),

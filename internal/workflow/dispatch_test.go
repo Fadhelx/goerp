@@ -1439,6 +1439,7 @@ func TestDispatcherProcessEscalationsPersistsProcessRecordAndLog(t *testing.T) {
 		NodeID:          pendingNodeID,
 		State:           "pending",
 		Active:          true,
+		UpdatedAt:       now.Add(-time.Hour),
 		EscalationDate:  now.Add(-time.Minute),
 		ApprovalUserIDs: []int64{7},
 	}); err != nil {
@@ -1470,7 +1471,7 @@ func TestDispatcherProcessEscalationsPersistsProcessRecordAndLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	logRows, err := logs.Read("model", "record_id", "old_node_id", "new_node_id", "workflow_transition_id", "description")
+	logRows, err := logs.Read("model", "record_id", "old_node_id", "new_node_id", "workflow_transition_id", "description", "duration_seconds", "duration_hours")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1481,6 +1482,11 @@ func TestDispatcherProcessEscalationsPersistsProcessRecordAndLog(t *testing.T) {
 		logRows[0]["workflow_transition_id"] != int64(0) ||
 		logRows[0]["description"] != "Workflow escalation" {
 		t.Fatalf("escalation logs = %+v", logRows)
+	}
+	durationSeconds, _ := toFloat(logRows[0]["duration_seconds"])
+	durationHours, _ := toFloat(logRows[0]["duration_hours"])
+	if durationSeconds != 3600 || durationHours != 1 {
+		t.Fatalf("escalation log duration = %+v", logRows[0])
 	}
 }
 

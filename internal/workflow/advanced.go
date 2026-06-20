@@ -536,6 +536,7 @@ func (w Workflow) ApplyTransition(process Process, transitionID int64, ctx Evalu
 		process.ApprovalUserIDs = withoutIDs(process.ApprovalUserIDs, process.ApprovalDoneUserIDs)
 	}
 	if transition.Committee && transition.CommitteeLimit > 0 && len(process.ApprovalDoneUserIDs) < transition.CommitteeLimit {
+		logAt := ctx.now()
 		if err := emitApprovalLog(process, ctx, hooks, ApprovalLogEvent{
 			WorkflowID:   w.ID,
 			Model:        process.Model,
@@ -544,13 +545,16 @@ func (w Workflow) ApplyTransition(process Process, transitionID int64, ctx Evalu
 			NewNodeID:    process.NodeID,
 			TransitionID: transition.ID,
 			Committee:    true,
+			At:           logAt,
+			Details:      approvalLogDurationDetails(process.UpdatedAt, logAt),
 		}); err != nil {
 			return process, nil, err
 		}
-		process.UpdatedAt = ctx.now()
+		process.UpdatedAt = logAt
 		return process, nil, nil
 	}
 	oldNodeID := process.NodeID
+	previousUpdate := process.UpdatedAt
 	process.NodeID = transition.NextNodeID
 	process.LastTransitionID = transition.ID
 	process.UpdatedAt = ctx.now()
@@ -562,6 +566,8 @@ func (w Workflow) ApplyTransition(process Process, transitionID int64, ctx Evalu
 		NewNodeID:    process.NodeID,
 		TransitionID: transition.ID,
 		Committee:    transition.Committee,
+		At:           process.UpdatedAt,
+		Details:      approvalLogDurationDetails(previousUpdate, process.UpdatedAt),
 	}); err != nil {
 		return process, nil, err
 	}
@@ -805,6 +811,7 @@ func (w Workflow) applyAutoTransition(process Process, transition Transition, ct
 		return process, []ActionResult{result}, nil
 	}
 	oldNodeID := process.NodeID
+	previousUpdate := process.UpdatedAt
 	process.NodeID = transition.NextNodeID
 	process.LastTransitionID = transition.ID
 	process.UpdatedAt = ctx.now()
@@ -815,6 +822,8 @@ func (w Workflow) applyAutoTransition(process Process, transition Transition, ct
 		OldNodeID:    oldNodeID,
 		NewNodeID:    process.NodeID,
 		TransitionID: transition.ID,
+		At:           process.UpdatedAt,
+		Details:      approvalLogDurationDetails(previousUpdate, process.UpdatedAt),
 	}); err != nil {
 		return process, nil, err
 	}
@@ -833,18 +842,20 @@ func (w Workflow) ApplyEscalation(process Process, ctx EvaluationContext, hooks 
 		return process, nil, fmt.Errorf("workflow node %d has no escalation target", node.ID)
 	}
 	oldNodeID := process.NodeID
+	previousUpdate := process.UpdatedAt
 	process.NodeID = node.EscalationNodeID
 	process.LastTransitionID = 0
 	process.UpdatedAt = ctx.now()
+	details := approvalLogDurationDetails(previousUpdate, process.UpdatedAt)
+	details["description"] = "Workflow escalation"
 	if err := emitApprovalLog(process, ctx, hooks, ApprovalLogEvent{
 		WorkflowID: w.ID,
 		Model:      process.Model,
 		RecordID:   process.RecordID,
 		OldNodeID:  oldNodeID,
 		NewNodeID:  process.NodeID,
-		Details: map[string]string{
-			"description": "Workflow escalation",
-		},
+		At:         process.UpdatedAt,
+		Details:    details,
 	}); err != nil {
 		return process, nil, err
 	}
@@ -1106,7 +1117,9 @@ func emitApprovalLog(process Process, ctx EvaluationContext, hooks Hooks, event 
 	if hooks.ApprovalLog == nil {
 		return nil
 	}
-	event.At = ctx.now()
+	if event.At.IsZero() {
+		event.At = ctx.now()
+	}
 	event.UserID = ctx.UserID
 	if event.WorkflowID == 0 {
 		event.WorkflowID = process.WorkflowID
@@ -1121,6 +1134,17 @@ func emitApprovalLog(process Process, ctx EvaluationContext, hooks Hooks, event 
 		event.DelegationID = ctx.DelegationID
 	}
 	return hooks.ApprovalLog(event)
+}
+
+func approvalLogDurationDetails(from time.Time, to time.Time) map[string]string {
+	details := map[string]string{}
+	if from.IsZero() || to.IsZero() || to.Before(from) {
+		return details
+	}
+	duration := to.Sub(from)
+	details["duration_seconds"] = strconv.FormatFloat(duration.Seconds(), 'f', -1, 64)
+	details["duration_hours"] = strconv.FormatFloat(duration.Hours(), 'f', -1, 64)
+	return details
 }
 
 func orderedNodes(nodes []Node) []Node {

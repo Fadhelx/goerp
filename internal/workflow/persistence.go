@@ -251,11 +251,18 @@ func (s ProcessStore) AppendApprovalLog(event ApprovalLogEvent) (int64, error) {
 		}
 	}
 	if duration := event.Details["duration_seconds"]; duration != "" {
-		seconds, err := strconv.Atoi(duration)
+		seconds, err := strconv.ParseFloat(duration, 64)
 		if err != nil {
 			return 0, fmt.Errorf("approval log duration_seconds: %w", err)
 		}
 		values["duration_seconds"] = seconds
+	}
+	if duration := event.Details["duration_hours"]; duration != "" {
+		hours, err := strconv.ParseFloat(duration, 64)
+		if err != nil {
+			return 0, fmt.Errorf("approval log duration_hours: %w", err)
+		}
+		values["duration_hours"] = hours
 	}
 	return s.Env.Model(ModelLog).Create(values)
 }

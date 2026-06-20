@@ -182,6 +182,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"workflow_node_responsible_value_filter",
 		"workflow_node_advanced_metadata_fields",
 		"resource_calendar_models",
+		"approval_log_duration_fields",
 		"mail_activity_hide_in_chatter",
 		"approval_buttons_email_compose_fields",
 	} {
@@ -1394,6 +1395,22 @@ func TestResourceCalendarMigrationExposesOdooResourceModels(t *testing.T) {
 		if !strings.Contains(sql, column) {
 			t.Fatalf("resource calendar migration missing column %s: %s", column, sql)
 		}
+	}
+}
+
+func TestApprovalLogMigrationExposesDurationHours(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	if !strings.Contains(sqlByName["approval_log"], "duration_hours") {
+		t.Fatalf("approval_log missing duration_hours: %s", sqlByName["approval_log"])
+	}
+	if !strings.Contains(sqlByName["approval_log"], "duration_seconds DOUBLE PRECISION") {
+		t.Fatalf("approval_log duration_seconds should be float: %s", sqlByName["approval_log"])
+	}
+	if !strings.Contains(sqlByName["approval_log_duration_fields"], "duration_hours") || !strings.Contains(sqlByName["approval_log_duration_fields"], "duration_seconds TYPE DOUBLE PRECISION") {
+		t.Fatalf("approval_log_duration_fields migration incomplete: %s", sqlByName["approval_log_duration_fields"])
 	}
 }
 

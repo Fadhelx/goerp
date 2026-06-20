@@ -2148,7 +2148,7 @@ func persistWorkflowResult(env *record.Env, engine *Engine, before effectSnapsho
 			"description":        log.Comment,
 			"old_state":          log.OldState,
 			"new_state":          log.NewState,
-			"duration_seconds":   int64(log.Duration.Seconds()),
+			"duration_seconds":   log.Duration.Seconds(),
 			"duration_hours":     log.Duration.Hours(),
 			"approval_button_id": log.ButtonID,
 			"bulk_approval":      log.BulkApproval,

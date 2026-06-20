@@ -376,17 +376,27 @@ func TestProcessStorePersistsWorkflowLifecycleAndLogs(t *testing.T) {
 	if logs.Len() != 2 {
 		t.Fatalf("approval.log count = %d", logs.Len())
 	}
-	rows, err := logs.Read("model", "record_id", "user_id", "old_node_id", "new_node_id", "workflow_transition_id", "description")
+	rows, err := logs.Read("model", "record_id", "user_id", "old_node_id", "new_node_id", "workflow_transition_id", "description", "duration_seconds", "duration_hours")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rows[0]["old_node_id"] != int64(10) || rows[0]["new_node_id"] != int64(20) || rows[0]["workflow_transition_id"] != int64(100) {
 		t.Fatalf("start log = %+v", rows[0])
 	}
+	startSeconds, _ := toFloat(rows[0]["duration_seconds"])
+	startHours, _ := toFloat(rows[0]["duration_hours"])
+	if startSeconds != 0 || startHours != 0 {
+		t.Fatalf("start log duration = %+v", rows[0])
+	}
 	if rows[1]["model"] != "purchase.order" || rows[1]["record_id"] != int64(99) || rows[1]["user_id"] != int64(7) ||
 		rows[1]["old_node_id"] != int64(20) || rows[1]["new_node_id"] != int64(30) || rows[1]["workflow_transition_id"] != int64(200) ||
 		rows[1]["description"] != "Workflow transition" {
 		t.Fatalf("approval log = %+v", rows[1])
+	}
+	approveSeconds, _ := toFloat(rows[1]["duration_seconds"])
+	approveHours, _ := toFloat(rows[1]["duration_hours"])
+	if approveSeconds != 60 || approveHours != 1.0/60.0 {
+		t.Fatalf("approval log duration = %+v", rows[1])
 	}
 	if len(observedLogs) != 2 || observedLogs[0].TransitionID != 100 || observedLogs[1].TransitionID != 200 {
 		t.Fatalf("chained approval log hook = %+v", observedLogs)
