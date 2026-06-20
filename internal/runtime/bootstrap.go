@@ -3932,11 +3932,43 @@ func modelExternalID(modelName string) string {
 }
 
 func repoRoot() string {
+	if cwd, err := os.Getwd(); err == nil {
+		for _, candidate := range []string{cwd, filepath.Join(cwd, "current"), filepath.Join(cwd, "gorp")} {
+			if root, ok := findRepoRoot(candidate); ok {
+				return root
+			}
+		}
+	}
 	_, file, _, ok := goruntime.Caller(0)
 	if !ok {
 		return "."
 	}
+	if root, ok := findRepoRoot(filepath.Dir(file)); ok {
+		return root
+	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
+}
+
+func findRepoRoot(start string) (string, bool) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", false
+	}
+	for {
+		if fileExists(filepath.Join(dir, "go.mod")) && fileExists(filepath.Join(dir, "internal", "base", "data", "res_bank.xml")) {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 func modelNamesByID(env *record.Env) (map[int64]string, error) {
