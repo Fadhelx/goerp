@@ -164,11 +164,18 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 		}
 	}
 
-	rows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".act_login_as"].ResID).Read("res_model", "view_mode")
+	rows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".act_login_as"].ResID).Read("res_model", "view_mode", "target", "context", "binding_model_id", "binding_type", "group_ids")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rows[0]["res_model"] != ModelLoginAsWizard || rows[0]["view_mode"] != "form" {
+	systemGroupID := ids["base.group_system"].ResID
+	if rows[0]["res_model"] != ModelLoginAsWizard ||
+		rows[0]["view_mode"] != "form" ||
+		rows[0]["target"] != "new" ||
+		rows[0]["context"] != "{'default_user_id' : active_id}" ||
+		rows[0]["binding_model_id"] != ids["base.model_res_users"].ResID ||
+		rows[0]["binding_type"] != "action" ||
+		!fixtureIDsContain(rows[0]["group_ids"], systemGroupID) {
 		t.Fatalf("action row = %+v", rows[0])
 	}
 	rows, err = env.Model("ir.ui.view").Browse(ids[ModuleName+".view_login_as_form"].ResID).Read("model", "arch")
@@ -176,7 +183,7 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	arch, _ := rows[0]["arch"].(string)
-	if rows[0]["model"] != ModelLoginAsWizard || !strings.Contains(arch, `field name="user_id"`) {
+	if rows[0]["model"] != ModelLoginAsWizard || !strings.Contains(arch, `field name="user_id"`) || !strings.Contains(arch, `button name="switch_to_user"`) || strings.Contains(arch, `button name="action_login"`) {
 		t.Fatalf("view row = %+v", rows[0])
 	}
 
@@ -397,6 +404,8 @@ func seedLoginAsExternalIDs(t *testing.T, loader *data.Loader) {
 	t.Helper()
 	var seed strings.Builder
 	seed.WriteString("<odoo>")
+	seed.WriteString(`<record id="base.group_system" model="res.groups"><field name="name">Settings</field></record>`)
+	seed.WriteString(`<record id="base.model_res_users" model="ir.model"><field name="model">res.users</field><field name="name">User</field></record>`)
 	for _, group := range SecurityGroups() {
 		id := groupExternalID(group.ID)
 		seed.WriteString(`<record id="` + id + `" model="res.groups">`)
@@ -423,6 +432,35 @@ func seedLoginAsExternalIDs(t *testing.T, loader *data.Loader) {
 	if err := loader.LoadXML(strings.NewReader(seed.String())); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func fixtureIDsContain(value any, target int64) bool {
+	switch typed := value.(type) {
+	case []int64:
+		for _, id := range typed {
+			if id == target {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			switch id := item.(type) {
+			case int64:
+				if id == target {
+					return true
+				}
+			case int:
+				if int64(id) == target {
+					return true
+				}
+			case float64:
+				if int64(id) == target {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func loginAsFixtureEnv(t *testing.T) *record.Env {

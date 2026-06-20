@@ -2,6 +2,6 @@
   <record id="view_login_as_form" model="ir.ui.view">
     <field name="name">login.as.form</field>
     <field name="model">login.as</field>
-    <field name="arch">&lt;form string="Login As"&gt;&lt;group&gt;&lt;field name="group_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="company_id"/&gt;&lt;field name="company_ids"/&gt;&lt;field name="return_to"/&gt;&lt;field name="allow_inactive"/&gt;&lt;field name="allow_superuser"/&gt;&lt;/group&gt;&lt;field name="group_ids"/&gt;&lt;footer&gt;&lt;button name="action_login" type="object" string="Login As" class="btn-primary"/&gt;&lt;button special="cancel" string="Cancel"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+    <field name="arch">&lt;form string="Login As"&gt;&lt;group&gt;&lt;field name="group_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="company_id"/&gt;&lt;field name="company_ids"/&gt;&lt;field name="return_to"/&gt;&lt;field name="allow_inactive"/&gt;&lt;field name="allow_superuser"/&gt;&lt;/group&gt;&lt;field name="group_ids"/&gt;&lt;footer&gt;&lt;button name="switch_to_user" type="object" string="Login As" class="btn-primary"/&gt;&lt;button special="cancel" string="Cancel"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
   </record>
 </odoo>

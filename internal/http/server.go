@@ -9268,6 +9268,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 	if result, handled, err := s.dispatchDelegationMethod(env, req); handled {
 		return result, err
 	}
+	if result, handled, err := s.dispatchLoginAsMethod(env, req); handled {
+		return result, err
+	}
 	if result, handled, err := s.dispatchMailActivityMethod(env, req); handled {
 		return result, err
 	}
@@ -9612,6 +9615,75 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 	default:
 		return nil, fmt.Errorf("unsupported method %s", req.Method)
 	}
+}
+
+func (s Server) dispatchLoginAsMethod(env *record.Env, req callKWRequest) (any, bool, error) {
+	if req.Model != "login.as" {
+		return nil, false, nil
+	}
+	switch req.Method {
+	case "switch_to_user", "action_login":
+		action, err := s.loginAsWizardActURL(env, req)
+		return action, true, err
+	default:
+		return nil, false, nil
+	}
+}
+
+func (s Server) loginAsWizardActURL(env *record.Env, req callKWRequest) (map[string]any, error) {
+	if env == nil {
+		return nil, fmt.Errorf("login.as.%s requires env", req.Method)
+	}
+	if env.Context().UserID != 1 && !sessionHasXMLIDGroup(env, "base.group_system") {
+		return nil, fmt.Errorf("System User Only")
+	}
+	targetID := firstID(firstNonNil(kwarg(req.Kwargs, "user_id"), req.Values["user_id"], kwarg(req.Kwargs, "target_user_id"), req.Values["target_user_id"]))
+	groupID := int64Value(firstNonNil(kwarg(req.Kwargs, "group_id"), req.Values["group_id"]))
+	returnTo := firstTextHTTP(kwarg(req.Kwargs, "return_to"), req.Values["return_to"])
+	reason := firstTextHTTP(kwarg(req.Kwargs, "reason"), req.Values["reason"])
+
+	wizardID := firstID(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"]))
+	if wizardID != 0 {
+		rows, err := env.Model("login.as").Browse(wizardID).Read("user_id", "group_id", "return_to")
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			return nil, fmt.Errorf("login.as wizard %d not found", wizardID)
+		}
+		if targetID == 0 {
+			targetID = int64Value(rows[0]["user_id"])
+		}
+		if groupID == 0 {
+			groupID = int64Value(rows[0]["group_id"])
+		}
+		if strings.TrimSpace(returnTo) == "" {
+			returnTo = stringValue(rows[0]["return_to"])
+		}
+	}
+	if targetID == 0 {
+		return nil, fmt.Errorf("login.as.%s requires user_id", req.Method)
+	}
+
+	target := fmt.Sprintf("/web/login_as/%d", targetID)
+	query := url.Values{}
+	if groupID != 0 {
+		query.Set("group_id", strconv.FormatInt(groupID, 10))
+	}
+	if strings.TrimSpace(returnTo) != "" {
+		query.Set("redirect", safeWebRedirect(returnTo))
+	}
+	if reason != "" {
+		query.Set("reason", reason)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		target += "?" + encoded
+	}
+	return map[string]any{
+		"type":   "ir.actions.act_url",
+		"url":    target,
+		"target": "self",
+	}, nil
 }
 
 func (s Server) dispatchLinkTrackerMethod(env *record.Env, req callKWRequest) (any, bool, error) {

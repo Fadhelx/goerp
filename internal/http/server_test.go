@@ -13980,6 +13980,41 @@ func TestLoginAsHTTPRoutesSwitchBackAndRedirect(t *testing.T) {
 	}
 }
 
+func TestLoginAsCallButtonSwitchToUserReturnsActURL(t *testing.T) {
+	reg := record.NewRegistry()
+	for _, m := range internalbase.Models() {
+		if err := reg.Register(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := oi_login_as.RegisterRecordModels(reg); err != nil {
+		t.Fatal(err)
+	}
+	env := record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
+	wizardID, err := env.Model(oi_login_as.ModelLoginAsWizard).Create(map[string]any{
+		"user_id":   int64(20),
+		"group_id":  int64(30),
+		"return_to": "/web#menu_id=1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := Server{Env: env}.Handler()
+
+	for _, method := range []string{"switch_to_user", "action_login"} {
+		rec := httptest.NewRecorder()
+		body := bytes.NewBufferString(fmt.Sprintf(`{"args":[[%d]]}`, wizardID))
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_button/login.as/"+method, body))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s response %d %s", method, rec.Code, rec.Body.String())
+		}
+		payload := decodeJSON(t, rec.Body.Bytes())
+		if payload["type"] != "ir.actions.act_url" || payload["target"] != "self" || payload["url"] != "/web/login_as/20?group_id=30&redirect=%2Fweb%23menu_id%3D1" {
+			t.Fatalf("%s action = %+v", method, payload)
+		}
+	}
+}
+
 func TestCallButtonDispatchesWorkflowApproval(t *testing.T) {
 	server := testWorkflowDispatchServer(t)
 	settingsID := createHTTPWorkflowSettings(t, server.Env)
