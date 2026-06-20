@@ -197,7 +197,7 @@ func (e *Engine) groupClosure(groupIDs []int64) map[int64]bool {
 }
 
 func (e *Engine) Check(ctx record.Context, modelName string, op record.Operation, values map[string]any) error {
-	if ctx.UserID == 1 {
+	if ctx.UserID == 1 || ctx.Sudo {
 		return nil
 	}
 	user, ok := e.Users[ctx.UserID]
@@ -220,7 +220,7 @@ func (e *Engine) FilterFields(ctx record.Context, modelName string, fields []str
 	if len(fields) == 0 {
 		return fields
 	}
-	if ctx.UserID == 1 {
+	if ctx.UserID == 1 || ctx.Sudo {
 		return fields
 	}
 	allowed := fields[:0]
@@ -234,7 +234,7 @@ func (e *Engine) FilterFields(ctx record.Context, modelName string, fields []str
 }
 
 func (e *Engine) CheckRecord(ctx record.Context, modelName string, op record.Operation, row map[string]any) (bool, error) {
-	if ctx.UserID == 1 {
+	if ctx.UserID == 1 || ctx.Sudo {
 		return true, nil
 	}
 	return e.AllowedByRecordRules(ctx.UserID, modelName, op, row)

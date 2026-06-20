@@ -433,6 +433,28 @@ func TestRegistryBlocksActionsWithoutRequiredGroup(t *testing.T) {
 	}
 }
 
+func TestRegistryAllowsActionsWithSudoWithoutRequiredGroup(t *testing.T) {
+	writer := &captureWriter{}
+	registry := NewRegistry(Hooks{Writer: writer})
+	id, err := registry.Register(ServerAction{
+		Name:     "Restricted",
+		Model:    "res.partner",
+		Kind:     KindWrite,
+		GroupIDs: []int64{10},
+		Values:   map[string]any{"name": "Ada"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := registry.Run(context.Background(), id, ExecutionContext{RecordID: 1, UserID: 20, UserGroupIDs: []int64{30}, Sudo: true}); err != nil {
+		t.Fatal(err)
+	}
+	if writer.model != "res.partner" || len(writer.ids) != 1 || writer.ids[0] != 1 || writer.values["name"] != "Ada" {
+		t.Fatalf("writer = %+v", writer)
+	}
+}
+
 func TestRegistryAllowsActionsWithRequiredGroupFromContext(t *testing.T) {
 	writer := &captureWriter{}
 	registry := NewRegistry(Hooks{Writer: writer})

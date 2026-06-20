@@ -178,6 +178,7 @@ type Process struct {
 	LastTransitionID    int64
 	StartedAt           time.Time
 	UpdatedAt           time.Time
+	RunAsSuperuser      bool
 }
 
 type Condition struct {
@@ -188,17 +189,18 @@ type Condition struct {
 type Predicate func(EvaluationContext) (bool, error)
 
 type EvaluationContext struct {
-	UserID       int64
-	UserGroupIDs []int64
-	CompanyID    int64
-	CompanyIDs   []int64
-	DelegationID int64
-	Model        string
-	RecordID     int64
-	Values       map[string]any
-	Predicates   map[string]Predicate
-	MailComposed bool
-	Now          time.Time
+	UserID         int64
+	UserGroupIDs   []int64
+	CompanyID      int64
+	CompanyIDs     []int64
+	DelegationID   int64
+	Model          string
+	RecordID       int64
+	Values         map[string]any
+	Predicates     map[string]Predicate
+	MailComposed   bool
+	Now            time.Time
+	RunAsSuperuser bool
 }
 
 type Hooks struct {
@@ -553,6 +555,10 @@ func (w Workflow) ApplyTransition(process Process, transitionID int64, ctx Evalu
 		process.UpdatedAt = logAt
 		return process, nil, nil
 	}
+	if transition.RunAsSuperuser {
+		ctx.RunAsSuperuser = true
+		process.RunAsSuperuser = true
+	}
 	oldNodeID := process.NodeID
 	previousUpdate := process.UpdatedAt
 	process.NodeID = transition.NextNodeID
@@ -809,6 +815,10 @@ func (w Workflow) applyAutoTransition(process Process, transition Transition, ct
 			return process, nil, err
 		}
 		return process, []ActionResult{result}, nil
+	}
+	if transition.RunAsSuperuser {
+		ctx.RunAsSuperuser = true
+		process.RunAsSuperuser = true
 	}
 	oldNodeID := process.NodeID
 	previousUpdate := process.UpdatedAt

@@ -31,6 +31,7 @@ type Context struct {
 	UserID     int64
 	CompanyID  int64
 	CompanyIDs []int64
+	Sudo       bool
 	Values     map[string]any
 }
 

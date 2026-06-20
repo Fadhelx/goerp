@@ -163,6 +163,16 @@ func TestDelegationProviderExpandsRuntimeSecurityAndRevocationStopsAccess(t *tes
 	if err := engine.Check(record.Context{UserID: 20}, "secret.model", record.OpRead, nil); !errors.Is(err, ErrAccessDenied) {
 		t.Fatalf("expected inactive delegation denied, got %v", err)
 	}
+	if err := engine.Check(record.Context{UserID: 20, Sudo: true}, "secret.model", record.OpRead, nil); err != nil {
+		t.Fatalf("sudo check denied: %v", err)
+	}
+	if fields := engine.FilterFields(record.Context{UserID: 20, Sudo: true}, "secret.model", []string{"name", "secret"}); len(fields) != 2 {
+		t.Fatalf("sudo fields = %+v", fields)
+	}
+	ok, err := engine.CheckRecord(record.Context{UserID: 20, Sudo: true}, "secret.model", record.OpRead, map[string]any{"flag": false})
+	if err != nil || !ok {
+		t.Fatalf("sudo record rule ok=%v err=%v", ok, err)
+	}
 
 	req, err := svc.CreateRequest(delegation.RequestInput{
 		DateFrom:        now,
@@ -185,7 +195,7 @@ func TestDelegationProviderExpandsRuntimeSecurityAndRevocationStopsAccess(t *tes
 	if fields := engine.FilterFields(record.Context{UserID: 20}, "secret.model", []string{"name", "secret"}); len(fields) != 2 {
 		t.Fatalf("fields after activation = %+v", fields)
 	}
-	ok, err := engine.AllowedByRecordRules(20, "secret.model", record.OpRead, map[string]any{"flag": false})
+	ok, err = engine.AllowedByRecordRules(20, "secret.model", record.OpRead, map[string]any{"flag": false})
 	if err != nil {
 		t.Fatal(err)
 	}

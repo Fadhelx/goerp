@@ -33,20 +33,25 @@ func (s ProcessStore) Save(process Process) (int64, error) {
 	if process.RecordID == 0 {
 		return 0, fmt.Errorf("workflow process requires record id")
 	}
+	saveEnv := s.Env
+	if process.RunAsSuperuser {
+		saveEnv = workflowSudoEnv(saveEnv)
+	}
+	saveStore := ProcessStore{Env: saveEnv}
 	values := processValues(process)
-	found, err := s.searchProcess(process.Model, process.RecordID)
+	found, err := saveStore.searchProcess(process.Model, process.RecordID)
 	if err != nil {
 		return 0, err
 	}
 	ids := found.IDs()
 	if len(ids) == 0 {
-		return s.Env.Model(ModelProcess).Create(values)
+		return saveEnv.Model(ModelProcess).Create(values)
 	}
-	if err := s.Env.Model(ModelProcess).Browse(ids[0]).Write(values); err != nil {
+	if err := saveEnv.Model(ModelProcess).Browse(ids[0]).Write(values); err != nil {
 		return 0, err
 	}
 	if len(ids) > 1 {
-		if err := s.Env.Model(ModelProcess).Browse(ids[1:]...).Unlink(); err != nil {
+		if err := saveEnv.Model(ModelProcess).Browse(ids[1:]...).Unlink(); err != nil {
 			return 0, err
 		}
 	}

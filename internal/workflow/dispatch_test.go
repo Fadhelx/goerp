@@ -754,6 +754,64 @@ func TestDispatcherSourceActionRunsServerActionAndForwardPersists(t *testing.T) 
 	}
 }
 
+func TestDispatcherClassicButtonRunAsSuperuserBypassesServerActionGroups(t *testing.T) {
+	env := dispatchEnv(t)
+	settingsID := createDispatchSettings(t, env)
+	actionRegistry := actions.NewRegistry(actions.Hooks{})
+	var captured actions.ExecutionContext
+	if err := actionRegistry.RegisterGo("capture.sudo.workflow", func(_ context.Context, _ actions.ServerAction, exec actions.ExecutionContext) (actions.Result, error) {
+		captured = exec
+		return actions.Result{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	actionID, err := actionRegistry.Register(actions.ServerAction{
+		Name:         "Capture Sudo",
+		Kind:         actions.KindGo,
+		GoActionName: "capture.sudo.workflow",
+		GroupIDs:     []int64{99},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	buttonID, err := env.Model(ModelButton).Create(map[string]any{
+		"settings_id":      settingsID,
+		"name":             "Run Sudo",
+		"action_type":      string(ActionServerAction),
+		"state_value":      "draft",
+		"next_state":       "checked",
+		"server_action_id": actionID,
+		"run_as_superuser": true,
+		"active":           true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{"name": "PO Sudo", "state": "draft"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dispatcher := Dispatcher{Actions: actionRegistry}
+	if _, handled, err := dispatcher.DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  "purchase.order",
+		Method: "approval_action_button",
+		Args:   []any{[]any{recordID}, buttonID},
+	}); err != nil || !handled {
+		t.Fatalf("run_as_superuser handled=%v err=%v", handled, err)
+	}
+	if captured.UserID != env.Context().UserID || !captured.Sudo || int64FromAny(captured.Metadata["user_id"]) != env.Context().UserID || captured.Metadata["run_as_superuser"] != true || captured.Metadata["sudo"] != true {
+		t.Fatalf("captured sudo exec = %+v", captured)
+	}
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "checked" {
+		t.Fatalf("state = %+v", rows[0])
+	}
+}
+
 func TestDispatcherForwardOverridesClassicApproversAndDeactivatesOnApproval(t *testing.T) {
 	env := dispatchEnv(t)
 	settingsID := createDispatchSettings(t, env)
@@ -1380,6 +1438,107 @@ func TestDispatcherAdvancedTransitionButtonPersistsProcessRecordAndLog(t *testin
 	}
 	if len(logRows) != 1 || logRows[0]["record_id"] != recordID || logRows[0]["old_node_id"] != pendingNodeID || logRows[0]["new_node_id"] != doneNodeID || logRows[0]["workflow_transition_id"] != transitionID {
 		t.Fatalf("advanced logs = %+v", logRows)
+	}
+}
+
+func TestDispatcherAdvancedTransitionRunAsSuperuserBypassesServerActionGroups(t *testing.T) {
+	env := dispatchEnv(t)
+	actionRegistry := actions.NewRegistry(actions.Hooks{})
+	var captured actions.ExecutionContext
+	if err := actionRegistry.RegisterGo("capture.advanced.sudo", func(_ context.Context, _ actions.ServerAction, exec actions.ExecutionContext) (actions.Result, error) {
+		captured = exec
+		return actions.Result{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	actionID, err := actionRegistry.Register(actions.ServerAction{
+		Name:         "Advanced Sudo",
+		Kind:         actions.KindGo,
+		GoActionName: "capture.advanced.sudo",
+		GroupIDs:     []int64{99},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflowID, err := env.Model(ModelWorkflow).Create(map[string]any{
+		"name":   "PO Advanced Sudo",
+		"model":  "purchase.order",
+		"active": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Pending",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeUser),
+		"state":       "pending",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doneNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Done",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeEnd),
+		"state":       "approved",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelNodeAction).Create(map[string]any{
+		"node_id":          doneNodeID,
+		"server_action_id": actionID,
+		"active":           true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelWorkflow).Browse(workflowID).Write(map[string]any{"start_node_id": pendingNodeID}); err != nil {
+		t.Fatal(err)
+	}
+	transitionID, err := env.Model(ModelTransition).Create(map[string]any{
+		"name":             "Approve as Sudo",
+		"node_id":          pendingNodeID,
+		"workflow_id":      workflowID,
+		"next_node_id":     doneNodeID,
+		"run_as_superuser": true,
+		"active":           true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{
+		"name":             "PO Advanced Sudo",
+		"state":            "pending",
+		"workflow_node_id": pendingNodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewProcessStore(env)
+	if _, err := store.Save(Process{WorkflowID: workflowID, Model: "purchase.order", RecordID: recordID, NodeID: pendingNodeID, State: "pending", Active: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	dispatcher := Dispatcher{Actions: actionRegistry}
+	if _, handled, err := dispatcher.DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  "purchase.order",
+		Method: "approval_transition_button",
+		Args:   []any{[]any{recordID}, transitionID},
+	}); err != nil || !handled {
+		t.Fatalf("advanced sudo transition handled=%v err=%v", handled, err)
+	}
+	if captured.UserID != env.Context().UserID || !captured.Sudo || int64FromAny(captured.Metadata["user_id"]) != env.Context().UserID || captured.Metadata["run_as_superuser"] != true || captured.Metadata["sudo"] != true {
+		t.Fatalf("captured advanced sudo exec = %+v", captured)
+	}
+	process, ok, err := store.Find("purchase.order", recordID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || process.NodeID != doneNodeID || process.State != "approved" || process.Active {
+		t.Fatalf("advanced sudo process = %+v ok=%v", process, ok)
 	}
 }
 

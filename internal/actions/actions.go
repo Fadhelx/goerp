@@ -153,6 +153,7 @@ type ExecutionContext struct {
 	Fields         []string
 	UserID         int64
 	UserGroupIDs   []int64
+	Sudo           bool
 	Trigger        string
 	Now            time.Time
 	LastRunAt      time.Time
@@ -445,7 +446,7 @@ func (r *Registry) Run(ctx context.Context, id int64, exec ExecutionContext) (Re
 	if strings.TrimSpace(action.Warning) != "" {
 		return Result{ActionID: action.ID, Kind: action.Kind, DisabledReason: action.Warning}, ErrActionWarning
 	}
-	if len(action.GroupIDs) > 0 && exec.UserID != 1 && !hasAnyID(action.GroupIDs, executionGroupIDs(exec)) {
+	if len(action.GroupIDs) > 0 && exec.UserID != 1 && !exec.Sudo && !hasAnyID(action.GroupIDs, executionGroupIDs(exec)) {
 		return Result{ActionID: action.ID, Kind: action.Kind, DisabledReason: "forbidden server action"}, ErrActionForbidden
 	}
 

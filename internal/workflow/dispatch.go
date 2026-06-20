@@ -135,21 +135,24 @@ func (d Dispatcher) dispatchTransitionButton(ctx context.Context, env *record.En
 			return nil, err
 		}
 		ctx.DelegationID = advancedApprovalDelegationID(env, workflow, process, d.Delegations, d.now())
-		updated, results, _, err := store.ApplyTransitionForRecord(workflow, process, transitionID, ctx, hooks)
+		runAsSuperuser := transitionWillRunAsSuperuser(process, transition, ctx)
+		writeEnv := workflowRunAsSuperuserEnv(env, runAsSuperuser)
+		applyStore := workflowRunAsSuperuserStore(store, writeEnv, runAsSuperuser)
+		updated, results, _, err := applyStore.ApplyTransitionForRecord(workflow, process, transitionID, ctx, hooks)
 		if err != nil {
 			return nil, err
 		}
 		if action, ok := firstActionResult(results, "mail.compose"); ok {
-			if err := d.persistAdvancedRecordState(env, workflow, updated); err != nil {
+			if err := d.persistAdvancedRecordState(writeEnv, workflow, updated); err != nil {
 				return nil, err
 			}
 			return action.Payload, nil
 		}
-		if err := d.persistAdvancedRecordState(env, workflow, updated); err != nil {
+		if err := d.persistAdvancedRecordState(writeEnv, workflow, updated); err != nil {
 			return nil, err
 		}
 		if updated.NodeID != process.NodeID || !updated.Active {
-			if err := deactivateActiveForwards(env, req.Model, id); err != nil {
+			if err := deactivateActiveForwards(writeEnv, req.Model, id); err != nil {
 				return nil, err
 			}
 		}
@@ -307,6 +310,10 @@ func (d Dispatcher) dispatchWorkflowWizard(ctx context.Context, env *record.Env,
 		if !ok {
 			return nil, fmt.Errorf("workflow %d not found", process.WorkflowID)
 		}
+		transition, ok := workflowTransitionByID(workflow, transitionID)
+		if !ok {
+			return nil, fmt.Errorf("workflow transition %d not found", transitionID)
+		}
 		base := userCtx
 		base.Model = modelName
 		ctx, err := evalContextForRecord(env, modelName, recordID, base)
@@ -334,21 +341,24 @@ func (d Dispatcher) dispatchWorkflowWizard(ctx context.Context, env *record.Env,
 			}
 		}
 		ctx.MailComposed = boolFromAny(firstNonNil(kwarg(req.Kwargs, "mail_compose"), req.Values["mail_compose"]))
-		updated, results, _, err := store.ApplyTransitionForRecord(workflow, process, transitionID, ctx, hooks)
+		runAsSuperuser := transitionWillRunAsSuperuser(process, transition, ctx)
+		writeEnv := workflowRunAsSuperuserEnv(env, runAsSuperuser)
+		applyStore := workflowRunAsSuperuserStore(store, writeEnv, runAsSuperuser)
+		updated, results, _, err := applyStore.ApplyTransitionForRecord(workflow, process, transitionID, ctx, hooks)
 		if err != nil {
 			return nil, err
 		}
 		if action, ok := firstActionResult(results, "mail.compose"); ok {
-			if err := d.persistAdvancedRecordState(env, workflow, updated); err != nil {
+			if err := d.persistAdvancedRecordState(writeEnv, workflow, updated); err != nil {
 				return nil, err
 			}
 			return action.Payload, nil
 		}
-		if err := d.persistAdvancedRecordState(env, workflow, updated); err != nil {
+		if err := d.persistAdvancedRecordState(writeEnv, workflow, updated); err != nil {
 			return nil, err
 		}
 		if updated.NodeID != process.NodeID || !updated.Active {
-			if err := deactivateActiveForwards(env, modelName, recordID); err != nil {
+			if err := deactivateActiveForwards(writeEnv, modelName, recordID); err != nil {
 				return nil, err
 			}
 		}
@@ -558,11 +568,12 @@ func (d Dispatcher) runButtons(ctx context.Context, env *record.Env, modelName s
 	}
 	var last TransitionResult
 	for _, id := range ids {
+		button, hasButton := engine.Buttons[buttonID]
 		wrec, err := workflowRecordFromEnv(env, modelName, id, engine, d.Delegations, d.now())
 		if err != nil {
 			return nil, err
 		}
-		if button, ok := engine.Buttons[buttonID]; ok && button.Action == ActionForward {
+		if hasButton && button.Action == ActionForward {
 			if !userCanReadRecord(env, modelName, id, input.TargetUserID) {
 				return nil, fmt.Errorf("forward target user %d cannot read %s:%d", input.TargetUserID, modelName, id)
 			}
@@ -572,11 +583,15 @@ func (d Dispatcher) runButtons(ctx context.Context, env *record.Env, modelName s
 		if err != nil {
 			return nil, err
 		}
-		if err := persistWorkflowResult(env, engine, before, wrec, d.Delegations, d.now()); err != nil {
+		writeEnv := env
+		if hasButton && button.RunAsSuperuser {
+			writeEnv = workflowSudoEnv(env)
+		}
+		if err := persistWorkflowResult(writeEnv, engine, before, wrec, d.Delegations, d.now()); err != nil {
 			return nil, err
 		}
 		if result.NewState != result.OldState {
-			if err := deactivateActiveForwards(env, modelName, id); err != nil {
+			if err := deactivateActiveForwards(writeEnv, modelName, id); err != nil {
 				return nil, err
 			}
 		}
@@ -734,7 +749,7 @@ func loadConfigs(env *record.Env, engine *Engine) error {
 }
 
 func loadButtons(env *record.Env, engine *Engine) error {
-	rows, err := allRows(env, ModelButton, "settings_id", "config_id", "model", "sequence", "active", "name", "action_type", "state_value", "next_state", "return_state", "transfer_state", "visible_to", "method", "visible_domain", "server_action_id", "email_template_id", "email_wizard_form_id", "email_next_action", "group_ids", "comment", "comment_required", "confirm_message", "button_class", "vote_threshold")
+	rows, err := allRows(env, ModelButton, "settings_id", "config_id", "model", "sequence", "active", "name", "action_type", "state_value", "next_state", "return_state", "transfer_state", "visible_to", "method", "visible_domain", "server_action_id", "email_template_id", "email_wizard_form_id", "email_next_action", "group_ids", "comment", "comment_required", "confirm_message", "button_class", "vote_threshold", "run_as_superuser")
 	if err != nil {
 		return err
 	}
@@ -769,6 +784,7 @@ func loadButtons(env *record.Env, engine *Engine) error {
 			ButtonClass:       stringFromAny(row["button_class"]),
 			Sequence:          int(int64FromAny(row["sequence"])),
 			VoteThreshold:     int(int64FromAny(row["vote_threshold"])),
+			RunAsSuperuser:    boolFromAny(row["run_as_superuser"]),
 		})
 	}
 	return nil
@@ -1028,15 +1044,21 @@ func (d Dispatcher) advancedHooks(_ ProcessStore, envs ...*record.Env) Hooks {
 				return ActionResult{ActionID: action.ServerActionID, Key: action.ActionKey, Type: "server"}, nil
 			}
 			result, err := d.Actions.Run(context.Background(), action.ServerActionID, actions.ExecutionContext{
-				Model:     process.Model,
-				RecordID:  process.RecordID,
-				RecordIDs: []int64{process.RecordID},
-				Values:    cloneMap(ctx.Values),
-				Trigger:   "workflow_node_action",
+				Model:        process.Model,
+				RecordID:     process.RecordID,
+				RecordIDs:    []int64{process.RecordID},
+				Values:       cloneMap(ctx.Values),
+				UserID:       ctx.UserID,
+				UserGroupIDs: append([]int64(nil), ctx.UserGroupIDs...),
+				Sudo:         ctx.RunAsSuperuser,
+				Trigger:      "workflow_node_action",
 				Metadata: map[string]any{
-					"workflow_id": process.WorkflowID,
-					"node_id":     process.NodeID,
-					"action_id":   action.ID,
+					"workflow_id":      process.WorkflowID,
+					"node_id":          process.NodeID,
+					"action_id":        action.ID,
+					"user_id":          ctx.UserID,
+					"run_as_superuser": ctx.RunAsSuperuser,
+					"sudo":             ctx.RunAsSuperuser,
 				},
 			})
 			return ActionResult{ActionID: result.ActionID, Key: action.ActionKey, Type: string(result.Kind), Payload: result.Metadata}, err
@@ -1053,6 +1075,34 @@ func (d Dispatcher) advancedHooks(_ ProcessStore, envs ...*record.Env) Hooks {
 			}, nil
 		},
 	}
+}
+
+func workflowRunAsSuperuserEnv(env *record.Env, runAsSuperuser bool) *record.Env {
+	if runAsSuperuser {
+		return workflowSudoEnv(env)
+	}
+	return env
+}
+
+func workflowRunAsSuperuserStore(store ProcessStore, env *record.Env, runAsSuperuser bool) ProcessStore {
+	if runAsSuperuser {
+		return NewProcessStore(env)
+	}
+	return store
+}
+
+func transitionWillRunAsSuperuser(process Process, transition Transition, ctx EvaluationContext) bool {
+	if !transition.RunAsSuperuser {
+		return false
+	}
+	if !transition.Committee || transition.CommitteeLimit <= 0 {
+		return true
+	}
+	done := append([]int64(nil), process.ApprovalDoneUserIDs...)
+	if ctx.UserID != 0 && !containsInt64(done, ctx.UserID) {
+		done = append(done, ctx.UserID)
+	}
+	return len(uniqueSortedIDs(done)) >= transition.CommitteeLimit
 }
 
 func defaultMailComposeFormID(env *record.Env) int64 {
@@ -1195,6 +1245,10 @@ func (d Dispatcher) CompleteMailComposeTransition(env *record.Env, composeIDs []
 			if !ok {
 				return last, false, fmt.Errorf("workflow %d not found", process.WorkflowID)
 			}
+			transition, ok := workflowTransitionByID(workflow, transitionID)
+			if !ok {
+				return last, false, fmt.Errorf("workflow transition %d not found", transitionID)
+			}
 			base := userCtx
 			base.Model = modelName
 			ctx, err := evalContextForRecord(env, modelName, recordID, base)
@@ -1203,15 +1257,18 @@ func (d Dispatcher) CompleteMailComposeTransition(env *record.Env, composeIDs []
 			}
 			ctx.MailComposed = true
 			ctx.DelegationID = advancedApprovalDelegationID(env, workflow, process, d.Delegations, d.now())
-			updated, results, _, err := store.ApplyTransitionForRecord(workflow, process, transitionID, ctx, d.advancedHooks(store, env))
+			runAsSuperuser := transitionWillRunAsSuperuser(process, transition, ctx)
+			writeEnv := workflowRunAsSuperuserEnv(env, runAsSuperuser)
+			applyStore := workflowRunAsSuperuserStore(store, writeEnv, runAsSuperuser)
+			updated, results, _, err := applyStore.ApplyTransitionForRecord(workflow, process, transitionID, ctx, d.advancedHooks(store, env))
 			if err != nil {
 				return last, false, err
 			}
-			if err := d.persistAdvancedRecordState(env, workflow, updated); err != nil {
+			if err := d.persistAdvancedRecordState(writeEnv, workflow, updated); err != nil {
 				return last, false, err
 			}
 			if updated.NodeID != process.NodeID || !updated.Active {
-				if err := deactivateActiveForwards(env, modelName, recordID); err != nil {
+				if err := deactivateActiveForwards(writeEnv, modelName, recordID); err != nil {
 					return last, false, err
 				}
 			}
@@ -1862,6 +1919,17 @@ func workflowSystemEnv(env *record.Env) *record.Env {
 		CompanyIDs: append([]int64(nil), base.CompanyIDs...),
 		Values:     cloneMap(base.Values),
 	})
+}
+
+func workflowSudoEnv(env *record.Env) *record.Env {
+	if env == nil || env.Context().Sudo {
+		return env
+	}
+	ctx := env.Context()
+	ctx.Sudo = true
+	ctx.CompanyIDs = append([]int64(nil), ctx.CompanyIDs...)
+	ctx.Values = cloneMap(ctx.Values)
+	return env.WithContext(ctx)
 }
 
 func nodeResponsibleUserIDs(env *record.Env, node Node) []int64 {

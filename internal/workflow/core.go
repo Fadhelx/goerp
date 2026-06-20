@@ -137,6 +137,7 @@ type Button struct {
 	ButtonClass       string
 	Sequence          int
 	VoteThreshold     int
+	RunAsSuperuser    bool
 }
 
 type Record struct {
@@ -250,11 +251,12 @@ type Escalation struct {
 }
 
 type Input struct {
-	Comment      string
-	TargetUserID int64
-	Values       map[string]any
-	BulkApproval bool
-	MailComposed bool
+	Comment        string
+	TargetUserID   int64
+	Values         map[string]any
+	BulkApproval   bool
+	MailComposed   bool
+	RunAsSuperuser bool
 }
 
 type TransitionResult struct {
@@ -514,6 +516,7 @@ func (e *Engine) RunButton(ctx context.Context, user User, record *Record, butto
 	if button.CommentRequired && strings.TrimSpace(input.Comment) == "" {
 		return TransitionResult{}, ErrCommentRequired
 	}
+	input.RunAsSuperuser = input.RunAsSuperuser || button.RunAsSuperuser
 
 	oldState := record.State
 	newState := oldState
@@ -638,17 +641,22 @@ runAction:
 			return TransitionResult{}, ErrActionMissing
 		}
 		result, err := e.Actions.Run(ctx, button.ServerActionID, actions.ExecutionContext{
-			Model:     record.Model,
-			RecordID:  record.ID,
-			RecordIDs: []int64{record.ID},
-			Record:    record.Row(settings.StateField),
-			Values:    cloneMap(input.Values),
-			Trigger:   "workflow_button",
-			Now:       e.now(),
+			Model:        record.Model,
+			RecordID:     record.ID,
+			RecordIDs:    []int64{record.ID},
+			Record:       record.Row(settings.StateField),
+			Values:       cloneMap(input.Values),
+			UserID:       user.ID,
+			UserGroupIDs: append([]int64(nil), user.GroupIDs...),
+			Sudo:         button.RunAsSuperuser,
+			Trigger:      "workflow_button",
+			Now:          e.now(),
 			Metadata: map[string]any{
-				"button_id": button.ID,
-				"action":    string(button.Action),
-				"user_id":   user.ID,
+				"button_id":        button.ID,
+				"action":           string(button.Action),
+				"user_id":          user.ID,
+				"run_as_superuser": button.RunAsSuperuser,
+				"sudo":             button.RunAsSuperuser,
 			},
 		})
 		if err != nil {
@@ -1172,14 +1180,16 @@ func (e *Engine) matchingAutomations(trigger AutomationTrigger, settingsID int64
 func automationExecutionContext(automation Automation, trigger AutomationTrigger, settings Settings, record Record, oldState, newState string, user User, input Input, now time.Time) actions.ExecutionContext {
 	values := cloneMap(input.Values)
 	metadata := map[string]any{
-		"active_model":  record.Model,
-		"active_id":     record.ID,
-		"active_ids":    []int64{record.ID},
-		"automation_id": automation.ID,
-		"old_state":     oldState,
-		"new_state":     newState,
-		"user_id":       user.ID,
-		"trigger":       string(trigger),
+		"active_model":     record.Model,
+		"active_id":        record.ID,
+		"active_ids":       []int64{record.ID},
+		"automation_id":    automation.ID,
+		"old_state":        oldState,
+		"new_state":        newState,
+		"user_id":          user.ID,
+		"trigger":          string(trigger),
+		"run_as_superuser": input.RunAsSuperuser,
+		"sudo":             input.RunAsSuperuser,
 	}
 	return actions.ExecutionContext{
 		Model:        record.Model,
@@ -1189,6 +1199,7 @@ func automationExecutionContext(automation Automation, trigger AutomationTrigger
 		Values:       values,
 		UserID:       user.ID,
 		UserGroupIDs: append([]int64(nil), user.GroupIDs...),
+		Sudo:         input.RunAsSuperuser,
 		Trigger:      string(trigger),
 		Now:          now,
 		Metadata:     metadata,

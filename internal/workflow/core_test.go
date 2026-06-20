@@ -512,6 +512,67 @@ func TestWorkflowSourceAutomationTriggers(t *testing.T) {
 	assertTriggers(t, triggers, []string{"on_create"})
 }
 
+func TestWorkflowButtonRunAsSuperuserPropagatesToAutomations(t *testing.T) {
+	engine := NewEngine()
+	actionRegistry := actions.NewRegistry(actions.Hooks{})
+	if err := actionRegistry.RegisterGo("button.noop", func(_ context.Context, _ actions.ServerAction, exec actions.ExecutionContext) (actions.Result, error) {
+		if exec.UserID != 5 || !exec.Sudo {
+			t.Fatalf("button exec = %+v", exec)
+		}
+		return actions.Result{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var captured actions.ExecutionContext
+	if err := actionRegistry.RegisterGo("automation.sudo", func(_ context.Context, _ actions.ServerAction, exec actions.ExecutionContext) (actions.Result, error) {
+		captured = exec
+		return actions.Result{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	buttonActionID, err := actionRegistry.Register(actions.ServerAction{Name: "Button", Kind: actions.KindGo, GoActionName: "button.noop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	automationActionID, err := actionRegistry.Register(actions.ServerAction{
+		Name:         "Automation Restricted",
+		Kind:         actions.KindGo,
+		GoActionName: "automation.sudo",
+		GroupIDs:     []int64{99},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.Actions = actionRegistry
+	settingsID := engine.AddSettings(Settings{Name: "PO Approval", Model: "purchase.order", Active: true})
+	buttonID := engine.AddButton(Button{
+		SettingsID:     settingsID,
+		StateValue:     "draft",
+		Name:           "Run Sudo",
+		Action:         ActionServerAction,
+		NextState:      "checked",
+		ServerActionID: buttonActionID,
+		RunAsSuperuser: true,
+	})
+	engine.AddAutomation(Automation{
+		ID:              42,
+		SettingsID:      settingsID,
+		Active:          true,
+		Trigger:         TriggerStateChange,
+		FromStates:      []string{"draft"},
+		ToStates:        []string{"checked"},
+		ServerActionIDs: []int64{automationActionID},
+	})
+
+	record := Record{Model: "purchase.order", ID: 11, State: "draft"}
+	if _, err := engine.RunButton(context.Background(), User{ID: 5, GroupIDs: []int64{7}}, &record, buttonID, Input{}); err != nil {
+		t.Fatal(err)
+	}
+	if captured.UserID != 5 || !captured.Sudo || captured.Metadata["run_as_superuser"] != true || captured.Metadata["sudo"] != true {
+		t.Fatalf("automation exec = %+v", captured)
+	}
+}
+
 func TestWorkflowCommitteeApprovalTrigger(t *testing.T) {
 	engine := NewEngine()
 	actionRegistry := actions.NewRegistry(actions.Hooks{})
