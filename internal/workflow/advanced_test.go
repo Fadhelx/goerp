@@ -29,7 +29,7 @@ func TestAdvancedModelsRegister(t *testing.T) {
 		}
 	}
 	nodeModel := reg.Models[ModelNode]
-	for _, fieldName := range []string{"type", "responsible_group_ids", "responsible_value", "responsible_filter", "responsible_condition", "schedule_activity", "button_type", "escalation_node_id"} {
+	for _, fieldName := range []string{"type", "model_id", "responsible_group_ids", "responsible_value", "responsible_filter", "responsible_condition", "responsible_committee", "responsible_committee_limit", "schedule_activity", "schedule_activity_enabled", "button_type", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "escalation_node_id", "trg_date_calendar_id"} {
 		if _, ok := nodeModel.Fields[fieldName]; !ok {
 			t.Fatalf("missing node field %s", fieldName)
 		}

@@ -180,6 +180,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"workflow_node_responsible_python_code",
 		"workflow_node_schedule_activity_field",
 		"workflow_node_responsible_value_filter",
+		"workflow_node_advanced_metadata_fields",
 		"mail_activity_hide_in_chatter",
 		"approval_buttons_email_compose_fields",
 	} {
@@ -1399,6 +1400,14 @@ func TestWorkflowNodeMigrationExposesResponsiblePythonCode(t *testing.T) {
 	}
 	if !strings.Contains(sqlByName["workflow_node_responsible_value_filter"], "responsible_value") || !strings.Contains(sqlByName["workflow_node_responsible_value_filter"], "responsible_filter") {
 		t.Fatalf("workflow_node_responsible_value_filter migration incomplete: %s", sqlByName["workflow_node_responsible_value_filter"])
+	}
+	for _, column := range []string{"model_id", "responsible_committee", "responsible_committee_limit", "schedule_activity_enabled", "button_context", "button_icon", "button_validate_form", "wizard_view_id", "trg_date_calendar_id"} {
+		if !strings.Contains(sqlByName["workflow_node"], column) {
+			t.Fatalf("workflow_node missing advanced metadata column %s: %s", column, sqlByName["workflow_node"])
+		}
+		if !strings.Contains(sqlByName["workflow_node_advanced_metadata_fields"], column) {
+			t.Fatalf("workflow_node_advanced_metadata_fields missing %s: %s", column, sqlByName["workflow_node_advanced_metadata_fields"])
+		}
 	}
 	if !strings.Contains(sqlByName["mail_activity_hide_in_chatter"], "hide_in_chatter") {
 		t.Fatalf("mail_activity_hide_in_chatter migration incomplete: %s", sqlByName["mail_activity_hide_in_chatter"])
