@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -66,6 +68,56 @@ func TestWebRoutes(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/action/load?id=1", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"res_model":"res.partner"`) || !strings.Contains(rec.Body.String(), `"views"`) {
 		t.Fatalf("action response %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestReportsStaticDashboardRoute(t *testing.T) {
+	dir := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatalf("restore working directory: %v", err)
+		}
+	})
+	if err := os.MkdirAll(filepath.Join(dir, "reports"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "reports", "progress_dashboard.html"), []byte("<h1>Gorp Build Dashboard</h1>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "secret.txt"), []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := (Server{}).Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/reports/progress_dashboard.html", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Gorp Build Dashboard") {
+		t.Fatalf("dashboard response %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/reports/progress_dashboard.html", nil))
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+		t.Fatalf("dashboard HEAD response %d body=%q", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/reports/progress_dashboard.html", nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("dashboard POST response %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/reports/../secret.txt", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("dashboard traversal response %d %s", rec.Code, rec.Body.String())
 	}
 }
 

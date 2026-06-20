@@ -21,6 +21,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -141,7 +143,41 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc(aicontrollers.RouteGenerateResponse, s.aiGenerateResponse)
 	mux.HandleFunc(aicontrollers.RouteCloseAIChat, s.aiCloseChat)
 	mux.HandleFunc(aicontrollers.RouteTranscriptionSession, s.aiTranscriptionSession)
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/reports/") {
+			s.reportsFile(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+func (s Server) reportsFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rel := strings.TrimPrefix(r.URL.Path, "/reports/")
+	if rel == "" || strings.Contains(rel, "\x00") {
+		http.NotFound(w, r)
+		return
+	}
+	root, err := filepath.Abs("reports")
+	if err != nil {
+		http.Error(w, "reports root error", http.StatusInternalServerError)
+		return
+	}
+	target, err := filepath.Abs(filepath.Join(root, filepath.Clean(rel)))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if target != root && !strings.HasPrefix(target, root+string(os.PathSeparator)) {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, target)
 }
 
 func (s Server) busPoll(w http.ResponseWriter, r *http.Request) {
