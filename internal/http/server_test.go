@@ -10881,6 +10881,46 @@ func TestWebAliasesAndAssets(t *testing.T) {
 	}
 }
 
+func TestAssetDebugFileServesBundleMember(t *testing.T) {
+	root := t.TempDir()
+	assetPath := filepath.Join(root, "addons", "web", "static", "src", "js", "webclient.js")
+	if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(assetPath, []byte("console.log('webclient');"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reg := assets.NewRegistryWithResolver(assets.NewFilesystemResolver(root).WithInstalledAddons(map[string]bool{"web": true}))
+	if err := reg.Apply(assets.Backend, assets.Operation{Kind: assets.Append, Path: "web/static/src/js/webclient.js"}); err != nil {
+		t.Fatal(err)
+	}
+	handler := (Server{Assets: reg}).Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/assets/debug/web.assets_backend/web/static/src/js/webclient.js?v=test", nil))
+	if rec.Code != http.StatusOK || rec.Body.String() != "console.log('webclient');" || !strings.Contains(rec.Header().Get("Content-Type"), "javascript") {
+		t.Fatalf("debug asset response %d %q headers=%v", rec.Code, rec.Body.String(), rec.Header())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/web/assets/debug/web.assets_backend/web/static/src/js/webclient.js", nil))
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+		t.Fatalf("debug asset head response %d %q", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/assets/debug/web.assets_backend/web/static/src/js/missing.js", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing debug asset status %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/assets/debug/web.assets_backend/web/static/src/js/webclient.js", nil))
+	if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {
+		t.Fatalf("debug asset method status %d allow=%q", rec.Code, rec.Header().Get("Allow"))
+	}
+}
+
 func TestSessionInfoOdooShape(t *testing.T) {
 	server := testMailThreadServer(t)
 	env := server.Env.WithContext(record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})

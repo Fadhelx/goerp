@@ -214,11 +214,20 @@ func run(backlogPath, parityPath, inventoryPath, oiPath, outPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(outPath, []byte(builder.String()), 0o644); err != nil {
+	output := trimTrailingLineWhitespace(builder.String())
+	if err := os.WriteFile(outPath, []byte(output), 0o644); err != nil {
 		return err
 	}
 	fmt.Printf("progress dashboard written: %s\n", outPath)
 	return nil
+}
+
+func trimTrailingLineWhitespace(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
 }
 
 type backlogSummary struct {

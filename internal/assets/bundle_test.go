@@ -110,6 +110,49 @@ func TestFilesystemResolverFiltersUninstalledAddonAssets(t *testing.T) {
 	}
 }
 
+func TestRegistryDebugFileServesBundleAssetFromAddonFilesystem(t *testing.T) {
+	root := t.TempDir()
+	writeAsset(t, root, "addons/web/static/src/js/a.js")
+	writeAsset(t, root, "addons/ghost/static/src/js/b.js")
+	reg := NewRegistryWithResolver(NewFilesystemResolver(root).WithInstalledAddons(map[string]bool{"web": true}))
+	if err := reg.Apply(Backend, Operation{Kind: Append, Path: "web/static/src/js/a.js"}); err != nil {
+		t.Fatal(err)
+	}
+	filename, ok, err := reg.DebugFile(Backend, "web/static/src/js/a.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || filepath.ToSlash(filename) != filepath.ToSlash(filepath.Join(root, "addons/web/static/src/js/a.js")) {
+		t.Fatalf("file = %q ok=%v", filename, ok)
+	}
+	if _, ok, err := reg.DebugFile(Backend, "ghost/static/src/js/b.js"); err != nil || ok {
+		t.Fatalf("ghost file ok=%v err=%v", ok, err)
+	}
+	if _, ok, err := reg.DebugFile(Backend, "../secret.js"); err != nil || ok {
+		t.Fatalf("traversal ok=%v err=%v", ok, err)
+	}
+	if _, ok, err := reg.DebugFile("web.assets_missing", "web/static/src/js/a.js"); err != nil || ok {
+		t.Fatalf("missing bundle ok=%v err=%v", ok, err)
+	}
+}
+
+func TestFilesystemResolverResolveFileSearchesInstalledAddonRelativeAssets(t *testing.T) {
+	root := t.TempDir()
+	writeAsset(t, root, "addons/web/static/src/js/a.js")
+	writeAsset(t, root, "addons/ghost/static/src/js/a.js")
+	resolver := NewFilesystemResolver(root).WithInstalledAddons(map[string]bool{"web": true})
+	filename, ok, err := resolver.ResolveFile("static/src/js/a.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || filepath.ToSlash(filename) != filepath.ToSlash(filepath.Join(root, "addons/web/static/src/js/a.js")) {
+		t.Fatalf("file = %q ok=%v", filename, ok)
+	}
+	if _, ok, err := resolver.ResolveFile("ghost/static/src/js/a.js"); err != nil || ok {
+		t.Fatalf("uninstalled addon ok=%v err=%v", ok, err)
+	}
+}
+
 func TestBundleGlobOperationsKeepExistingDuplicatePosition(t *testing.T) {
 	root := t.TempDir()
 	writeAsset(t, root, "web/static/src/js/a.js")

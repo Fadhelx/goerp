@@ -97,7 +97,7 @@ func BootstrapOI(root string) (*App, error) {
 	if err := createInstalledModuleRows(env, manifests); err != nil {
 		return nil, err
 	}
-	assetReg, err := assetsFromSources(env, manifests)
+	assetReg, err := assetsFromSources(root, env, manifests)
 	if err != nil {
 		return nil, err
 	}
@@ -619,13 +619,13 @@ func createInstalledModuleRows(env *record.Env, manifests []module.Manifest) err
 	return nil
 }
 
-func assetsFromSources(env *record.Env, manifests []module.Manifest) (*assets.Registry, error) {
-	reg := assets.NewRegistry()
-	if err := applyAssetsFromEnv(env, reg, func(sequence int) bool { return sequence < 16 }); err != nil {
-		return nil, err
-	}
+func assetsFromSources(root string, env *record.Env, manifests []module.Manifest) (*assets.Registry, error) {
 	assetManifests, err := installedAssetManifests(env, manifests)
 	if err != nil {
+		return nil, err
+	}
+	reg := assets.NewRegistryWithResolver(assets.NewFilesystemResolver(root).WithInstalledAddons(installedAddonMap(assetManifests)))
+	if err := applyAssetsFromEnv(env, reg, func(sequence int) bool { return sequence < 16 }); err != nil {
 		return nil, err
 	}
 	if err := applyManifestAssets(reg, assetManifests); err != nil {
@@ -635,6 +635,16 @@ func assetsFromSources(env *record.Env, manifests []module.Manifest) (*assets.Re
 		return nil, err
 	}
 	return reg, nil
+}
+
+func installedAddonMap(manifests []module.Manifest) map[string]bool {
+	addons := map[string]bool{}
+	for _, manifest := range manifests {
+		if manifest.TechnicalName != "" {
+			addons[manifest.TechnicalName] = true
+		}
+	}
+	return addons
 }
 
 func assetsFromManifests(manifests []module.Manifest) (*assets.Registry, error) {
@@ -662,7 +672,11 @@ func applyManifestAssets(reg *assets.Registry, manifests []module.Manifest) erro
 		}
 		for bundle, ops := range operations {
 			for _, op := range ops {
-				assetOp, err := assets.OperationFromDirective(op.Directive, op.Path, op.Target)
+				assetOp, err := assets.OperationFromDirective(
+					op.Directive,
+					manifestAssetPath(manifest.TechnicalName, op.Path),
+					manifestAssetPath(manifest.TechnicalName, op.Target),
+				)
 				if err != nil {
 					return err
 				}
@@ -673,6 +687,14 @@ func applyManifestAssets(reg *assets.Registry, manifests []module.Manifest) erro
 		}
 	}
 	return nil
+}
+
+func manifestAssetPath(addon string, assetPath string) string {
+	assetPath = filepath.ToSlash(assetPath)
+	if addon == "" || !strings.HasPrefix(assetPath, "static/") {
+		return assetPath
+	}
+	return addon + "/" + assetPath
 }
 
 func installedAssetManifests(env *record.Env, manifests []module.Manifest) ([]module.Manifest, error) {

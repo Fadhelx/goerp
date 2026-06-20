@@ -41,6 +41,10 @@ type PathResolver interface {
 	Resolve(path string) ([]string, error)
 }
 
+type FileResolver interface {
+	ResolveFile(path string) (string, bool, error)
+}
+
 type ManifestOptions struct {
 	Debug bool
 }
@@ -62,6 +66,21 @@ func NewRegistryWithResolver(resolver PathResolver) *Registry {
 
 func (r *Registry) SetResolver(resolver PathResolver) {
 	r.resolver = resolver
+}
+
+func (r *Registry) DebugFile(bundle string, assetPath string) (string, bool, error) {
+	if r == nil {
+		return "", false, nil
+	}
+	assetPath, ok := safeAssetPath(assetPath)
+	if !ok || !bundleContains(r.bundles[bundle], assetPath) {
+		return "", false, nil
+	}
+	resolver, ok := r.resolver.(FileResolver)
+	if !ok {
+		return "", false, nil
+	}
+	return resolver.ResolveFile(assetPath)
 }
 
 func (r *Registry) Apply(bundle string, ops ...Operation) error {
@@ -261,6 +280,15 @@ func remove(items []string, target string) []string {
 	return out
 }
 
+func bundleContains(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
+}
+
 func removeMany(items []string, targets []string) []string {
 	removeSet := map[string]bool{}
 	for _, item := range targets {
@@ -345,26 +373,18 @@ func (r FilesystemResolver) Resolve(path string) ([]string, error) {
 	if !isStaticAssetPath(path) {
 		return nil, nil
 	}
-	root := r.Root
-	if root == "" {
-		root = "."
-	}
-	matches, err := resolveGlob(root, path)
+	root := r.root()
+	matches, err := resolveGlobAcrossRoots(root, path)
 	if err != nil {
 		return nil, err
 	}
-	sort.Strings(matches)
 	extensions := r.Extensions
 	if extensions == nil {
 		extensions = defaultExtensions()
 	}
 	out := make([]string, 0, len(matches))
 	for _, match := range matches {
-		rel, err := filepath.Rel(root, match)
-		if err != nil {
-			return nil, err
-		}
-		relPath := filepath.ToSlash(rel)
+		relPath := match.rel
 		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(relPath)), ".")
 		if !extensions[ext] || !r.installed(relPath) {
 			continue
@@ -372,6 +392,102 @@ func (r FilesystemResolver) Resolve(path string) ([]string, error) {
 		out = append(out, relPath)
 	}
 	return out, nil
+}
+
+func (r FilesystemResolver) ResolveFile(path string) (string, bool, error) {
+	path, ok := safeAssetPath(path)
+	if !ok || isGlob(path) {
+		return "", false, nil
+	}
+	if !r.installed(path) && !strings.HasPrefix(path, "static/") {
+		return "", false, nil
+	}
+	root := r.root()
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", false, err
+	}
+	for _, candidate := range r.fileCandidates(root, path) {
+		abs, ok := safeJoin(rootAbs, candidate)
+		if !ok {
+			continue
+		}
+		info, err := os.Stat(abs)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", false, err
+		}
+		if info.IsDir() {
+			continue
+		}
+		return abs, true, nil
+	}
+	return "", false, nil
+}
+
+func (r FilesystemResolver) root() string {
+	if r.Root == "" {
+		return "."
+	}
+	return r.Root
+}
+
+func (r FilesystemResolver) fileCandidates(root string, path string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(candidate string) {
+		candidate = filepath.ToSlash(candidate)
+		if candidate == "" || seen[candidate] {
+			return
+		}
+		seen[candidate] = true
+		out = append(out, candidate)
+	}
+	if strings.HasPrefix(path, "static/") {
+		for _, addon := range r.addonNames(root) {
+			add(filepath.Join(addon, path))
+			add(filepath.Join("addons", addon, path))
+		}
+		return out
+	}
+	add(path)
+	if isStaticAssetPath(path) {
+		add(filepath.Join("addons", path))
+		add(filepath.Join("internal", path))
+	}
+	return out
+}
+
+func (r FilesystemResolver) addonNames(root string) []string {
+	if len(r.InstalledAddons) > 0 {
+		addons := make([]string, 0, len(r.InstalledAddons))
+		for addon := range r.InstalledAddons {
+			addons = append(addons, addon)
+		}
+		sort.Strings(addons)
+		return addons
+	}
+	seen := map[string]bool{}
+	var addons []string
+	for _, base := range []string{root, filepath.Join(root, "addons")} {
+		entries, err := os.ReadDir(base)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || entry.Name() == "" || strings.HasPrefix(entry.Name(), ".") || seen[entry.Name()] {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(base, entry.Name(), "static")); err == nil {
+				seen[entry.Name()] = true
+				addons = append(addons, entry.Name())
+			}
+		}
+	}
+	sort.Strings(addons)
+	return addons
 }
 
 func (r FilesystemResolver) installed(path string) bool {
@@ -383,6 +499,42 @@ func (r FilesystemResolver) installed(path string) bool {
 		return r.InstalledAddons[parts[0]]
 	}
 	return true
+}
+
+type globMatch struct {
+	file string
+	rel  string
+}
+
+func resolveGlobAcrossRoots(root string, pattern string) ([]globMatch, error) {
+	roots := []string{root, filepath.Join(root, "addons"), filepath.Join(root, "internal")}
+	seen := map[string]bool{}
+	var out []globMatch
+	for _, base := range roots {
+		if info, err := os.Stat(base); err != nil || !info.IsDir() {
+			continue
+		}
+		matches, err := resolveGlob(base, pattern)
+		if err != nil {
+			return nil, err
+		}
+		for _, match := range matches {
+			rel, err := filepath.Rel(base, match)
+			if err != nil {
+				return nil, err
+			}
+			relPath := filepath.ToSlash(rel)
+			if seen[relPath] {
+				continue
+			}
+			seen[relPath] = true
+			out = append(out, globMatch{file: match, rel: relPath})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].rel < out[j].rel
+	})
+	return out, nil
 }
 
 func resolveGlob(root string, pattern string) ([]string, error) {
@@ -453,6 +605,34 @@ func globStarRegexp(pattern string) (*regexp.Regexp, error) {
 
 func isGlob(path string) bool {
 	return strings.ContainsAny(path, "*[]?")
+}
+
+func safeAssetPath(path string) (string, bool) {
+	path = filepath.ToSlash(path)
+	if path == "" || strings.HasPrefix(path, "/") || strings.Contains(path, "\x00") {
+		return "", false
+	}
+	for _, part := range strings.Split(path, "/") {
+		if part == "" || part == "." || part == ".." {
+			return "", false
+		}
+	}
+	return path, true
+}
+
+func safeJoin(rootAbs string, candidate string) (string, bool) {
+	candidate, ok := safeAssetPath(candidate)
+	if !ok {
+		return "", false
+	}
+	abs, err := filepath.Abs(filepath.Join(rootAbs, filepath.FromSlash(candidate)))
+	if err != nil {
+		return "", false
+	}
+	if abs == rootAbs || strings.HasPrefix(abs, rootAbs+string(os.PathSeparator)) {
+		return abs, true
+	}
+	return "", false
 }
 
 func isStaticAssetPath(path string) bool {

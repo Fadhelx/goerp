@@ -133,6 +133,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/sms/", s.smsOptOutPortal)
 	mux.HandleFunc("/whatsapp/webhook/", s.whatsAppWebhook)
 	mux.HandleFunc("/r/", s.linkTrackerRedirect)
+	mux.HandleFunc("/web/assets/debug/", s.assetDebugFile)
 	mux.HandleFunc("/web/assets/manifest", s.assetManifest)
 	mux.HandleFunc("/web/bundle/", s.bundle)
 	mux.HandleFunc("/web/binary/", s.binary)
@@ -14615,6 +14616,35 @@ func (s Server) assetManifest(w http.ResponseWriter, r *http.Request) {
 		bundle = assets.Backend
 	}
 	s.writeAssetManifest(w, bundle, assetDebug(r))
+}
+
+func (s Server) assetDebugFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.Assets == nil {
+		http.NotFound(w, r)
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/web/assets/debug/")
+	bundle, assetPath, ok := strings.Cut(rest, "/")
+	if !ok || bundle == "" || assetPath == "" {
+		http.NotFound(w, r)
+		return
+	}
+	filename, found, err := s.Assets.DebugFile(bundle, assetPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, filename)
 }
 
 func (s Server) writeAssetManifest(w http.ResponseWriter, bundle string, debug bool) {

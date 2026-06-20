@@ -4377,14 +4377,18 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 
 	backend := app.Assets.Bundle(assets.Backend)
-	for _, want := range []string{"static/src/js/form_controller.js", "static/src/login_as/login_as.js", "static/src/xml/templates.xml"} {
+	for _, want := range []string{"oi_workflow/static/src/js/form_controller.js", "oi_login_as/static/src/login_as/login_as.js", "oi_workflow_advance/static/src/xml/templates.xml"} {
 		if !containsString(backend, want) {
 			t.Fatalf("backend assets missing %s in %+v", want, backend)
 		}
 	}
 	body = getBody(t, handler, "/web/bundle/web.assets_backend")
-	if !strings.Contains(body, "static/src/login_as/login_as.js") || !strings.Contains(body, "static/src/js/form_controller.js") {
+	if !strings.Contains(body, "oi_login_as/static/src/login_as/login_as.js") || !strings.Contains(body, "oi_workflow/static/src/js/form_controller.js") {
 		t.Fatalf("bundle response = %s", body)
+	}
+	body = getBody(t, handler, "/web/assets/debug/web.assets_backend/oi_login_as/static/src/login_as/login_as.js")
+	if !strings.Contains(body, "LoginAsSystray") {
+		t.Fatalf("debug asset response = %s", body)
 	}
 
 	body = getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
@@ -5059,7 +5063,7 @@ func TestAssetsFromSourcesAppliesAssetRowsAroundManifestAssets(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	reg, err := assetsFromSources(env, []module.Manifest{{
+	reg, err := assetsFromSources(t.TempDir(), env, []module.Manifest{{
 		Name:          "Web",
 		TechnicalName: "web",
 		Version:       "19.0.1.0.0",
@@ -5082,12 +5086,35 @@ func TestAssetsFromSourcesAppliesAssetRowsAroundManifestAssets(t *testing.T) {
 	}
 }
 
+func TestAssetsFromSourcesPrefixesManifestStaticAssets(t *testing.T) {
+	env, err := oiEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := assetsFromSources(t.TempDir(), env, []module.Manifest{{
+		Name:          "Workflow",
+		TechnicalName: "oi_workflow",
+		Version:       "19.0.1.0.0",
+		Assets: map[string][]string{
+			assets.Backend: {"static/src/js/form_controller.js", "frontend/packages/oi-workflow/src/index.ts"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reg.Bundle(assets.Backend)
+	want := []string{"oi_workflow/static/src/js/form_controller.js", "frontend/packages/oi-workflow/src/index.ts"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("bundle = %+v", got)
+	}
+}
+
 func TestAssetsFromSourcesAppliesManifestAssetOperations(t *testing.T) {
 	env, err := oiEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg, err := assetsFromSources(env, []module.Manifest{{
+	reg, err := assetsFromSources(t.TempDir(), env, []module.Manifest{{
 		Name:          "Web",
 		TechnicalName: "web",
 		Version:       "19.0.1.0.0",
@@ -5110,6 +5137,35 @@ func TestAssetsFromSourcesAppliesManifestAssetOperations(t *testing.T) {
 	}
 }
 
+func TestAssetsFromSourcesPrefixesManifestStaticOperationTargets(t *testing.T) {
+	env, err := oiEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := assetsFromSources(t.TempDir(), env, []module.Manifest{{
+		Name:          "Workflow",
+		TechnicalName: "oi_workflow",
+		Version:       "19.0.1.0.0",
+		AssetOperations: map[string][]module.AssetOperation{
+			assets.Backend: {
+				{Directive: "append", Path: "static/src/js/base.js"},
+				{Directive: "after", Target: "static/src/js/base.js", Path: "static/src/js/after.js"},
+				{Directive: "before", Target: "static/src/js/base.js", Path: "static/src/js/before.js"},
+				{Directive: "replace", Target: "static/src/js/after.js", Path: "static/src/js/replacement.js"},
+				{Directive: "remove", Path: "static/src/js/replacement.js"},
+			},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := reg.Bundle(assets.Backend)
+	want := []string{"oi_workflow/static/src/js/before.js", "oi_workflow/static/src/js/base.js"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("bundle = %+v", got)
+	}
+}
+
 func TestAssetsFromSourcesUsesInstalledDependencyOrder(t *testing.T) {
 	env, err := oiEnv()
 	if err != nil {
@@ -5125,7 +5181,7 @@ func TestAssetsFromSourcesUsesInstalledDependencyOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	reg, err := assetsFromSources(env, []module.Manifest{
+	reg, err := assetsFromSources(t.TempDir(), env, []module.Manifest{
 		{
 			Name:          "Theme",
 			TechnicalName: "theme",
