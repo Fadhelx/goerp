@@ -23,10 +23,12 @@ The normal user should think the app is Odoo:
 - `internal/http/server_test.go`: shell, route, and DOM regression tests.
 - `internal/runtime/bootstrap_test.go`: bootstrapped menu/action/asset checks.
 - `reports/agent_audit_backlog.md`: completed UI slice summary.
+- `reports/progress_dashboard.html`: regenerated live build dashboard.
 
 ## UI Rules
 
 - Do not build a marketing page.
+- Do not copy proprietary Odoo Enterprise or OI source/assets.
 - Do not add visible usage instructions, keyboard-shortcut explanations, or feature descriptions.
 - Do not expose normal-user controls named `Developer RPC`, `Build dashboard`, or `Gorp`.
 - Do not show technical field/model controls in the ordinary surface.

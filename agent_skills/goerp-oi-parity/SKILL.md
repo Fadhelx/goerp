@@ -38,6 +38,8 @@ Do not copy proprietary source code or assets. Use behavior, model names, field 
    - `internal/http` tests for routes/RPC.
    - `internal/runtime` tests for bootstrapped integration.
 6. Update dashboard.
+   - edit `reports/agent_audit_backlog.md`.
+   - run `go run ./tools/progress_dashboard --out reports/progress_dashboard.html`.
 
 ## Common Parity Surfaces
 
