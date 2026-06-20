@@ -189,18 +189,19 @@ type Condition struct {
 type Predicate func(EvaluationContext) (bool, error)
 
 type EvaluationContext struct {
-	UserID         int64
-	UserGroupIDs   []int64
-	CompanyID      int64
-	CompanyIDs     []int64
-	DelegationID   int64
-	Model          string
-	RecordID       int64
-	Values         map[string]any
-	Predicates     map[string]Predicate
-	MailComposed   bool
-	Now            time.Time
-	RunAsSuperuser bool
+	UserID               int64
+	UserGroupIDs         []int64
+	CompanyID            int64
+	CompanyIDs           []int64
+	DelegationID         int64
+	DelegationEmployeeID int64
+	Model                string
+	RecordID             int64
+	Values               map[string]any
+	Predicates           map[string]Predicate
+	MailComposed         bool
+	Now                  time.Time
+	RunAsSuperuser       bool
 }
 
 type Hooks struct {
@@ -221,17 +222,18 @@ type ActionResult struct {
 }
 
 type ApprovalLogEvent struct {
-	At           time.Time
-	UserID       int64
-	WorkflowID   int64
-	Model        string
-	RecordID     int64
-	OldNodeID    int64
-	NewNodeID    int64
-	TransitionID int64
-	DelegationID int64
-	Committee    bool
-	Details      map[string]string
+	At                   time.Time
+	UserID               int64
+	WorkflowID           int64
+	Model                string
+	RecordID             int64
+	OldNodeID            int64
+	NewNodeID            int64
+	TransitionID         int64
+	DelegationID         int64
+	DelegationEmployeeID int64
+	Committee            bool
+	Details              map[string]string
 }
 
 type GraphMetadata struct {
@@ -1157,6 +1159,9 @@ func emitApprovalLog(process Process, ctx EvaluationContext, hooks Hooks, event 
 	}
 	if event.DelegationID == 0 {
 		event.DelegationID = ctx.DelegationID
+	}
+	if event.DelegationEmployeeID == 0 {
+		event.DelegationEmployeeID = ctx.DelegationEmployeeID
 	}
 	return hooks.ApprovalLog(event)
 }

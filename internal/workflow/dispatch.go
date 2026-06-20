@@ -27,6 +27,10 @@ type ApprovalDelegationProvider interface {
 	ActiveApprovalDelegationID(delegateUserID int64, delegatorUserIDs []int64, approvalGroupIDs []int64, departmentIDs []int64, at time.Time) int64
 }
 
+type ApprovalDelegationEmployeeResolver interface {
+	ApprovalDelegationEmployeeID(delegationID int64) int64
+}
+
 type Dispatcher struct {
 	Actions     *actions.Registry
 	Mailer      Mailer
@@ -135,6 +139,7 @@ func (d Dispatcher) dispatchTransitionButton(ctx context.Context, env *record.En
 			return nil, err
 		}
 		ctx.DelegationID = advancedApprovalDelegationID(env, workflow, process, d.Delegations, d.now())
+		ctx.DelegationEmployeeID = approvalDelegationEmployeeID(env, ctx.DelegationID, d.Delegations)
 		runAsSuperuser := transitionWillRunAsSuperuser(process, transition, ctx)
 		writeEnv := workflowRunAsSuperuserEnv(env, runAsSuperuser)
 		applyStore := workflowRunAsSuperuserStore(store, writeEnv, runAsSuperuser)
@@ -321,21 +326,23 @@ func (d Dispatcher) dispatchWorkflowWizard(ctx context.Context, env *record.Env,
 			return nil, err
 		}
 		ctx.DelegationID = advancedApprovalDelegationID(env, workflow, process, d.Delegations, d.now())
+		ctx.DelegationEmployeeID = approvalDelegationEmployeeID(env, ctx.DelegationID, d.Delegations)
 		hooks := d.advancedHooks(store, env)
 		if err := writeKnown(env, modelName, recordID, map[string]any{"_approval_comment": comment}); err != nil {
 			return nil, err
 		}
 		if strings.TrimSpace(comment) != "" {
 			if _, err := store.AppendApprovalLog(ApprovalLogEvent{
-				At:           time.Now().UTC(),
-				UserID:       env.Context().UserID,
-				WorkflowID:   process.WorkflowID,
-				Model:        modelName,
-				RecordID:     recordID,
-				OldNodeID:    process.NodeID,
-				NewNodeID:    process.NodeID,
-				DelegationID: ctx.DelegationID,
-				Details:      map[string]string{"description": comment},
+				At:                   time.Now().UTC(),
+				UserID:               env.Context().UserID,
+				WorkflowID:           process.WorkflowID,
+				Model:                modelName,
+				RecordID:             recordID,
+				OldNodeID:            process.NodeID,
+				NewNodeID:            process.NodeID,
+				DelegationID:         ctx.DelegationID,
+				DelegationEmployeeID: ctx.DelegationEmployeeID,
+				Details:              map[string]string{"description": comment},
 			}); err != nil {
 				return nil, err
 			}
@@ -1271,6 +1278,7 @@ func (d Dispatcher) CompleteMailComposeTransition(env *record.Env, composeIDs []
 			}
 			ctx.MailComposed = true
 			ctx.DelegationID = advancedApprovalDelegationID(env, workflow, process, d.Delegations, d.now())
+			ctx.DelegationEmployeeID = approvalDelegationEmployeeID(env, ctx.DelegationID, d.Delegations)
 			runAsSuperuser := transitionWillRunAsSuperuser(process, transition, ctx)
 			writeEnv := workflowRunAsSuperuserEnv(env, runAsSuperuser)
 			applyStore := workflowRunAsSuperuserStore(store, writeEnv, runAsSuperuser)
@@ -1779,6 +1787,25 @@ func advancedApprovalDelegationID(env *record.Env, workflow Workflow, process Pr
 	return delegations.ActiveApprovalDelegationID(env.Context().UserID, approvalUserIDs, node.ResponsibleGroupIDs, departmentIDs, at)
 }
 
+func approvalDelegationEmployeeID(env *record.Env, delegationID int64, delegations ApprovalDelegationProvider) int64 {
+	if delegationID == 0 {
+		return 0
+	}
+	if resolver, ok := delegations.(ApprovalDelegationEmployeeResolver); ok {
+		if employeeID := resolver.ApprovalDelegationEmployeeID(delegationID); employeeID != 0 {
+			return employeeID
+		}
+	}
+	if env == nil {
+		return 0
+	}
+	rows, err := env.Model("delegation").Browse(delegationID).Read("employee_id")
+	if err != nil || len(rows) == 0 {
+		return 0
+	}
+	return int64FromAny(rows[0]["employee_id"])
+}
+
 func userCanReadRecord(env *record.Env, modelName string, recordID int64, userID int64) bool {
 	if userID == 0 {
 		return false
@@ -2131,19 +2158,20 @@ func workflowRecordFromEnv(env *record.Env, modelName string, id int64, engine *
 		}
 	}
 	return Record{
-		Model:              modelName,
-		ID:                 id,
-		State:              state,
-		OwnerUserID:        firstInt64(row["owner_user_id"], row["user_id"], row["create_uid"]),
-		CompanyID:          int64FromAny(row["company_id"]),
-		ApprovalStateID:    approvalStateID,
-		WorkflowNodeID:     workflowNodeID,
-		LastStateUpdate:    timeFromAny(row["last_state_update"]),
-		ApprovalUserIDs:    approvalUserIDs,
-		DoneUserIDs:        doneUserIDs,
-		ForwardedToUserIDs: forwardedUserIDs,
-		DelegationID:       delegationID,
-		Values:             row,
+		Model:                modelName,
+		ID:                   id,
+		State:                state,
+		OwnerUserID:          firstInt64(row["owner_user_id"], row["user_id"], row["create_uid"]),
+		CompanyID:            int64FromAny(row["company_id"]),
+		ApprovalStateID:      approvalStateID,
+		WorkflowNodeID:       workflowNodeID,
+		LastStateUpdate:      timeFromAny(row["last_state_update"]),
+		ApprovalUserIDs:      approvalUserIDs,
+		DoneUserIDs:          doneUserIDs,
+		ForwardedToUserIDs:   forwardedUserIDs,
+		DelegationID:         delegationID,
+		DelegationEmployeeID: approvalDelegationEmployeeID(env, delegationID, delegations),
+		Values:               row,
 	}, nil
 }
 
@@ -2353,18 +2381,19 @@ func persistWorkflowResult(env *record.Env, engine *Engine, before effectSnapsho
 	}
 	for _, log := range engine.Logs[before.logs:] {
 		if err := createKnown(env, ModelLog, map[string]any{
-			"model":              log.Model,
-			"record_id":          log.RecordID,
-			"user_id":            log.UserID,
-			"date":               log.At,
-			"description":        log.Comment,
-			"old_state":          log.OldState,
-			"new_state":          log.NewState,
-			"duration_seconds":   log.Duration.Seconds(),
-			"duration_hours":     log.Duration.Hours(),
-			"approval_button_id": log.ButtonID,
-			"bulk_approval":      log.BulkApproval,
-			"delegation_id":      log.DelegationID,
+			"model":                  log.Model,
+			"record_id":              log.RecordID,
+			"user_id":                log.UserID,
+			"date":                   log.At,
+			"description":            log.Comment,
+			"old_state":              log.OldState,
+			"new_state":              log.NewState,
+			"duration_seconds":       log.Duration.Seconds(),
+			"duration_hours":         log.Duration.Hours(),
+			"approval_button_id":     log.ButtonID,
+			"bulk_approval":          log.BulkApproval,
+			"delegation_id":          log.DelegationID,
+			"delegation_employee_id": log.DelegationEmployeeID,
 		}); err != nil {
 			return err
 		}

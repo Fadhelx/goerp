@@ -762,6 +762,19 @@ func (s *Service) ActiveApprovalDelegationID(delegateUserID int64, delegatorUser
 	return requestIDs[0]
 }
 
+func (s *Service) ApprovalDelegationEmployeeID(delegationID int64) int64 {
+	if delegationID == 0 {
+		return 0
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	req, ok := s.requests[delegationID]
+	if !ok {
+		return 0
+	}
+	return req.DelegatorEmployeeID
+}
+
 func (s *Service) DelegatedGroupIDsForDelegator(delegatorUserID int64, at time.Time) []int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -260,7 +260,7 @@ func (m ModelSet) Create(values map[string]any) (int64, error) {
 	}
 	values = m.withCreateLogAccessValues(values, time.Now().UTC())
 	switch m.model.Name {
-	case "res.partner", "mailing.contact", "mailing.trace", "phone.blacklist":
+	case "approval.log", "res.partner", "mailing.contact", "mailing.trace", "phone.blacklist":
 		values = m.normalizeRecordWriteValues(nil, values)
 	}
 	explicitID := int64(0)
@@ -1162,6 +1162,8 @@ func (m ModelSet) normalizeCreateValues(values map[string]any) map[string]any {
 		return m.normalizeDelegationValues(nil, m.normalizeSequencedNameCreateValues(values))
 	case "delegation.line":
 		return m.normalizeDelegationLineValues(nil, values)
+	case "approval.log":
+		return m.normalizeApprovalLogValues(nil, values)
 	case "cancellation.record":
 		return m.normalizeSequencedNameCreateValues(values)
 	default:
@@ -2264,6 +2266,24 @@ func (m ModelSet) normalizeDelegationLineValues(existing map[string]any, values 
 		if userID := m.employeeUserID(employeeID); userID != 0 && m.hasField("user_id") {
 			out["user_id"] = userID
 		}
+	}
+	return out
+}
+
+func (m ModelSet) normalizeApprovalLogValues(existing map[string]any, values map[string]any) map[string]any {
+	out := copyValues(values)
+	if !m.hasField("delegation_employee_id") {
+		return out
+	}
+	delegationID := numericID(firstNonZero(out["delegation_id"], safeRowValue(existing, "delegation_id")))
+	if delegationID == 0 {
+		if _, touched := out["delegation_id"]; touched {
+			out["delegation_employee_id"] = nil
+		}
+		return out
+	}
+	if delegation := m.rowByID("delegation", delegationID); delegation != nil {
+		out["delegation_employee_id"] = delegation["employee_id"]
 	}
 	return out
 }
@@ -7184,6 +7204,10 @@ func (m ModelSet) normalizeRecordWriteValues(existing map[string]any, values map
 			if _, ok := values[fieldName]; ok {
 				return m.normalizeDelegationLineValues(existing, values)
 			}
+		}
+	case "approval.log":
+		if _, ok := values["delegation_id"]; ok {
+			return m.normalizeApprovalLogValues(existing, values)
 		}
 	case "ir.model.data":
 		return m.normalizeIrModelDataValues(existing, values)

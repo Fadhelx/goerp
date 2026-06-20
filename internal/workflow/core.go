@@ -142,19 +142,20 @@ type Button struct {
 }
 
 type Record struct {
-	Model              string
-	ID                 int64
-	State              string
-	OwnerUserID        int64
-	CompanyID          int64
-	ApprovalStateID    int64
-	WorkflowNodeID     int64
-	LastStateUpdate    time.Time
-	ApprovalUserIDs    []int64
-	DoneUserIDs        []int64
-	ForwardedToUserIDs []int64
-	DelegationID       int64
-	Values             map[string]any
+	Model                string
+	ID                   int64
+	State                string
+	OwnerUserID          int64
+	CompanyID            int64
+	ApprovalStateID      int64
+	WorkflowNodeID       int64
+	LastStateUpdate      time.Time
+	ApprovalUserIDs      []int64
+	DoneUserIDs          []int64
+	ForwardedToUserIDs   []int64
+	DelegationID         int64
+	DelegationEmployeeID int64
+	Values               map[string]any
 }
 
 func (r Record) Row(stateField string) map[string]any {
@@ -178,18 +179,19 @@ func (r Record) Row(stateField string) map[string]any {
 }
 
 type Log struct {
-	Model        string
-	RecordID     int64
-	UserID       int64
-	ButtonID     int64
-	Action       ButtonAction
-	Comment      string
-	OldState     string
-	NewState     string
-	Duration     time.Duration
-	BulkApproval bool
-	DelegationID int64
-	At           time.Time
+	Model                string
+	RecordID             int64
+	UserID               int64
+	ButtonID             int64
+	Action               ButtonAction
+	Comment              string
+	OldState             string
+	NewState             string
+	Duration             time.Duration
+	BulkApproval         bool
+	DelegationID         int64
+	DelegationEmployeeID int64
+	At                   time.Time
 }
 
 type Forward struct {
@@ -1098,18 +1100,19 @@ func (e *Engine) appendLog(userID int64, record Record, button Button, oldState,
 		duration = now.Sub(record.LastStateUpdate)
 	}
 	log := Log{
-		Model:        record.Model,
-		RecordID:     record.ID,
-		UserID:       userID,
-		ButtonID:     button.ID,
-		Action:       button.Action,
-		Comment:      input.Comment,
-		OldState:     oldState,
-		NewState:     newState,
-		Duration:     duration,
-		BulkApproval: input.BulkApproval,
-		DelegationID: record.DelegationID,
-		At:           now,
+		Model:                record.Model,
+		RecordID:             record.ID,
+		UserID:               userID,
+		ButtonID:             button.ID,
+		Action:               button.Action,
+		Comment:              input.Comment,
+		OldState:             oldState,
+		NewState:             newState,
+		Duration:             duration,
+		BulkApproval:         input.BulkApproval,
+		DelegationID:         record.DelegationID,
+		DelegationEmployeeID: record.DelegationEmployeeID,
+		At:                   now,
 	}
 	e.Logs = append(e.Logs, log)
 	return log

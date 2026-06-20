@@ -249,6 +249,7 @@ func (s ProcessStore) AppendApprovalLog(event ApprovalLogEvent) (int64, error) {
 		"new_node_id":            event.NewNodeID,
 		"workflow_transition_id": event.TransitionID,
 		"delegation_id":          event.DelegationID,
+		"delegation_employee_id": event.DelegationEmployeeID,
 	}
 	for _, key := range []string{"old_state", "new_state", "old_status", "new_status", "duration"} {
 		if value := event.Details[key]; value != "" {

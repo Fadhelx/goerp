@@ -400,11 +400,12 @@ func TestDispatcherClassicDelegatedApproverPersistsLogAttribution(t *testing.T) 
 	delegationSvc := delegation.NewService(delegation.WithNow(func() time.Time { return now }))
 	delegationSvc.SetGroupConfig(delegation.GroupConfig{GroupID: groupID, Name: "Classic Approvers", AllowDelegation: true})
 	request, err := delegationSvc.CreateRequest(delegation.RequestInput{
-		DateFrom:        now,
-		DateTo:          now.AddDate(0, 0, 1),
-		DelegatorUserID: delegatorID,
-		DepartmentIDs:   []int64{departmentID},
-		Lines:           []delegation.LineInput{{GroupID: groupID, DelegateUserID: delegateID}},
+		DateFrom:            now,
+		DateTo:              now.AddDate(0, 0, 1),
+		DelegatorEmployeeID: employeeID,
+		DelegatorUserID:     delegatorID,
+		DepartmentIDs:       []int64{departmentID},
+		Lines:               []delegation.LineInput{{GroupID: groupID, DelegateUserID: delegateID}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -457,11 +458,11 @@ func TestDispatcherClassicDelegatedApproverPersistsLogAttribution(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	logRows, err := logs.Read("user_id", "delegation_id", "old_state", "new_state")
+	logRows, err := logs.Read("user_id", "delegation_id", "delegation_employee_id", "old_state", "new_state")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(logRows) != 1 || logRows[0]["user_id"] != delegateID || logRows[0]["delegation_id"] != request.ID || logRows[0]["old_state"] != "draft" || logRows[0]["new_state"] != "approved" {
+	if len(logRows) != 1 || logRows[0]["user_id"] != delegateID || logRows[0]["delegation_id"] != request.ID || logRows[0]["delegation_employee_id"] != employeeID || logRows[0]["old_state"] != "draft" || logRows[0]["new_state"] != "approved" {
 		t.Fatalf("approval log = %+v", logRows)
 	}
 }
@@ -2698,10 +2699,11 @@ func TestDispatcherAutoStartAddsDelegatedApproversForRecordDepartment(t *testing
 	delegationSvc.SetGroupConfig(delegation.GroupConfig{GroupID: groupID, Name: "Approver", AllowDelegation: true})
 	delegationSvc.SetGroupConfig(delegation.GroupConfig{GroupID: otherGroupID, Name: "Other Approver", AllowDelegation: true})
 	req, err := delegationSvc.CreateRequest(delegation.RequestInput{
-		DateFrom:        now,
-		DateTo:          now.AddDate(0, 0, 1),
-		DelegatorUserID: delegatorID,
-		DepartmentIDs:   []int64{childDepartmentID},
+		DateFrom:            now,
+		DateTo:              now.AddDate(0, 0, 1),
+		DelegatorEmployeeID: allowedEmployeeID,
+		DelegatorUserID:     delegatorID,
+		DepartmentIDs:       []int64{childDepartmentID},
 		Lines: []delegation.LineInput{
 			{GroupID: groupID, DelegateUserID: delegateID},
 			{GroupID: otherGroupID, DelegateUserID: otherDelegateID},
@@ -2772,11 +2774,11 @@ func TestDispatcherAutoStartAddsDelegatedApproversForRecordDepartment(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	logRows, err := transitionLogs.Read("user_id", "delegation_id", "workflow_transition_id")
+	logRows, err := transitionLogs.Read("user_id", "delegation_id", "delegation_employee_id", "workflow_transition_id")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(logRows) != 1 || logRows[0]["user_id"] != delegateID || logRows[0]["delegation_id"] != req.ID || logRows[0]["workflow_transition_id"] != approveTransitionID {
+	if len(logRows) != 1 || logRows[0]["user_id"] != delegateID || logRows[0]["delegation_id"] != req.ID || logRows[0]["delegation_employee_id"] != allowedEmployeeID || logRows[0]["workflow_transition_id"] != approveTransitionID {
 		t.Fatalf("approval log = %+v", logRows)
 	}
 }

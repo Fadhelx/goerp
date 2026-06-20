@@ -450,6 +450,55 @@ func TestDelegationLifecyclePersistsApprovalLogs(t *testing.T) {
 	assertDelegationApprovalLogStates(t, env, expireID, [][2]string{{"confirmed", "expired"}})
 }
 
+func TestApprovalLogDelegationEmployeeRelatedField(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	firstEmployeeID, _ := createDelegationEmployees(t, env, "approval-log-first")
+	secondEmployeeID, _ := createDelegationEmployees(t, env, "approval-log-second")
+	firstDelegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2099-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": firstEmployeeID,
+		"state":       "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondDelegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2099-02-01",
+		"date_to":     "2099-02-28",
+		"employee_id": secondEmployeeID,
+		"state":       "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logID, err := env.Model(workflow.ModelLog).Create(map[string]any{
+		"model":         "purchase.order",
+		"record_id":     int64(42),
+		"delegation_id": firstDelegationID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(workflow.ModelLog).Browse(logID).Read("delegation_id", "delegation_employee_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["delegation_id"] != firstDelegationID || rows[0]["delegation_employee_id"] != firstEmployeeID {
+		t.Fatalf("approval log create related field = %+v", rows[0])
+	}
+	if err := env.Model(workflow.ModelLog).Browse(logID).Write(map[string]any{"delegation_id": secondDelegationID}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = env.Model(workflow.ModelLog).Browse(logID).Read("delegation_id", "delegation_employee_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["delegation_id"] != secondDelegationID || rows[0]["delegation_employee_id"] != secondEmployeeID {
+		t.Fatalf("approval log write related field = %+v", rows[0])
+	}
+}
+
 func assertDelegationApprovalLogStates(t *testing.T, env *record.Env, delegationID int64, want [][2]string) {
 	t.Helper()
 	logs, err := env.Model(workflow.ModelLog).Search(domain.And(
