@@ -362,14 +362,30 @@ func (d Dispatcher) dispatchStateUpdateWizard(ctx context.Context, env *record.E
 	if len(wizardIDs) == 0 {
 		return nil, fmt.Errorf("approval.state.update action_update requires wizard ids")
 	}
-	rows, err := env.Model(ModelStateUpdateWizard).Browse(wizardIDs...).Read("res_model", "model", "res_ids", "record_id", "state", "comment")
+	rows, err := env.Model(ModelStateUpdateWizard).Browse(wizardIDs...).Read("res_model", "model", "res_ids", "record_id", "state", "comment", "workflow_model", "workflow_node_id", "workflow_id")
 	if err != nil {
 		return nil, err
 	}
+	advancedUpdated := false
 	for _, row := range rows {
 		modelName := firstString(row["res_model"], row["model"])
 		ids := idsFromAny(firstNonNil(row["res_ids"], row["record_id"]))
 		newState := stringFromAny(row["state"])
+		workflowModel := boolFromAny(row["workflow_model"])
+		if !workflowModel {
+			var err error
+			workflowModel, err = stateUpdateWizardModelIsAdvanced(env, modelName)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if workflowModel {
+			if err := d.applyAdvancedStateUpdateWizard(env, modelName, ids, int64FromAny(row["workflow_node_id"]), int64FromAny(row["workflow_id"]), newState); err != nil {
+				return nil, err
+			}
+			advancedUpdated = true
+			continue
+		}
 		for _, id := range ids {
 			engine, err := d.engineFromEnv(env)
 			if err != nil {
@@ -395,7 +411,120 @@ func (d Dispatcher) dispatchStateUpdateWizard(ctx context.Context, env *record.E
 			}
 		}
 	}
+	if advancedUpdated {
+		return softReloadAction(), nil
+	}
 	return closeWindowAction(), nil
+}
+
+func (d Dispatcher) applyAdvancedStateUpdateWizard(env *record.Env, modelName string, ids []int64, nodeID int64, workflowID int64, state string) error {
+	if modelName == "" || len(ids) == 0 {
+		return nil
+	}
+	nodeState := ""
+	if nodeID != 0 {
+		var err error
+		nodeState, workflowID, err = stateUpdateWizardNodeInfo(env, nodeID)
+		if err != nil {
+			return err
+		}
+		if state == "" {
+			state = nodeState
+		}
+	}
+	workflows, err := loadAdvancedWorkflows(env)
+	if err != nil {
+		return err
+	}
+	store := NewProcessStore(env)
+	for _, id := range ids {
+		oldWorkflowID, oldNodeID, err := stateUpdateWizardRecordWorkflow(env, modelName, id)
+		if err != nil {
+			return err
+		}
+		if workflowID == 0 {
+			workflowID = oldWorkflowID
+		}
+		if err := writeKnown(env, modelName, id, map[string]any{"_old_workflow_node_id": oldNodeID}); err != nil {
+			return err
+		}
+		if nodeID == 0 {
+			process, ok, err := store.Find(modelName, id)
+			if err != nil {
+				return err
+			}
+			oldState := ""
+			if ok {
+				oldState = process.State
+				process.NodeID = 0
+				process.State = state
+				process.Active = true
+				process.LastTransitionID = 0
+				process.UpdatedAt = d.now()
+				if _, err := store.Save(process); err != nil {
+					return err
+				}
+			}
+			if err := writeKnown(env, modelName, id, map[string]any{"state": state, "workflow_node_id": nil, "workflow_id": nil}); err != nil {
+				return err
+			}
+			if oldState != "" && state != "" && oldState != state {
+				engine, err := d.engineFromEnv(env)
+				if err != nil {
+					return err
+				}
+				if settings, ok := engine.SettingsForModel(modelName); ok {
+					if _, err := d.runStateUpdatedWrite(env, engine, settings, modelName, id, oldState, Input{}); err != nil {
+						return err
+					}
+				}
+			}
+			continue
+		}
+		workflow, ok := workflowByID(workflows, workflowID)
+		if !ok {
+			return fmt.Errorf("workflow %d not found for approval.state.update", workflowID)
+		}
+		process, ok, err := store.Find(modelName, id)
+		if err != nil {
+			return err
+		}
+		now := d.now()
+		if !ok {
+			process = Process{
+				WorkflowID: workflowID,
+				Model:      modelName,
+				RecordID:   id,
+				Active:     true,
+				StartedAt:  now,
+			}
+		}
+		oldState := process.State
+		if oldState == "" {
+			oldState = state
+		}
+		process.WorkflowID = workflowID
+		process.NodeID = nodeID
+		process.State = state
+		process.Active = true
+		process.LastTransitionID = 0
+		process.UpdatedAt = now
+		if err := d.persistAdvancedRecordState(env, workflow, process); err != nil {
+			return err
+		}
+		if oldState != "" && state != "" && oldState != state {
+			engine, err := d.engineFromEnv(env)
+			if err != nil {
+				return err
+			}
+			if settings, ok := engine.SettingsForModel(modelName); ok {
+				if _, err := d.runStateUpdatedWrite(env, engine, settings, modelName, id, oldState, Input{}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (d Dispatcher) runButtons(ctx context.Context, env *record.Env, modelName string, ids []int64, buttonID int64, input Input, forceClose bool) (any, error) {
@@ -1464,6 +1593,7 @@ func persistAdvancedRecordState(env *record.Env, workflow Workflow, process Proc
 	}
 	values := map[string]any{
 		"state":                           process.State,
+		"workflow_id":                     process.WorkflowID,
 		"workflow_node_id":                process.NodeID,
 		"_workflow_transition_id":         process.LastTransitionID,
 		"workflow_transition_ids":         transitionIDs,

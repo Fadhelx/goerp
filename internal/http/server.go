@@ -9022,6 +9022,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		if req.Model == internalworkflow.ModelWorkflowWizard {
 			return internalworkflow.WorkflowWizardDefaultGet(env, fields, mapValue(kwarg(req.Kwargs, "context")))
 		}
+		if req.Model == internalworkflow.ModelStateUpdateWizard {
+			return internalworkflow.StateUpdateWizardDefaultGet(env, fields, mapValue(kwarg(req.Kwargs, "context")))
+		}
 		return env.Model(req.Model).DefaultGet(fields, mapValue(kwarg(req.Kwargs, "context")))
 	case "name_get":
 		ids := int64Slice(arg(req.Args, 0))
@@ -9218,6 +9221,13 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		values := mapValue(arg(req.Args, 0))
 		if req.Model == "res.users" {
 			values = resUsersOnchangeValues(env, values)
+		}
+		if req.Model == internalworkflow.ModelStateUpdateWizard {
+			var err error
+			values, err = internalworkflow.StateUpdateWizardOnchange(env, values, stringSlice(arg(req.Args, 1)))
+			if err != nil {
+				return nil, err
+			}
 		}
 		return map[string]any{"value": values}, nil
 	default:

@@ -3623,6 +3623,220 @@ func TestWorkflowWizardDefaultGetHydratesProcessAndAvailableTransitions(t *testi
 	}
 }
 
+func TestStateUpdateWizardDefaultGetHydratesAdvancedFields(t *testing.T) {
+	env := dispatchEnv(t)
+	workflowID, pendingNodeID, _, recordID := setupStateUpdateAdvancedRecord(t, env)
+
+	values, err := StateUpdateWizardDefaultGet(env, []string{
+		"res_model",
+		"res_ids",
+		"workflow_model",
+		"workflow_id",
+		"workflow_node_id",
+	}, map[string]any{
+		"default_res_model": "purchase.order",
+		"default_res_ids":   []int64{recordID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["res_model"] != "purchase.order" ||
+		!boolFromAny(values["workflow_model"]) ||
+		values["workflow_id"] != workflowID ||
+		values["workflow_node_id"] != pendingNodeID {
+		t.Fatalf("state update defaults = %+v", values)
+	}
+	if ids := idsFromAny(values["res_ids"]); len(ids) != 1 || ids[0] != recordID {
+		t.Fatalf("res_ids = %+v", values["res_ids"])
+	}
+
+	otherWorkflowID, err := env.Model(ModelWorkflow).Create(map[string]any{"name": "Other", "model": "purchase.order", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherNodeID, err := env.Model(ModelNode).Create(map[string]any{"name": "Other Node", "workflow_id": otherWorkflowID, "type": string(NodeTypeUser), "state": "other", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherRecordID, err := env.Model("purchase.order").Create(map[string]any{"name": "Other PO", "state": "other", "workflow_node_id": otherNodeID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewProcessStore(env).Save(Process{WorkflowID: otherWorkflowID, Model: "purchase.order", RecordID: otherRecordID, NodeID: otherNodeID, State: "other", Active: true}); err != nil {
+		t.Fatal(err)
+	}
+	values, err = StateUpdateWizardDefaultGet(env, []string{"workflow_model", "workflow_id", "workflow_node_id"}, map[string]any{
+		"default_res_model": "purchase.order",
+		"default_res_ids":   []int64{recordID, otherRecordID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !boolFromAny(values["workflow_model"]) || values["workflow_id"] != nil || values["workflow_node_id"] != nil {
+		t.Fatalf("mixed defaults = %+v", values)
+	}
+}
+
+func TestStateUpdateWizardOnchangeMirrorsSourceBehavior(t *testing.T) {
+	env := dispatchEnv(t)
+	_, _, doneNodeID, _ := setupStateUpdateAdvancedRecord(t, env)
+
+	values, err := StateUpdateWizardOnchange(env, map[string]any{"workflow_node_id": doneNodeID}, []string{"workflow_node_id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["state"] != "approved" {
+		t.Fatalf("node onchange values = %+v", values)
+	}
+	values, err = StateUpdateWizardOnchange(env, map[string]any{"workflow_node_id": doneNodeID, "state": "rejected"}, []string{"state"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["workflow_node_id"] != nil {
+		t.Fatalf("state onchange values = %+v", values)
+	}
+}
+
+func TestDispatcherStateUpdateWizardAdvancedUpdatesWorkflowNode(t *testing.T) {
+	env := dispatchEnv(t)
+	workflowID, pendingNodeID, doneNodeID, recordID := setupStateUpdateAdvancedRecord(t, env)
+	wizardID, err := env.Model(ModelStateUpdateWizard).Create(map[string]any{
+		"res_model":        "purchase.order",
+		"res_ids":          []int64{recordID},
+		"state":            "approved",
+		"workflow_model":   true,
+		"workflow_id":      workflowID,
+		"workflow_node_id": doneNodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, handled, err := (Dispatcher{}).DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  ModelStateUpdateWizard,
+		Method: "action_update",
+		Args:   []any{[]any{wizardID}},
+	})
+	if err != nil || !handled {
+		t.Fatalf("state update handled=%v result=%+v err=%v", handled, result, err)
+	}
+	action := result.(map[string]any)
+	if action["type"] != "ir.actions.client" || action["tag"] != "soft_reload" {
+		t.Fatalf("advanced action result = %+v", result)
+	}
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("state", "workflow_id", "workflow_node_id", "_old_workflow_node_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "approved" ||
+		rows[0]["workflow_id"] != workflowID ||
+		rows[0]["workflow_node_id"] != doneNodeID ||
+		rows[0]["_old_workflow_node_id"] != pendingNodeID {
+		t.Fatalf("advanced updated row = %+v", rows[0])
+	}
+	process, ok, err := NewProcessStore(env).Find("purchase.order", recordID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || process.WorkflowID != workflowID || process.NodeID != doneNodeID || process.State != "approved" || !process.Active {
+		t.Fatalf("advanced process = %+v ok=%v", process, ok)
+	}
+}
+
+func TestDispatcherStateUpdateWizardClassicFallbackClosesWindow(t *testing.T) {
+	env := dispatchEnv(t)
+	recordID, err := env.Model("purchase.order").Create(map[string]any{"name": "Classic PO", "state": "draft"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wizardID, err := env.Model(ModelStateUpdateWizard).Create(map[string]any{
+		"res_model": "purchase.order",
+		"res_ids":   []int64{recordID},
+		"state":     "cancel",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, handled, err := (Dispatcher{}).DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  ModelStateUpdateWizard,
+		Method: "action_update",
+		Args:   []any{[]any{wizardID}},
+	})
+	if err != nil || !handled {
+		t.Fatalf("classic state update handled=%v result=%+v err=%v", handled, result, err)
+	}
+	action := result.(map[string]any)
+	if action["type"] != "ir.actions.act_window_close" {
+		t.Fatalf("classic action result = %+v", result)
+	}
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "cancel" {
+		t.Fatalf("classic updated row = %+v", rows[0])
+	}
+}
+
+func setupStateUpdateAdvancedRecord(t *testing.T, env *record.Env) (int64, int64, int64, int64) {
+	t.Helper()
+	settingsID, err := env.Model(ModelSettings).Create(map[string]any{
+		"name":        "Purchase Advanced",
+		"model":       "purchase.order",
+		"active":      true,
+		"advance":     true,
+		"state_field": "state",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflowID, err := env.Model(ModelWorkflow).Create(map[string]any{
+		"name":                 "PO Advanced State Update",
+		"model":                "purchase.order",
+		"approval_settings_id": settingsID,
+		"active":               true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Pending",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeUser),
+		"state":       "pending",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doneNodeID, err := env.Model(ModelNode).Create(map[string]any{
+		"name":        "Done",
+		"workflow_id": workflowID,
+		"type":        string(NodeTypeEnd),
+		"state":       "approved",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelWorkflow).Browse(workflowID).Write(map[string]any{"start_node_id": pendingNodeID}); err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{
+		"name":             "PO State Update",
+		"state":            "pending",
+		"workflow_id":      workflowID,
+		"workflow_node_id": pendingNodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewProcessStore(env).Save(Process{WorkflowID: workflowID, Model: "purchase.order", RecordID: recordID, NodeID: pendingNodeID, State: "pending", Active: true}); err != nil {
+		t.Fatal(err)
+	}
+	return workflowID, pendingNodeID, doneNodeID, recordID
+}
+
 func dispatchEnv(t *testing.T) *record.Env {
 	t.Helper()
 	reg := record.NewRegistry()
@@ -3634,8 +3848,24 @@ func dispatchEnv(t *testing.T) *record.Env {
 			}
 		}
 	}
+	workflowModels := map[string]model.Model{}
+	var workflowOrder []string
+	addWorkflowModel := func(m model.Model) {
+		if existing, ok := workflowModels[m.Name]; ok {
+			workflowModels[m.Name] = m.Compose(existing)
+			return
+		}
+		workflowModels[m.Name] = m
+		workflowOrder = append(workflowOrder, m.Name)
+	}
 	for _, m := range Models() {
-		if err := reg.Register(m); err != nil {
+		addWorkflowModel(m)
+	}
+	for _, m := range AdvancedExtensionModels() {
+		addWorkflowModel(m)
+	}
+	for _, name := range workflowOrder {
+		if err := reg.Register(workflowModels[name]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -3659,9 +3889,11 @@ func dispatchEnv(t *testing.T) *record.Env {
 	po.AddField(field.New("user_can_approve", field.Bool))
 	po.AddField(field.New("approval_forward_user_ids", field.Many2Many).WithRelation("res.users"))
 	po.AddField(field.New("approval_activity_date_deadline", field.Date))
+	po.AddField(field.New("workflow_id", field.Many2One).WithRelation(ModelWorkflow))
 	po.AddField(field.New("workflow_node_id", field.Many2One).WithRelation(ModelNode))
 	po.AddField(field.New("workflow_transition_ids", field.Many2Many).WithRelation(ModelTransition))
 	po.AddField(field.New("workflow_view_id", field.Many2One).WithRelation("ir.ui.view"))
+	po.AddField(field.New("_old_workflow_node_id", field.Many2One).WithRelation(ModelNode))
 	po.AddField(field.New("_workflow_transition_id", field.Many2One).WithRelation(ModelTransition))
 	po.AddField(field.New("_approval_comment", field.Char))
 	if err := reg.Register(po); err != nil {

@@ -14057,6 +14057,100 @@ func TestWorkflowProcessWizardDefaultGetHTTPHydratesTransitionDomain(t *testing.
 	}
 }
 
+func TestStateUpdateWizardHTTPHydratesOnchangeAndSoftReloads(t *testing.T) {
+	server := testWorkflowDispatchServer(t)
+	settingsID, err := server.Env.Model(internalworkflow.ModelSettings).Create(map[string]any{
+		"name":        "PO Advanced HTTP",
+		"model":       "purchase.order",
+		"active":      true,
+		"advance":     true,
+		"state_field": "state",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflowID, err := server.Env.Model(internalworkflow.ModelWorkflow).Create(map[string]any{
+		"name":                 "PO HTTP State Update",
+		"model":                "purchase.order",
+		"approval_settings_id": settingsID,
+		"active":               true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingNodeID, err := server.Env.Model(internalworkflow.ModelNode).Create(map[string]any{
+		"name":        "Pending",
+		"workflow_id": workflowID,
+		"type":        string(internalworkflow.NodeTypeUser),
+		"state":       "pending",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doneNodeID, err := server.Env.Model(internalworkflow.ModelNode).Create(map[string]any{
+		"name":        "Done",
+		"workflow_id": workflowID,
+		"type":        string(internalworkflow.NodeTypeEnd),
+		"state":       "approved",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := server.Env.Model("purchase.order").Create(map[string]any{
+		"name":             "PO HTTP State Update",
+		"state":            "pending",
+		"workflow_id":      workflowID,
+		"workflow_node_id": pendingNodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := internalworkflow.NewProcessStore(server.Env).Save(internalworkflow.Process{WorkflowID: workflowID, Model: "purchase.order", RecordID: recordID, NodeID: pendingNodeID, State: "pending", Active: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	body := postCallKW(t, server.Handler(), fmt.Sprintf(`{"model":"%s","method":"default_get","args":[["res_model","res_ids","workflow_model","workflow_id","workflow_node_id"]],"kwargs":{"context":{"default_res_model":"purchase.order","default_res_ids":[%d]}}}`, internalworkflow.ModelStateUpdateWizard, recordID))
+	values := decodeJSON(t, []byte(body))
+	if values["res_model"] != "purchase.order" ||
+		values["workflow_model"] != true ||
+		int64Value(values["workflow_id"]) != workflowID ||
+		int64Value(values["workflow_node_id"]) != pendingNodeID {
+		t.Fatalf("state update defaults = %+v", values)
+	}
+
+	body = postCallKW(t, server.Handler(), fmt.Sprintf(`{"model":"%s","method":"onchange","args":[{"workflow_node_id":%d},["workflow_node_id"],{}]}`, internalworkflow.ModelStateUpdateWizard, doneNodeID))
+	values = decodeJSON(t, []byte(body))["value"].(map[string]any)
+	if values["state"] != "approved" {
+		t.Fatalf("state update onchange = %+v", values)
+	}
+
+	wizardID, err := server.Env.Model(internalworkflow.ModelStateUpdateWizard).Create(map[string]any{
+		"res_model":        "purchase.order",
+		"res_ids":          []int64{recordID},
+		"state":            "approved",
+		"workflow_model":   true,
+		"workflow_id":      workflowID,
+		"workflow_node_id": doneNodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = postCallButton(t, server.Handler(), fmt.Sprintf(`{"model":"%s","method":"action_update","args":[[%d]]}`, internalworkflow.ModelStateUpdateWizard, wizardID))
+	values = decodeJSON(t, []byte(body))
+	if values["type"] != "ir.actions.client" || values["tag"] != "soft_reload" {
+		t.Fatalf("state update action = %+v", values)
+	}
+	rows, err := server.Env.Model("purchase.order").Browse(recordID).Read("state", "workflow_node_id", "_old_workflow_node_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "approved" || int64Value(rows[0]["workflow_node_id"]) != doneNodeID || int64Value(rows[0]["_old_workflow_node_id"]) != pendingNodeID {
+		t.Fatalf("state update row = %+v", rows[0])
+	}
+}
+
 func TestCallButtonApprovalTransitionWizardHTTPReturnsWizardAction(t *testing.T) {
 	server := testWorkflowDispatchServer(t)
 	workflowID, err := server.Env.Model(internalworkflow.ModelWorkflow).Create(map[string]any{
@@ -16712,8 +16806,27 @@ func testWorkflowDispatchServerWithDefaultReadonly(t *testing.T, defaultReadonly
 			t.Fatal(err)
 		}
 	}
+	workflowModels := map[string]model.Model{}
+	var workflowOrder []string
+	addWorkflowModel := func(m model.Model) {
+		if existing, ok := workflowModels[m.Name]; ok {
+			workflowModels[m.Name] = m.Compose(existing)
+			return
+		}
+		workflowModels[m.Name] = m
+		workflowOrder = append(workflowOrder, m.Name)
+	}
 	for _, m := range internalworkflow.Models() {
-		if err := reg.Register(m); err != nil {
+		addWorkflowModel(m)
+	}
+	for _, m := range internalworkflow.AdvancedExtensionModels() {
+		if _, exists := reg.Model(m.Name); exists {
+			continue
+		}
+		addWorkflowModel(m)
+	}
+	for _, name := range workflowOrder {
+		if err := reg.Register(workflowModels[name]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -16735,9 +16848,11 @@ func testWorkflowDispatchServerWithDefaultReadonly(t *testing.T, defaultReadonly
 	po.AddField(field.New("approval_user_ids", field.Many2Many).WithRelation("res.users"))
 	po.AddField(field.New("approval_done_user_ids", field.Many2Many).WithRelation("res.users"))
 	po.AddField(field.New("approval_forward_user_ids", field.Many2Many).WithRelation("res.users"))
+	po.AddField(field.New("workflow_id", field.Many2One).WithRelation(internalworkflow.ModelWorkflow))
 	po.AddField(field.New("workflow_transition_ids", field.Many2Many).WithRelation(internalworkflow.ModelTransition))
 	po.AddField(field.New("workflow_node_id", field.Many2One).WithRelation(internalworkflow.ModelNode))
 	po.AddField(field.New("workflow_view_id", field.Many2One).WithRelation("ir.ui.view"))
+	po.AddField(field.New("_old_workflow_node_id", field.Many2One).WithRelation(internalworkflow.ModelNode))
 	po.AddField(field.New("_workflow_transition_id", field.Many2One).WithRelation(internalworkflow.ModelTransition))
 	if err := reg.Register(po); err != nil {
 		t.Fatal(err)
@@ -17127,6 +17242,16 @@ func postCallKW(t *testing.T, handler http.Handler, payload string) string {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", bytes.NewBufferString(payload)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("call_kw status %d %s", rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+func postCallButton(t *testing.T, handler http.Handler, payload string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_button", bytes.NewBufferString(payload)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("call_button status %d %s", rec.Code, rec.Body.String())
 	}
 	return rec.Body.String()
 }
