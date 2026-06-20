@@ -163,7 +163,7 @@ func (s Server) reportsFile(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	root, err := filepath.Abs("reports")
+	root, err := reportsRoot()
 	if err != nil {
 		http.Error(w, "reports root error", http.StatusInternalServerError)
 		return
@@ -178,6 +178,19 @@ func (s Server) reportsFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, target)
+}
+
+func reportsRoot() (string, error) {
+	for _, candidate := range []string{"reports", filepath.Join("current", "reports"), filepath.Join("gorp", "reports")} {
+		root, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(root); err == nil && info.IsDir() {
+			return root, nil
+		}
+	}
+	return filepath.Abs("reports")
 }
 
 func (s Server) busPoll(w http.ResponseWriter, r *http.Request) {

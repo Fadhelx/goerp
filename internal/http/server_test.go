@@ -72,6 +72,15 @@ func TestWebRoutes(t *testing.T) {
 }
 
 func TestReportsStaticDashboardRoute(t *testing.T) {
+	assertReportsStaticDashboardRoute(t, "reports")
+}
+
+func TestReportsStaticDashboardRouteUsesCurrentReleaseLayout(t *testing.T) {
+	assertReportsStaticDashboardRoute(t, filepath.Join("current", "reports"))
+}
+
+func assertReportsStaticDashboardRoute(t *testing.T, reportsDir string) {
+	t.Helper()
 	dir := t.TempDir()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -85,10 +94,11 @@ func TestReportsStaticDashboardRoute(t *testing.T) {
 			t.Fatalf("restore working directory: %v", err)
 		}
 	})
-	if err := os.MkdirAll(filepath.Join(dir, "reports"), 0o755); err != nil {
+	reportRoot := filepath.Join(dir, reportsDir)
+	if err := os.MkdirAll(reportRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "reports", "progress_dashboard.html"), []byte("<h1>Gorp Build Dashboard</h1>"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(reportRoot, "progress_dashboard.html"), []byte("<h1>Gorp Build Dashboard</h1>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "secret.txt"), []byte("secret"), 0o644); err != nil {
