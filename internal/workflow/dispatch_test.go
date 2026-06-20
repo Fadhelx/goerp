@@ -812,6 +812,107 @@ func TestDispatcherClassicButtonRunAsSuperuserBypassesServerActionGroups(t *test
 	}
 }
 
+func TestDispatcherVotingTypeForcesApproveAction(t *testing.T) {
+	env := dispatchEnv(t)
+	settingsID := createDispatchSettings(t, env)
+	if _, err := env.Model(ModelConfig).Create(map[string]any{
+		"settings_id":               settingsID,
+		"name":                      "Committee",
+		"state":                     "committee",
+		"sequence":                  int64(10),
+		"committee":                 true,
+		"is_voting":                 true,
+		"committee_vote_percentage": float64(60),
+		"active":                    true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	buttonID, err := env.Model(ModelButton).Create(map[string]any{
+		"settings_id": settingsID,
+		"name":        "Approve Vote",
+		"action_type": string(ActionReject),
+		"state_value": "committee",
+		"voting_type": "approve",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{
+		"name":              "PO Voting",
+		"state":             "committee",
+		"approval_user_ids": []int64{env.Context().UserID, 6},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, handled, err := (Dispatcher{}).DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  "purchase.order",
+		Method: "approval_action_button",
+		Args:   []any{[]any{recordID}, buttonID},
+	}); err != nil || !handled {
+		t.Fatalf("voting handled=%v err=%v", handled, err)
+	}
+	rows, err := env.Model("purchase.order").Browse(recordID).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "committee" {
+		t.Fatalf("state = %+v", rows[0])
+	}
+	votes, err := env.Model(ModelLogVoting).Search(domain.And(domain.Cond("record_id", domain.Equal, recordID)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	voteRows, err := votes.Read("vote", "button_id", "user_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(voteRows) != 1 || voteRows[0]["vote"] != "approve" || voteRows[0]["button_id"] != buttonID || voteRows[0]["user_id"] != env.Context().UserID {
+		t.Fatalf("vote rows = %+v", voteRows)
+	}
+}
+
+func TestDispatcherRejectsVotingConfigWithCommitteeLimit(t *testing.T) {
+	env := dispatchEnv(t)
+	settingsID := createDispatchSettings(t, env)
+	if _, err := env.Model(ModelConfig).Create(map[string]any{
+		"settings_id":     settingsID,
+		"name":            "Invalid Voting",
+		"state":           "committee",
+		"sequence":        int64(10),
+		"committee":       true,
+		"committee_limit": int64(1),
+		"is_voting":       true,
+		"active":          true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	buttonID, err := env.Model(ModelButton).Create(map[string]any{
+		"settings_id": settingsID,
+		"name":        "Approve",
+		"action_type": string(ActionApprove),
+		"state_value": "committee",
+		"voting_type": "approve",
+		"active":      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("purchase.order").Create(map[string]any{"name": "PO Invalid Voting", "state": "committee"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, handled, err := (Dispatcher{}).DispatchCall(context.Background(), env, DispatchRequest{
+		Model:  "purchase.order",
+		Method: "approval_action_button",
+		Args:   []any{[]any{recordID}, buttonID},
+	})
+	if !handled || err == nil || !strings.Contains(err.Error(), "committee_limit cannot be set when voting is enabled") {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+}
+
 func TestDispatcherForwardOverridesClassicApproversAndDeactivatesOnApproval(t *testing.T) {
 	env := dispatchEnv(t)
 	settingsID := createDispatchSettings(t, env)

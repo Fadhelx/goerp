@@ -659,6 +659,71 @@ func TestWorkflowCommitteePartialApprovalHoldsUntilLimit(t *testing.T) {
 	assertTriggers(t, triggers, []string{"on_committee_approval", "on_committee_approval", "on_approval", "on_approve", "on_state_updated"})
 }
 
+func TestWorkflowCommitteeVotingRejectsBelowApprovalPercentage(t *testing.T) {
+	engine := NewEngine()
+	actionRegistry := actions.NewRegistry(actions.Hooks{})
+	var triggers []string
+	if err := actionRegistry.RegisterGo("capture.voting.trigger", func(_ context.Context, _ actions.ServerAction, exec actions.ExecutionContext) (actions.Result, error) {
+		triggers = append(triggers, exec.Trigger)
+		return actions.Result{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	actionID, err := actionRegistry.Register(actions.ServerAction{Name: "Capture Voting Trigger", Kind: actions.KindGo, GoActionName: "capture.voting.trigger"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.Actions = actionRegistry
+	settingsID := engine.AddSettings(Settings{Name: "Voting Approval", Model: "purchase.order", Active: true})
+	approveID := engine.AddButton(Button{SettingsID: settingsID, StateValue: "committee", Name: "Approve", Action: ActionApprove, VotingType: "approve"})
+	rejectID := engine.AddButton(Button{SettingsID: settingsID, StateValue: "committee", Name: "Reject", Action: ActionApprove, VotingType: "reject"})
+	engine.AddConfig(ApprovalConfig{SettingsID: settingsID, State: "committee", Name: "Committee", Sequence: 10, Committee: true, IsVoting: true, CommitteeVotePercentage: 60})
+	for _, trigger := range []AutomationTrigger{TriggerOnCommitteeApproval, TriggerOnReject, TriggerOnApproval, TriggerOnApprove, TriggerOnStateUpdated} {
+		engine.AddAutomation(Automation{
+			SettingsID:      settingsID,
+			Active:          true,
+			Trigger:         trigger,
+			Name:            string(trigger),
+			ServerActionIDs: []int64{actionID},
+		})
+	}
+	record := Record{Model: "purchase.order", ID: 17, State: "committee", ApprovalUserIDs: []int64{5, 6}}
+	if _, err := engine.RunButton(context.Background(), User{ID: 5}, &record, approveID, Input{}); err != nil {
+		t.Fatal(err)
+	}
+	if record.State != "committee" || len(record.ApprovalUserIDs) != 1 || len(record.DoneUserIDs) != 1 {
+		t.Fatalf("partial voting record = %+v", record)
+	}
+	if _, err := engine.RunButton(context.Background(), User{ID: 6}, &record, rejectID, Input{}); err != nil {
+		t.Fatal(err)
+	}
+	if record.State != "rejected" || len(record.ApprovalUserIDs) != 0 || len(record.DoneUserIDs) != 0 {
+		t.Fatalf("rejected voting record = %+v", record)
+	}
+	if len(engine.Votes) != 2 || engine.Votes[0].VoteType != "approve" || engine.Votes[1].VoteType != "reject" {
+		t.Fatalf("votes = %+v", engine.Votes)
+	}
+	assertTriggers(t, triggers, []string{"on_committee_approval", "on_committee_approval", "on_reject", "on_state_updated"})
+}
+
+func TestWorkflowCommitteeVotingApprovesAtApprovalPercentage(t *testing.T) {
+	engine := NewEngine()
+	settingsID := engine.AddSettings(Settings{Name: "Voting Approval", Model: "purchase.order", Active: true})
+	approveID := engine.AddButton(Button{SettingsID: settingsID, StateValue: "committee", Name: "Approve", Action: ActionApprove, VotingType: "approve"})
+	rejectID := engine.AddButton(Button{SettingsID: settingsID, StateValue: "committee", Name: "Reject", Action: ActionApprove, VotingType: "reject"})
+	engine.AddConfig(ApprovalConfig{SettingsID: settingsID, State: "committee", Name: "Committee", Sequence: 10, Committee: true, IsVoting: true, CommitteeVotePercentage: 50})
+	record := Record{Model: "purchase.order", ID: 18, State: "committee", ApprovalUserIDs: []int64{5, 6}}
+	if _, err := engine.RunButton(context.Background(), User{ID: 5}, &record, approveID, Input{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := engine.RunButton(context.Background(), User{ID: 6}, &record, rejectID, Input{}); err != nil {
+		t.Fatal(err)
+	}
+	if record.State != "approved" {
+		t.Fatalf("state = %s", record.State)
+	}
+}
+
 func TestWorkflowForwardOverridesApproversAndClearsOnApproval(t *testing.T) {
 	engine := NewEngine()
 	settingsID := engine.AddSettings(Settings{Name: "Forwarded Approval", Model: "purchase.order", Active: true})

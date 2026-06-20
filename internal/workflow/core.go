@@ -137,6 +137,7 @@ type Button struct {
 	ButtonClass       string
 	Sequence          int
 	VoteThreshold     int
+	VotingType        string
 	RunAsSuperuser    bool
 }
 
@@ -209,6 +210,7 @@ type Vote struct {
 	StateValue  string
 	UserID      int64
 	ButtonID    int64
+	VoteType    string
 	Approved    bool
 	Comment     string
 	ButtonClass string
@@ -528,9 +530,14 @@ runAction:
 		currentConfig, inApprovalState := e.configForState(settings.ID, oldState)
 		triggerOnSubmit := !inApprovalState
 		if currentConfig.Committee {
-			result, partial, err := e.applyCommitteePartialApproval(ctx, user, record, settings, button, currentConfig, oldState, input)
-			if err != nil || partial {
+			result, decision, err := e.applyCommitteePartialApproval(ctx, user, record, settings, button, currentConfig, oldState, input)
+			if err != nil || decision == committeeApprovalPartial {
 				return result, err
+			}
+			if decision == committeeApprovalReject {
+				newState = settings.RejectedState
+				triggers = append(triggers, TriggerOnCommitteeApproval, TriggerOnReject)
+				break
 			}
 		}
 		nextState, nextConfig, err := e.resolveApproveState(user, settings, *record, button)
@@ -674,17 +681,7 @@ runAction:
 		}
 		newState = fallback(button.NextState, record.State)
 	case ActionVote:
-		e.Votes = append(e.Votes, Vote{
-			Model:       record.Model,
-			RecordID:    record.ID,
-			StateValue:  oldState,
-			UserID:      user.ID,
-			ButtonID:    button.ID,
-			Approved:    true,
-			Comment:     input.Comment,
-			ButtonClass: button.ButtonClass,
-			At:          e.now(),
-		})
+		e.recordVote(user, record, oldState, button, input)
 		if button.VoteThreshold > 0 && e.voteCount(record.Model, record.ID, oldState, button.ID) >= button.VoteThreshold {
 			newState = fallback(button.NextState, settings.ApprovedState)
 		}
@@ -735,9 +732,32 @@ func (e *Engine) ApproveRecord(ctx context.Context, user User, record *Record, i
 	triggerOnSubmit := !inApprovalState
 	button := Button{Action: ActionApprove}
 	if currentConfig.Committee {
-		result, partial, err := e.applyCommitteePartialApproval(ctx, user, record, settings, button, currentConfig, oldState, input)
-		if err != nil || partial {
+		result, decision, err := e.applyCommitteePartialApproval(ctx, user, record, settings, button, currentConfig, oldState, input)
+		if err != nil || decision == committeeApprovalPartial {
 			return result, err
+		}
+		if decision == committeeApprovalReject {
+			newState := settings.RejectedState
+			triggers := []AutomationTrigger{TriggerOnCommitteeApproval, TriggerOnReject}
+			if newState != oldState {
+				record.ApprovalUserIDs = nil
+				record.DoneUserIDs = nil
+				record.ForwardedToUserIDs = nil
+				record.State = newState
+				if !record.LastStateUpdate.IsZero() {
+					record.Values = setValue(record.Values, settings.StateField, newState)
+				}
+			}
+			log := e.appendLog(user.ID, *record, button, oldState, newState, input)
+			if newState != oldState {
+				record.LastStateUpdate = log.At
+				triggers = append(triggers, TriggerOnStateUpdated, TriggerStateChange)
+			}
+			results, err := e.runAutomationTriggers(ctx, triggers, settings, *record, oldState, newState, user, input)
+			if err != nil {
+				return TransitionResult{}, err
+			}
+			return TransitionResult{Button: button, OldState: oldState, NewState: newState, Log: log, ActionResults: results}, nil
 		}
 	}
 	newState, nextConfig, err := e.resolveApproveState(user, settings, *record, button)
@@ -788,20 +808,34 @@ func (e *Engine) ApproveRecord(ctx context.Context, user User, record *Record, i
 	}, nil
 }
 
-func (e *Engine) applyCommitteePartialApproval(ctx context.Context, user User, record *Record, settings Settings, button Button, config ApprovalConfig, oldState string, input Input) (TransitionResult, bool, error) {
+type committeeApprovalDecision int
+
+const (
+	committeeApprovalContinue committeeApprovalDecision = iota
+	committeeApprovalPartial
+	committeeApprovalReject
+)
+
+func (e *Engine) applyCommitteePartialApproval(ctx context.Context, user User, record *Record, settings Settings, button Button, config ApprovalConfig, oldState string, input Input) (TransitionResult, committeeApprovalDecision, error) {
 	appendUnique(&record.DoneUserIDs, user.ID)
+	if config.IsVoting {
+		e.recordVote(user, record, oldState, button, input)
+	}
 	record.ApprovalUserIDs = withoutIDs(record.ApprovalUserIDs, record.DoneUserIDs)
 	if config.CommitteeLimit > 0 && len(record.DoneUserIDs) >= config.CommitteeLimit {
 		record.ApprovalUserIDs = nil
-		return TransitionResult{}, false, nil
+		return TransitionResult{}, committeeApprovalContinue, nil
 	}
 	if len(record.ApprovalUserIDs) == 0 {
-		return TransitionResult{}, false, nil
+		if config.IsVoting && e.approvalVotePercentage(record.Model, record.ID, oldState, record.DoneUserIDs) < committeeVotePercentage(config) {
+			return TransitionResult{}, committeeApprovalReject, nil
+		}
+		return TransitionResult{}, committeeApprovalContinue, nil
 	}
 	log := e.appendLog(user.ID, *record, button, oldState, oldState, input)
 	actionResults, err := e.runAutomationTriggers(ctx, []AutomationTrigger{TriggerOnCommitteeApproval}, settings, *record, oldState, oldState, user, input)
 	if err != nil {
-		return TransitionResult{}, true, err
+		return TransitionResult{}, committeeApprovalPartial, err
 	}
 	return TransitionResult{
 		Button:        button,
@@ -809,7 +843,7 @@ func (e *Engine) applyCommitteePartialApproval(ctx context.Context, user User, r
 		NewState:      oldState,
 		Log:           log,
 		ActionResults: actionResults,
-	}, true, nil
+	}, committeeApprovalPartial, nil
 }
 
 func (e *Engine) MassApprove(ctx context.Context, user User, records []*Record, input Input) ([]TransitionResult, error) {
@@ -1222,11 +1256,80 @@ func uniqueTriggers(triggers []AutomationTrigger) []AutomationTrigger {
 func (e *Engine) voteCount(modelName string, recordID int64, state string, buttonID int64) int {
 	seen := map[int64]bool{}
 	for _, vote := range e.Votes {
-		if vote.Model == modelName && vote.RecordID == recordID && vote.StateValue == state && vote.ButtonID == buttonID && vote.Approved {
+		if vote.Model == modelName && vote.RecordID == recordID && vote.StateValue == state && vote.ButtonID == buttonID && voteIsApprove(vote) {
 			seen[vote.UserID] = true
 		}
 	}
 	return len(seen)
+}
+
+func (e *Engine) recordVote(user User, record *Record, state string, button Button, input Input) {
+	if record == nil {
+		return
+	}
+	voteType := normalizedVoteType(button.VotingType)
+	for index, vote := range e.Votes {
+		if vote.Model == record.Model && vote.RecordID == record.ID && vote.StateValue == state && vote.UserID == user.ID {
+			e.Votes[index].ButtonID = button.ID
+			e.Votes[index].VoteType = voteType
+			e.Votes[index].Approved = voteType == "approve"
+			e.Votes[index].Comment = input.Comment
+			e.Votes[index].ButtonClass = button.ButtonClass
+			e.Votes[index].At = e.now()
+			return
+		}
+	}
+	e.Votes = append(e.Votes, Vote{
+		Model:       record.Model,
+		RecordID:    record.ID,
+		StateValue:  state,
+		UserID:      user.ID,
+		ButtonID:    button.ID,
+		VoteType:    voteType,
+		Approved:    voteType == "approve",
+		Comment:     input.Comment,
+		ButtonClass: button.ButtonClass,
+		At:          e.now(),
+	})
+}
+
+func (e *Engine) approvalVotePercentage(modelName string, recordID int64, state string, doneUserIDs []int64) float64 {
+	total := len(uniqueSortedIDs(doneUserIDs))
+	if total == 0 {
+		return 0
+	}
+	approvals := map[int64]bool{}
+	for _, vote := range e.Votes {
+		if vote.Model == modelName && vote.RecordID == recordID && vote.StateValue == state && voteIsApprove(vote) {
+			approvals[vote.UserID] = true
+		}
+	}
+	return float64(len(approvals)) / float64(total) * 100
+}
+
+func committeeVotePercentage(config ApprovalConfig) float64 {
+	if config.CommitteeVotePercentage == 0 {
+		return 50
+	}
+	return config.CommitteeVotePercentage
+}
+
+func normalizedVoteType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "reject":
+		return "reject"
+	case "abstain":
+		return "abstain"
+	default:
+		return "approve"
+	}
+}
+
+func voteIsApprove(vote Vote) bool {
+	if vote.VoteType != "" {
+		return vote.VoteType == "approve"
+	}
+	return vote.Approved
 }
 
 func (e *Engine) next() int64 {

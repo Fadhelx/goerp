@@ -720,6 +720,11 @@ func loadConfigs(env *record.Env, engine *Engine) error {
 		if row["active"] == false {
 			continue
 		}
+		committeeLimit := int(int64FromAny(row["committee_limit"]))
+		isVoting := boolFromAny(row["is_voting"])
+		if committeeLimit > 0 && isVoting {
+			return fmt.Errorf("approval.config %d committee_limit cannot be set when voting is enabled", int64FromAny(row["id"]))
+		}
 		condition, err := parseDomainText(stringFromAny(row["condition"]))
 		if err != nil {
 			return fmt.Errorf("approval.config %d condition: %w", int64FromAny(row["id"]), err)
@@ -737,9 +742,9 @@ func loadConfigs(env *record.Env, engine *Engine) error {
 			Condition:               condition,
 			AutoApprove:             boolFromAny(row["auto_approve"]),
 			Committee:               boolFromAny(row["committee"]),
-			CommitteeLimit:          int(int64FromAny(row["committee_limit"])),
+			CommitteeLimit:          committeeLimit,
 			CommitteeVotePercentage: float64FromAny(row["committee_vote_percentage"]),
-			IsVoting:                boolFromAny(row["is_voting"]),
+			IsVoting:                isVoting,
 			ScheduleActivity:        boolFromAny(row["schedule_activity"]),
 			ScheduleActivityField:   modelFieldName(env, int64FromAny(row["schedule_activity_field_id"])),
 			ScheduleActivityDays:    int(int64FromAny(row["schedule_activity_days"])),
@@ -749,7 +754,7 @@ func loadConfigs(env *record.Env, engine *Engine) error {
 }
 
 func loadButtons(env *record.Env, engine *Engine) error {
-	rows, err := allRows(env, ModelButton, "settings_id", "config_id", "model", "sequence", "active", "name", "action_type", "state_value", "next_state", "return_state", "transfer_state", "visible_to", "method", "visible_domain", "server_action_id", "email_template_id", "email_wizard_form_id", "email_next_action", "group_ids", "comment", "comment_required", "confirm_message", "button_class", "vote_threshold", "run_as_superuser")
+	rows, err := allRows(env, ModelButton, "settings_id", "config_id", "model", "sequence", "active", "name", "action_type", "state_value", "next_state", "return_state", "transfer_state", "visible_to", "method", "visible_domain", "server_action_id", "email_template_id", "email_wizard_form_id", "email_next_action", "group_ids", "comment", "comment_required", "confirm_message", "button_class", "vote_threshold", "voting_type", "run_as_superuser")
 	if err != nil {
 		return err
 	}
@@ -762,12 +767,17 @@ func loadButtons(env *record.Env, engine *Engine) error {
 			return fmt.Errorf("approval.buttons %d visible_domain: %w", int64FromAny(row["id"]), err)
 		}
 		commentRequired := boolFromAny(row["comment_required"]) || stringFromAny(row["comment"]) == "required"
+		action := buttonActionFromString(stringFromAny(row["action_type"]))
+		votingType := stringFromAny(row["voting_type"])
+		if strings.TrimSpace(votingType) != "" {
+			action = ActionApprove
+		}
 		engine.AddButton(Button{
 			ID:                int64FromAny(row["id"]),
 			SettingsID:        int64FromAny(row["settings_id"]),
 			StateValue:        firstString(row["state_value"], row["states"]),
 			Name:              stringFromAny(row["name"]),
-			Action:            buttonActionFromString(stringFromAny(row["action_type"])),
+			Action:            action,
 			NextState:         stringFromAny(row["next_state"]),
 			ReturnState:       stringFromAny(row["return_state"]),
 			TransferState:     stringFromAny(row["transfer_state"]),
@@ -784,6 +794,7 @@ func loadButtons(env *record.Env, engine *Engine) error {
 			ButtonClass:       stringFromAny(row["button_class"]),
 			Sequence:          int(int64FromAny(row["sequence"])),
 			VoteThreshold:     int(int64FromAny(row["vote_threshold"])),
+			VotingType:        votingType,
 			RunAsSuperuser:    boolFromAny(row["run_as_superuser"]),
 		})
 	}
@@ -2370,9 +2381,9 @@ func persistWorkflowResult(env *record.Env, engine *Engine, before effectSnapsho
 		}
 	}
 	for _, vote := range engine.Votes[before.votes:] {
-		voteValue := "reject"
-		if vote.Approved {
-			voteValue = "approve"
+		voteValue := normalizedVoteType(vote.VoteType)
+		if vote.VoteType == "" && !vote.Approved {
+			voteValue = "reject"
 		}
 		if err := createKnown(env, ModelLogVoting, map[string]any{
 			"model":        vote.Model,
