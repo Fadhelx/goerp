@@ -1452,6 +1452,21 @@ func TestApprovalLogMigrationExposesDurationHours(t *testing.T) {
 	}
 }
 
+func TestStaticBaseSQLApprovalLogDurationMatchesRuntimeMigration(t *testing.T) {
+	path := filepath.Join("..", "..", "migrations", "0001_base.sql")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(raw)
+	if !strings.Contains(sql, "duration_seconds DOUBLE PRECISION") {
+		t.Fatalf("static base SQL duration_seconds should be float")
+	}
+	if !strings.Contains(sql, "duration_hours DOUBLE PRECISION") {
+		t.Fatalf("static base SQL missing duration_hours")
+	}
+}
+
 func TestWorkflowNodeMigrationExposesResponsiblePythonCode(t *testing.T) {
 	sqlByName := map[string]string{}
 	for _, migration := range BaseMigrations {

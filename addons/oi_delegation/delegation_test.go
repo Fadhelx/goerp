@@ -395,6 +395,88 @@ func TestDelegationRevokeAndExpireActionsSyncState(t *testing.T) {
 	}
 }
 
+func TestDelegationLifecyclePersistsApprovalLogs(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, delegateEmployeeID := createDelegationEmployees(t, env, "logs")
+	delegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2099-01-01",
+		"date_to":     "2099-01-31",
+		"employee_id": delegatorEmployeeID,
+		"state":       "draft",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": delegationID, "group_id": groupID, "employee_id": delegateEmployeeID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(delegationID).ActionConfirmDelegation(); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(delegationID).ActionRevokeDelegation(); err != nil {
+		t.Fatal(err)
+	}
+	assertDelegationApprovalLogStates(t, env, delegationID, [][2]string{
+		{"draft", "confirmed"},
+		{"confirmed", "revoked"},
+	})
+	rows, err := env.Model(ModelDelegation).Browse(delegationID).Read("state", "last_state_update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "revoked" || rows[0]["last_state_update"] == nil {
+		t.Fatalf("delegation lifecycle row = %+v", rows)
+	}
+
+	expireID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_from":   "2020-01-01",
+		"date_to":     "2099-12-31",
+		"employee_id": delegatorEmployeeID,
+		"state":       "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": expireID, "group_id": groupID, "employee_id": delegateEmployeeID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.Model(ModelDelegation).Browse(expireID).ExpireDelegation(); err != nil {
+		t.Fatal(err)
+	}
+	assertDelegationApprovalLogStates(t, env, expireID, [][2]string{{"confirmed", "expired"}})
+}
+
+func assertDelegationApprovalLogStates(t *testing.T, env *record.Env, delegationID int64, want [][2]string) {
+	t.Helper()
+	logs, err := env.Model(workflow.ModelLog).Search(domain.And(
+		domain.Cond("model", "=", ModelDelegation),
+		domain.Cond("record_id", "=", delegationID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := logs.Read("model", "record_id", "user_id", "old_state", "new_state", "duration_seconds", "duration_hours")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("approval log rows = %+v, want %d", rows, len(want))
+	}
+	for index, expected := range want {
+		row := rows[index]
+		if row["model"] != ModelDelegation || row["record_id"] != delegationID || row["user_id"] != int64(1) || row["old_state"] != expected[0] || row["new_state"] != expected[1] {
+			t.Fatalf("approval log[%d] = %+v, want %v", index, row, expected)
+		}
+		if row["duration_seconds"] == nil || row["duration_hours"] == nil {
+			t.Fatalf("approval log duration[%d] = %+v", index, row)
+		}
+	}
+}
+
 func createDelegationEmployees(t *testing.T, env *record.Env, prefix string) (int64, int64) {
 	t.Helper()
 	userID, err := env.Model("res.users").Create(map[string]any{"login": prefix + "-user", "name": prefix + " User"})

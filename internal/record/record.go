@@ -24,6 +24,7 @@ import (
 )
 
 const linkTrackerCodeAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const workflowStateWriteSkipContextKey = "workflow_skip_state_write_hook"
 
 var linkTrackerRandomRead = rand.Read
 
@@ -2439,6 +2440,126 @@ func (m ModelSet) validateDelegationStateTransition(oldRow map[string]any, row m
 		return m.validateDelegationRevoke(row, at)
 	}
 	return nil
+}
+
+type delegationApprovalLogStateChange struct {
+	DelegationID        int64
+	OldState            string
+	NewState            string
+	At                  time.Time
+	LastStateUpdate     time.Time
+	ApprovalButtonID    int64
+	ApprovalComment     string
+	BulkApproval        bool
+	ExistingLogBaseline int
+}
+
+func (m ModelSet) delegationApprovalLogStateChange(id int64, oldRow map[string]any, row map[string]any, at time.Time) (delegationApprovalLogStateChange, bool) {
+	if truthyRecordValue(m.env.Context().Values[workflowStateWriteSkipContextKey]) {
+		return delegationApprovalLogStateChange{}, false
+	}
+	if _, ok := m.env.ModelMetadata("approval.log"); !ok {
+		return delegationApprovalLogStateChange{}, false
+	}
+	oldState := stringValue(safeRowValue(oldRow, "state"))
+	newState := stringValue(safeRowValue(row, "state"))
+	if oldState == newState || newState == "" {
+		return delegationApprovalLogStateChange{}, false
+	}
+	change := delegationApprovalLogStateChange{
+		DelegationID:     id,
+		OldState:         oldState,
+		NewState:         newState,
+		At:               at,
+		LastStateUpdate:  recordDateValue(firstNonZero(safeRowValue(oldRow, "last_state_update"), safeRowValue(row, "last_state_update"))),
+		ApprovalButtonID: numericID(firstNonZero(safeRowValue(row, "_approval_button_id"), safeRowValue(oldRow, "_approval_button_id"))),
+		ApprovalComment:  stringValue(firstNonZero(safeRowValue(row, "_approval_comment"), safeRowValue(oldRow, "_approval_comment"))),
+		BulkApproval:     truthyRecordValue(m.env.Context().Values["approval_all_action"]),
+	}
+	change.ExistingLogBaseline = m.delegationApprovalLogCount(change)
+	return change, true
+}
+
+func (m ModelSet) persistMissingDelegationApprovalLogs(changes []delegationApprovalLogStateChange) error {
+	for _, change := range changes {
+		if m.delegationApprovalLogCount(change) > change.ExistingLogBaseline {
+			continue
+		}
+		if err := m.createDelegationApprovalLog(change); err != nil {
+			return err
+		}
+		if row := m.rowByID("delegation", change.DelegationID); row != nil && m.fieldExists("delegation", "last_state_update") {
+			row["last_state_update"] = change.At
+		}
+	}
+	return nil
+}
+
+func (m ModelSet) createDelegationApprovalLog(change delegationApprovalLogStateChange) error {
+	if change.DelegationID == 0 {
+		return nil
+	}
+	values := map[string]any{
+		"model":              "delegation",
+		"record_id":          change.DelegationID,
+		"user_id":            m.env.Context().UserID,
+		"date":               change.At,
+		"old_state":          change.OldState,
+		"new_state":          change.NewState,
+		"description":        change.ApprovalComment,
+		"approval_button_id": change.ApprovalButtonID,
+		"bulk_approval":      change.BulkApproval,
+	}
+	if change.LastStateUpdate.IsZero() {
+		values["duration_seconds"] = float64(0)
+		values["duration_hours"] = float64(0)
+	} else {
+		duration := change.At.Sub(change.LastStateUpdate)
+		if duration < 0 {
+			duration = 0
+		}
+		values["duration_seconds"] = duration.Seconds()
+		values["duration_hours"] = duration.Hours()
+	}
+	filtered := m.filterKnownModelValues("approval.log", values)
+	if len(filtered) == 0 {
+		return nil
+	}
+	ctx := m.env.Context()
+	ctx.Sudo = true
+	_, err := m.env.WithContext(ctx).Model("approval.log").Create(filtered)
+	return err
+}
+
+func (m ModelSet) delegationApprovalLogCount(change delegationApprovalLogStateChange) int {
+	count := 0
+	for _, row := range m.rows("approval.log") {
+		if stringValue(row["model"]) != "delegation" {
+			continue
+		}
+		if numericID(row["record_id"]) != change.DelegationID {
+			continue
+		}
+		if stringValue(row["old_state"]) != change.OldState || stringValue(row["new_state"]) != change.NewState {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func (m ModelSet) filterKnownModelValues(modelName string, values map[string]any) map[string]any {
+	meta, ok := m.env.ModelMetadata(modelName)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range values {
+		if _, ok := meta.Fields[key]; ok && value != nil {
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func (m ModelSet) validateDelegationSubmit(row map[string]any, at time.Time) error {
@@ -6404,6 +6525,7 @@ func (r RecordSet) Write(values map[string]any) error {
 			return err
 		}
 	}
+	delegationApprovalLogChanges := []delegationApprovalLogStateChange{}
 	if r.model.model.Name == "delegation" {
 		now := time.Now().UTC()
 		for _, id := range r.ids {
@@ -6424,6 +6546,9 @@ func (r RecordSet) Write(values map[string]any) error {
 			if err := r.model.validateDelegationStateTransition(oldRows[id], row, now); err != nil {
 				r.model.restoreEnv(envSnapshot)
 				return err
+			}
+			if change, ok := r.model.delegationApprovalLogStateChange(id, oldRows[id], row, now); ok {
+				delegationApprovalLogChanges = append(delegationApprovalLogChanges, change)
 			}
 		}
 	}
@@ -6614,6 +6739,12 @@ func (r RecordSet) Write(values map[string]any) error {
 				r.model.restoreEnv(envSnapshot)
 				return err
 			}
+		}
+	}
+	if len(delegationApprovalLogChanges) > 0 {
+		if err := r.model.persistMissingDelegationApprovalLogs(delegationApprovalLogChanges); err != nil {
+			r.model.restoreEnv(envSnapshot)
+			return err
 		}
 	}
 	return nil

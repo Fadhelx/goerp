@@ -16835,6 +16835,7 @@ func TestCallKWDelegationLifecycleMethods(t *testing.T) {
 		"date_from":   "2099-01-01",
 		"date_to":     "2099-01-31",
 		"employee_id": delegatorID,
+		"state":       "draft",
 		"lines":       []any{[]any{int64(0), false, map[string]any{"group_id": groupID, "employee_id": delegateID}}},
 	})
 	if err != nil {
@@ -16892,6 +16893,32 @@ func TestCallKWDelegationLifecycleMethods(t *testing.T) {
 	}
 	if cacheEvents.Len() != 1 {
 		t.Fatalf("cache events = %d, want 1", cacheEvents.Len())
+	}
+	assertHTTPDelegationApprovalLogStates(t, env, confirmID, [][2]string{{"draft", "confirmed"}})
+	assertHTTPDelegationApprovalLogStates(t, env, revokeID, [][2]string{{"confirmed", "revoked"}})
+	assertHTTPDelegationApprovalLogStates(t, env, expireID, [][2]string{{"confirmed", "expired"}})
+}
+
+func assertHTTPDelegationApprovalLogStates(t *testing.T, env *record.Env, delegationID int64, want [][2]string) {
+	t.Helper()
+	logs, err := env.Model(internalworkflow.ModelLog).Search(domain.And(
+		domain.Cond("model", "=", "delegation"),
+		domain.Cond("record_id", "=", delegationID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := logs.Read("old_state", "new_state", "user_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("delegation %d approval logs = %+v, want %d", delegationID, rows, len(want))
+	}
+	for index, expected := range want {
+		if rows[index]["old_state"] != expected[0] || rows[index]["new_state"] != expected[1] || rows[index]["user_id"] != int64(1) {
+			t.Fatalf("delegation %d approval log[%d] = %+v, want %v", delegationID, index, rows[index], expected)
+		}
 	}
 }
 
