@@ -17,8 +17,10 @@ export function toCSSVariables(tokens: ThemeTokens): string {
   })) {
     for (const [key, value] of Object.entries(values)) {
       lines.push(`--gorp-${group}-${key}: ${value};`);
+      lines.push(`--odoo-${group}-${key}: ${value};`);
     }
   }
   lines.push(`--gorp-density: ${tokens.density};`);
+  lines.push(`--odoo-density: ${tokens.density};`);
   return `:root {\n  ${lines.join("\n  ")}\n}`;
 }

@@ -788,6 +788,12 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 	if buttonRows[0]["action_type"] != "approve" || buttonRows[0]["state_value"] != "draft" || buttonRows[0]["next_state"] != "confirmed" || buttonRows[0]["email_template_id"] == nil {
 		t.Fatalf("button = %+v", buttonRows[0])
 	}
+	if ids[ModuleName+".button_delegation_expire"].ResID != 0 {
+		t.Fatalf("unexpected source fixture expire button id = %+v", ids[ModuleName+".button_delegation_expire"])
+	}
+	if ids[ModuleName+".approval_state_delegation_expired"].ResID != 0 {
+		t.Fatalf("unexpected source fixture expired state id = %+v", ids[ModuleName+".approval_state_delegation_expired"])
+	}
 	sourceActionRows, err := env.Model("ir.actions.act_window").Browse(ids[ModuleName+".act_delegation"].ResID).Read("name", "res_model", "view_mode", "context")
 	if err != nil {
 		t.Fatal(err)

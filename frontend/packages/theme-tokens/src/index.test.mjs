@@ -11,3 +11,5 @@ const css = toCSSVariables({
 });
 
 assert.match(css, /--gorp-color-surface/);
+assert.match(css, /--odoo-color-surface/);
+assert.match(css, /--odoo-density: comfortable/);

@@ -1,5 +1,58 @@
 import { EventBus, SERVICES_METADATA, validate, type Env } from "../../owl-compat/src/index.js";
 import type { ThemeTokens } from "../../theme-tokens/src/index";
+import {
+  createActionStack,
+  isCloseAction,
+  shouldReplaceLastAction,
+  type ActionBreadcrumb,
+  type ActionStackEntry
+} from "./services/action_stack.js";
+
+export {
+  actionBreadcrumbs,
+  actionTitle,
+  actionViewTypes,
+  createActionStack,
+  isCloseAction,
+  makeActionStackEntry,
+  shouldReplaceLastAction,
+  type ActionBreadcrumb,
+  type ActionStackController,
+  type ActionStackEntry,
+  type ActionStackSnapshot
+} from "./services/action_stack.js";
+export {
+  normalizeRouteState,
+  parseRouteState,
+  routeStateFromAction,
+  routeStateToURL,
+  serializeRouteState,
+  updateBrowserRoute,
+  type BrowserRouteTarget,
+  type RouteScalar,
+  type RouteValue,
+  type WebClientRouteState
+} from "./router/action_router.js";
+export {
+  buildSearchState,
+  createSearchModel,
+  searchFacetLabel,
+  type SearchFacet,
+  type SearchFacetType,
+  type SearchModel,
+  type SearchModelOptions,
+  type SearchModelState
+} from "./search/search_model.js";
+export {
+  createControlPanelState,
+  renderControlPanel,
+  type ControlPanelCallbacks,
+  type ControlPanelMenuItem,
+  type ControlPanelPager,
+  type ControlPanelSearchState,
+  type ControlPanelState,
+  type ControlPanelView
+} from "./control_panel/control_panel.js";
 
 export interface WebClientOptions {
   env: Env;
@@ -101,6 +154,9 @@ export interface ActionServiceOptions {
   onClose?: () => unknown | Promise<unknown>;
   additional_context?: Record<string, unknown>;
   additionalContext?: Record<string, unknown>;
+  clearBreadcrumbs?: boolean;
+  replaceLastAction?: boolean;
+  stackPosition?: "replace" | "clear" | "push";
   [key: string]: unknown;
 }
 
@@ -133,8 +189,13 @@ export type ClientActionHandler = ClientActionFunctionHandler | ExecutableClient
 export interface ActionService {
   readonly history: readonly ActionInvocation[];
   readonly current: ActionInvocation | null;
+  readonly stack: readonly ActionStackEntry[];
+  readonly breadcrumbs: readonly ActionBreadcrumb[];
   loadAction(action: ActionRequest, context?: Record<string, unknown>): Promise<Record<string, unknown>>;
   doAction<T = unknown>(action: ActionRequest, options?: ActionServiceOptions): Promise<T>;
+  closeCurrent(): ActionInvocation | null;
+  clearStack(): void;
+  restoreStack(entries: readonly ActionStackEntry[]): ActionInvocation | null;
 }
 
 export interface LoadViewsParams {
@@ -1136,6 +1197,15 @@ export function createActionService(
 ): ActionService {
   const history: ActionInvocation[] = [];
   let current: ActionInvocation | null = null;
+  const stack = createActionStack();
+  const invocationFromEntry = (entry: ActionStackEntry | null): ActionInvocation | null => {
+    return entry
+      ? {
+          action: { ...entry.action },
+          options: { ...entry.options }
+        }
+      : null;
+  };
   return {
     get history(): readonly ActionInvocation[] {
       return history.map((item) => ({
@@ -1151,6 +1221,12 @@ export function createActionService(
           }
         : null;
     },
+    get stack(): readonly ActionStackEntry[] {
+      return stack.entries;
+    },
+    get breadcrumbs(): readonly ActionBreadcrumb[] {
+      return stack.breadcrumbs;
+    },
     loadAction(action: ActionRequest, context: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
       return loader(action, context);
     },
@@ -1158,10 +1234,39 @@ export function createActionService(
       const loadedAction = await loader(action, actionOptionsContext(options));
       const invocation = { action: loadedAction, options: { ...options } };
       history.push(invocation);
-      current = invocation;
+      if (isCloseAction(loadedAction)) {
+        current = invocationFromEntry(stack.closeCurrent());
+      } else {
+        const stackEntry = shouldReplaceLastAction(options)
+          ? stack.replace(loadedAction, options)
+          : stack.push(loadedAction, options);
+        current = invocationFromEntry(stackEntry);
+      }
       const result = (await executor(invocation)) as T;
       if (options.onClose) await options.onClose();
       return result;
+    },
+    closeCurrent(): ActionInvocation | null {
+      current = invocationFromEntry(stack.closeCurrent());
+      return current
+        ? {
+            action: { ...current.action },
+            options: { ...current.options }
+          }
+        : null;
+    },
+    clearStack(): void {
+      stack.clear();
+      current = null;
+    },
+    restoreStack(entries: readonly ActionStackEntry[]): ActionInvocation | null {
+      current = invocationFromEntry(stack.restore(entries));
+      return current
+        ? {
+            action: { ...current.action },
+            options: { ...current.options }
+          }
+        : null;
     }
   };
 }
@@ -1427,10 +1532,10 @@ export function createWebClient(options: WebClientOptions) {
       root.className = "gorp-webclient";
       root.dataset.theme = options.theme.name;
       const nav = document.createElement("nav");
-      nav.className = "gorp-navbar";
-      nav.textContent = "Gorp";
+      nav.className = "o_main_navbar gorp-navbar";
+      nav.textContent = "Odoo";
       const action = document.createElement("section");
-      action.className = "gorp-action";
+      action.className = "o_action_manager gorp-action";
       action.textContent = options.env.debug ? "Debug" : "Ready";
       root.append(nav, action);
       return root;

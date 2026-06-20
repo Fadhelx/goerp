@@ -3951,6 +3951,11 @@ const webClientShellHTML = `<!doctype html>
 		--topbar: #714b67;
 		--topbar-hover: #604058;
 		--sidebar: #f7f7f7;
+		--home-bg: #241723;
+		--home-panel: rgba(255,255,255,.11);
+		--home-line: rgba(255,255,255,.18);
+		--home-text: #ffffff;
+		--home-muted: rgba(255,255,255,.68);
 	}
 	body[data-theme="standard"] {
 		--bg: #f5f5f5;
@@ -3960,7 +3965,7 @@ const webClientShellHTML = `<!doctype html>
 		--text: #1f2933;
 	}
 	* { box-sizing: border-box; }
-	html, body { min-height: 100%; }
+	html, body { min-height: 100%; width: 100%; overflow-x: hidden; }
 	body {
 		margin: 0;
 		background: var(--bg);
@@ -4292,11 +4297,85 @@ const webClientShellHTML = `<!doctype html>
 		color: #fff;
 	}
 	.o-search input::placeholder { color: rgba(255,255,255,.7); }
-	.o-user {
-		padding: 5px 8px;
-		border-radius: var(--radius);
-		background: rgba(255,255,255,.11);
+	.o-menu-systray {
+		display: inline-flex;
+		align-items: stretch;
+		align-self: stretch;
+		margin-left: auto;
+		min-width: 0;
+	}
+	.o-systray-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 34px;
+		min-height: 46px;
+		padding: 0 9px;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		color: rgba(255,255,255,.9);
 		white-space: nowrap;
+	}
+	.o-systray-item:hover,
+	.o-systray-item:focus-visible {
+		background: rgba(0,0,0,.16);
+		color: #fff;
+	}
+	.o-systray-icon {
+		display: inline-grid;
+		place-items: center;
+		width: 18px;
+		height: 18px;
+		border: 1px solid rgba(255,255,255,.35);
+		border-radius: 50%;
+		font-size: 10px;
+		font-weight: 700;
+		line-height: 1;
+	}
+	.o-systray-counter {
+		min-width: 16px;
+		height: 16px;
+		border-radius: 999px;
+		background: rgba(255,255,255,.2);
+		padding: 0 5px;
+		font-size: 11px;
+		line-height: 16px;
+		text-align: center;
+	}
+	.o-company-switcher span,
+	.o-user-menu-button span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.o-company-switcher {
+		max-width: 180px;
+	}
+	.o-user-menu-button {
+		max-width: 190px;
+	}
+	.o-mobile-menu-toggle {
+		display: none;
+		place-items: center;
+		width: 36px;
+		height: 46px;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+	}
+	.o-mobile-menu-toggle span,
+	.o-mobile-menu-toggle::before,
+	.o-mobile-menu-toggle::after {
+		content: "";
+		display: block;
+		width: 17px;
+		height: 2px;
+		background: rgba(255,255,255,.9);
+		border-radius: 2px;
+	}
+	.o-mobile-menu-toggle {
+		gap: 4px;
 	}
 	.o-sidebar-title {
 		display: flex;
@@ -4324,9 +4403,6 @@ const webClientShellHTML = `<!doctype html>
 		white-space: nowrap;
 		border: 0;
 	}
-	body {
-		overflow-x: hidden;
-	}
 	header {
 		position: sticky;
 		top: 0;
@@ -4346,6 +4422,7 @@ const webClientShellHTML = `<!doctype html>
 		flex: none;
 		height: 100%;
 		align-items: stretch;
+		min-width: 0;
 	}
 	.o-nav button {
 		border-radius: 0;
@@ -4373,6 +4450,7 @@ const webClientShellHTML = `<!doctype html>
 	}
 	body[data-view="apps"] .layout {
 		display: block;
+		background: var(--home-bg);
 	}
 	body[data-view="apps"] aside {
 		display: none;
@@ -4455,12 +4533,13 @@ const webClientShellHTML = `<!doctype html>
 		padding: 14px 18px 24px;
 	}
 	.o-app-launcher-view {
-		background: #eef0f3;
-		color: var(--text);
-		padding: 28px 24px 40px;
+		background: var(--home-bg);
+		color: var(--home-text);
+		padding: 34px 24px 44px;
 	}
 	body[data-theme="standard"] .o-app-launcher-view {
 		background: #eef0f3;
+		color: var(--text);
 	}
 	.o-app-shell {
 		max-width: 980px;
@@ -4468,23 +4547,23 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-app-search {
 		max-width: 520px;
-		margin: 0 auto 24px;
+		margin: 0 auto 28px;
 	}
 	.o-app-search input {
-		height: 38px;
-		border-color: #cfd4dc;
-		background: #fff;
-		color: var(--text);
+		height: 40px;
+		border-color: var(--home-line);
+		background: var(--home-panel);
+		color: var(--home-text);
 		text-align: left;
 	}
 	.o-app-search label {
 		display: block;
 	}
 	.o-app-search input::placeholder {
-		color: var(--muted);
+		color: var(--home-muted);
 	}
 	.o-app-launcher-view .muted {
-		color: var(--muted);
+		color: var(--home-muted);
 	}
 	.o-app-launcher-view .app-grid {
 		grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -4497,7 +4576,7 @@ const webClientShellHTML = `<!doctype html>
 		min-height: 118px;
 		justify-self: center;
 		border-radius: 8px;
-		color: var(--text);
+		color: var(--home-text);
 		padding: 8px;
 		overflow: hidden;
 	}
@@ -4536,6 +4615,12 @@ const webClientShellHTML = `<!doctype html>
 	.o-app-launcher-view .app-card:nth-child(4n+2) .app-icon { background: #017e84; }
 	.o-app-launcher-view .app-card:nth-child(4n+3) .app-icon { background: #5f6f94; }
 	.o-app-launcher-view .app-card:nth-child(4n+4) .app-icon { background: #b05f4a; }
+	.app-icon[data-icon-token="teal"] { background: #017e84; }
+	.app-icon[data-icon-token="purple"] { background: #875a7b; }
+	.app-icon[data-icon-token="blue"] { background: #5f6f94; }
+	.app-icon[data-icon-token="terracotta"] { background: #b05f4a; }
+	.app-icon[data-icon-token="green"] { background: #228b65; }
+	.app-icon[data-icon-token="slate"] { background: #56616f; }
 	.app-icon img {
 		width: 100%;
 		height: 100%;
@@ -4543,7 +4628,20 @@ const webClientShellHTML = `<!doctype html>
 		display: block;
 	}
 	.o-app-launcher-view .app-card:hover {
-		background: rgba(113,75,103,.08);
+		background: rgba(255,255,255,.08);
+		color: var(--home-text);
+	}
+	body[data-theme="standard"] .o-app-search input {
+		border-color: #cfd4dc;
+		background: #fff;
+		color: var(--text);
+	}
+	body[data-theme="standard"] .o-app-search input::placeholder,
+	body[data-theme="standard"] .o-app-launcher-view .muted {
+		color: var(--muted);
+	}
+	body[data-theme="standard"] .o-app-launcher-view .app-card,
+	body[data-theme="standard"] .o-app-launcher-view .app-card:hover {
 		color: var(--text);
 	}
 	.o-app-launcher-view .app-card strong {
@@ -4564,6 +4662,33 @@ const webClientShellHTML = `<!doctype html>
 	.o-list-view table {
 		margin-top: 0;
 		border: 1px solid var(--line);
+	}
+	.o_mobile_list_cards {
+		display: none;
+	}
+	.o_mobile_record_card {
+		display: grid;
+		gap: 7px;
+		border: 1px solid var(--line);
+		background: #fff;
+		padding: 10px 12px;
+	}
+	.o_mobile_record_card button {
+		justify-self: start;
+	}
+	.o_mobile_record_line {
+		display: grid;
+		grid-template-columns: minmax(86px, .45fr) minmax(0, 1fr);
+		gap: 8px;
+		min-width: 0;
+	}
+	.o_mobile_record_label {
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.o_mobile_record_value {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.o-list-view th,
 	.o-list-view td {
@@ -4624,28 +4749,74 @@ const webClientShellHTML = `<!doctype html>
 	}
 	[hidden] { display: none !important; }
 	@media (max-width: 900px) {
-		.layout { grid-template-columns: 1fr; }
+		.layout { grid-template-columns: minmax(0, 1fr); }
 		aside { border-right: 0; border-bottom: 1px solid var(--line); }
 		.grid { grid-template-columns: 1fr 1fr; }
 		.app-grid, .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-		header { flex-wrap: wrap; padding: 8px 12px; }
+		header { padding: 0 8px; }
+		.o-mobile-menu-toggle { display: inline-grid; }
+		.o-nav { display: none; }
+		body.o-mobile-menu-open .o-nav {
+			display: flex;
+			position: fixed;
+			top: 46px;
+			left: 0;
+			right: 0;
+			height: auto;
+			max-height: calc(100dvh - 46px);
+			overflow: auto;
+			flex-direction: column;
+			background: var(--topbar);
+			border-top: 1px solid rgba(255,255,255,.16);
+			box-shadow: 0 12px 24px rgba(16, 24, 40, .18);
+		}
+		body.o-mobile-menu-open .o-nav button {
+			justify-content: flex-start;
+			width: 100%;
+			min-height: 42px;
+		}
+		.o-search,
+		.o-company-switcher {
+			display: none;
+		}
 	}
 	@media (max-width: 620px) {
-		header { display: grid; }
+		header { display: flex; min-width: 0; }
+		.o-brand { min-width: 0; flex: 1; }
+		.o-brand h1 { font-size: 16px; }
+		.o-menu-systray { flex: 0 1 auto; }
+		.o-systray-item { padding: 0 7px; min-width: 32px; }
+		.o-systray-counter,
+		.o-user-menu-button span { display: none; }
 		.grid { grid-template-columns: 1fr; }
-		.app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.o-app-launcher-view { padding: 22px 12px 32px; min-width: 0; }
+		.o-app-launcher-view .app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 6px; }
+		.o-app-launcher-view .app-card { width: 100%; min-width: 0; }
+		.o-app-launcher-view .app-card strong { white-space: normal; line-height: 1.2; }
 		.module-grid, .record-grid { grid-template-columns: 1fr; }
 		.toolbar { display: grid; }
 		.field.small { max-width: none; }
+		.o-control-panel {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr);
+			align-items: stretch;
+			gap: 10px;
+			padding: 10px 12px;
+		}
+		.o-list-content { padding: 12px; overflow-x: hidden; }
+		.o-list-view table { display: none; }
+		.o_mobile_list_cards { display: grid; gap: 8px; }
+		#recordForm { padding: 14px; }
 	}
   </style>
 </head>
-<body class="o_web_client" data-theme="enterprise" data-view="apps">
+<body class="o_web_client" data-theme="enterprise" data-view="apps" data-mobile-safe="true">
   <header class="o_main_navbar">
     <div class="o-brand">
       <button type="button" id="navApps" class="o-launcher-button" data-view="apps" aria-label="Apps"><span class="o-launcher" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button>
       <h1>Odoo</h1>
     </div>
+    <button type="button" id="mobileMenu" class="o-mobile-menu-toggle" aria-label="Menu" aria-expanded="false"><span aria-hidden="true"></span></button>
     <nav class="o-nav" id="topMenu" aria-label="Application"></nav>
     <label class="o-search">
       <span class="sr-only">Search</span>
@@ -4658,7 +4829,21 @@ const webClientShellHTML = `<!doctype html>
         <option value="standard">Standard</option>
       </select>
     </label>
-    <div class="o-user" id="topUser">Administrator</div>
+    <div class="o-menu-systray o_menu_systray" role="toolbar" aria-label="Status">
+      <button type="button" class="o-systray-item o_mail_systray_item" id="messageSystray" aria-label="Messages">
+        <span class="o-systray-icon" aria-hidden="true">M</span>
+        <span class="o-systray-counter" id="messageCounter">0</span>
+      </button>
+      <button type="button" class="o-systray-item o_activity_menu" id="activitySystray" aria-label="Activities">
+        <span class="o-systray-icon" aria-hidden="true">A</span>
+        <span class="o-systray-counter" id="activityCounter">0</span>
+      </button>
+      <button type="button" class="o-systray-item o_switch_company_menu o-company-switcher" id="companySwitcher" aria-label="Company">
+        <span id="topCompany">My Company</span>
+      </button>
+      <button type="button" class="o-systray-item o_debug_manager" id="debugIndicator" hidden>Debug</button>
+      <button type="button" class="o-systray-item o_user_menu o-user-menu-button" id="topUser" aria-label="User menu"><span>Administrator</span></button>
+    </div>
   </header>
   <div class="layout o_web_client_content">
     <aside>
@@ -4762,6 +4947,9 @@ const webClientShellHTML = `<!doctype html>
 	document.getElementById("theme").addEventListener("change", (event) => applyTheme(event.target.value));
 	function setView(name) {
 		document.body.dataset.view = name;
+		document.body.classList.remove("o-mobile-menu-open");
+		const mobileMenu = document.getElementById("mobileMenu");
+		if (mobileMenu) mobileMenu.setAttribute("aria-expanded", "false");
 		for (const panel of document.querySelectorAll(".view-panel")) {
 			panel.classList.toggle("active", panel.dataset.view === name);
 		}
@@ -4772,6 +4960,11 @@ const webClientShellHTML = `<!doctype html>
 	for (const button of document.querySelectorAll("button[data-view]")) {
 		button.addEventListener("click", () => setView(button.dataset.view));
 	}
+	document.getElementById("mobileMenu").addEventListener("click", (event) => {
+		const open = !document.body.classList.contains("o-mobile-menu-open");
+		document.body.classList.toggle("o-mobile-menu-open", open);
+		event.currentTarget.setAttribute("aria-expanded", open ? "true" : "false");
+	});
 	document.getElementById("globalSearch").addEventListener("keydown", (event) => {
 		if (event.key !== "Enter") return;
 		const value = event.currentTarget.value.trim();
@@ -5107,6 +5300,11 @@ const webClientShellHTML = `<!doctype html>
       document.getElementById("reloadApps").addEventListener("click", loadInstallApps);
       document.getElementById("moduleSearch").addEventListener("input", loadInstallApps);
       document.getElementById("appSearch").addEventListener("input", () => renderApps(workbench.menus));
+      document.getElementById("appSearch").addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        const cards = Array.from(document.querySelectorAll("#appGrid .o_app"));
+        if (cards.length === 1) cards[0].click();
+      });
       document.getElementById("recordBack").addEventListener("click", () => {
         workbench.openedRecord = null;
         showRecordForm(false);
@@ -5207,48 +5405,100 @@ const webClientShellHTML = `<!doctype html>
       return [];
     }
 
+    function cleanAppName(value) {
+      return String(value || "App").replace(/\s+/g, " ").trim() || "App";
+    }
+
+    function appKey(name) {
+      return cleanAppName(name).toLowerCase();
+    }
+
+    function appInitials(name) {
+      const words = cleanAppName(name).split(" ").filter(Boolean);
+      const picked = words.length > 1 ? words.slice(0, 2) : words;
+      return picked.map((word) => word.slice(0, 1).toUpperCase()).join("") || "A";
+    }
+
+    function appIconToken(name) {
+      const colors = ["teal", "purple", "blue", "terracotta", "green", "slate"];
+      let hash = 0;
+      for (const char of cleanAppName(name)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+      return colors[hash % colors.length];
+    }
+
+    function appSearchText(menu) {
+      const parts = [cleanAppName(menu && menu.name)];
+      for (const childID of (menu && menu.children) || []) {
+        const child = menuEntry(childID);
+        if (child && child.name) parts.push(cleanAppName(child.name));
+      }
+      return parts.join(" ").toLowerCase();
+    }
+
+    function normalizedApps(payload) {
+      const apps = [];
+      const seen = new Map();
+      let sequence = 0;
+      for (const id of menuRootIDs(payload)) {
+        const menu = menuEntry(id);
+        if (!menu) continue;
+        const name = cleanAppName(menu.name);
+        const key = appKey(name);
+        const candidate = {id: menu.id, menu, name, key, sequence: sequence++, searchText: appSearchText(menu)};
+        const existing = seen.get(key);
+        if (!existing) {
+          seen.set(key, candidate);
+          apps.push(candidate);
+          continue;
+        }
+        const existingChildCount = ((existing.menu && existing.menu.children) || []).length;
+        const nextChildCount = (menu.children || []).length;
+        if ((!existing.menu.actionID && menu.actionID) || nextChildCount > existingChildCount) {
+          seen.set(key, candidate);
+          const index = apps.findIndex((app) => app.key === key);
+          if (index >= 0) apps[index] = candidate;
+        }
+      }
+      return apps.sort((left, right) => left.sequence - right.sequence);
+    }
+
     function renderApps(payload) {
       workbench.menus = payload || {};
       const grid = document.getElementById("appGrid");
       const needle = ((document.getElementById("appSearch") || {}).value || "").toLowerCase();
       let found = 0;
       grid.replaceChildren();
-      function appendAppCard(name, iconText, clickHandler, iconData, iconMimetype) {
+      function appendAppCard(app, clickHandler) {
+        const name = cleanAppName(app.name);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "app-card o_app has-icon";
+        button.dataset.appName = name;
+        button.dataset.appKey = app.key || appKey(name);
         button.innerHTML = '<span class="app-icon o_app_icon"></span><strong class="o_app_name"></strong>';
         const icon = button.querySelector(".o_app_icon");
-        if (typeof iconData === "string" && iconData && !iconData.startsWith("/web/static/img/default_icon_app")) {
-          const img = document.createElement("img");
-          img.alt = "";
-          img.src = iconData.startsWith("/") ? iconData : "data:" + (iconMimetype || "image/png") + ";base64," + iconData;
-          icon.append(img);
-        } else {
-          icon.textContent = iconText || name.trim().slice(0, 1).toUpperCase() || "A";
-        }
+        icon.dataset.iconToken = appIconToken(name);
+        icon.textContent = app.initials || appInitials(name);
         button.querySelector("strong").textContent = name;
         button.addEventListener("click", clickHandler);
         grid.append(button);
         found++;
       }
-      for (const id of menuRootIDs(payload)) {
-        const menu = menuEntry(id);
-        if (!menu) continue;
-        const name = menu.name || "App";
-        if (needle && !name.toLowerCase().includes(needle)) continue;
-        appendAppCard(name, "", () => openMenu(menu.id), menu.webIconData, menu.webIconDataMimetype);
+      const apps = normalizedApps(payload);
+      for (const app of apps) {
+        if (needle && !app.searchText.includes(needle)) continue;
+        appendAppCard(app, () => openMenu(app.menu.id));
       }
-      if (!needle || "apps".includes(needle)) {
-        appendAppCard("Apps", "A", () => {
+      if ((!needle || "apps".includes(needle)) && !apps.some((app) => app.key === "apps")) {
+        appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {
           setView("install");
           loadInstallApps();
-        }, "", "");
+        });
       }
       if (!found) {
         const empty = document.createElement("p");
         empty.className = "muted";
-        empty.textContent = "No menus loaded.";
+        empty.textContent = needle ? "No apps found." : "No menus loaded.";
         grid.append(empty);
       }
       document.getElementById("menuStatus").textContent = found ? "" : "No menus loaded.";
@@ -5307,13 +5557,24 @@ const webClientShellHTML = `<!doctype html>
       try {
         const rows = await callKW("ir.module.module", "search_read", {args: [[]], kwargs: {fields: ["id", "name", "state"], limit: 200, order: "name"}});
         grid.replaceChildren();
+        const seenModules = new Set();
         for (const row of rows) {
           const name = String(row.name || "");
-          if (needle && !name.toLowerCase().includes(needle)) continue;
+          const displayName = moduleDisplayName(name);
+          const key = appKey(displayName);
+          if (seenModules.has(key)) continue;
+          seenModules.add(key);
+          if (needle && !(name.toLowerCase().includes(needle) || displayName.toLowerCase().includes(needle))) continue;
           const card = document.createElement("div");
-          card.className = "module-card";
+          card.className = "module-card o_app";
+          card.dataset.appName = displayName;
+          const icon = document.createElement("span");
+          icon.className = "app-icon o_app_icon";
+          icon.dataset.iconToken = appIconToken(displayName);
+          icon.textContent = appInitials(displayName);
           const title = document.createElement("strong");
-          title.textContent = name || "module";
+          title.className = "o_app_name";
+          title.textContent = displayName || "Module";
           const state = document.createElement("span");
           state.className = "badge";
           state.textContent = row.state || "unknown";
@@ -5323,7 +5584,7 @@ const webClientShellHTML = `<!doctype html>
           button.disabled = row.state === "installed";
           button.className = row.state === "installed" ? "secondary" : "";
           button.addEventListener("click", () => installModule(row.id));
-          card.append(title, state, button);
+          card.append(icon, title, state, button);
           grid.append(card);
         }
         if (!grid.children.length) {
@@ -5336,6 +5597,11 @@ const webClientShellHTML = `<!doctype html>
         if (await ensureSession(error)) return loadInstallApps();
         grid.textContent = "Apps error: " + error.message;
       }
+    }
+
+    function moduleDisplayName(name) {
+      const cleaned = String(name || "").replace(/^oi_/, "").replace(/^base_/, "").replace(/_/g, " ").replace(/\s+/g, " ").trim();
+      return cleaned ? cleaned.split(" ").map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join(" ") : "Module";
     }
 
     async function installModule(id) {
@@ -5382,7 +5648,37 @@ const webClientShellHTML = `<!doctype html>
         tbody.append(tr);
       }
       table.append(thead, tbody);
-      host.append(table);
+      const mobileCards = document.createElement("div");
+      mobileCards.className = "o_mobile_list_cards";
+      for (const row of rows) {
+        const card = document.createElement("article");
+        card.className = "o_mobile_record_card";
+        card.dataset.id = row.id || "";
+        for (const field of fields) {
+          if (field === "id") continue;
+          const line = document.createElement("div");
+          line.className = "o_mobile_record_line";
+          const label = document.createElement("span");
+          label.className = "o_mobile_record_label";
+          label.textContent = fieldLabel(field);
+          const value = document.createElement("span");
+          value.className = "o_mobile_record_value";
+          const raw = row[field];
+          value.textContent = raw === null || raw === undefined ? "" : (typeof raw === "object" ? JSON.stringify(raw) : String(raw));
+          line.append(label, value);
+          card.append(line);
+        }
+        if (row.id) {
+          const openButton = document.createElement("button");
+          openButton.type = "button";
+          openButton.className = "secondary";
+          openButton.textContent = "Open";
+          openButton.addEventListener("click", () => openRecord(modelSelect.value, row.id));
+          card.append(openButton);
+        }
+        mobileCards.append(card);
+      }
+      host.append(table, mobileCards);
     }
 
     async function openRecord(model, id) {
@@ -5438,6 +5734,31 @@ const webClientShellHTML = `<!doctype html>
       await loadRows();
     }
 
+    function sessionCompanyName(session) {
+      const companies = session && session.user_companies;
+      if (companies && companies.allowed_companies) {
+        const current = String(companies.current_company || session.company_id || "");
+        const allowed = companies.allowed_companies;
+        const row = allowed[current] || allowed[Number(current)];
+        if (row && row.name) return String(row.name);
+      }
+      return "My Company";
+    }
+
+    function updateSystray(session) {
+      const userName = session.name || session.username || ("uid " + session.uid);
+      const userButton = document.getElementById("topUser");
+      userButton.innerHTML = "";
+      const userLabel = document.createElement("span");
+      userLabel.textContent = userName;
+      userButton.append(userLabel);
+      document.getElementById("topCompany").textContent = sessionCompanyName(session);
+      const debug = Boolean(session.debug || (session.bundle_params && session.bundle_params.debug));
+      document.getElementById("debugIndicator").hidden = !debug;
+      document.getElementById("messageCounter").textContent = "0";
+      document.getElementById("activityCounter").textContent = "0";
+    }
+
     async function loadRuntime() {
       try {
         const health = await requestJSON("/web/health");
@@ -5449,7 +5770,7 @@ const webClientShellHTML = `<!doctype html>
       }
       const session = await requestJSON("/web/session/info");
       setText("user", session.name || session.username || ("uid " + session.uid));
-      setText("topUser", session.name || session.username || ("uid " + session.uid));
+      updateSystray(session);
       let menus;
       try {
         menus = await requestJSON("/web/webclient/load_menus");

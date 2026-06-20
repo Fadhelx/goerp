@@ -10915,6 +10915,7 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`class="field technical-field" hidden`,
 		`id="loadRows" class="secondary o-debug-only" hidden`,
 		`class="o_web_client"`,
+		`data-mobile-safe="true"`,
 		`class="o_main_navbar"`,
 		`class="o_action_manager"`,
 		`o_control_panel`,
@@ -10927,8 +10928,22 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`id="recordSearch"`,
 		`applyTheme(requestedTheme || storedTheme || document.body.dataset.theme)`,
 		`id="navApps" class="o-launcher-button" data-view="apps" aria-label="Apps"`,
+		`id="mobileMenu" class="o-mobile-menu-toggle" aria-label="Menu" aria-expanded="false"`,
 		`id="topMenu" aria-label="Application"`,
-		`appendAppCard("Apps", "A", () => {`,
+		`class="o-menu-systray o_menu_systray"`,
+		`class="o-systray-item o_mail_systray_item"`,
+		`class="o-systray-item o_activity_menu"`,
+		`class="o-systray-item o_switch_company_menu o-company-switcher"`,
+		`class="o-systray-item o_debug_manager" id="debugIndicator" hidden`,
+		`class="o-systray-item o_user_menu o-user-menu-button"`,
+		`function normalizedApps(payload)`,
+		`const seen = new Map();`,
+		`button.dataset.appName = name;`,
+		`button.dataset.appKey = app.key || appKey(name);`,
+		`icon.dataset.iconToken = appIconToken(name);`,
+		`appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {`,
+		`function moduleDisplayName(name)`,
+		`const seenModules = new Set();`,
 		`async function loadActionViews(action, model)`,
 		`callKW(model, "get_views"`,
 		`callKW(model, "web_search_read"`,
@@ -10948,13 +10963,17 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`if (field === "id" || field.startsWith("__")) continue;`,
 		`for (const field of formFields)`,
 		`th.textContent = fieldLabel(field);`,
+		`mobileCards.className = "o_mobile_list_cards";`,
+		`card.className = "o_mobile_record_card";`,
+		`@media (max-width: 620px)`,
+		`overflow-x: hidden`,
 		`return label && label !== field ? label : humanFieldLabel(field);`,
 	} {
 		if !strings.Contains(body, needle) {
 			t.Fatalf("web client missing %q", needle)
 		}
 	}
-	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`} {
+	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`, `<h1>GoERP</h1>`, `<h1>Gorp</h1>`} {
 		if strings.Contains(body, needle) {
 			t.Fatalf("web client still exposes shell cue %q", needle)
 		}

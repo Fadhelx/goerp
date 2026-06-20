@@ -39,12 +39,5 @@
       <field name="sequence" eval="30"/>
       <field name="kind">rejected</field>
     </record>
-    <record id="approval_state_delegation_expired" model="approval.settings.state">
-      <field name="settings_id" ref="approval_settings_delegation"/>
-      <field name="value">expired</field>
-      <field name="name">Expired</field>
-      <field name="sequence" eval="40"/>
-      <field name="kind">cancelled</field>
-    </record>
   </data>
 </odoo>
