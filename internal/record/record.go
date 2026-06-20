@@ -1144,7 +1144,11 @@ func (m ModelSet) normalizeCreateValues(values map[string]any) map[string]any {
 		return m.normalizeResGroupsValues(nil, values)
 	case "res.groups.privilege":
 		return m.normalizeResGroupsPrivilegeValues(nil, values)
-	case "delegation", "cancellation.record":
+	case "delegation":
+		return m.normalizeDelegationValues(nil, m.normalizeSequencedNameCreateValues(values))
+	case "delegation.line":
+		return m.normalizeDelegationLineValues(nil, values)
+	case "cancellation.record":
 		return m.normalizeSequencedNameCreateValues(values)
 	default:
 		if m.inheritsModel("name.sequence.mixin") {
@@ -1848,6 +1852,10 @@ func (m ModelSet) validateModelConstraints(row map[string]any) error {
 		if err := m.validateIrModelData(row); err != nil {
 			return err
 		}
+	case "delegation.line":
+		if err := m.validateDelegationLine(row); err != nil {
+			return err
+		}
 	case "mail.alias":
 		if err := m.validateMailAlias(row); err != nil {
 			return err
@@ -1923,6 +1931,96 @@ func (m ModelSet) validateMailInboundMessageLockCreate(row map[string]any) error
 		}
 		if strings.TrimSpace(stringValue(existing["message_id"])) == messageID {
 			return fmt.Errorf("mail.inbound.message.lock duplicate message_id")
+		}
+	}
+	return nil
+}
+
+func (m ModelSet) normalizeDelegationValues(existing map[string]any, values map[string]any) map[string]any {
+	out := copyValues(values)
+	if existing == nil {
+		if _, ok := out["date_from"]; !ok && m.hasField("date_from") {
+			out["date_from"] = time.Now().UTC().Format("2006-01-02")
+		}
+	}
+	if source, ok := out["delegateTo_employee_id"]; ok {
+		out["delegate_to_employee_id"] = source
+	} else if snake, ok := out["delegate_to_employee_id"]; ok && m.hasField("delegateTo_employee_id") {
+		out["delegateTo_employee_id"] = snake
+	}
+	if employeeID := numericID(firstNonZero(out["employee_id"], safeRowValue(existing, "employee_id"))); employeeID != 0 {
+		if userID := m.employeeUserID(employeeID); userID != 0 && m.hasField("user_id") {
+			out["user_id"] = userID
+		}
+	}
+	if delegateEmployeeID := numericID(firstNonZero(out["delegate_to_employee_id"], out["delegateTo_employee_id"], safeRowValue(existing, "delegate_to_employee_id"), safeRowValue(existing, "delegateTo_employee_id"))); delegateEmployeeID != 0 {
+		if userID := m.employeeUserID(delegateEmployeeID); userID != 0 && m.hasField("delegate_to_user_id") {
+			out["delegate_to_user_id"] = userID
+		}
+	}
+	return out
+}
+
+func (m ModelSet) normalizeDelegationLineValues(existing map[string]any, values map[string]any) map[string]any {
+	out := copyValues(values)
+	delegationID := numericID(firstNonZero(out["delegation_id"], safeRowValue(existing, "delegation_id")))
+	delegationRow := m.rowByID("delegation", delegationID)
+	if existing == nil {
+		if _, ok := out["active"]; !ok && m.hasField("active") {
+			out["active"] = true
+		}
+	}
+	if delegationRow != nil {
+		for _, fieldName := range []string{"one_employee", "state", "date_from", "date_to"} {
+			if _, ok := out[fieldName]; !ok {
+				out[fieldName] = delegationRow[fieldName]
+			}
+		}
+		if _, ok := out["delegator_id"]; !ok {
+			out["delegator_id"] = delegationRow["employee_id"]
+		}
+		if _, ok := out["delegator_user_id"]; !ok {
+			out["delegator_user_id"] = delegationRow["user_id"]
+		}
+		if truthyRecordValue(delegationRow["one_employee"]) && numericID(out["employee_id"]) == 0 {
+			out["employee_id"] = firstNonZero(delegationRow["delegateTo_employee_id"], delegationRow["delegate_to_employee_id"])
+		}
+	}
+	if employeeID := numericID(firstNonZero(out["employee_id"], safeRowValue(existing, "employee_id"))); employeeID != 0 {
+		if userID := m.employeeUserID(employeeID); userID != 0 && m.hasField("user_id") {
+			out["user_id"] = userID
+		}
+	}
+	return out
+}
+
+func (m ModelSet) employeeUserID(employeeID int64) int64 {
+	if employeeID == 0 {
+		return 0
+	}
+	row := m.rowByID("hr.employee", employeeID)
+	if row == nil {
+		return 0
+	}
+	return numericID(row["user_id"])
+}
+
+func (m ModelSet) validateDelegationLine(row map[string]any) error {
+	if m.store == nil {
+		return nil
+	}
+	rowID := numericID(row["id"])
+	delegationID := numericID(row["delegation_id"])
+	groupID := numericID(row["group_id"])
+	if delegationID == 0 || groupID == 0 {
+		return nil
+	}
+	for id, existing := range m.store.records {
+		if id == rowID {
+			continue
+		}
+		if numericID(existing["delegation_id"]) == delegationID && numericID(existing["group_id"]) == groupID {
+			return fmt.Errorf("delegation.line role should be unique per delegation")
 		}
 	}
 	return nil
@@ -6312,6 +6410,18 @@ func (m ModelSet) normalizeRecordWriteValues(existing map[string]any, values map
 		for _, fieldName := range []string{"group_ids", "groups_id"} {
 			if _, ok := values[fieldName]; ok {
 				return m.normalizeResUsersValues(existing, values)
+			}
+		}
+	case "delegation":
+		for _, fieldName := range []string{"employee_id", "delegateTo_employee_id", "delegate_to_employee_id"} {
+			if _, ok := values[fieldName]; ok {
+				return m.normalizeDelegationValues(existing, values)
+			}
+		}
+	case "delegation.line":
+		for _, fieldName := range []string{"delegation_id", "employee_id", "group_id"} {
+			if _, ok := values[fieldName]; ok {
+				return m.normalizeDelegationLineValues(existing, values)
 			}
 		}
 	case "ir.model.data":

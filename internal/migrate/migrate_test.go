@@ -183,12 +183,36 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"workflow_node_advanced_metadata_fields",
 		"resource_calendar_models",
 		"approval_log_duration_fields",
+		"delegation_source_field_metadata",
 		"mail_activity_hide_in_chatter",
 		"approval_buttons_email_compose_fields",
 	} {
 		if !names[name] {
 			t.Fatalf("missing migration %s", name)
 		}
+	}
+}
+
+func TestDelegationMigrationsExposeSourceFieldAndUniqueLineRole(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	for _, name := range []string{"delegation", "delegation_source_field_metadata"} {
+		if !strings.Contains(sqlByName[name], "delegateTo_employee_id") {
+			t.Fatalf("%s missing delegateTo_employee_id: %s", name, sqlByName[name])
+		}
+	}
+	if !strings.Contains(sqlByName["delegation_source_field_metadata"], "delegation_line_delegation_group_unique") ||
+		!strings.Contains(sqlByName["delegation_source_field_metadata"], "delegation_id, group_id") {
+		t.Fatalf("delegation source metadata migration missing unique index: %s", sqlByName["delegation_source_field_metadata"])
+	}
+	baseSQL, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0001_base.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(baseSQL), "delegateTo_employee_id") || !strings.Contains(string(baseSQL), "delegation_line_delegation_group_unique") {
+		t.Fatalf("base SQL missing delegation source parity columns/index")
 	}
 }
 

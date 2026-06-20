@@ -2664,6 +2664,7 @@ CREATE TABLE IF NOT EXISTS delegation (
   employee_id BIGINT,
   user_id BIGINT NOT NULL,
   one_employee BOOLEAN NOT NULL DEFAULT false,
+  "delegateTo_employee_id" BIGINT,
   delegate_to_employee_id BIGINT,
   delegate_to_user_id BIGINT,
   isactive BOOLEAN NOT NULL DEFAULT false,
@@ -2688,6 +2689,8 @@ CREATE TABLE IF NOT EXISTS delegation_line (
   date_to DATE NOT NULL,
   active BOOLEAN NOT NULL DEFAULT false
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS delegation_line_delegation_group_unique ON delegation_line(delegation_id, group_id);
 
 CREATE TABLE IF NOT EXISTS delegation_mail_template_metadata (
   id BIGSERIAL PRIMARY KEY,

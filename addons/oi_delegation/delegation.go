@@ -204,13 +204,14 @@ func MailTemplates() []delegation.MailTemplateMetadata {
 func delegationModel() model.Model {
 	m := simple(ModelDelegation, "delegation",
 		field.New("name", field.Char),
-		field.New("date_from", field.Date),
-		field.New("date_to", field.Date),
-		field.New("employee_id", field.Many2One).WithRelation("hr.employee"),
-		field.New("user_id", field.Many2One).WithRelation("res.users"),
+		required(field.New("date_from", field.Date)),
+		required(field.New("date_to", field.Date)),
+		required(field.New("employee_id", field.Many2One).WithRelation("hr.employee")),
+		readonly(related(field.New("user_id", field.Many2One).WithRelation("res.users"), "employee_id.user_id")),
 		field.New("one_employee", field.Bool),
+		field.New("delegateTo_employee_id", field.Many2One).WithRelation("hr.employee"),
 		field.New("delegate_to_employee_id", field.Many2One).WithRelation("hr.employee"),
-		field.New("delegate_to_user_id", field.Many2One).WithRelation("res.users"),
+		readonly(related(field.New("delegate_to_user_id", field.Many2One).WithRelation("res.users"), "delegate_to_employee_id.user_id")),
 		field.New("isactive", field.Bool),
 		field.New("state", field.Selection),
 		field.New("lines", field.One2Many).WithRelation(ModelDelegationLine),
@@ -225,16 +226,16 @@ func delegationModel() model.Model {
 
 func delegationLineModel() model.Model {
 	return simple(ModelDelegationLine, "delegation_line",
-		field.New("delegation_id", field.Many2One).WithRelation(ModelDelegation),
-		field.New("group_id", field.Many2One).WithRelation("res.groups"),
+		required(field.New("delegation_id", field.Many2One).WithRelation(ModelDelegation)),
+		required(field.New("group_id", field.Many2One).WithRelation("res.groups")),
 		field.New("employee_id", field.Many2One).WithRelation("hr.employee"),
-		field.New("user_id", field.Many2One).WithRelation("res.users"),
-		field.New("one_employee", field.Bool),
-		field.New("delegator_id", field.Many2One).WithRelation("hr.employee"),
-		field.New("delegator_user_id", field.Many2One).WithRelation("res.users"),
-		field.New("state", field.Selection),
-		field.New("date_from", field.Date),
-		field.New("date_to", field.Date),
+		readonly(indexed(related(field.New("user_id", field.Many2One).WithRelation("res.users"), "employee_id.user_id"))),
+		readonly(related(field.New("one_employee", field.Bool), "delegation_id.one_employee")),
+		readonly(related(field.New("delegator_id", field.Many2One).WithRelation("hr.employee"), "delegation_id.employee_id")),
+		readonly(indexed(related(field.New("delegator_user_id", field.Many2One).WithRelation("res.users"), "delegation_id.user_id"))),
+		readonly(related(field.New("state", field.Selection), "delegation_id.state")),
+		readonly(related(field.New("date_from", field.Date), "delegation_id.date_from")),
+		readonly(related(field.New("date_to", field.Date), "delegation_id.date_to")),
 		field.New("active", field.Bool),
 	)
 }
@@ -251,6 +252,27 @@ func extension(name string, table string, fields ...field.Field) model.Model {
 	m := simple(name, table, fields...)
 	m.Inherit = []string{name}
 	return m
+}
+
+func required(f field.Field) field.Field {
+	f.Required = true
+	return f
+}
+
+func readonly(f field.Field) field.Field {
+	f.Readonly = true
+	return f
+}
+
+func indexed(f field.Field) field.Field {
+	f.Index = true
+	return f
+}
+
+func related(f field.Field, path string) field.Field {
+	f.RelationField = path
+	f.Store = true
+	return f
 }
 
 func boolFromAny(value any) bool {

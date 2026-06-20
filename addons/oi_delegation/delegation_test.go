@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"gorp/addons/hr"
 	"gorp/internal/base"
 	"gorp/internal/data"
 	"gorp/internal/delegation"
@@ -56,10 +57,26 @@ func TestManifestInstallAndModels(t *testing.T) {
 		}
 	}
 	request := reg.Models[ModelDelegation]
-	for _, fieldName := range []string{"date_from", "date_to", "employee_id", "user_id", "one_employee", "delegate_to_user_id", "state", "lines", "department_ids"} {
+	for _, fieldName := range []string{"date_from", "date_to", "employee_id", "user_id", "one_employee", "delegateTo_employee_id", "delegate_to_employee_id", "delegate_to_user_id", "state", "lines", "department_ids"} {
 		if _, ok := request.Fields[fieldName]; !ok {
 			t.Fatalf("missing delegation field %s", fieldName)
 		}
+	}
+	if !request.Fields["date_from"].Required || !request.Fields["date_to"].Required || !request.Fields["employee_id"].Required {
+		t.Fatalf("delegation required metadata = %+v %+v %+v", request.Fields["date_from"], request.Fields["date_to"], request.Fields["employee_id"])
+	}
+	if !request.Fields["user_id"].Readonly || request.Fields["user_id"].RelationField != "employee_id.user_id" {
+		t.Fatalf("delegation user_id metadata = %+v", request.Fields["user_id"])
+	}
+	line := reg.Models[ModelDelegationLine]
+	if !line.Fields["delegation_id"].Required || !line.Fields["group_id"].Required {
+		t.Fatalf("delegation line required metadata = %+v %+v", line.Fields["delegation_id"], line.Fields["group_id"])
+	}
+	if !line.Fields["user_id"].Readonly || !line.Fields["user_id"].Index || line.Fields["user_id"].RelationField != "employee_id.user_id" {
+		t.Fatalf("delegation line user_id metadata = %+v", line.Fields["user_id"])
+	}
+	if !line.Fields["delegator_user_id"].Readonly || !line.Fields["delegator_user_id"].Index || line.Fields["delegator_user_id"].RelationField != "delegation_id.user_id" {
+		t.Fatalf("delegation line delegator_user_id metadata = %+v", line.Fields["delegator_user_id"])
 	}
 	extensions := extensionMap()
 	for _, fieldName := range []string{"allow_delegation", "delegation_template_ids", "name_delegation", "allow_multiple_delegation", "restricted_access"} {
@@ -71,6 +88,61 @@ func TestManifestInstallAndModels(t *testing.T) {
 		if _, ok := extensions["res.users"].Fields[fieldName]; !ok {
 			t.Fatalf("missing res.users extension field %s", fieldName)
 		}
+	}
+}
+
+func TestDelegationSourceFieldAliasesAndLineUniqueness(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	groupID, err := env.Model("res.groups").Create(map[string]any{"name": "Delegable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorUserID, err := env.Model("res.users").Create(map[string]any{"login": "delegator", "name": "Delegator"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateUserID, err := env.Model("res.users").Create(map[string]any{"login": "delegate", "name": "Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegator", "user_id": delegatorUserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegate", "user_id": delegateUserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_to":                "2026-12-31",
+		"employee_id":            delegatorEmployeeID,
+		"delegateTo_employee_id": delegateEmployeeID,
+		"one_employee":           true,
+		"state":                  "confirmed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(ModelDelegation).Browse(requestID).Read("date_from", "user_id", "delegateTo_employee_id", "delegate_to_employee_id", "delegate_to_user_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["date_from"] == nil || rows[0]["user_id"] != delegatorUserID || rows[0]["delegateTo_employee_id"] != delegateEmployeeID || rows[0]["delegate_to_employee_id"] != delegateEmployeeID || rows[0]["delegate_to_user_id"] != delegateUserID {
+		t.Fatalf("delegation alias row = %+v", rows)
+	}
+	lineID, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": requestID, "group_id": groupID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineRows, err := env.Model(ModelDelegationLine).Browse(lineID).Read("active", "employee_id", "user_id", "delegator_id", "delegator_user_id", "one_employee", "state", "date_from", "date_to")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lineRows) != 1 || lineRows[0]["active"] != true || lineRows[0]["employee_id"] != delegateEmployeeID || lineRows[0]["user_id"] != delegateUserID || lineRows[0]["delegator_id"] != delegatorEmployeeID || lineRows[0]["delegator_user_id"] != delegatorUserID || lineRows[0]["one_employee"] != true || lineRows[0]["state"] != "confirmed" || lineRows[0]["date_to"] != "2026-12-31" {
+		t.Fatalf("delegation line related row = %+v", lineRows)
+	}
+	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": requestID, "group_id": groupID, "employee_id": delegateEmployeeID}); err == nil || !strings.Contains(err.Error(), "role should be unique") {
+		t.Fatalf("expected source unique role error, got %v", err)
 	}
 }
 
@@ -196,7 +268,7 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	arch, _ := viewRows[0]["arch"].(string)
-	if viewRows[0]["model"] != ModelDelegation || !strings.Contains(arch, `field name="delegate_to_user_id"`) {
+	if viewRows[0]["model"] != ModelDelegation || !strings.Contains(arch, `field name="delegateTo_employee_id"`) || !strings.Contains(arch, `field name="department_ids"`) {
 		t.Fatalf("view = %+v", viewRows[0])
 	}
 	menuRows, err := env.Model("ir.ui.menu").Browse(ids[ModuleName+".menu_oi_delegation_requests"].ResID).Read("parent_id", "action")
@@ -785,6 +857,9 @@ func delegationFixtureEnv(t *testing.T) *record.Env {
 		add(m)
 	}
 	for _, m := range workflow.Models() {
+		add(m)
+	}
+	for _, m := range hr.Models() {
 		add(m)
 	}
 	for _, m := range Models() {
