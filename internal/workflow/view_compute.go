@@ -192,7 +192,8 @@ func approvalViewSettingsForModel(env *record.Env, modelName string) (approvalVi
 	if env == nil || modelName == "" {
 		return approvalViewSettings{}, false, nil
 	}
-	found, err := env.Model(ModelSettings).Search(domain.And(domain.Cond("model", "=", modelName)))
+	configEnv := workflowSystemEnv(env)
+	found, err := configEnv.Model(ModelSettings).Search(domain.And(domain.Cond("model", "=", modelName)))
 	if err != nil {
 		if strings.Contains(err.Error(), "unknown model "+ModelSettings) {
 			return approvalViewSettings{}, false, nil
@@ -356,7 +357,7 @@ func appendApprovalTransitionButtons(env *record.Env, header *workflowXMLNode, s
 	if env == nil || header == nil || settings.Model == "" {
 		return
 	}
-	workflows, err := loadAdvancedWorkflows(env)
+	workflows, err := loadAdvancedWorkflows(workflowSystemEnv(env))
 	if err != nil {
 		return
 	}
@@ -458,7 +459,8 @@ func appendApprovalButtons(env *record.Env, header *workflowXMLNode, settings ap
 	if env == nil || settings.ID == 0 {
 		return
 	}
-	found, err := env.Model(ModelButton).Search(domain.And())
+	configEnv := workflowSystemEnv(env)
+	found, err := configEnv.Model(ModelButton).Search(domain.And())
 	if err != nil {
 		return
 	}
@@ -495,11 +497,11 @@ func appendApprovalButtons(env *record.Env, header *workflowXMLNode, settings ap
 			{Name: xml.Name{Local: "confirm"}, Value: approvalButtonConfirm(row)},
 			{Name: xml.Name{Local: "context"}, Value: stringFromAny(row["context"])},
 			{Name: xml.Name{Local: "args"}, Value: "[" + strconv.FormatInt(id, 10) + "]"},
-			{Name: xml.Name{Local: "icon"}, Value: approvalButtonIcon(env, row)},
+			{Name: xml.Name{Local: "icon"}, Value: approvalButtonIcon(configEnv, row)},
 			{Name: xml.Name{Local: "id"}, Value: buttonID},
 			{Name: xml.Name{Local: "validate_form"}, Value: fmt.Sprint(boolFromAny(row["validate_form"]))},
 		}
-		if groups := workflowGroupXMLIDRefs(env, idsFromAny(row["group_ids"])); len(groups) > 0 {
+		if groups := workflowGroupXMLIDRefs(configEnv, idsFromAny(row["group_ids"])); len(groups) > 0 {
 			attrs = append(attrs, xml.Attr{Name: xml.Name{Local: "groups"}, Value: strings.Join(groups, ",")})
 		}
 		if hotkey := strings.TrimSpace(stringFromAny(row["hotkey"])); hotkey != "" {

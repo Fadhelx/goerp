@@ -4180,7 +4180,7 @@ const webClientShellHTML = `<!doctype html>
 		width: 44px;
 		height: 44px;
 		border-radius: 10px;
-		background: linear-gradient(135deg, var(--accent), var(--accent-2));
+		background: var(--accent);
 		box-shadow: inset 0 -10px 20px rgba(0,0,0,.12);
 	}
 	.app-card:hover {
@@ -4455,16 +4455,12 @@ const webClientShellHTML = `<!doctype html>
 		padding: 14px 18px 24px;
 	}
 	.o-app-launcher-view {
-		background:
-			linear-gradient(135deg, rgba(113,75,103,.95), rgba(75,58,92,.92)),
-			#714b67;
-		color: #fff;
+		background: #eef0f3;
+		color: var(--text);
 		padding: 28px 24px 40px;
 	}
 	body[data-theme="standard"] .o-app-launcher-view {
-		background:
-			linear-gradient(135deg, rgba(43,57,64,.96), rgba(1,126,132,.82)),
-			#2b3940;
+		background: #eef0f3;
 	}
 	.o-app-shell {
 		max-width: 980px;
@@ -4476,19 +4472,19 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-app-search input {
 		height: 38px;
-		border-color: rgba(255,255,255,.32);
-		background: rgba(255,255,255,.16);
-		color: #fff;
-		text-align: center;
+		border-color: #cfd4dc;
+		background: #fff;
+		color: var(--text);
+		text-align: left;
 	}
 	.o-app-search label {
 		display: block;
 	}
 	.o-app-search input::placeholder {
-		color: rgba(255,255,255,.78);
+		color: var(--muted);
 	}
 	.o-app-launcher-view .muted {
-		color: rgba(255,255,255,.74);
+		color: var(--muted);
 	}
 	.o-app-launcher-view .app-grid {
 		grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -4501,7 +4497,7 @@ const webClientShellHTML = `<!doctype html>
 		min-height: 118px;
 		justify-self: center;
 		border-radius: 8px;
-		color: #fff;
+		color: var(--text);
 		padding: 8px;
 		overflow: hidden;
 	}
@@ -4509,17 +4505,17 @@ const webClientShellHTML = `<!doctype html>
 		width: 54px;
 		height: 54px;
 		border-radius: 12px;
-		background: linear-gradient(135deg, #f4a261, #017e84);
+		background: #017e84;
 		box-shadow: inset 0 -10px 18px rgba(0,0,0,.14), 0 8px 18px rgba(0,0,0,.16);
 	}
 	.o-app-launcher-view .app-card:nth-child(4n+2)::before {
-		background: linear-gradient(135deg, #875a7b, #00a09d);
+		background: #875a7b;
 	}
 	.o-app-launcher-view .app-card:nth-child(4n+3)::before {
-		background: linear-gradient(135deg, #21b799, #5668c8);
+		background: #21b799;
 	}
 	.o-app-launcher-view .app-card:nth-child(4n+4)::before {
-		background: linear-gradient(135deg, #d5653e, #875a7b);
+		background: #d5653e;
 	}
 	.o-app-launcher-view .app-card.has-icon::before {
 		display: none;
@@ -4530,13 +4526,16 @@ const webClientShellHTML = `<!doctype html>
 		width: 54px;
 		height: 54px;
 		border-radius: 12px;
-		background: linear-gradient(135deg, #875a7b, #017e84);
+		background: #875a7b;
 		color: #fff;
 		font-size: 20px;
 		font-weight: 600;
 		box-shadow: inset 0 -10px 18px rgba(0,0,0,.14), 0 8px 18px rgba(0,0,0,.16);
 		overflow: hidden;
 	}
+	.o-app-launcher-view .app-card:nth-child(4n+2) .app-icon { background: #017e84; }
+	.o-app-launcher-view .app-card:nth-child(4n+3) .app-icon { background: #5f6f94; }
+	.o-app-launcher-view .app-card:nth-child(4n+4) .app-icon { background: #b05f4a; }
 	.app-icon img {
 		width: 100%;
 		height: 100%;
@@ -4544,8 +4543,8 @@ const webClientShellHTML = `<!doctype html>
 		display: block;
 	}
 	.o-app-launcher-view .app-card:hover {
-		background: rgba(255,255,255,.11);
-		color: #fff;
+		background: rgba(113,75,103,.08);
+		color: var(--text);
 	}
 	.o-app-launcher-view .app-card strong {
 		max-width: 100%;
@@ -4693,15 +4692,15 @@ const webClientShellHTML = `<!doctype html>
         <div class="o-control-panel o_control_panel">
           <h2>Records</h2>
           <div class="toolbar">
-            <label class="field technical-field">
+            <label class="field technical-field" hidden>
               Model
               <select id="model"></select>
             </label>
-            <label class="field technical-field">
+            <label class="field technical-field" hidden>
               Fields
               <input id="fields" value="id,display_name,name,email">
             </label>
-            <label class="field small technical-field">
+            <label class="field small technical-field" hidden>
               Limit
               <input id="limit" type="number" min="1" max="200" value="20">
             </label>
@@ -4709,7 +4708,7 @@ const webClientShellHTML = `<!doctype html>
               Search
               <input id="recordSearch" placeholder="Search">
             </label>
-            <button id="loadRows">Load</button>
+            <button id="loadRows" class="secondary o-debug-only" hidden>Load</button>
             <button id="createPartner" class="secondary">New</button>
           </div>
         </div>
@@ -5028,6 +5027,37 @@ const webClientShellHTML = `<!doctype html>
       return spec;
     }
 
+    function humanFieldLabel(field) {
+      const labels = {
+        display_name: "Name",
+        model_id: "Model",
+        model_name: "Model",
+        res_id: "Record",
+        res_model: "Document model",
+        email_to: "Email to",
+        mobile_number: "Mobile",
+        server_type: "Server type",
+        nextcall: "Next run"
+      };
+      if (labels[field]) return labels[field];
+      return field.split("_").filter(Boolean).map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join(" ") || field;
+    }
+
+    function fieldLabel(field) {
+      const label = workbench.fieldLabels[field];
+      return label && label !== field ? label : humanFieldLabel(field);
+    }
+
+    function visibleFormFields(fields) {
+      const out = [];
+      for (const field of fields) {
+        if (field === "id" || field.startsWith("__")) continue;
+        if (field === "display_name" && fields.some((item) => item !== "id" && item !== "display_name")) continue;
+        if (!out.includes(field)) out.push(field);
+      }
+      return out.length ? out : ["display_name"];
+    }
+
     async function loadActionViews(action, model) {
       const viewInfo = await callKW(model, "get_views", {
           kwargs: {
@@ -5330,7 +5360,7 @@ const webClientShellHTML = `<!doctype html>
       for (const field of fields) {
         if (field === "id") continue;
         const th = document.createElement("th");
-        th.textContent = workbench.fieldLabels[field] || field;
+        th.textContent = fieldLabel(field);
         header.append(th);
       }
       thead.append(header);
@@ -5372,11 +5402,12 @@ const webClientShellHTML = `<!doctype html>
       try {
         const rows = await callKW(model, "web_read", {args: [[Number(id)]], kwargs: {specification: fieldSpecification(fields), context: readContext(workbench.action)}});
         const row = rows && rows[0] ? rows[0] : {};
+        const formFields = visibleFormFields(fields);
         document.getElementById("recordTitle").textContent = row.display_name || row.name || (model + " / " + id);
         form.replaceChildren();
-        for (const field of fields) {
+        for (const field of formFields) {
           const label = document.createElement("label");
-          label.textContent = workbench.fieldLabels[field] || field;
+          label.textContent = fieldLabel(field);
           const input = document.createElement("input");
           input.dataset.field = field;
           const value = row[field];

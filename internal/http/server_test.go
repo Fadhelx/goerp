@@ -10796,7 +10796,8 @@ func TestWebAliasesAndAssets(t *testing.T) {
 	}
 	for _, needle := range []string{
 		`<label class="theme-field" hidden>`,
-		`class="field technical-field"`,
+		`class="field technical-field" hidden`,
+		`id="loadRows" class="secondary o-debug-only" hidden`,
 		`class="o_web_client"`,
 		`class="o_main_navbar"`,
 		`class="o_action_manager"`,
@@ -10827,12 +10828,17 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`workbench.action = null;`,
 		`showRecordForm(false)`,
 		`viewArchFields(listView.arch)`,
+		`function visibleFormFields(fields)`,
+		`if (field === "id" || field.startsWith("__")) continue;`,
+		`for (const field of formFields)`,
+		`th.textContent = fieldLabel(field);`,
+		`return label && label !== field ? label : humanFieldLabel(field);`,
 	} {
 		if !strings.Contains(body, needle) {
 			t.Fatalf("web client missing %q", needle)
 		}
 	}
-	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`} {
+	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`} {
 		if strings.Contains(body, needle) {
 			t.Fatalf("web client still exposes shell cue %q", needle)
 		}

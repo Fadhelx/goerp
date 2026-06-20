@@ -4439,6 +4439,53 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 }
 
+func TestBootstrapWebNormalUserCanOpenRecordsListAndForm(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := app.Server().Handler()
+	sessionCookie, normalUserID := runtimeBaseUserSessionCookie(t, app)
+	if !app.Security.AllowedByACL(normalUserID, "approval.buttons", record.OpRead) {
+		t.Fatalf("normal user missing approval.buttons read ACL: user=%+v", app.Security.Users[normalUserID])
+	}
+
+	body := getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
+	if !strings.Contains(body, "Approvals") || !strings.Contains(body, "Delegation") {
+		t.Fatalf("normal user menus missing app roots: %s", body)
+	}
+	if strings.Contains(body, "Technical") || strings.Contains(body, "Settings") {
+		t.Fatalf("normal user menus leaked technical menus: %s", body)
+	}
+
+	views := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"approval.buttons","method":"get_views","kwargs":{"views":[[false,"list"],[false,"form"]],"options":{}}}`, sessionCookie)
+	viewPayload := runtimeMapValue(views["views"])
+	if runtimeMapValue(viewPayload["list"])["arch"] == "" || runtimeMapValue(viewPayload["form"])["arch"] == "" {
+		t.Fatalf("normal user approval button views = %+v", views)
+	}
+
+	rowsPayload := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"approval.buttons","method":"web_search_read","kwargs":{"domain":[],"specification":{"id":{},"display_name":{},"name":{},"action_type":{},"active":{}},"limit":1,"count_limit":10001}}`, sessionCookie)
+	records, _ := rowsPayload["records"].([]any)
+	if len(records) == 0 {
+		t.Fatalf("normal user approval button rows = %+v", rowsPayload)
+	}
+	firstID := int64Value(runtimeMapValue(records[0])["id"])
+	if firstID == 0 {
+		t.Fatalf("normal user row missing id: %+v", records[0])
+	}
+	readReq := httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", bytes.NewBufferString(`{"model":"approval.buttons","method":"web_read","args":[[`+strconv.FormatInt(firstID, 10)+`]],"kwargs":{"specification":{"id":{},"display_name":{},"name":{},"action_type":{},"active":{}}}}`))
+	readReq.AddCookie(sessionCookie)
+	readRec := httptest.NewRecorder()
+	handler.ServeHTTP(readRec, readReq)
+	if readRec.Code != http.StatusOK {
+		t.Fatalf("normal user web_read response %d %s", readRec.Code, readRec.Body.String())
+	}
+	readRows := decodeRuntimeJSONList(t, readRec.Body.Bytes())
+	if len(readRows) == 0 {
+		t.Fatalf("normal user web_read rows = %s", readRec.Body.String())
+	}
+}
+
 func TestBootstrapOIAIGenerateResponseUsesEnvStoreAndPersistedRAG(t *testing.T) {
 	app, err := BootstrapOI("")
 	if err != nil {
@@ -5296,6 +5343,45 @@ func runtimeSessionCookie(t *testing.T, app *App) *http.Cookie {
 	token := "test-session-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	app.Security.IssueSession(userID, token, time.Now().Add(time.Hour))
 	return &http.Cookie{Name: "session_id", Value: token}
+}
+
+func runtimeBaseUserSessionCookie(t *testing.T, app *App) (*http.Cookie, int64) {
+	t.Helper()
+	if app.Security == nil {
+		t.Fatal("missing security engine")
+	}
+	groupID := app.ExternalIDs["base.group_user"].ResID
+	if groupID == 0 {
+		t.Fatalf("missing base.group_user external id")
+	}
+	ctx := app.Env.Context()
+	companyIDs := append([]int64(nil), ctx.CompanyIDs...)
+	if len(companyIDs) == 0 && ctx.CompanyID != 0 {
+		companyIDs = []int64{ctx.CompanyID}
+	}
+	userID, err := app.Env.Model("res.users").Create(map[string]any{
+		"login":       "normal-user",
+		"name":        "Normal User",
+		"active":      true,
+		"company_id":  ctx.CompanyID,
+		"company_ids": companyIDs,
+		"groups_id":   []int64{groupID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Security.Users[userID] = security.User{
+		ID:         userID,
+		Login:      "normal-user",
+		Name:       "Normal User",
+		Active:     true,
+		CompanyID:  ctx.CompanyID,
+		CompanyIDs: companyIDs,
+		GroupIDs:   []int64{groupID},
+	}
+	token := "normal-session-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	app.Security.IssueSession(userID, token, time.Now().Add(time.Hour))
+	return &http.Cookie{Name: "session_id", Value: token}, userID
 }
 
 func decodeRuntimeJSON(t *testing.T, data []byte) map[string]any {
