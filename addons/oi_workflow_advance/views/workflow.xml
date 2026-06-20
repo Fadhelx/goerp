@@ -1,0 +1,12 @@
+<odoo>
+  <record id="view_workflow_workflow_list" model="ir.ui.view">
+    <field name="name">workflow.list</field>
+    <field name="model">workflow</field>
+    <field name="arch">&lt;list&gt;&lt;field name="sequence"/&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="on_create"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_workflow_workflow_form" model="ir.ui.view">
+    <field name="name">workflow.form</field>
+    <field name="model">workflow</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="approval_settings_id"/&gt;&lt;field name="model"/&gt;&lt;field name="on_create"/&gt;&lt;field name="flowchart" widget="flowchart"/&gt;&lt;field name="start_node_id"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

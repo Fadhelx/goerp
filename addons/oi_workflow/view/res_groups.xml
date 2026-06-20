@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_res_groups_workflow_form" model="ir.ui.view">
+    <field name="name">res.groups.workflow.form</field>
+    <field name="model">res.groups</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="implied_ids"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

@@ -1,0 +1,55 @@
+<odoo>
+  <data noupdate="1">
+    <record id="mail_template_delegation_assigned" model="mail.template">
+      <field name="name">Delegation Assigned</field>
+      <field name="model">delegation</field>
+      <field name="subject">Delegation assigned</field>
+      <field name="body_html">&lt;p&gt;A delegation request has been assigned.&lt;/p&gt;</field>
+      <field name="email_to">${object.delegate_to_user_id.email}</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_delegation_revoked" model="mail.template">
+      <field name="name">Delegation Revoked</field>
+      <field name="model">delegation</field>
+      <field name="subject">Delegation revoked</field>
+      <field name="body_html">&lt;p&gt;A delegation request has been revoked.&lt;/p&gt;</field>
+      <field name="email_to">${object.delegate_to_user_id.email}</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_delegation_expired" model="mail.template">
+      <field name="name">Delegation Expired</field>
+      <field name="model">delegation</field>
+      <field name="subject">Delegation expired</field>
+      <field name="body_html">&lt;p&gt;A delegation request has expired.&lt;/p&gt;</field>
+      <field name="email_to">${object.delegate_to_user_id.email}</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_metadata_assigned" model="delegation.mail.template.metadata">
+      <field name="xml_id">oi_delegation.mail_template_delegation_assigned</field>
+      <field name="name">Delegation Assigned</field>
+      <field name="subject">Delegation assigned</field>
+      <field name="purpose">Notify delegates when a delegation request is confirmed.</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_metadata_revoked" model="delegation.mail.template.metadata">
+      <field name="xml_id">oi_delegation.mail_template_delegation_revoked</field>
+      <field name="name">Delegation Revoked</field>
+      <field name="subject">Delegation revoked</field>
+      <field name="purpose">Notify delegates when a delegation request is revoked.</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_metadata_expired" model="delegation.mail.template.metadata">
+      <field name="xml_id">oi_delegation.mail_template_delegation_expired</field>
+      <field name="name">Delegation Expired</field>
+      <field name="subject">Delegation expired</field>
+      <field name="purpose">Notify delegates when a delegation request expires.</field>
+      <field name="delegation_group_ids" eval="[(4, ref('group_delegable_role')), (4, ref('group_delegable_multiple_role'))]"/>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

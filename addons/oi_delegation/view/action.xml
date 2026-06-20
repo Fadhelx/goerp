@@ -1,0 +1,12 @@
+<odoo>
+  <record id="action_delegation" model="ir.actions.act_window">
+    <field name="name">Delegations</field>
+    <field name="res_model">delegation</field>
+    <field name="view_mode">tree,form</field>
+  </record>
+  <record id="action_delegation_lines" model="ir.actions.act_window">
+    <field name="name">Delegation Lines</field>
+    <field name="res_model">delegation.line</field>
+    <field name="view_mode">tree,form</field>
+  </record>
+</odoo>

@@ -1,0 +1,37 @@
+<odoo>
+  <data>
+    <record id="account_move_send_wizard_form" model="ir.ui.view">
+      <field name="name">account.move.send.wizard.form</field>
+      <field name="model">account.move.send.wizard</field>
+      <field name="arch">&lt;form class="o_account_move_send_wizard"&gt;&lt;field name="move_id" invisible="1"/&gt;&lt;field name="alerts" invisible="not alerts"/&gt;&lt;field name="sending_method_checkboxes"/&gt;&lt;field name="extra_edi_checkboxes"/&gt;&lt;field name="model" invisible="1"/&gt;&lt;field name="res_ids" invisible="1"/&gt;&lt;field name="render_model" invisible="1"/&gt;&lt;group&gt;&lt;field name="mail_partner_ids"/&gt;&lt;field name="subject"/&gt;&lt;field name="body"/&gt;&lt;/group&gt;&lt;field name="mail_attachments_widget"/&gt;&lt;footer&gt;&lt;button string="Send" name="action_send_and_print" type="object" class="btn-primary"/&gt;&lt;button string="Discard" special="cancel" class="btn-secondary"/&gt;&lt;field name="template_id"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+    </record>
+
+    <record id="account_move_send_batch_wizard_form" model="ir.ui.view">
+      <field name="name">account.move.send.batch.wizard.form</field>
+      <field name="model">account.move.send.batch.wizard</field>
+      <field name="arch">&lt;form&gt;&lt;field name="move_ids" invisible="1"/&gt;&lt;field name="alerts" invisible="not alerts"/&gt;&lt;field name="summary_data"/&gt;&lt;footer&gt;&lt;button string="Send" name="action_send_and_print" type="object" class="btn-primary"/&gt;&lt;button string="Cancel" special="cancel" class="btn-secondary"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+    </record>
+
+    <record id="action_account_move_send_wizard" model="ir.actions.act_window">
+      <field name="name">Send</field>
+      <field name="res_model">account.move.send.wizard</field>
+      <field name="view_mode">form</field>
+      <field name="view_id" ref="account_move_send_wizard_form"/>
+      <field name="target">new</field>
+      <field name="binding_model_id" ref="model_account_move"/>
+      <field name="binding_view_types">form</field>
+      <field name="group_ids" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+
+    <record id="action_account_move_send_batch_wizard" model="ir.actions.act_window">
+      <field name="name">Send</field>
+      <field name="res_model">account.move.send.batch.wizard</field>
+      <field name="view_mode">form</field>
+      <field name="view_id" ref="account_move_send_batch_wizard_form"/>
+      <field name="target">new</field>
+      <field name="binding_model_id" ref="model_account_move"/>
+      <field name="binding_view_types">list,kanban</field>
+      <field name="group_ids" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+  </data>
+</odoo>

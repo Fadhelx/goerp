@@ -1,0 +1,10 @@
+<odoo>
+  <data>
+    <record id="digest.digest_digest_view_form" model="ir.ui.view">
+      <field name="name">digest.digest.view.form</field>
+      <field name="model">digest.digest</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group name="kpis"><field name="name"/><field name="periodicity"/><field name="kpi_account_total_revenue"/></group></sheet></form></field>
+    </record>
+  </data>
+</odoo>

@@ -1,0 +1,37 @@
+<odoo>
+  <data noupdate="1">
+    <record id="analytic.group_analytic_accounting" model="res.groups">
+      <field name="name">Analytic Accounting</field>
+      <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="analytic.analytic_plan_default" model="account.analytic.plan">
+      <field name="name">Default</field>
+      <field name="active" eval="True"/>
+      <field name="sequence" eval="10"/>
+      <field name="default_applicability">optional</field>
+    </record>
+
+    <record id="analytic.analytic_applicability_default" model="account.analytic.applicability">
+      <field name="analytic_plan_id" ref="analytic.analytic_plan_default"/>
+      <field name="business_domain">general</field>
+      <field name="applicability">optional</field>
+    </record>
+
+    <record id="analytic.analytic_account_default" model="account.analytic.account">
+      <field name="name">Default Project</field>
+      <field name="code">DEFAULT</field>
+      <field name="active" eval="True"/>
+      <field name="plan_id" ref="analytic.analytic_plan_default"/>
+      <field name="root_plan_id" ref="analytic.analytic_plan_default"/>
+    </record>
+
+    <record id="analytic.analytic_distribution_model_default" model="account.analytic.distribution.model">
+      <field name="name">Default Analytic Distribution</field>
+      <field name="sequence" eval="10"/>
+      <field name="product_categ_id" ref="product.product_category_all"/>
+      <field name="analytic_distribution" eval="{'analytic.analytic_account_default': 100}"/>
+      <field name="analytic_precision" eval="2"/>
+    </record>
+  </data>
+</odoo>

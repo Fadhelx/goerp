@@ -1,0 +1,29 @@
+<odoo>
+  <data noupdate="1">
+    <record id="view_move_form" model="ir.ui.view">
+      <field name="name">account.move.form</field>
+      <field name="model">account.move</field>
+      <field name="arch">&lt;form&gt;&lt;header&gt;&lt;button name="action_invoice_sent" type="object"/&gt;&lt;button name="%(action_account_payment_register)d" type="action"/&gt;&lt;button name="%(action_view_account_move_reversal)d" type="action"/&gt;&lt;button name="button_request_cancel" type="object"/&gt;&lt;/header&gt;&lt;field name="name"/&gt;&lt;field name="state"/&gt;&lt;field name="invoice_date"/&gt;&lt;field name="amount_residual"/&gt;&lt;field name="payment_state"/&gt;&lt;field name="status_in_payment"/&gt;&lt;field name="origin_payment_id"/&gt;&lt;field name="statement_line_id"/&gt;&lt;field name="matched_payment_ids"/&gt;&lt;field name="reconciled_payment_ids"/&gt;&lt;field name="payment_count"/&gt;&lt;field name="need_cancel_request"/&gt;&lt;field name="show_reset_to_draft_button"/&gt;&lt;field name="reversed_entry_id"/&gt;&lt;/form&gt;</field>
+    </record>
+    <record id="view_move_line_list" model="ir.ui.view">
+      <field name="name">account.move.line.list</field>
+      <field name="model">account.move.line</field>
+      <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="balance"/&gt;&lt;field name="amount_residual"/&gt;&lt;field name="amount_residual_currency"/&gt;&lt;field name="reconciled"/&gt;&lt;/list&gt;</field>
+    </record>
+    <record id="action_move_out_invoice" model="ir.actions.act_window">
+      <field name="name">Customer Invoices</field>
+      <field name="res_model">account.move</field>
+      <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_move_in_invoice" model="ir.actions.act_window">
+      <field name="name">Vendor Bills</field>
+      <field name="res_model">account.move</field>
+      <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_move_journal_line" model="ir.actions.act_window">
+      <field name="name">Journal Items</field>
+      <field name="res_model">account.move.line</field>
+      <field name="view_mode">list,form</field>
+    </record>
+  </data>
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="1">
+    <record id="sequence_oi_base_reference" model="ir.sequence">
+      <field name="name">OI Base Reference</field>
+      <field name="code">oi_base.reference</field>
+      <field name="prefix">OI/</field>
+      <field name="padding" eval="5"/>
+      <field name="number_next" eval="1"/>
+      <field name="number_increment" eval="1"/>
+    </record>
+  </data>
+</odoo>

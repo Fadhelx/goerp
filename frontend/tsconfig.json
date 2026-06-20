@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@odoo/owl": ["packages/owl-compat/src/index.ts"],
+      "@web/session": ["packages/webclient/src/aliases/session.ts"],
+      "@web/core/browser/browser": ["packages/webclient/src/aliases/core/browser/browser.ts"],
+      "@web/core/confirmation_dialog/confirmation_dialog": ["packages/webclient/src/aliases/core/confirmation_dialog/confirmation_dialog.ts"],
+      "@web/core/context": ["packages/webclient/src/aliases/core/context.ts"],
+      "@web/core/domain": ["packages/webclient/src/aliases/core/domain.ts"],
+      "@web/core/l10n/dates": ["packages/webclient/src/aliases/core/l10n/dates.ts"],
+      "@web/core/l10n/translation": ["packages/webclient/src/aliases/core/l10n/translation.ts"],
+      "@web/core/orm_service": ["packages/webclient/src/aliases/core/orm_service.ts"],
+      "@web/core/popover/popover_hook": ["packages/webclient/src/aliases/core/popover/popover_hook.ts"],
+      "@web/core/py_js/py_builtin": ["packages/webclient/src/aliases/core/py_js/py_builtin.ts"],
+      "@web/core/py_js/py_date": ["packages/webclient/src/aliases/core/py_js/py_date.ts"],
+      "@web/core/py_js/py_utils": ["packages/webclient/src/aliases/core/py_js/py_utils.ts"],
+      "@web/core/py_js/py": ["packages/webclient/src/aliases/core/py_js/py.ts"],
+      "@web/core/registry": ["packages/webclient/src/aliases/core/registry.ts"],
+      "@web/core/user": ["packages/webclient/src/aliases/core/user.ts"],
+      "@web/core/utils/functions": ["packages/webclient/src/aliases/core/utils/functions.ts"],
+      "@web/core/utils/hooks": ["packages/webclient/src/aliases/core/utils/hooks.ts"],
+      "@web/core/utils/patch": ["packages/webclient/src/aliases/core/utils/patch.ts"],
+      "@web/views/fields/statusbar/statusbar_field": ["packages/webclient/src/aliases/views/fields/statusbar/statusbar_field.ts"],
+      "@web/views/form/form_controller": ["packages/webclient/src/aliases/views/form/form_controller.ts"],
+      "@web/views/list/list_controller": ["packages/webclient/src/aliases/views/list/list_controller.ts"],
+      "@web/views/view_button/view_button": ["packages/webclient/src/aliases/views/view_button/view_button.ts"]
+    },
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["packages/**/*.ts", "packages/**/*.test.mjs", "apps/**/*.ts", "themes/**/*.ts"]
+}

@@ -1,0 +1,14 @@
+<odoo>
+  <data noupdate="1">
+    <record id="sequence_delegation" model="ir.sequence">
+      <field name="name">Delegation Request</field>
+      <field name="code">delegation</field>
+      <field name="prefix">DEL/</field>
+      <field name="padding" eval="5"/>
+      <field name="number_next" eval="1"/>
+      <field name="number_increment" eval="1"/>
+      <field name="implementation">standard</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

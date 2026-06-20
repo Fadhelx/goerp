@@ -1,0 +1,7 @@
+<odoo>
+  <record id="activity_type_approval" model="mail.activity.type">
+    <field name="name">Approval</field>
+    <field name="icon">fa-check</field>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

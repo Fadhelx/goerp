@@ -1,0 +1,11 @@
+<odoo>
+  <record id="seq_cancellation_record" model="ir.sequence">
+    <field name="name">Cancellation Record</field>
+    <field name="code">cancellation.record</field>
+    <field name="prefix">CAN</field>
+    <field name="padding" eval="4"/>
+    <field name="number_next" eval="1"/>
+    <field name="number_increment" eval="1"/>
+    <field name="active" eval="True"/>
+  </record>
+</odoo>

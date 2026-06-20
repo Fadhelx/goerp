@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+  <t t-name="oi_workflow_advance.confirm_view" owl="1">
+    <Dialog size="'md'" title="props.title" modalRef="modalRef">
+      <div class="o_group">
+        <div t-foreach="props.multi_workflow_view" t-as="workflow" t-key="workflow.id" class="custom-control custom-radio o_radio_item" aria-atomic="true">
+          <label>
+            <input type="radio" t-att-name="props.input_name" t-att-data-value="workflow.id" style="margin:5px;"></input>
+            <t t-esc="workflow.name"/>
+          </label>
+        </div>
+      </div>
+      <t t-set-slot="footer" owl="1">
+        <button class="btn btn-primary" t-on-click="_confirm" t-esc="props.confirmLabel"/>
+        <button t-if="props.cancel" class="btn btn-secondary" t-on-click="_cancel" t-esc="props.cancelLabel"/>
+      </t>
+    </Dialog>
+  </t>
+</templates>

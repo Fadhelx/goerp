@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_workflow_templates" model="ir.ui.view">
+    <field name="name">oi.workflow.templates</field>
+    <field name="model">approval.record</field>
+    <field name="arch">&lt;templates&gt;&lt;t t-name="oi_workflow.ApprovalStateBadge"&gt;&lt;span class="oi-workflow-state"&gt;&lt;t t-esc="state"/&gt;&lt;/span&gt;&lt;/t&gt;&lt;/templates&gt;</field>
+  </record>
+</odoo>

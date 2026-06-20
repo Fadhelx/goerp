@@ -1,0 +1,12 @@
+<odoo>
+  <record id="view_workflow_transition_list" model="ir.ui.view">
+    <field name="name">workflow.transition.list</field>
+    <field name="model">workflow.transition</field>
+    <field name="arch">&lt;list&gt;&lt;field name="sequence"/&gt;&lt;field name="name"/&gt;&lt;field name="node_id"/&gt;&lt;field name="next_node_id"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_workflow_transition_form" model="ir.ui.view">
+    <field name="name">workflow.transition.form</field>
+    <field name="model">workflow.transition</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="node_id"/&gt;&lt;field name="next_node_id"/&gt;&lt;field name="comment"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

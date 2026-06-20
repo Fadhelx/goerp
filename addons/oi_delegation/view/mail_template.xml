@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_mail_template_delegation_form" model="ir.ui.view">
+    <field name="name">mail.template.delegation.form</field>
+    <field name="model">mail.template</field>
+    <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="subject"/&gt;&lt;field name="delegation_group_ids"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

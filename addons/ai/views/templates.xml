@@ -1,0 +1,7 @@
+<odoo>
+  <data>
+    <template id="ai_log_action" name="AI Tool Action Log">
+      <div class="o_ai_tool_summary">AI action completed.</div>
+    </template>
+  </data>
+</odoo>

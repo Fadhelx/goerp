@@ -1,0 +1,10 @@
+<odoo>
+  <record id="menu_oi_delegation_root" model="ir.ui.menu">
+    <field name="name">Delegation</field>
+  </record>
+  <record id="menu_oi_delegation_requests" model="ir.ui.menu">
+    <field name="name">Requests</field>
+    <field name="parent_id" ref="menu_oi_delegation_root"/>
+    <field name="action">ir.actions.act_window,action_delegation</field>
+  </record>
+</odoo>

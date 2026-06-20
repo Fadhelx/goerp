@@ -1,0 +1,30 @@
+<odoo>
+  <data noupdate="1">
+    <record id="generic_tax_report" model="account.report">
+      <field name="name">Tax Report</field>
+    </record>
+    <record id="generic_tax_report_line_net" model="account.report.line">
+      <field name="name">Net</field>
+      <field name="code">NET</field>
+      <field name="report_id" ref="generic_tax_report"/>
+    </record>
+    <record id="generic_tax_report_expression_net" model="account.report.expression">
+      <field name="label">net</field>
+      <field name="engine">domain</field>
+      <field name="formula">sum</field>
+      <field name="report_line_id" ref="generic_tax_report_line_net"/>
+    </record>
+    <record id="generic_tax_report_column_net" model="account.report.column">
+      <field name="name">Net</field>
+      <field name="expression_label">net</field>
+      <field name="figure_type">monetary</field>
+      <field name="report_id" ref="generic_tax_report"/>
+    </record>
+    <record id="generic_tax_report_column_tax" model="account.report.column">
+      <field name="name">Tax</field>
+      <field name="expression_label">tax</field>
+      <field name="figure_type">monetary</field>
+      <field name="report_id" ref="generic_tax_report"/>
+    </record>
+  </data>
+</odoo>

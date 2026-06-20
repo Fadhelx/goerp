@@ -1,0 +1,377 @@
+<odoo>
+  <data noupdate="1">
+    <record id="base.group_user" model="res.groups">
+      <field name="name">Internal User</field>
+    </record>
+    <record id="base.group_portal" model="res.groups">
+      <field name="name">Portal</field>
+    </record>
+    <record id="base.group_system" model="res.groups">
+      <field name="name">Settings</field>
+      <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="group_account_readonly" model="res.groups">
+      <field name="name">Show Accounting Features - Readonly</field>
+      <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="group_account_invoice" model="res.groups">
+      <field name="name">Invoicing</field>
+      <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="group_account_basic" model="res.groups">
+      <field name="name">Basic</field>
+      <field name="implied_ids" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+    <record id="group_account_user" model="res.groups">
+      <field name="name">Show Full Accounting Features</field>
+      <field name="implied_ids" eval="[(4, ref('group_account_basic')), (4, ref('group_account_readonly'))]"/>
+    </record>
+    <record id="group_account_manager" model="res.groups">
+      <field name="name">Administrator</field>
+      <field name="implied_ids" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+    <record id="group_account_secured" model="res.groups">
+      <field name="name">Show Inalterability Features</field>
+    </record>
+    <record id="group_cash_rounding" model="res.groups">
+      <field name="name">Allow the cash rounding management</field>
+    </record>
+    <record id="group_validate_bank_account" model="res.groups">
+      <field name="name">Validate bank account</field>
+      <field name="implied_ids" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+
+    <record id="model_account_account" model="ir.model">
+      <field name="model">account.account</field>
+      <field name="name">Account</field>
+    </record>
+    <record id="model_account_group" model="ir.model">
+      <field name="model">account.group</field>
+      <field name="name">Account Group</field>
+    </record>
+    <record id="model_account_root" model="ir.model">
+      <field name="model">account.root</field>
+      <field name="name">Account Root</field>
+    </record>
+    <record id="model_account_account_tag" model="ir.model">
+      <field name="model">account.account.tag</field>
+      <field name="name">Account Tag</field>
+    </record>
+    <record id="model_account_account_type" model="ir.model">
+      <field name="model">account.account.type</field>
+      <field name="name">Account Type</field>
+    </record>
+    <record id="model_account_bank_statement" model="ir.model">
+      <field name="model">account.bank.statement</field>
+      <field name="name">Bank Statement</field>
+    </record>
+    <record id="model_account_bank_statement_line" model="ir.model">
+      <field name="model">account.bank.statement.line</field>
+      <field name="name">Bank Statement Line</field>
+    </record>
+    <record id="model_account_cash_rounding" model="ir.model">
+      <field name="model">account.cash.rounding</field>
+      <field name="name">Cash Rounding</field>
+    </record>
+    <record id="model_account_chart_template" model="ir.model">
+      <field name="model">account.chart.template</field>
+      <field name="name">Chart Template</field>
+    </record>
+    <record id="model_account_code_mapping" model="ir.model">
+      <field name="model">account.code.mapping</field>
+      <field name="name">Code Mapping</field>
+    </record>
+    <record id="model_account_journal" model="ir.model">
+      <field name="model">account.journal</field>
+      <field name="name">Journal</field>
+    </record>
+    <record id="model_account_journal_group" model="ir.model">
+      <field name="model">account.journal.group</field>
+      <field name="name">Journal Group</field>
+    </record>
+    <record id="model_account_incoterms" model="ir.model">
+      <field name="model">account.incoterms</field>
+      <field name="name">Incoterm</field>
+    </record>
+    <record id="model_account_lock_exception" model="ir.model">
+      <field name="model">account.lock_exception</field>
+      <field name="name">Lock Exception</field>
+    </record>
+    <record id="model_account_move" model="ir.model">
+      <field name="model">account.move</field>
+      <field name="name">Journal Entry</field>
+    </record>
+    <record id="model_account_move_line" model="ir.model">
+      <field name="model">account.move.line</field>
+      <field name="name">Journal Item</field>
+    </record>
+    <record id="model_account_move_reversal" model="ir.model">
+      <field name="model">account.move.reversal</field>
+      <field name="name">Account Move Reversal</field>
+    </record>
+    <record id="model_account_payment_register" model="ir.model">
+      <field name="model">account.payment.register</field>
+      <field name="name">Pay</field>
+    </record>
+    <record id="model_account_move_send_wizard" model="ir.model">
+      <field name="model">account.move.send.wizard</field>
+      <field name="name">Account Move Send Wizard</field>
+    </record>
+    <record id="model_account_move_send_batch_wizard" model="ir.model">
+      <field name="model">account.move.send.batch.wizard</field>
+      <field name="name">Account Move Send Batch Wizard</field>
+    </record>
+    <record id="account_move_send_single_rule_group_invoice" model="ir.rule">
+      <field name="name">Readonly Invoice Send and Print (single)</field>
+      <field name="model_id" ref="model_account_move_send_wizard"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+      <field name="groups" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+    <record id="account_move_send_batch_rule_group_invoice" model="ir.rule">
+      <field name="name">Readonly Invoice Send and Print (batch)</field>
+      <field name="model_id" ref="model_account_move_send_batch_wizard"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+      <field name="groups" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+    <record id="model_account_payment" model="ir.model">
+      <field name="model">account.payment</field>
+      <field name="name">Payment</field>
+    </record>
+    <record id="model_account_payment_method" model="ir.model">
+      <field name="model">account.payment.method</field>
+      <field name="name">Payment Method</field>
+    </record>
+    <record id="model_account_payment_method_line" model="ir.model">
+      <field name="model">account.payment.method.line</field>
+      <field name="name">Payment Method Line</field>
+    </record>
+    <record id="model_account_payment_term" model="ir.model">
+      <field name="model">account.payment.term</field>
+      <field name="name">Payment Term</field>
+    </record>
+    <record id="model_account_payment_term_line" model="ir.model">
+      <field name="model">account.payment.term.line</field>
+      <field name="name">Payment Term Line</field>
+    </record>
+    <record id="model_account_tax" model="ir.model">
+      <field name="model">account.tax</field>
+      <field name="name">Tax</field>
+    </record>
+    <record id="model_account_tax_group" model="ir.model">
+      <field name="model">account.tax.group</field>
+      <field name="name">Tax Group</field>
+    </record>
+    <record id="model_account_tax_repartition_line" model="ir.model">
+      <field name="model">account.tax.repartition.line</field>
+      <field name="name">Tax Repartition Line</field>
+    </record>
+    <record id="model_account_fiscal_position" model="ir.model">
+      <field name="model">account.fiscal.position</field>
+      <field name="name">Fiscal Position</field>
+    </record>
+    <record id="model_account_fiscal_position_account" model="ir.model">
+      <field name="model">account.fiscal.position.account</field>
+      <field name="name">Fiscal Position Account</field>
+    </record>
+    <record id="model_account_partial_reconcile" model="ir.model">
+      <field name="model">account.partial.reconcile</field>
+      <field name="name">Partial Reconcile</field>
+    </record>
+    <record id="model_account_full_reconcile" model="ir.model">
+      <field name="model">account.full.reconcile</field>
+      <field name="name">Full Reconcile</field>
+    </record>
+    <record id="model_account_reconcile_model" model="ir.model">
+      <field name="model">account.reconcile.model</field>
+      <field name="name">Reconcile Model</field>
+    </record>
+    <record id="model_account_reconcile_model_line" model="ir.model">
+      <field name="model">account.reconcile.model.line</field>
+      <field name="name">Reconcile Model Line</field>
+    </record>
+    <record id="model_account_report" model="ir.model">
+      <field name="model">account.report</field>
+      <field name="name">Report</field>
+    </record>
+    <record id="model_account_report_line" model="ir.model">
+      <field name="model">account.report.line</field>
+      <field name="name">Report Line</field>
+    </record>
+    <record id="model_account_report_expression" model="ir.model">
+      <field name="model">account.report.expression</field>
+      <field name="name">Report Expression</field>
+    </record>
+    <record id="model_account_report_column" model="ir.model">
+      <field name="model">account.report.column</field>
+      <field name="name">Report Column</field>
+    </record>
+    <record id="model_account_report_external_value" model="ir.model">
+      <field name="model">account.report.external.value</field>
+      <field name="name">Report External Value</field>
+    </record>
+    <record id="model_account_invoice_report" model="ir.model">
+      <field name="model">account.invoice.report</field>
+      <field name="name">Invoice Analysis</field>
+    </record>
+    <record id="model_account_automatic_entry_wizard" model="ir.model">
+      <field name="model">account.automatic.entry.wizard</field>
+      <field name="name">Automatic Entry Wizard</field>
+    </record>
+    <record id="model_account_autopost_bills_wizard" model="ir.model">
+      <field name="model">account.autopost.bills.wizard</field>
+      <field name="name">Autopost Bills Wizard</field>
+    </record>
+    <record id="model_account_resequence_wizard" model="ir.model">
+      <field name="model">account.resequence.wizard</field>
+      <field name="name">Resequence Wizard</field>
+    </record>
+    <record id="model_account_secure_entries_wizard" model="ir.model">
+      <field name="model">account.secure.entries.wizard</field>
+      <field name="name">Secure Entries Wizard</field>
+    </record>
+    <record id="model_account_merge_wizard" model="ir.model">
+      <field name="model">account.merge.wizard</field>
+      <field name="name">Merge Accounts Wizard</field>
+    </record>
+    <record id="model_account_merge_wizard_line" model="ir.model">
+      <field name="model">account.merge.wizard.line</field>
+      <field name="name">Merge Accounts Wizard Line</field>
+    </record>
+    <record id="model_account_accrued_orders_wizard" model="ir.model">
+      <field name="model">account.accrued.orders.wizard</field>
+      <field name="name">Accrued Orders Wizard</field>
+    </record>
+
+    <record id="account_move_comp_rule" model="ir.rule">
+      <field name="name">Account Entry</field>
+      <field name="model_id" ref="model_account_move"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_move_line_comp_rule" model="ir.rule">
+      <field name="name">Entry lines</field>
+      <field name="model_id" ref="model_account_move_line"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="journal_comp_rule" model="ir.rule">
+      <field name="name">Journal multi-company</field>
+      <field name="model_id" ref="model_account_journal"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_journal_group_comp_rule" model="ir.rule">
+      <field name="name">Journal group multi-company</field>
+      <field name="model_id" ref="model_account_journal_group"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_comp_rule" model="ir.rule">
+      <field name="name">Account multi-company</field>
+      <field name="model_id" ref="model_account_account"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_group_comp_rule" model="ir.rule">
+      <field name="name">Account group multi-company</field>
+      <field name="model_id" ref="model_account_group"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="tax_group_comp_rule" model="ir.rule">
+      <field name="name">Tax group multi-company</field>
+      <field name="model_id" ref="model_account_tax_group"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="tax_comp_rule" model="ir.rule">
+      <field name="name">Tax multi-company</field>
+      <field name="model_id" ref="model_account_tax"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="tax_rep_comp_rule" model="ir.rule">
+      <field name="name">Tax Repartition multi-company</field>
+      <field name="model_id" ref="model_account_tax_repartition_line"/>
+      <field name="domain_force">["|", ["company_id", "=", false], ["company_id", "in", "user.company_ids"]]</field>
+    </record>
+    <record id="account_fiscal_position_comp_rule" model="ir.rule">
+      <field name="name">Account fiscal mapping company rule</field>
+      <field name="model_id" ref="model_account_fiscal_position"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_fiscal_position_account_comp_rule" model="ir.rule">
+      <field name="name">Account fiscal mapping line company rule</field>
+      <field name="model_id" ref="model_account_fiscal_position_account"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_lock_exception_comp_rule" model="ir.rule">
+      <field name="name">Lock exception company rule</field>
+      <field name="model_id" ref="model_account_lock_exception"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_invoice_report_comp_rule" model="ir.rule">
+      <field name="name">Invoice analysis company rule</field>
+      <field name="model_id" ref="model_account_invoice_report"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_bank_statement_comp_rule" model="ir.rule">
+      <field name="name">Account bank statement company rule</field>
+      <field name="model_id" ref="model_account_bank_statement"/>
+      <field name="domain_force">["|", ["company_id", "=", false], ["company_id", "in", "user.company_ids"]]</field>
+    </record>
+    <record id="account_bank_statement_line_comp_rule" model="ir.rule">
+      <field name="name">Account bank statement line company rule</field>
+      <field name="model_id" ref="model_account_bank_statement_line"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_reconcile_model_template_comp_rule" model="ir.rule">
+      <field name="name">Account reconcile model company rule</field>
+      <field name="model_id" ref="model_account_reconcile_model"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_reconcile_model_line_template_comp_rule" model="ir.rule">
+      <field name="name">Account reconcile model line company rule</field>
+      <field name="model_id" ref="model_account_reconcile_model_line"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_payment_comp_rule" model="ir.rule">
+      <field name="name">Account payment company rule</field>
+      <field name="model_id" ref="model_account_payment"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_payment_term_comp_rule" model="ir.rule">
+      <field name="name">Account payment term company rule</field>
+      <field name="model_id" ref="model_account_payment_term"/>
+      <field name="domain_force">["|", ["company_id", "=", false], ["company_id", "in", "user.company_ids"]]</field>
+    </record>
+    <record id="report_external_value_comp_rule" model="ir.rule">
+      <field name="name">Report External Value multi-company</field>
+      <field name="model_id" ref="model_account_report_external_value"/>
+      <field name="domain_force">["company_id", "in", "user.company_ids"]</field>
+    </record>
+    <record id="account_move_rule_group_readonly" model="ir.rule">
+      <field name="name">Readonly Move</field>
+      <field name="model_id" ref="model_account_move"/>
+      <field name="domain_force">[1, "=", 1]</field>
+      <field name="groups" eval="[(4, ref('group_account_readonly'))]"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="account_move_line_rule_group_readonly" model="ir.rule">
+      <field name="name">Readonly Move Line</field>
+      <field name="model_id" ref="model_account_move_line"/>
+      <field name="domain_force">[1, "=", 1]</field>
+      <field name="groups" eval="[(4, ref('group_account_readonly'))]"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="account_move_rule_group_invoice" model="ir.rule">
+      <field name="name">Invoice Move</field>
+      <field name="model_id" ref="model_account_move"/>
+      <field name="domain_force">[1, "=", 1]</field>
+      <field name="groups" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+    <record id="account_move_line_rule_group_invoice" model="ir.rule">
+      <field name="name">Invoice Move Line</field>
+      <field name="model_id" ref="model_account_move_line"/>
+      <field name="domain_force">[1, "=", 1]</field>
+      <field name="groups" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+  </data>
+</odoo>

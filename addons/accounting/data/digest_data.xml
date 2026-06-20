@@ -1,0 +1,29 @@
+<odoo>
+  <data noupdate="1">
+    <record id="digest.digest_digest_default" model="digest.digest">
+      <field name="name">Your Periodic Digest</field>
+      <field name="active" eval="True"/>
+      <field name="company_id" ref="base.main_company"/>
+      <field name="currency_id" ref="base.USD"/>
+      <field name="periodicity">weekly</field>
+      <field name="state">activated</field>
+      <field name="kpi_account_total_revenue" eval="True"/>
+    </record>
+  </data>
+
+  <data>
+    <record id="digest_tip_account_0" model="digest.tip">
+      <field name="name">Tip: Review unpaid invoices from the accounting dashboard</field>
+      <field name="sequence" eval="700"/>
+      <field name="group_id" ref="account.group_account_invoice"/>
+      <field name="tip_description" type="html"><div><p>Review unpaid invoices from the accounting dashboard.</p></div></field>
+    </record>
+
+    <record id="digest_tip_account_1" model="digest.tip">
+      <field name="name">Tip: Reconcile bank statement lines before closing a period</field>
+      <field name="sequence" eval="3100"/>
+      <field name="group_id" ref="account.group_account_invoice"/>
+      <field name="tip_description" type="html"><div><p>Reconcile bank statement lines before closing a period.</p></div></field>
+    </record>
+  </data>
+</odoo>

@@ -1,0 +1,82 @@
+<odoo>
+  <data>
+    <record id="product.product_template_form_view" model="ir.ui.view">
+      <field name="name">product.template.form</field>
+      <field name="model">product.template</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="type"/><field name="categ_id"/><field name="uom_id"/><field name="list_price"/><field name="taxes_id"/></group></sheet></form></field>
+    </record>
+
+    <record id="product.product_template_list_view_sellable" model="ir.ui.view">
+      <field name="name">product.template.list.sellable</field>
+      <field name="model">product.template</field>
+      <field name="type">list</field>
+      <field name="arch" type="xml"><list><field name="name"/><field name="default_code"/><field name="list_price"/><field name="sale_ok"/></list></field>
+    </record>
+
+    <record id="product.product_template_list_view_purchasable" model="ir.ui.view">
+      <field name="name">product.template.list.purchasable</field>
+      <field name="model">product.template</field>
+      <field name="type">list</field>
+      <field name="arch" type="xml"><list><field name="name"/><field name="standard_price"/><field name="purchase_ok"/></list></field>
+    </record>
+
+    <record id="product.product_view_search_catalog" model="ir.ui.view">
+      <field name="name">product.product.search.catalog</field>
+      <field name="model">product.product</field>
+      <field name="type">search</field>
+      <field name="arch" type="xml"><search><field name="name"/><field name="product_tmpl_id"/><field name="default_code"/></search></field>
+    </record>
+
+    <record id="product.product_product_view_form_normalized" model="ir.ui.view">
+      <field name="name">product.product.form.normalized</field>
+      <field name="model">product.product</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="product_tmpl_id"/><field name="default_code"/><field name="taxes_id"/></group></sheet></form></field>
+    </record>
+
+    <record id="product.product_category_form_view" model="ir.ui.view">
+      <field name="name">product.category.form</field>
+      <field name="model">product.category</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="parent_id"/><field name="property_account_income_categ_id"/><field name="property_account_expense_categ_id"/></group></sheet></form></field>
+    </record>
+
+    <record id="uom.product_uom_form_view" model="ir.ui.view">
+      <field name="name">uom.uom.form</field>
+      <field name="model">uom.uom</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="name"/><field name="category_id"/><field name="uom_type"/><field name="rounding"/></group></sheet></form></field>
+    </record>
+
+    <record id="product.product_product_action_sellable" model="ir.actions.act_window">
+      <field name="name">Products</field>
+      <field name="res_model">product.product</field>
+      <field name="view_mode">list,form</field>
+      <field name="view_id" ref="product.product_template_list_view_sellable"/>
+      <field name="domain">[('sale_ok', '=', True)]</field>
+    </record>
+
+    <record id="product.product_product_action_purchasable" model="ir.actions.act_window">
+      <field name="name">Products</field>
+      <field name="res_model">product.product</field>
+      <field name="view_mode">list,form</field>
+      <field name="view_id" ref="product.product_template_list_view_purchasable"/>
+      <field name="domain">[('purchase_ok', '=', True)]</field>
+    </record>
+
+    <record id="product.product_category_action_form" model="ir.actions.act_window">
+      <field name="name">Product Categories</field>
+      <field name="res_model">product.category</field>
+      <field name="view_mode">list,form</field>
+      <field name="view_id" ref="product.product_category_form_view"/>
+    </record>
+
+    <record id="uom.product_uom_form_action" model="ir.actions.act_window">
+      <field name="name">Units of Measure</field>
+      <field name="res_model">uom.uom</field>
+      <field name="view_mode">list,form</field>
+      <field name="view_id" ref="uom.product_uom_form_view"/>
+    </record>
+  </data>
+</odoo>

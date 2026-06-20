@@ -1,0 +1,10 @@
+<odoo>
+  <data>
+    <record id="view_server_action_form_ai" model="ir.ui.view">
+      <field name="name">ir.actions.server.form.ai</field>
+      <field name="model">ir.actions.server</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="state"/><field name="ai_action_prompt"/><field name="ai_tool_ids"/><field name="use_in_ai"/><field name="ai_tool_schema"/></group></sheet></form></field>
+    </record>
+  </data>
+</odoo>

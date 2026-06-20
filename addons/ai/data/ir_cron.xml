@@ -1,0 +1,14 @@
+<odoo>
+  <data noupdate="1">
+    <record id="ir_cron_ai_source_process" model="ir.cron">
+      <field name="name">AI: Process Sources</field>
+      <field name="active" eval="True"/>
+      <field name="interval_number" eval="1"/>
+      <field name="interval_type">hours</field>
+      <field name="user_id" ref="base.user_root"/>
+      <field name="state">code</field>
+      <field name="code">model.process_sources()</field>
+      <field name="action_name">ai.process_sources</field>
+    </record>
+  </data>
+</odoo>

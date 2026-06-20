@@ -1,0 +1,315 @@
+modules:
+  - name: base
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo/addons/base
+    version: "19.0"
+    license: LGPL-3
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: web
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons/web
+    version: "19.0"
+    license: LGPL-3
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons/account
+    version: "19.0"
+    license: LGPL-3
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: mail
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons/mail
+    version: "19.0"
+    license: LGPL-3
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: base_automation
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons/base_automation
+    version: "19.0"
+    license: LGPL-3
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: ai
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/ai
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: web_enterprise
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/web_enterprise
+    version: "19.0"
+    license: OEEL-1
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_accountant
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_accountant
+    version: "19.0"
+    license: OEEL-1
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_reports
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_reports
+    version: "19.0"
+    license: OEEL-1
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_asset
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_asset
+    version: "19.0"
+    license: OEEL-1
+    priority: P1
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_budget
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_budget
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_followup
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_followup
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_batch_payment
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_batch_payment
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_bank_statement_import
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_bank_statement_import
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: account_loans
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/account_loans
+    version: "19.0"
+    license: OEEL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .sql
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+  - name: oi_base
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base
+    version: "18.0"
+    license: OPL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+      - static/description
+  - name: oi_workflow
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow
+    version: "18.0"
+    license: OPL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+      - static/description
+  - name: oi_workflow_advance
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance
+    version: "18.0"
+    license: OPL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+      - static/description
+  - name: oi_delegation
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation
+    version: "18.0"
+    license: OPL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+      - static/description
+  - name: oi_login_as
+    root: /Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as
+    version: "18.0"
+    license: OPL-1
+    priority: P2
+    include:
+      - .py
+      - .xml
+      - .csv
+      - .js
+      - .scss
+      - .json
+    exclude:
+      - __pycache__
+      - .git
+      - static/description

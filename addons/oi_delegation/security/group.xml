@@ -1,0 +1,66 @@
+<odoo>
+  <record id="module_category_delegation" model="ir.module.category">
+    <field name="name">Delegation</field>
+    <field name="description">Delegation</field>
+    <field name="sequence" eval="100"/>
+  </record>
+  <record id="delegation_employee" model="res.groups">
+    <field name="name">Employee</field>
+    <field name="category_id" ref="module_category_delegation"/>
+  </record>
+  <record id="delegation_manager" model="res.groups">
+    <field name="name">Employee Manager</field>
+    <field name="category_id" ref="module_category_delegation"/>
+    <field name="implied_ids" eval="[(4, ref('delegation_employee'))]"/>
+  </record>
+  <record id="delegation_admin" model="res.groups">
+    <field name="name">Administrator</field>
+    <field name="category_id" ref="module_category_delegation"/>
+    <field name="implied_ids" eval="[(4, ref('delegation_manager'))]"/>
+  </record>
+  <record id="group_delegation_user" model="res.groups">
+    <field name="name">Delegation / User</field>
+  </record>
+  <record id="group_delegation_manager" model="res.groups">
+    <field name="name">Delegation / Manager</field>
+    <field name="implied_ids" eval="[(4, ref('group_delegation_user'))]"/>
+  </record>
+  <record id="group_delegation_admin" model="res.groups">
+    <field name="name">Delegation / Administrator</field>
+    <field name="implied_ids" eval="[(4, ref('group_delegation_manager'))]"/>
+  </record>
+  <record id="group_delegable_role" model="res.groups">
+    <field name="name">Delegable Role</field>
+    <field name="name_delegation">Delegable Role</field>
+    <field name="allow_delegation" eval="True"/>
+    <field name="allow_multiple_delegation" eval="False"/>
+    <field name="restricted_access" eval="False"/>
+  </record>
+  <record id="group_delegable_multiple_role" model="res.groups">
+    <field name="name">Delegable Multiple Role</field>
+    <field name="name_delegation">Delegable Multiple Role</field>
+    <field name="allow_delegation" eval="True"/>
+    <field name="allow_multiple_delegation" eval="True"/>
+    <field name="restricted_access" eval="False"/>
+  </record>
+  <record id="model_delegation" model="ir.model">
+    <field name="model">delegation</field>
+    <field name="name">Delegation</field>
+  </record>
+  <record id="model_delegation_line" model="ir.model">
+    <field name="model">delegation.line</field>
+    <field name="name">Delegation Line</field>
+  </record>
+  <record id="model_delegation_mail_template_metadata" model="ir.model">
+    <field name="model">delegation.mail.template.metadata</field>
+    <field name="name">Delegation Mail Template Metadata</field>
+  </record>
+  <record id="model_delegation_cache_event" model="ir.model">
+    <field name="model">delegation.cache.event</field>
+    <field name="name">Delegation Cache Event</field>
+  </record>
+  <record id="model_delegation_workflow_hook" model="ir.model">
+    <field name="model">delegation.workflow.hook</field>
+    <field name="name">Delegation Workflow Hook</field>
+  </record>
+</odoo>

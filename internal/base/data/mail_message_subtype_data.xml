@@ -1,0 +1,21 @@
+<odoo>
+    <data noupdate="1">
+        <record id="mail.mt_note" model="mail.message.subtype">
+            <field name="name">Note</field>
+            <field name="default" eval="True"/>
+            <field name="internal" eval="True"/>
+        </record>
+
+        <record id="mail.mt_comment" model="mail.message.subtype">
+            <field name="name">Comment</field>
+            <field name="default" eval="True"/>
+            <field name="internal" eval="False"/>
+        </record>
+
+        <record id="mail.mt_activities" model="mail.message.subtype">
+            <field name="name">Activities</field>
+            <field name="default" eval="True"/>
+            <field name="internal" eval="True"/>
+        </record>
+    </data>
+</odoo>

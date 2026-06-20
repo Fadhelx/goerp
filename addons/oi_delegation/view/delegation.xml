@@ -1,0 +1,17 @@
+<odoo>
+  <record id="view_oi_delegation_list" model="ir.ui.view">
+    <field name="name">delegation.list</field>
+    <field name="model">delegation</field>
+    <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="user_id"/&gt;&lt;field name="delegate_to_user_id"/&gt;&lt;field name="date_from"/&gt;&lt;field name="date_to"/&gt;&lt;field name="state"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_oi_delegation_search" model="ir.ui.view">
+    <field name="name">delegation.search</field>
+    <field name="model">delegation</field>
+    <field name="arch">&lt;search&gt;&lt;field name="name"/&gt;&lt;field name="user_id"/&gt;&lt;field name="delegate_to_user_id"/&gt;&lt;filter name="active" string="Active" domain="[('isactive','=',True)]"/&gt;&lt;/search&gt;</field>
+  </record>
+  <record id="view_oi_delegation_form" model="ir.ui.view">
+    <field name="name">delegation.form</field>
+    <field name="model">delegation</field>
+    <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="state"/&gt;&lt;field name="date_from"/&gt;&lt;field name="date_to"/&gt;&lt;field name="user_id"/&gt;&lt;field name="delegate_to_user_id"/&gt;&lt;/group&gt;&lt;field name="lines"/&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

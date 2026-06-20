@@ -1,0 +1,25 @@
+<odoo>
+  <data noupdate="1">
+    <record id="view_account_group_form" model="ir.ui.view">
+      <field name="name">account.group.form</field>
+      <field name="model">account.group</field>
+      <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="code_prefix_start"/&gt;&lt;field name="code_prefix_end"/&gt;&lt;field name="parent_id"/&gt;&lt;field name="company_id"/&gt;&lt;/form&gt;</field>
+    </record>
+    <record id="view_account_group_tree" model="ir.ui.view">
+      <field name="name">account.group.list</field>
+      <field name="model">account.group</field>
+      <field name="arch">&lt;list&gt;&lt;field name="code_prefix_start"/&gt;&lt;field name="code_prefix_end"/&gt;&lt;field name="name"/&gt;&lt;field name="company_id"/&gt;&lt;/list&gt;</field>
+    </record>
+    <record id="view_account_group_search" model="ir.ui.view">
+      <field name="name">account.group.search</field>
+      <field name="model">account.group</field>
+      <field name="arch">&lt;search&gt;&lt;field name="name"/&gt;&lt;field name="code_prefix_start"/&gt;&lt;/search&gt;</field>
+    </record>
+    <record id="action_account_group" model="ir.actions.act_window">
+      <field name="name">Account Groups</field>
+      <field name="res_model">account.group</field>
+      <field name="view_mode">list,form</field>
+      <field name="view_id" ref="view_account_group_tree"/>
+    </record>
+  </data>
+</odoo>

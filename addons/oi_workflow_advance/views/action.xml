@@ -1,0 +1,27 @@
+<odoo>
+  <record id="act_workflow_advance_workflows" model="ir.actions.act_window">
+    <field name="name">Workflows</field>
+    <field name="res_model">workflow</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="act_workflow_advance_flowchart" model="ir.actions.act_window">
+    <field name="name">Workflow Flowchart</field>
+    <field name="res_model">workflow</field>
+    <field name="view_mode">form</field>
+  </record>
+  <record id="act_workflow_advance_nodes" model="ir.actions.act_window">
+    <field name="name">Workflow Nodes</field>
+    <field name="res_model">workflow.node</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="act_workflow_advance_transitions" model="ir.actions.act_window">
+    <field name="name">Workflow Transitions</field>
+    <field name="res_model">workflow.transition</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="act_workflow_advance_processes" model="ir.actions.act_window">
+    <field name="name">Workflow Processes</field>
+    <field name="res_model">workflow.process</field>
+    <field name="view_mode">list,form</field>
+  </record>
+</odoo>

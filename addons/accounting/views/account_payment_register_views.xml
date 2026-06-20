@@ -1,0 +1,20 @@
+<odoo>
+  <data>
+    <record id="view_account_payment_register_form" model="ir.ui.view">
+      <field name="name">account.payment.register.form</field>
+      <field name="model">account.payment.register</field>
+      <field name="arch">&lt;form string="Pay"&gt;&lt;field name="line_ids" invisible="1"/&gt;&lt;field name="can_edit_wizard" invisible="1"/&gt;&lt;field name="can_group_payments" invisible="1"/&gt;&lt;field name="payment_type" invisible="1"/&gt;&lt;field name="partner_type" invisible="1"/&gt;&lt;field name="source_amount" invisible="1"/&gt;&lt;field name="source_amount_currency" invisible="1"/&gt;&lt;field name="source_currency_id" invisible="1"/&gt;&lt;field name="company_id" invisible="1"/&gt;&lt;field name="partner_id" invisible="1"/&gt;&lt;field name="available_journal_ids" invisible="1"/&gt;&lt;field name="available_payment_method_line_ids" invisible="1"/&gt;&lt;group&gt;&lt;group&gt;&lt;field name="journal_id" required="1"/&gt;&lt;field name="payment_method_line_id"/&gt;&lt;field name="partner_bank_id"/&gt;&lt;field name="group_payment"/&gt;&lt;field name="payment_difference"/&gt;&lt;field name="payment_difference_handling"/&gt;&lt;field name="writeoff_account_id"/&gt;&lt;field name="writeoff_label"/&gt;&lt;/group&gt;&lt;group&gt;&lt;field name="amount" required="1"/&gt;&lt;field name="currency_id"/&gt;&lt;field name="payment_date" required="1"/&gt;&lt;field name="communication"/&gt;&lt;/group&gt;&lt;/group&gt;&lt;footer&gt;&lt;button string="Create Payments" name="action_create_payments" type="object" class="oe_highlight"/&gt;&lt;button string="Discard" special="cancel" class="btn-secondary"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+    </record>
+
+    <record id="action_account_payment_register" model="ir.actions.act_window">
+      <field name="name">Pay</field>
+      <field name="res_model">account.payment.register</field>
+      <field name="view_mode">form</field>
+      <field name="view_id" ref="view_account_payment_register_form"/>
+      <field name="target">new</field>
+      <field name="binding_model_id" ref="model_account_move"/>
+      <field name="binding_view_types">list,form</field>
+      <field name="group_ids" eval="[(4, ref('group_account_invoice'))]"/>
+    </record>
+  </data>
+</odoo>

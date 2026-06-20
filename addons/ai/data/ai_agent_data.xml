@@ -1,0 +1,22 @@
+<odoo>
+  <data noupdate="1">
+    <record id="ai_default_agent_partner" model="res.partner">
+      <field name="name">AI Assistant</field>
+      <field name="active" eval="False"/>
+      <field name="company_id" ref="base.main_company"/>
+    </record>
+    <record id="ai_default_agent" model="ai.agent">
+      <field name="name">AI Assistant</field>
+      <field name="subtitle">ERP Assistant</field>
+      <field name="purpose">Answer ERP questions and execute allowed actions.</field>
+      <field name="system_prompt">Answer with business-safe ERP context. Do not expose secrets or unauthorized records.</field>
+      <field name="llm_model">gpt-5-mini</field>
+      <field name="active" eval="True"/>
+      <field name="is_system_agent" eval="True"/>
+      <field name="is_ask_ai_agent" eval="True"/>
+      <field name="partner_id" ref="ai_default_agent_partner"/>
+      <field name="topic_ids" eval="[(6, 0, [ref('ai_topic_general'), ref('ai_topic_natural_language_query'), ref('ai_topic_information_retrieval_query')])]"/>
+      <field name="company_id" ref="base.main_company"/>
+    </record>
+  </data>
+</odoo>

@@ -1,0 +1,5 @@
+<odoo>
+  <record id="res_partner_admin" model="res.partner">
+    <field name="name">Administrator</field>
+  </record>
+</odoo>

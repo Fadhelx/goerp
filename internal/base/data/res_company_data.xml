@@ -1,0 +1,5 @@
+<odoo>
+    <data>
+        <function model="res.company" name="write" eval="([ref('main_company')], {'partner_id': ref('main_partner'), 'currency_id': ref('base.USD')})"/>
+    </data>
+</odoo>

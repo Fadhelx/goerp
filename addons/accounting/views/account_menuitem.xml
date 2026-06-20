@@ -1,0 +1,72 @@
+<odoo>
+  <data noupdate="1">
+    <record id="menu_board_journal_1" model="ir.ui.menu">
+      <field name="name">Accounting</field>
+    </record>
+    <record id="menu_finance_receivables" model="ir.ui.menu">
+      <field name="name">Customers</field>
+      <field name="parent_id" ref="menu_board_journal_1"/>
+      <field name="action">ir.actions.act_window,action_move_out_invoice</field>
+    </record>
+    <record id="menu_finance_payables" model="ir.ui.menu">
+      <field name="name">Vendors</field>
+      <field name="parent_id" ref="menu_board_journal_1"/>
+      <field name="action">ir.actions.act_window,action_move_in_invoice</field>
+    </record>
+    <record id="menu_finance_entries" model="ir.ui.menu">
+      <field name="name">Journal Items</field>
+      <field name="parent_id" ref="menu_board_journal_1"/>
+      <field name="action">ir.actions.act_window,action_move_journal_line</field>
+    </record>
+    <record id="menu_finance_payments" model="ir.ui.menu">
+      <field name="name">Payments</field>
+      <field name="parent_id" ref="menu_board_journal_1"/>
+      <field name="action">ir.actions.act_window,action_account_payments</field>
+    </record>
+    <record id="menu_finance_configuration" model="ir.ui.menu">
+      <field name="name">Configuration</field>
+      <field name="parent_id" ref="menu_board_journal_1"/>
+    </record>
+    <record id="menu_action_account_form" model="ir.ui.menu">
+      <field name="name">Chart of Accounts</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,action_account_form</field>
+    </record>
+    <record id="menu_action_account_journal_form" model="ir.ui.menu">
+      <field name="name">Journals</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,action_account_journal_form</field>
+    </record>
+    <record id="menu_action_tax_form" model="ir.ui.menu">
+      <field name="name">Taxes</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,action_tax_form</field>
+    </record>
+    <record id="menu_product_product_categories" model="ir.ui.menu">
+      <field name="name">Product Categories</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,product.product_category_action_form</field>
+    </record>
+    <record id="product_product_menu_sellable" model="ir.ui.menu">
+      <field name="name">Products</field>
+      <field name="parent_id" ref="menu_finance_receivables"/>
+      <field name="action">ir.actions.act_window,product.product_product_action_sellable</field>
+    </record>
+    <record id="product_product_menu_purchasable" model="ir.ui.menu">
+      <field name="name">Products</field>
+      <field name="parent_id" ref="menu_finance_payables"/>
+      <field name="action">ir.actions.act_window,product.product_product_action_purchasable</field>
+    </record>
+    <record id="account_analytic_plan_menu" model="ir.ui.menu">
+      <field name="name">Analytic Plans</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,analytic.account_analytic_plan_action</field>
+      <field name="groups_id" eval="[Command.link(ref('analytic.group_analytic_accounting'))]"/>
+    </record>
+    <record id="menu_account_config_settings" model="ir.ui.menu">
+      <field name="name">Settings</field>
+      <field name="parent_id" ref="menu_finance_configuration"/>
+      <field name="action">ir.actions.act_window,action_account_config</field>
+    </record>
+  </data>
+</odoo>

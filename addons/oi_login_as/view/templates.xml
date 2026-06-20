@@ -1,0 +1,9 @@
+<odoo>
+  <template id="portal_login_as_banner" inherit_id="portal.user_dropdown" name="Login As portal banner">
+    <xpath expr="." position="inside">
+      <t t-if="request.session.get('login_as_original_uid')">
+        <span class="oi-login-as-banner">Impersonating another user</span>
+      </t>
+    </xpath>
+  </template>
+</odoo>

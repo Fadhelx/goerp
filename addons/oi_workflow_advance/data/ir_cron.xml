@@ -1,0 +1,13 @@
+<odoo>
+  <record id="cron_process_escalation" model="ir.cron" forcecreate="True">
+    <field name="name">Process Workflow Escalation</field>
+    <field name="active" eval="True"/>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="model_id" ref="model_workflow_process"/>
+    <field name="state">code</field>
+    <field name="code">model._process_escalation()</field>
+    <field name="interval_number" eval="1"/>
+    <field name="interval_type">hours</field>
+    <field name="action_name">workflow.process.escalation</field>
+  </record>
+</odoo>

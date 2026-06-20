@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_approval_record_template_form" model="ir.ui.view">
+    <field name="name">approval.record.template.form</field>
+    <field name="model">approval.record</field>
+    <field name="arch">&lt;form&gt;&lt;field name="state"/&gt;&lt;field name="approval_user_ids"/&gt;&lt;field name="user_can_approve"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

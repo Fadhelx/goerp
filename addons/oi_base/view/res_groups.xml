@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_res_groups_inherited_by_ids" model="ir.ui.view">
+    <field name="name">oi.base.res.groups.inherited.by</field>
+    <field name="model">res.groups</field>
+    <field name="arch" type="xml">
+      <form string="Groups">
+        <page string="Inherited By" name="oi_base_inherited_by">
+          <field name="inherited_by_ids"/>
+        </page>
+      </form>
+    </field>
+  </record>
+</odoo>

@@ -1,0 +1,25 @@
+<odoo>
+  <data noupdate="1">
+    <record id="email_template_edi_invoice" model="mail.template">
+      <field name="name">Invoice: Send by Email</field>
+      <field name="model">account.move</field>
+      <field name="subject">Invoice notification</field>
+      <field name="body_html">Your invoice is available.</field>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="mail_template_data_payment_receipt" model="mail.template">
+      <field name="name">Payment Receipt</field>
+      <field name="model">account.payment</field>
+      <field name="subject">Payment receipt</field>
+      <field name="body_html">Your payment receipt is available.</field>
+      <field name="active" eval="True"/>
+    </record>
+    <record id="email_template_edi_credit_note" model="mail.template">
+      <field name="name">Credit Note: Send by Email</field>
+      <field name="model">account.move</field>
+      <field name="subject">Credit note notification</field>
+      <field name="body_html">Your credit note is available.</field>
+      <field name="active" eval="True"/>
+    </record>
+  </data>
+</odoo>

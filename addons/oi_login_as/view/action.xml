@@ -1,0 +1,7 @@
+<odoo>
+  <record id="act_login_as" model="ir.actions.act_window">
+    <field name="name">Login As</field>
+    <field name="res_model">login.as</field>
+    <field name="view_mode">form</field>
+  </record>
+</odoo>

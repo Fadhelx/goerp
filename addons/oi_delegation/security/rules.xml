@@ -1,0 +1,75 @@
+<odoo>
+  <record id="rule_delegation_employee" model="ir.rule">
+    <field name="name">delegation_employee</field>
+    <field name="model_id" ref="model_delegation"/>
+    <field name="domain_force">[["user_id","=","user.id"]]</field>
+    <field name="groups" eval="[(4, ref('delegation_employee'))]"/>
+    <field name="active" eval="True"/>
+  </record>
+  <record id="rule_delegation_manager" model="ir.rule">
+    <field name="name">delegation_manager</field>
+    <field name="model_id" ref="model_delegation"/>
+    <field name="domain_force">[["employee_id.parent_id.user_id","=","user.id"]]</field>
+    <field name="groups" eval="[(4, ref('delegation_manager'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+  </record>
+  <record id="rule_delegation_admin" model="ir.rule">
+    <field name="name">delegation_admin</field>
+    <field name="model_id" ref="model_delegation"/>
+    <field name="domain_force">[]</field>
+    <field name="groups" eval="[(4, ref('delegation_admin'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_write" eval="False"/>
+    <field name="perm_create" eval="False"/>
+    <field name="perm_unlink" eval="False"/>
+  </record>
+  <record id="rule_delegation_user_own_request" model="ir.rule">
+    <field name="name">Delegation user own requests</field>
+    <field name="model_id" ref="model_delegation"/>
+    <field name="domain_force">[["user_id","=","user.id"]]</field>
+    <field name="groups" eval="[(4, ref('group_delegation_user'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="False"/>
+  </record>
+  <record id="rule_delegation_line_delegate_or_delegator" model="ir.rule">
+    <field name="name">Delegation line delegate or delegator</field>
+    <field name="model_id" ref="model_delegation_line"/>
+    <field name="domain_force">["|",["user_id","=","user.id"],["delegator_user_id","=","user.id"]]</field>
+    <field name="groups" eval="[(4, ref('group_delegation_user'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="False"/>
+  </record>
+  <record id="rule_delegation_manager_all_requests" model="ir.rule">
+    <field name="name">Delegation manager all requests</field>
+    <field name="model_id" ref="model_delegation"/>
+    <field name="domain_force">[]</field>
+    <field name="groups" eval="[(4, ref('group_delegation_manager'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+  </record>
+  <record id="rule_delegation_line_manager_all" model="ir.rule">
+    <field name="name">Delegation line manager all</field>
+    <field name="model_id" ref="model_delegation_line"/>
+    <field name="domain_force">[]</field>
+    <field name="groups" eval="[(4, ref('group_delegation_manager'))]"/>
+    <field name="active" eval="True"/>
+    <field name="perm_read" eval="True"/>
+    <field name="perm_write" eval="True"/>
+    <field name="perm_create" eval="True"/>
+    <field name="perm_unlink" eval="True"/>
+  </record>
+</odoo>

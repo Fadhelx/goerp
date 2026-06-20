@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+  <t t-name="oi_login_as.LoginAs">
+    <button type="button" class="o_menu_systray_item oi_login_as_systray" t-on-click="onClick" title="Login As">
+      <i class="fa fa-user-secret" role="img" aria-label="Login As"/>
+      <span t-if="isImpersonating" class="oi_login_as_stop">Stop</span>
+    </button>
+  </t>
+</templates>

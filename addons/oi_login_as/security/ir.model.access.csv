@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_login_as_user,login.as user,model_login_as,group_login_as_user,1,0,1,0
+access_login_as_admin,login.as admin,model_login_as,group_login_as_admin,1,1,1,1
+access_login_as_audit_admin,login.as.audit admin,model_login_as_audit,group_login_as_admin,1,0,0,0
+access_login_as_route_admin,login.as.route admin,model_login_as_route,group_login_as_admin,1,1,1,0

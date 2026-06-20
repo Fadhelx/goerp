@@ -1,0 +1,623 @@
+export type Env = Record<string, unknown>;
+export type Props = Record<string, unknown>;
+export type Template = string;
+export type ComponentStatus = "new" | "mounted" | "destroyed" | "cancelled";
+export type LifecycleCallback = () => void | Promise<void>;
+export type ErrorCallback = (error: unknown) => void;
+export type Cleanup = () => void;
+export type ServiceAsyncMetadata = true | readonly string[];
+
+let currentComponent: Component | null = null;
+const rawObjects = new WeakSet<object>();
+const rawToProxy = new WeakMap<object, WeakMap<() => void, object>>();
+const proxyToRaw = new WeakMap<object, object>();
+const targetToKeysToCallbacks = new WeakMap<object, Map<PropertyKey, Set<() => void>>>();
+const callbacksToTargets = new WeakMap<() => void, Set<object>>();
+export const KEYCHANGES = Symbol("KEYCHANGES");
+
+export const SERVICES_METADATA: Record<string, ServiceAsyncMetadata> = {};
+
+export const useServiceProtectMethodHandling = {
+  fn(): Promise<never> {
+    return this.original();
+  },
+  mocked(): Promise<never> {
+    return new Promise(() => {});
+  },
+  original(): Promise<never> {
+    return Promise.reject(new Error("Component is destroyed"));
+  }
+};
+
+export const __info__ = {
+  version: "gorp-owl-compat",
+  date: "2026-06-17"
+};
+
+export class OwlError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = "OwlError";
+    this.cause = options.cause;
+  }
+}
+
+export class Component<P extends Props = Props> {
+  static template?: Template;
+  static props?: Record<string, unknown>;
+
+  readonly props: P;
+  env: Env;
+  childEnv: Env | null = null;
+  private readonly cleanups: Array<() => void> = [];
+  private readonly hooks: Record<string, LifecycleCallback[]> = {};
+  private readonly errorHandlers: ErrorCallback[] = [];
+  private setupDone = false;
+  private statusValue: ComponentStatus = "new";
+  el: HTMLElement | null = null;
+
+  constructor(props = {} as P, env: Env = {}) {
+    this.props = props;
+    this.env = env;
+  }
+
+  setup(): void {}
+
+  render(): HTMLElement {
+    this.ensureSetup();
+    this.runSyncHooks("willRender");
+    const root = document.createElement("div");
+    root.dataset.component = this.constructor.name;
+    root.innerHTML = escapeText(String((this.constructor as typeof Component).template ?? ""));
+    this.el = root;
+    this.runSyncHooks("rendered");
+    return root;
+  }
+
+  async willStart(): Promise<void> {
+    this.ensureSetup();
+    await this.runHooks("willStart");
+  }
+
+  async updateProps(_nextProps: Partial<P>): Promise<void> {
+    await this.runHooks("willUpdateProps");
+  }
+
+  patch(): HTMLElement {
+    this.runSyncHooks("willPatch");
+    const next = this.render();
+    this.runSyncHooks("patched");
+    return next;
+  }
+
+  onWillUnmount(cleanup: () => void): void {
+    this.cleanups.push(cleanup);
+  }
+
+  addHook(name: string, callback: LifecycleCallback): void {
+    this.hooks[name] ??= [];
+    this.hooks[name].push(callback);
+  }
+
+  addErrorHandler(callback: ErrorCallback): void {
+    this.errorHandlers.push(callback);
+  }
+
+  triggerHook(name: string): void {
+    this.runSyncHooks(name);
+  }
+
+  setStatus(value: ComponentStatus): void {
+    this.statusValue = value;
+  }
+
+  status(): ComponentStatus {
+    return this.statusValue;
+  }
+
+  unmount(): void {
+    this.statusValue = "destroyed";
+    this.runSyncHooks("willUnmount");
+    for (const cleanup of this.cleanups.splice(0)) cleanup();
+    if (this.el?.parentNode) {
+      this.el.parentNode.removeChild(this.el);
+    }
+    this.el = null;
+    this.runSyncHooks("willDestroy");
+  }
+
+  private ensureSetup(): void {
+    if (this.setupDone) return;
+    withCurrent(this, () => this.setup());
+    this.setupDone = true;
+  }
+
+  private async runHooks(name: string): Promise<void> {
+    for (const hook of this.hooks[name] ?? []) {
+      try {
+        await hook();
+      } catch (error) {
+        this.handleError(error);
+      }
+    }
+  }
+
+  private runSyncHooks(name: string): void {
+    for (const hook of this.hooks[name] ?? []) {
+      try {
+        void hook();
+      } catch (error) {
+        this.handleError(error);
+      }
+    }
+  }
+
+  private handleError(error: unknown): void {
+    const wrapped = error instanceof OwlError ? error : new OwlError("An Owl lifecycle error occurred", { cause: error });
+    if (!this.errorHandlers.length) throw wrapped;
+    for (const handler of this.errorHandlers) handler(wrapped);
+  }
+}
+
+export interface AppOptions<P extends Props = Props> {
+  props?: P;
+  env?: Env;
+}
+
+export class App<C extends Component = Component> {
+  readonly root: C;
+  private target: HTMLElement | null = null;
+
+  constructor(Root: new (props?: Props, env?: Env) => C, options: AppOptions = {}) {
+    this.root = new Root(options.props, options.env);
+  }
+
+  async mount(target: HTMLElement): Promise<C> {
+    this.target = target;
+    await this.root.willStart();
+    const el = this.root.render();
+    append(target, el);
+    this.root.setStatus("mounted");
+    this.root.addHook("willUnmount", () => {
+      if (this.target) clearTarget(this.target, el);
+    });
+    await nextTick();
+    this.root.triggerHook("mounted");
+    return this.root;
+  }
+
+  destroy(): void {
+    this.root.unmount();
+    this.target = null;
+  }
+}
+
+export function mount<C extends Component>(
+  Root: new (props?: Props, env?: Env) => C,
+  target: HTMLElement,
+  options: AppOptions = {}
+): Promise<C> {
+  return new App(Root, options).mount(target);
+}
+
+export function xml(strings: TemplateStringsArray, ...values: unknown[]): Template {
+  let out = "";
+  for (let i = 0; i < strings.length; i += 1) {
+    out += strings[i];
+    if (i < values.length) out += String(values[i]);
+  }
+  return out.trim();
+}
+
+export function htmlEscape(value: unknown): string {
+  return escapeText(String(value ?? ""));
+}
+
+export function whenReady(callback?: () => void | Promise<void>): Promise<void> {
+  const ready = typeof document === "undefined" || document.readyState !== "loading"
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => document.addEventListener("DOMContentLoaded", () => resolve(), { once: true }));
+  return callback ? ready.then(() => callback()).then(() => undefined) : ready;
+}
+
+export function batched<T extends (...args: never[]) => unknown>(callback: T): T {
+  let scheduled = false;
+  let lastArgs: Parameters<T> | null = null;
+  return function batchedCallback(this: unknown, ...args: Parameters<T>) {
+    lastArgs = args;
+    if (scheduled) return undefined;
+    scheduled = true;
+    queueMicrotask(() => {
+      scheduled = false;
+      const callArgs = lastArgs ?? ([] as unknown as Parameters<T>);
+      lastArgs = null;
+      callback.apply(this, callArgs);
+    });
+    return undefined;
+  } as T;
+}
+
+export function validate(value: unknown, spec?: unknown): boolean {
+  if (spec === undefined || spec === null) return true;
+  if (typeof spec === "function") return Boolean((spec as (value: unknown) => boolean)(value));
+  if (Array.isArray(spec)) return spec.some((item) => validate(value, item));
+  if (typeof spec === "string") return validateType(value, spec);
+  return true;
+}
+
+export function validateType(value: unknown, type: string): boolean {
+  switch (type) {
+    case "array":
+      return Array.isArray(value);
+    case "object":
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    case "integer":
+      return Number.isInteger(value);
+    default:
+      return typeof value === type;
+  }
+}
+
+export async function loadFile(path: string): Promise<string> {
+  if (typeof fetch !== "function") throw new OwlError("loadFile requires fetch");
+  const response = await fetch(path);
+  if (!response.ok) throw new OwlError(`Unable to load file: ${path}`);
+  return response.text();
+}
+
+export const blockDom = {
+  createBlock(template: string) {
+    return () => template;
+  },
+  list(items: unknown[]) {
+    return items;
+  },
+  multi(items: unknown[]) {
+    return items;
+  },
+  text(value: unknown) {
+    return String(value ?? "");
+  }
+};
+
+export function useState<T extends object>(initial: T): T {
+  return reactive(initial);
+}
+
+export function reactive<T extends object>(initial: T, callback: () => void = scheduleNoop): T {
+  if (rawObjects.has(initial)) return initial;
+  const proxyCache = rawToProxy.get(initial) ?? new WeakMap<() => void, object>();
+  rawToProxy.set(initial, proxyCache);
+  const existing = proxyCache.get(callback);
+  if (existing) return existing as T;
+  const proxy = new Proxy(initial, {
+    get(target, key, receiver) {
+      if (key === "__raw__") return target;
+      subscribeReactive(target, key, callback);
+      const value = Reflect.get(target, key, receiver);
+      return reactiveChild(value, callback);
+    },
+    has(target, key) {
+      subscribeReactive(target, key, callback);
+      subscribeReactive(target, KEYCHANGES, callback);
+      return Reflect.has(target, key);
+    },
+    ownKeys(target) {
+      subscribeReactive(target, KEYCHANGES, callback);
+      return Reflect.ownKeys(target);
+    },
+    set(target, key, value) {
+      const hadKey = Reflect.has(target, key);
+      const oldValue = Reflect.get(target, key);
+      const nextValue = toRaw(value);
+      const changed = oldValue !== nextValue;
+      const ok = Reflect.set(target, key, nextValue);
+      if (ok && changed) {
+        notifyReactive(target, key);
+        if (!hadKey) notifyReactive(target, KEYCHANGES);
+        if (Array.isArray(target) && key !== "length") notifyReactive(target, "length");
+      }
+      return ok;
+    },
+    deleteProperty(target, key) {
+      const hadKey = Reflect.has(target, key);
+      const ok = Reflect.deleteProperty(target, key);
+      if (ok && hadKey) {
+        notifyReactive(target, key);
+        notifyReactive(target, KEYCHANGES);
+        if (Array.isArray(target) && key !== "length") notifyReactive(target, "length");
+      }
+      return true;
+    }
+  });
+  proxyCache.set(callback, proxy);
+  proxyToRaw.set(proxy, initial);
+  return proxy;
+}
+
+export function markRaw<T extends object>(value: T): T {
+  rawObjects.add(value);
+  return value;
+}
+
+export function toRaw<T>(value: T): T {
+  return (proxyToRaw.get(value as object) as T | undefined) ?? value;
+}
+
+function reactiveChild(value: unknown, callback: () => void): unknown {
+  if (typeof value !== "object" || value === null || rawObjects.has(value)) return value;
+  return reactive(value as object, callback);
+}
+
+function subscribeReactive(target: object, key: PropertyKey, callback: () => void): void {
+  if (callback === scheduleNoop) return;
+  let keyMap = targetToKeysToCallbacks.get(target);
+  if (!keyMap) {
+    keyMap = new Map();
+    targetToKeysToCallbacks.set(target, keyMap);
+  }
+  let callbacks = keyMap.get(key);
+  if (!callbacks) {
+    callbacks = new Set();
+    keyMap.set(key, callbacks);
+  }
+  callbacks.add(callback);
+  let targets = callbacksToTargets.get(callback);
+  if (!targets) {
+    targets = new Set();
+    callbacksToTargets.set(callback, targets);
+  }
+  targets.add(target);
+}
+
+function notifyReactive(target: object, key: PropertyKey): void {
+  const callbacks = targetToKeysToCallbacks.get(target)?.get(key);
+  if (!callbacks?.size) return;
+  for (const callback of Array.from(callbacks)) {
+    clearReactiveSubscriptions(callback);
+    queueMicrotask(callback);
+  }
+}
+
+function clearReactiveSubscriptions(callback: () => void): void {
+  const targets = callbacksToTargets.get(callback);
+  if (!targets) return;
+  for (const target of targets) {
+    const keyMap = targetToKeysToCallbacks.get(target);
+    if (!keyMap) continue;
+    for (const callbacks of keyMap.values()) callbacks.delete(callback);
+  }
+  callbacksToTargets.delete(callback);
+}
+
+export function useRef<T = HTMLElement>(name: string): { name: string; el: T | null } {
+  return { name, el: null };
+}
+
+export function useComponent<C extends Component = Component>(): C {
+  if (!currentComponent) throw new Error("useComponent must be called during setup");
+  return currentComponent as C;
+}
+
+export function useEnv<T extends Env = Env>(): T {
+  return (currentComponent?.env ?? {}) as T;
+}
+
+export function useSubEnv(env: Env): void {
+  if (!currentComponent) throw new Error("useSubEnv must be called during setup");
+  currentComponent.env = { ...currentComponent.env, ...env };
+}
+
+export function useChildSubEnv(env: Env): void {
+  if (!currentComponent) throw new Error("useChildSubEnv must be called during setup");
+  currentComponent.childEnv = { ...(currentComponent.childEnv ?? currentComponent.env), ...env };
+}
+
+export function useService<T = unknown>(name: string): T {
+  const component = useComponent();
+  const env = component.env as { services?: Record<string, T> };
+  if (!env.services || !(name in env.services)) {
+    throw new Error(`Service ${name} is not available`);
+  }
+  const service = env.services[name] as T;
+  const metadata = SERVICES_METADATA[name];
+  if (!metadata) return service;
+  if (typeof service === "function") {
+    return protectServiceMethod(component, service as (...args: unknown[]) => unknown) as T;
+  }
+  const methods = metadata === true ? Object.keys(service as Record<string, unknown>) : metadata;
+  const result = Object.create(service as object) as Record<string, unknown>;
+  for (const method of methods) {
+    const value = (service as Record<string, unknown>)[method];
+    if (typeof value === "function") {
+      result[method] = protectServiceMethod(component, value as (...args: unknown[]) => unknown);
+    }
+  }
+  return result as T;
+}
+
+export function onMounted(callback: () => void): void {
+  addLifecycleHook("mounted", callback);
+}
+
+export function onWillStart(callback: LifecycleCallback): void {
+  addLifecycleHook("willStart", callback);
+}
+
+export function onRendered(callback: LifecycleCallback): void {
+  addLifecycleHook("rendered", callback);
+}
+
+export function onWillRender(callback: LifecycleCallback): void {
+  addLifecycleHook("willRender", callback);
+}
+
+export function onWillPatch(callback: LifecycleCallback): void {
+  addLifecycleHook("willPatch", callback);
+}
+
+export function onPatched(callback: LifecycleCallback): void {
+  addLifecycleHook("patched", callback);
+}
+
+export function onWillUpdateProps(callback: LifecycleCallback): void {
+  addLifecycleHook("willUpdateProps", callback);
+}
+
+export function onWillUnmount(callback: () => void): void {
+  addLifecycleHook("willUnmount", callback);
+}
+
+export function onWillDestroy(callback: () => void): void {
+  addLifecycleHook("willDestroy", callback);
+}
+
+export function onError(callback: ErrorCallback): void {
+  if (!currentComponent) throw new Error("error hook must be registered during setup");
+  currentComponent.addErrorHandler(callback);
+}
+
+export function useEffect(effect: () => void | Cleanup, _deps?: () => unknown[]): void {
+  const component = currentComponent;
+  let cleanup: Cleanup | null = null;
+  let previousDeps: unknown[] | null = null;
+  addLifecycleHook("rendered", () => {
+    const nextDeps = _deps?.() ?? null;
+    if (previousDeps && nextDeps && sameDeps(previousDeps, nextDeps)) return;
+    cleanup?.();
+    previousDeps = nextDeps ? [...nextDeps] : null;
+    const nextCleanup = effect();
+    cleanup = typeof nextCleanup === "function" ? nextCleanup : null;
+  });
+  component?.onWillUnmount(() => {
+    cleanup?.();
+    cleanup = null;
+  });
+}
+
+export function useExternalListener(
+  target: EventTarget,
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: AddEventListenerOptions | boolean
+): void {
+  onMounted(() => target.addEventListener(type, listener, options));
+  onWillUnmount(() => target.removeEventListener(type, listener, options));
+}
+
+export function nextTick(): Promise<void> {
+  return new Promise((resolve) => queueMicrotask(resolve));
+}
+
+export function status(component: Component): ComponentStatus {
+  return component.status();
+}
+
+export class EventBus {
+  private readonly listeners = new Map<string, Set<(event: CustomEvent) => void>>();
+
+  addEventListener(type: string, listener: (event: CustomEvent) => void): void {
+    this.listeners.get(type)?.add(listener) ?? this.listeners.set(type, new Set([listener]));
+  }
+
+  removeEventListener(type: string, listener: (event: CustomEvent) => void): void {
+    this.listeners.get(type)?.delete(listener);
+  }
+
+  dispatchEvent(event: CustomEvent): boolean {
+    for (const listener of this.listeners.get(event.type) ?? []) listener(event);
+    return true;
+  }
+
+  trigger(type: string, detail?: unknown): void {
+    this.dispatchEvent(makeCustomEvent(type, detail));
+  }
+
+  on(type: string, listener: (event: CustomEvent) => void): void {
+    this.addEventListener(type, listener);
+  }
+
+  off(type: string, listener: (event: CustomEvent) => void): void {
+    this.removeEventListener(type, listener);
+  }
+}
+
+export interface Markup {
+  readonly __owlMarkup: true;
+  readonly value: string;
+  toString(): string;
+}
+
+export function markup(value: string): Markup {
+  return {
+    __owlMarkup: true,
+    value,
+    toString() {
+      return value;
+    }
+  };
+}
+
+function addLifecycleHook(name: string, callback: LifecycleCallback): void {
+  if (!currentComponent) throw new Error(`${name} hook must be registered during setup`);
+  currentComponent.addHook(name, callback);
+}
+
+function withCurrent<T>(component: Component, callback: () => T): T {
+  const previous = currentComponent;
+  currentComponent = component;
+  try {
+    return callback();
+  } finally {
+    currentComponent = previous;
+  }
+}
+
+function append(target: HTMLElement, el: HTMLElement): void {
+  if ("appendChild" in target && typeof target.appendChild === "function") {
+    target.appendChild(el);
+    return;
+  }
+  target.innerHTML = el.innerHTML;
+}
+
+function clearTarget(target: HTMLElement, el: HTMLElement): void {
+  if (el.parentNode === target) {
+    target.removeChild(el);
+  }
+}
+
+function scheduleNoop(): void {}
+
+function protectServiceMethod(component: Component, fn: (...args: unknown[]) => unknown): (...args: unknown[]) => unknown {
+  return function protectedMethod(this: unknown, ...args: unknown[]) {
+    if (status(component) === "destroyed") {
+      return useServiceProtectMethodHandling.fn();
+    }
+    const promise = Promise.resolve(fn.apply(this, args));
+    const protectedPromise = promise.then((result) => (
+      status(component) === "destroyed" ? new Promise(() => {}) : result
+    ));
+    const withControls = protectedPromise as Promise<unknown> & { abort?: unknown; cancel?: unknown };
+    const original = promise as Promise<unknown> & { abort?: unknown; cancel?: unknown };
+    withControls.abort = original.abort;
+    withControls.cancel = original.cancel;
+    return withControls;
+  };
+}
+
+function makeCustomEvent(type: string, detail: unknown): CustomEvent {
+  if (typeof CustomEvent !== "undefined") return new CustomEvent(type, { detail });
+  return { type, detail } as CustomEvent;
+}
+
+function escapeText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function sameDeps(left: unknown[], right: unknown[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => Object.is(value, right[index]));
+}

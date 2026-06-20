@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_res_groups_delegation_form" model="ir.ui.view">
+    <field name="name">res.groups.delegation.form</field>
+    <field name="model">res.groups</field>
+    <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="allow_delegation"/&gt;&lt;field name="allow_multiple_delegation"/&gt;&lt;field name="restricted_access"/&gt;&lt;field name="delegation_template_ids"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

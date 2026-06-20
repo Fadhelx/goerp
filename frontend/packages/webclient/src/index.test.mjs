@@ -1,0 +1,2671 @@
+import assert from "node:assert/strict";
+import {
+  createActionService,
+  createClientActionExecutor,
+  createDatasetService,
+  createORMService,
+  createRPCService,
+  createWebClient,
+  createWebClientServices,
+  BUILTINS,
+  createDialogService,
+  createNotificationService,
+  createPortalMailService,
+  Domain,
+  DuplicatedKeyError,
+  EvaluationError,
+  evaluateBooleanExpr,
+  evaluateExpr,
+  evalPartialContext,
+  execOnIterable,
+  formatAST,
+  InvalidDomainError,
+  KeyNotFoundError,
+  makeContext,
+  makeEnv,
+  parseExpr,
+  portalAccessFormFields,
+  portalAccessPayload,
+  portalMailAvatarUrl,
+  PyDate,
+  PyDateTime,
+  PyTime,
+  PyTimeDelta,
+  registry,
+  Registry,
+  renderWindowAction,
+  registries,
+  session,
+  serviceMetadata,
+  startServices,
+  toPyDict,
+  toPyValue,
+  UPDATE_METHODS,
+  uniqueId,
+  user,
+  x2ManyCommands
+} from "../../../dist/packages/webclient/src/index.js";
+
+class TestEvent {
+  constructor(type, options = {}) {
+    this.type = type;
+    this.detail = options.detail;
+    this.bubbles = options.bubbles === true;
+    this.defaultPrevented = false;
+    this.target = null;
+    this.currentTarget = null;
+  }
+
+  preventDefault() {
+    this.defaultPrevented = true;
+  }
+}
+
+globalThis.document = {
+  createElement(tag) {
+    return {
+      tag,
+      tagName: tag.toUpperCase(),
+      className: "",
+      dataset: {},
+      attributes: {},
+      textContent: "",
+      value: "",
+      children: [],
+      listeners: {},
+      append(...nodes) {
+        this.children.push(...nodes);
+      },
+      setAttribute(name, value) {
+        this.attributes[name] = String(value);
+      },
+      getAttribute(name) {
+        return this.attributes[name] ?? null;
+      },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
+      focus() {
+        this.focused = true;
+      },
+      addEventListener(type, listener) {
+        this.listeners[type] = [...(this.listeners[type] ?? []), listener];
+      },
+      dispatchEvent(event) {
+        event.target ??= this;
+        event.currentTarget = this;
+        for (const listener of this.listeners[event.type] ?? []) {
+          listener.call(this, event);
+        }
+        return !event.defaultPrevented;
+      }
+    };
+  }
+};
+const windowListeners = {};
+globalThis.window = {
+  innerWidth: 1024,
+  matchMedia(query) {
+    return { media: query, matches: this.innerWidth < 768 };
+  },
+  addEventListener(type, listener) {
+    windowListeners[type] = [...(windowListeners[type] ?? []), listener];
+  },
+  removeEventListener(type, listener) {
+    windowListeners[type] = (windowListeners[type] ?? []).filter((item) => item !== listener);
+  },
+  dispatchEvent(event) {
+    event.target ??= this;
+    event.currentTarget = this;
+    for (const listener of windowListeners[event.type] ?? []) listener.call(this, event);
+    return !event.defaultPrevented;
+  }
+};
+globalThis.CustomEvent = TestEvent;
+
+function findAll(node, predicate, out = []) {
+  if (predicate(node)) out.push(node);
+  for (const child of node.children ?? []) findAll(child, predicate, out);
+  return out;
+}
+
+const sessionAlias = await import("../../../dist/packages/webclient/src/aliases/session.js");
+const functionsAlias = await import("../../../dist/packages/webclient/src/aliases/core/utils/functions.js");
+assert.equal(sessionAlias.session, session);
+assert.equal(functionsAlias.uniqueId, uniqueId);
+
+registries.actions.add("demo", { type: "client" });
+assert.deepEqual(registries.actions.get("demo"), { type: "client" });
+
+const updates = [];
+const ordered = registry.category("ordered_demo");
+ordered.addEventListener("UPDATE", (event) => updates.push(event.detail));
+ordered.add("late", "late", { sequence: 80 }).add("early", "early", { sequence: 10 });
+assert.deepEqual(ordered.getAll(), ["early", "late"]);
+assert.deepEqual(ordered.getEntries(), [["early", "early"], ["late", "late"]]);
+assert.equal(ordered.contains("early"), true);
+assert.equal(ordered.get("missing", "fallback"), "fallback");
+assert.throws(() => ordered.get("missing"), KeyNotFoundError);
+assert.throws(() => ordered.add("early", "again"), DuplicatedKeyError);
+ordered.add("early", "forced", { force: true });
+assert.deepEqual(ordered.getEntries(), [["early", "forced"], ["late", "late"]]);
+ordered.remove("late");
+assert.deepEqual(ordered.getAll(), ["forced"]);
+assert.deepEqual(updates.map((update) => update.operation), ["add", "add", "add", "delete"]);
+assert.deepEqual(updates.at(-1).value, [80, "late"]);
+
+const debugDefault = registry.category("debug").category("default");
+debugDefault.add("becomeSuperuser", { description: "Become Superuser" });
+assert.equal(debugDefault.contains("becomeSuperuser"), true);
+delete debugDefault.content.becomeSuperuser;
+assert.equal(debugDefault.contains("becomeSuperuser"), false);
+debugDefault.add("becomeSuperuser", { description: "Login As Superuser" });
+assert.deepEqual(debugDefault.get("becomeSuperuser"), { description: "Login As Superuser" });
+
+const serviceEvents = [];
+const serviceSource = new Registry("test_services");
+serviceSource.add("base", {
+  start(env) {
+    serviceEvents.push(["base", env.debug]);
+    return { value: 1 };
+  }
+});
+serviceSource.add("dependent", {
+  dependencies: ["base"],
+  async: true,
+  start(_env, deps) {
+    serviceEvents.push(["dependent", deps.base.value]);
+    return { value: deps.base.value + 1 };
+  }
+});
+const env = makeEnv({ debug: "assets" });
+await startServices(env, serviceSource);
+assert.deepEqual(serviceEvents, [["base", "assets"], ["dependent", 1]]);
+assert.equal(env.services.dependent.value, 2);
+assert.equal(serviceMetadata.dependent, true);
+await env.isReady;
+
+serviceSource.add("late", {
+  dependencies: ["dependent"],
+  start(_env, deps) {
+    return { value: deps.dependent.value + 1 };
+  }
+});
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(env.services.late.value, 3);
+
+const missingSource = new Registry("missing_services");
+missingSource.add("broken", {
+  dependencies: ["missing"],
+  start() {
+    return true;
+  }
+});
+await assert.rejects(() => startServices(makeEnv(), missingSource), /Missing dependencies: missing/);
+
+const defaultEnv = makeEnv({
+  services: {},
+  debug: true
+});
+defaultEnv.rpcTransport = (request) => Promise.resolve({ route: request.route, params: request.params });
+await startServices(defaultEnv);
+assert.equal(typeof defaultEnv.services.rpc.call, "function");
+assert.equal(typeof defaultEnv.services.dataset.callKw, "function");
+assert.equal(typeof defaultEnv.services.orm.webRead, "function");
+assert.equal(typeof defaultEnv.services.view.loadViews, "function");
+assert.equal(typeof defaultEnv.services.action.doAction, "function");
+assert.equal(typeof defaultEnv.services.session.load, "function");
+assert.equal(typeof defaultEnv.services.mail.chatterFetch, "function");
+assert.equal(typeof defaultEnv.services.dialog.add, "function");
+assert.equal(typeof defaultEnv.services.notification.add, "function");
+assert.equal(serviceMetadata.orm.includes("webSearchRead"), true);
+assert.equal(serviceMetadata.view.includes("loadViews"), true);
+const defaultSession = await defaultEnv.services.session.load();
+assert.equal(defaultSession.route, "/web/session/get_session_info");
+assert.equal(session.route, "/web/session/get_session_info");
+
+const defaultActionRequests = [];
+const defaultActionEnv = makeEnv({
+  services: {}
+});
+defaultActionEnv.rpcTransport = (request) => {
+  defaultActionRequests.push(request);
+  if (request.route === "/web/action/run") return Promise.resolve(false);
+  return Promise.resolve({});
+};
+await startServices(defaultActionEnv);
+const defaultServerActionResult = await defaultActionEnv.services.action.doAction(
+  { id: 77, type: "ir.actions.server", context: { from_action: true } },
+  { additionalContext: { active_model: "res.partner", active_id: 12, active_ids: [12] } }
+);
+assert.deepEqual(defaultServerActionResult, { type: "ir.actions.act_window_close" });
+assert.equal(defaultActionRequests[0].route, "/web/action/run");
+assert.deepEqual(defaultActionRequests[0].params.context, {
+  from_action: true,
+  active_model: "res.partner",
+  active_id: 12,
+  active_ids: [12]
+});
+
+const previousFetch = globalThis.fetch;
+globalThis.fetch = () => Promise.resolve({
+  json: () => Promise.resolve({
+    jsonrpc: "2.0",
+    id: 1,
+    error: {
+      code: 0,
+      message: "Odoo Server Error",
+      data: {
+        name: "odoo.addons.base.models.ir_actions.ServerActionWithWarningsError",
+        message: "Server action Warned Action has one or more warnings, address them first."
+      }
+    }
+  })
+});
+await assert.rejects(
+  () => createRPCService().call("/web/action/run", {}),
+  (error) => {
+    assert.equal(error.message, "Server action Warned Action has one or more warnings, address them first.");
+    assert.equal(error.rpcError.data.name, "odoo.addons.base.models.ir_actions.ServerActionWithWarningsError");
+    return true;
+  }
+);
+globalThis.fetch = previousFetch;
+
+const sessionService = createWebClientServices({
+  transport(request) {
+    return Promise.resolve({
+      uid: 7,
+      is_system: true,
+      is_admin: true,
+      user_context: { lang: "en_US" },
+      groups: { "10": { id: 10 }, "base.group_allow_export": false, "base.group_user": true },
+      route: request.route
+    });
+  }
+}).session;
+await sessionService.load();
+assert.equal(session.uid, 7);
+assert.equal(user.userId, 7);
+assert.equal(user.isSystem, true);
+assert.equal(user.isAdmin, true);
+assert.equal(await user.hasGroup("10"), true);
+assert.equal(await user.hasGroup("base.group_user"), true);
+assert.equal(await user.hasGroup("base.group_allow_export"), false);
+assert.equal(uniqueId("workflow-name").startsWith("workflow-name"), true);
+const dialog = createDialogService();
+let confirmed = false;
+await dialog.add("Dialog", { confirm: () => { confirmed = true; } });
+assert.equal(confirmed, true);
+assert.equal(dialog.calls.length, 1);
+const notification = createNotificationService();
+notification.add("Done", { type: "success" });
+assert.deepEqual(notification.calls[0], { message: "Done", type: "success" });
+assert.equal(registries.systray, registry.category("systray"));
+assert.equal(registries.user_menuitems, registry.category("user_menuitems"));
+
+const app = createWebClient({
+  env: { debug: true },
+  theme: {
+    name: "standard",
+    color: {},
+    typography: {},
+    radius: {},
+    spacing: {},
+    density: "comfortable"
+  }
+});
+const root = app.render();
+assert.equal(root.dataset.theme, "standard");
+assert.equal(root.children.length, 2);
+
+const requests = [];
+const rpc = createRPCService({
+  transport(request) {
+    requests.push(request);
+    return Promise.resolve({ ok: true, route: request.route, params: request.params });
+  }
+});
+const dataset = createDatasetService(rpc);
+await dataset.callKw("res.partner", "search_read", [[["active", "=", true]]], { limit: 5 });
+await dataset.callButton("purchase.order", "approval_action_button", [[42], 7], { context: { lang: "en_US" } });
+assert.equal(requests[0].route, "/web/dataset/call_kw/res.partner/search_read");
+assert.deepEqual(requests[0].params.args, [[["active", "=", true]]]);
+assert.equal(requests[1].route, "/web/dataset/call_button/purchase.order/approval_action_button");
+assert.deepEqual(requests[1].params.args, [[42], 7]);
+
+const mailRequests = [];
+const uploadRequests = [];
+const mail = createPortalMailService(createRPCService({
+  transport(request) {
+    mailRequests.push(request);
+    return Promise.resolve({ ok: true, route: request.route, params: request.params });
+  }
+}), {
+  uploadTransport(request) {
+    uploadRequests.push(request);
+    return Promise.resolve({ ok: true });
+  }
+});
+assert.deepEqual(portalAccessPayload({ access_token: "thread-token", _hash: "hash-token", pid: "12" }), {
+  token: "thread-token",
+  hash: "hash-token",
+  pid: "12"
+});
+assert.deepEqual(portalAccessFormFields({ accessToken: "thread-token", hash: "hash-token", pid: 12 }), {
+  token: "thread-token",
+  hash: "hash-token",
+  pid: "12"
+});
+assert.equal(
+  portalMailAvatarUrl(55, { access_token: "thread token", hash: "hash/token", pid: 12 }),
+  "/mail/avatar/mail.message/55/author_avatar/50x50?access_token=thread+token&_hash=hash%2Ftoken&pid=12"
+);
+await mail.chatterInit({ threadModel: "portal.thread", threadId: 4 }, { access_token: "thread-token" });
+await mail.chatterFetch({ thread_model: "portal.thread", thread_id: 4 }, { limit: 10, before: 9 }, { hash: "hash-token", pid: 12 });
+await mail.postMessage(
+  { threadModel: "portal.thread", threadId: 4 },
+  { body: "<p>Portal</p>", attachment_ids: [8], attachment_tokens: ["own"] },
+  { access: { token: "thread-token" }, context: { mail_post_autofollow: true } }
+);
+await mail.updateMessageContent(17, { body: "<p>Edit</p>" }, { hash: "hash-token", pid: 12 });
+await mail.reactMessage(17, "ok", "add", { token: "thread-token" });
+await mail.starredMessages({ limit: 5 });
+await mail.toggleMessageStarred(17);
+await mail.unstarAllMessages();
+await mail.deleteAttachment(8, "own");
+await mail.uploadAttachment(
+  { threadModel: "portal.thread", threadId: 4 },
+  "hello",
+  {
+    access: { access_token: "thread-token" },
+    isPending: true,
+    temporaryId: "tmp-1",
+    tmpUrl: "blob:tmp",
+    activityId: 33,
+    extra: { custom: "1", token: "bad" }
+  }
+);
+assert.equal(mailRequests[0].route, "/portal/chatter_init");
+assert.deepEqual(mailRequests[0].params, { thread_model: "portal.thread", thread_id: 4, token: "thread-token" });
+assert.equal(mailRequests[1].route, "/mail/chatter_fetch");
+assert.deepEqual(mailRequests[1].params, {
+  thread_model: "portal.thread",
+  thread_id: 4,
+  fetch_params: { limit: 10, before: 9 },
+  hash: "hash-token",
+  pid: 12
+});
+assert.equal(mailRequests[2].route, "/mail/message/post");
+assert.deepEqual(mailRequests[2].params.post_data.attachment_ids, [8]);
+assert.deepEqual(mailRequests[2].params.post_data.attachment_tokens, ["own"]);
+assert.equal(mailRequests[2].params.token, "thread-token");
+assert.deepEqual(mailRequests[2].params.context, { mail_post_autofollow: true });
+assert.equal(mailRequests[3].route, "/mail/message/update_content");
+assert.deepEqual(mailRequests[3].params, { message_id: 17, update_data: { body: "<p>Edit</p>" }, hash: "hash-token", pid: 12 });
+assert.equal(mailRequests[4].route, "/mail/message/reaction");
+assert.deepEqual(mailRequests[4].params, { message_id: 17, content: "ok", action: "add", token: "thread-token" });
+assert.equal(mailRequests[5].route, "/mail/starred/messages");
+assert.deepEqual(mailRequests[5].params, { fetch_params: { limit: 5 } });
+assert.equal(mailRequests[6].route, "/web/dataset/call_kw/mail.message/toggle_message_starred");
+assert.deepEqual(mailRequests[6].params, {
+  model: "mail.message",
+  method: "toggle_message_starred",
+  args: [[17]],
+  kwargs: {}
+});
+assert.equal(mailRequests[7].route, "/web/dataset/call_kw/mail.message/unstar_all");
+assert.deepEqual(mailRequests[7].params, {
+  model: "mail.message",
+  method: "unstar_all",
+  args: [],
+  kwargs: {}
+});
+assert.equal(mailRequests[8].route, "/mail/attachment/delete");
+assert.deepEqual(mailRequests[8].params, { attachment_id: 8, access_token: "own" });
+assert.equal(uploadRequests[0].route, "/mail/attachment/upload");
+assert.equal(uploadRequests[0].formData.get("thread_model"), "portal.thread");
+assert.equal(uploadRequests[0].formData.get("thread_id"), "4");
+assert.equal(uploadRequests[0].formData.get("token"), "thread-token");
+assert.equal(uploadRequests[0].formData.get("is_pending"), "true");
+assert.equal(uploadRequests[0].formData.get("temporary_id"), "tmp-1");
+assert.equal(uploadRequests[0].formData.get("tmp_url"), "blob:tmp");
+assert.equal(uploadRequests[0].formData.get("activity_id"), "33");
+assert.equal(uploadRequests[0].formData.get("custom"), "1");
+assert.equal(uploadRequests[0].formData.get("ufile"), "hello");
+
+const orm = createORMService(rpc, { userContext: { lang: "en_US" } });
+await orm.searchRead("res.partner", [["active", "=", true]], ["name"], { limit: 3, order: "name desc", context: { tz: "UTC" } });
+await orm.webRead("res.partner", [42], {
+  specification: { child_ids: { fields: { display_name: {} } } }
+});
+await orm.webReadGroup("res.partner", [["active", "=", true]], ["company_id"], ["amount:sum"], { orderby: "amount:sum desc" });
+await orm.webSearchRead("res.partner", [["active", "=", true]], { order: "name asc", limit: 1 });
+await orm.write("res.partner", [42], { name: "Updated" });
+assert.equal(requests[2].route, "/web/dataset/call_kw/res.partner/search_read");
+assert.deepEqual(requests[2].params.kwargs.domain, [["active", "=", true]]);
+assert.deepEqual(requests[2].params.kwargs.fields, ["name"]);
+assert.equal(requests[2].params.kwargs.order, "name desc");
+assert.deepEqual(requests[2].params.kwargs.context, { lang: "en_US", tz: "UTC" });
+assert.equal(requests[3].params.method, "web_read");
+assert.deepEqual(requests[3].params.args, [[42]]);
+assert.equal(requests[4].params.method, "web_read_group");
+assert.deepEqual(requests[4].params.kwargs.domain, [["active", "=", true]]);
+assert.deepEqual(requests[4].params.kwargs.groupby, ["company_id"]);
+assert.deepEqual(requests[4].params.kwargs.aggregates, ["amount:sum"]);
+assert.equal(requests[4].params.kwargs.orderby, "amount:sum desc");
+assert.equal(requests[5].params.method, "web_search_read");
+assert.deepEqual(requests[5].params.kwargs.domain, [["active", "=", true]]);
+assert.equal(requests[5].params.kwargs.order, "name asc");
+assert.equal(requests[5].params.kwargs.limit, 1);
+assert.equal(requests[6].params.method, "write");
+assert.deepEqual(requests[6].params.args, [[42], { name: "Updated" }]);
+assert.deepEqual(await orm.read("res.partner", [], ["name"]), []);
+assert.deepEqual(await orm.unlink("res.partner", []), true);
+assert.deepEqual(x2ManyCommands.create(false, { id: 99, name: "Line" }), [0, false, { name: "Line" }]);
+assert.deepEqual(x2ManyCommands.set([1, 2]), [6, false, [1, 2]]);
+assert.equal(UPDATE_METHODS.includes("web_save_multi"), true);
+assert.deepEqual(evaluateExpr("{'default_partner_id': active_id, 'flag': True, 'empty': None}", { active_id: 42 }), {
+  default_partner_id: 42,
+  flag: true,
+  empty: null
+});
+assert.deepEqual(evaluateExpr("[('id', 'in', active_ids), ('company_id', '=', context.get('company_id', False))]", {
+  active_ids: [1, 2],
+  context: { company_id: 3 }
+}), [["id", "in", [1, 2]], ["company_id", "=", 3]]);
+assert.equal(evaluateBooleanExpr("payment_state == 'invoicing_legacy' or move_type == 'entry'", {
+  payment_state: "not_paid",
+  move_type: "entry"
+}), true);
+assert.equal(evaluateBooleanExpr("question_type in ['char', 'text'] and question_type not in ['date']", {
+  question_type: "text"
+}), true);
+assert.equal(evaluateBooleanExpr("parent.move_type == 'entry' or parent.state != 'posted'", {
+  parent: { move_type: "out_invoice", state: "draft" }
+}), true);
+assert.equal(evaluateExpr("({'amounts': [1, 2, 3]}['amounts'][1] + 4) == 6"), true);
+assert.equal(evaluateExpr("(amount_total - amount_residual) == 90", { amount_total: 120, amount_residual: 30 }), true);
+assert.equal(evaluateExpr("'INV'.lower() == 'inv' and len(set([1, 1, 2])) == 2"), true);
+assert.match(String(evaluateExpr("context_today().strftime('%Y-%m-%d')")), /^\d{4}-\d{2}-\d{2}$/);
+assert.match(String(evaluateExpr("(datetime.date(2026, 6, 17) + relativedelta(weeks=1)).strftime('%Y-%m-%d')")), /^2026-06-24$/);
+assert.throws(() => evaluateExpr("missing + 1"), EvalError);
+assert.equal(formatAST(parseExpr("amount_total == 10")), "amount_total == 10");
+assert.deepEqual(toPyValue({ a: 1 }), { type: 11, value: { a: { type: 0, value: 1 } } });
+assert.equal(formatAST(toPyValue(null)), "None");
+assert.equal(formatAST(toPyValue(new PyDate(2026, 6, 17))), "\"2026-06-17\"");
+assert.equal(Object.getPrototypeOf(toPyDict({ a: 1 })) !== Object.prototype, true);
+assert.deepEqual(makeContext([{ a: 1 }, "{'b': a + 1}", "{'c': b + 1}"]), { a: 1, b: 2, c: 3 });
+assert.deepEqual(evalPartialContext("{'a': missing, 'b': 1, 'c': b + 1}", { b: 2 }), { b: 1, c: 3 });
+const domain = new Domain("[('active', '=', True), ('company_id', '=', company_id)]");
+assert.deepEqual(domain.toList({ company_id: 3 }), ["&", ["active", "=", true], ["company_id", "=", 3]]);
+assert.equal(domain.contains({ active: true, company_id: 3 }), true);
+assert.equal(domain.contains({ active: false, company_id: 3 }), false);
+assert.deepEqual(Domain.or([[["state", "=", "draft"]], [["state", "=", "posted"]]]).toList(), ["|", ["state", "=", "draft"], ["state", "=", "posted"]]);
+assert.deepEqual(Domain.removeDomainLeaves([["name", "ilike", "a"], ["company_id", "=", 3]], ["company_id"]).toList(), ["&", ["name", "ilike", "a"], [1, "=", 1]]);
+assert.throws(() => new Domain(["|", ["name", "=", "x"]]), InvalidDomainError);
+assert.equal(PyDate.create(2026, 6, 17).strftime("%Y-%m-%d"), "2026-06-17");
+assert.equal(PyDateTime.create(2026, 6, 17, 13, 4, 5).strftime("%Y-%m-%d %H:%M:%S"), "2026-06-17 13:04:05");
+assert.equal(PyTime.create(13, 4, 5).strftime("%H:%M:%S"), "13:04:05");
+assert.equal(PyDate.create(2026, 6, 17).plus(PyTimeDelta.create({ weeks: 1 })).strftime("%Y-%m-%d"), "2026-06-24");
+assert.equal(evaluateExpr("td.create(days=2).totalSeconds()", { td: PyTimeDelta }), 172800);
+assert.equal(BUILTINS.bool([]), false);
+assert.equal(BUILTINS.bool(PyTimeDelta.create()), false);
+assert.deepEqual([...BUILTINS.set({ a: 1, b: 2 })], ["a", "b"]);
+assert.equal(BUILTINS.max(1, 2, {}), 2);
+assert.equal(BUILTINS.min(1, 2, {}), 1);
+assert.equal(BUILTINS.datetime.date.create(2026, 6, 17).strftime("%Y-%m-%d"), "2026-06-17");
+assert.equal(BUILTINS.datetime.time.create(13, 4, 5).strftime("%H:%M:%S"), "13:04:05");
+assert.match(BUILTINS.today, /^\d{4}-\d{2}-\d{2}$/);
+assert.match(BUILTINS.now, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+assert.deepEqual(execOnIterable({ a: 1, b: 2 }, (iterable) => [...iterable]), ["a", "b"]);
+assert.throws(() => execOnIterable(null, () => null), EvaluationError);
+
+const actionCalls = [];
+const action = createActionService((invocation) => {
+  actionCalls.push(invocation);
+  return { done: true };
+});
+const actionResult = await action.doAction({ type: "ir.actions.client", tag: "soft_reload" });
+assert.deepEqual(actionResult, { done: true });
+assert.equal(action.history.length, 1);
+assert.equal(action.current.action.tag, "soft_reload");
+assert.equal(actionCalls[0].action.type, "ir.actions.client");
+
+const clientActions = new Registry("test_client_actions");
+const dispatched = [];
+const clientEnv = makeEnv();
+clientActions.add("agent_chat_action", (handlerEnv, handlerAction, handlerOptions) => {
+  dispatched.push({ env: handlerEnv, action: handlerAction, options: handlerOptions });
+  return { channelId: handlerAction.params.channelId };
+});
+const clientAction = createActionService(createClientActionExecutor(clientActions, undefined, clientEnv));
+const clientActionResult = await clientAction.doAction({
+  type: "ir.actions.client",
+  tag: "agent_chat_action",
+  params: { channelId: 77 }
+}, { additional_context: { active_id: 77 } });
+assert.deepEqual(clientActionResult, { channelId: 77 });
+assert.equal(dispatched.length, 1);
+assert.equal(dispatched[0].action.tag, "agent_chat_action");
+assert.equal(dispatched[0].env, clientEnv);
+assert.deepEqual(dispatched[0].options.additional_context, { active_id: 77 });
+
+clientActions.add("execute_action", {
+  execute(handlerAction, handlerEnv, handlerOptions) {
+    dispatched.push({ env: handlerEnv, action: handlerAction, options: handlerOptions });
+    return handlerAction.params.name;
+  }
+});
+assert.equal(
+  await clientAction.doAction({ type: "ir.actions.client", tag: "execute_action", params: { name: "ok" } }),
+  "ok"
+);
+
+const unknownClientAction = await createClientActionExecutor(clientActions)({
+  action: { type: "ir.actions.client", tag: "missing" },
+  options: {}
+});
+assert.deepEqual(unknownClientAction, { type: "ir.actions.client", tag: "missing" });
+clientActions.add("not_executable", { component: "x" });
+assert.throws(
+  () => createClientActionExecutor(clientActions)({
+    action: { type: "ir.actions.client", tag: "not_executable" },
+    options: {}
+  }),
+  /not executable/
+);
+
+const serverActionRequests = [];
+const serverActionServices = createWebClientServices({
+  transport(request) {
+    serverActionRequests.push(request);
+    if (request.route === "/web/action/load") {
+      return Promise.resolve({
+        id: 55,
+        type: "ir.actions.server",
+        name: "Open Partner Wizard",
+        path: "/server/partners",
+        context: { from_action: true }
+      });
+    }
+    if (request.route === "/web/action/run") {
+      return Promise.resolve({
+        type: "ir.actions.act_window",
+        name: "Returned Partner",
+        res_model: "res.partner",
+        views: [[false, "form"]],
+        target: "new"
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><field name=\"name\"/></form>", id: 91 }
+        },
+        models: {
+          "res.partner": {
+            fields: { name: { type: "char", string: "Name" } }
+          }
+        }
+      });
+    }
+    return Promise.resolve({});
+  }
+});
+const serverActionResult = await serverActionServices.action.doAction(55, {
+  additionalContext: { active_model: "res.partner", active_id: 9, active_ids: [9], from_options: true }
+});
+assert.equal(serverActionResult.type, "ir.actions.act_window");
+assert.equal(serverActionResult.resModel, "res.partner");
+assert.equal(serverActionResult.action.path, "/server/partners");
+assert.equal(serverActionRequests[0].route, "/web/action/load");
+assert.deepEqual(serverActionRequests[0].params.context, { active_model: "res.partner", active_id: 9, active_ids: [9], from_options: true });
+assert.equal(serverActionRequests[1].route, "/web/action/run");
+assert.equal(serverActionRequests[1].params.action_id, 55);
+assert.deepEqual(serverActionRequests[1].params.context, {
+  from_action: true,
+  active_model: "res.partner",
+  active_id: 9,
+  active_ids: [9],
+  from_options: true
+});
+assert.equal(serverActionRequests[2].route, "/web/dataset/call_kw/res.partner/get_views");
+
+const falseServerActionRequests = [];
+const falseServerActionServices = createWebClientServices({
+  transport(request) {
+    falseServerActionRequests.push(request);
+    if (request.route === "/web/action/run") {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve({});
+  }
+});
+const falseServerActionResult = await falseServerActionServices.action.doAction(
+  { id: 56, type: "ir.actions.server", context: { from_action: "false" } },
+  { additional_context: { active_id: 10, active_model: "res.partner" } }
+);
+assert.deepEqual(falseServerActionResult, { type: "ir.actions.act_window_close" });
+assert.equal(falseServerActionRequests[0].route, "/web/action/run");
+assert.deepEqual(falseServerActionRequests[0].params.context, {
+  from_action: "false",
+  active_id: 10,
+  active_model: "res.partner"
+});
+
+const services = createWebClientServices({
+  transport(request) {
+    return Promise.resolve({ uid: 5, requestId: request.id });
+  }
+});
+const loadedSession = await services.session.load();
+assert.equal(loadedSession.uid, 5);
+assert.equal(services.session.info.uid, 5);
+
+const windowActionRequests = [];
+const actionServices = createWebClientServices({
+  transport(request) {
+    windowActionRequests.push(request);
+    if (request.route === "/web/action/load") {
+      return Promise.resolve({
+        id: 7,
+        type: "ir.actions.act_window",
+        name: "Partners",
+        res_model: "res.partner",
+        views: [[8, "list"], [false, "form"], [9, "search"]],
+        view_mode: "list,form",
+        domain: "[('active', '=', True), ('id', 'in', active_ids)]",
+        limit: 25,
+        target: "current",
+        context: { search_default_customer: true }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/get_views") {
+      return Promise.resolve({
+        views: {
+          list: {
+            arch: "<list><field name=\"name\"/><field name=\"company_id\" context=\"{'default_active_id': active_id, 'from_context': context.get('from_context', False), 'none_value': None}\"/><field name=\"legacy_note\" invisible=\"payment_state == 'invoicing_legacy' or move_type == 'entry'\"/><field name=\"column_note\" column_invisible=\"parent.move_type == 'entry'\"/><field name=\"line_ids\" limit=\"2\" context=\"{'default_partner_id': active_id, 'flag': True}\"><list default_order=\"sequence desc\"><field name=\"description\"/><field name=\"user_id\"/></list></field></list>",
+            id: 8,
+            toolbar: {}
+          },
+          form: { arch: "<form/>", id: 10 },
+          search: { arch: "<search/>", id: 9, filters: [] }
+        },
+        models: {
+          "res.partner": {
+            fields: {
+              name: { type: "char", string: "Name" },
+              company_id: { type: "many2one", relation: "res.company", string: "Company" },
+              legacy_note: { type: "char", string: "Legacy" },
+              column_note: { type: "char", string: "Column" },
+              line_ids: { type: "one2many", relation: "res.partner.line", string: "Lines" }
+            }
+          },
+          "res.partner.line": {
+            fields: {
+              description: { type: "char", string: "Description" },
+              user_id: { type: "many2one", relation: "res.users", string: "User" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/web_search_read") {
+      return Promise.resolve({
+        length: 1,
+        records: [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]
+      });
+    }
+    return Promise.resolve({});
+  }
+});
+const windowResult = await actionServices.action.doAction("partners", {
+  additionalContext: { active_id: 42, active_ids: [1, 2], lang: "en_US", from_context: 7 }
+});
+assert.equal(windowResult.type, "ir.actions.act_window");
+assert.equal(windowResult.activeView, "list");
+assert.equal(windowResult.resModel, "res.partner");
+assert.equal(windowResult.viewDescriptions.views.list.id, 8);
+assert.equal(windowResult.length, 1);
+assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
+const renderedWindow = renderWindowAction(windowResult);
+assert.equal(renderedWindow.className, "gorp-window-action");
+assert.equal(renderedWindow.dataset.model, "res.partner");
+assert.equal(renderedWindow.dataset.view, "list");
+assert.equal(renderedWindow.children[1].className, "gorp-list-view");
+assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
+assert.equal(renderedWindow.children[1].children[1].children[0].children[0].textContent, "Azure Interior");
+
+const invalidDirectWindowRequests = [];
+const invalidDirectWindowServices = createWebClientServices({
+  transport(request) {
+    invalidDirectWindowRequests.push(request);
+    return Promise.resolve({});
+  }
+});
+await assert.rejects(
+  () => invalidDirectWindowServices.action.doAction({
+    type: "ir.actions.act_window",
+    name: "Invalid Direct Window",
+    res_model: "res.partner",
+    view_mode: "list,form",
+    view_id: 77
+  }),
+  /either multiple view modes or a single view mode and an optional view id/
+);
+assert.equal(invalidDirectWindowRequests.length, 0);
+
+const approveAllCalls = [];
+let approveAllEvent;
+let approveAllRefreshes = 0;
+const approveAllWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Requests" },
+  activeView: "list",
+  resModel: "purchase.request",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: { list: { arch: `<list show_action_approve_all="true"><field name="name"/></list>`, id: 21 } }
+  },
+  records: [{ id: 11, name: "PR001" }, { id: 12, name: "PR002" }],
+  length: 2
+}, {
+  services: {
+    dataset: {
+      callButton(model, method, args, kwargs) {
+        approveAllCalls.push({ model, method, args, kwargs });
+        return Promise.resolve({ type: "ir.actions.client", tag: "soft_reload" });
+      }
+    },
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(action);
+      },
+      doAction(action) {
+        approveAllCalls.push({ action });
+        return Promise.resolve(action);
+      }
+    }
+  },
+  confirm(message) {
+    approveAllCalls.push({ confirm: message });
+    return true;
+  },
+  onRefresh() {
+    approveAllRefreshes += 1;
+  }
+});
+const approveAllShell = approveAllWindow.children[1];
+approveAllShell.addEventListener("workflow:approve-all", (event) => { approveAllEvent = event.detail; });
+assert.equal(approveAllShell.className, "gorp-list-shell");
+const approveAllButton = findAll(approveAllShell, (node) => node.dataset?.workflowAction === "approve")[0];
+assert.equal(approveAllButton.textContent, "Approve");
+assert.equal(approveAllButton.dataset.sequence, "110");
+assert.equal(approveAllButton.dataset.icon, "fa fa-thumbs-up");
+assert.equal(approveAllButton.disabled, true);
+const approveAllCheckboxes = findAll(approveAllShell, (node) => node.tag === "input");
+approveAllCheckboxes[0].checked = true;
+approveAllCheckboxes[0].dispatchEvent(new TestEvent("change"));
+assert.equal(approveAllButton.disabled, false);
+approveAllButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(approveAllCalls[0], { confirm: "Are you sure you want to approve selected documents?" });
+assert.deepEqual(approveAllCalls[1], { model: "purchase.request", method: "action_approve_all", args: [[11]], kwargs: {} });
+assert.equal(approveAllCalls[2].action.tag, "soft_reload");
+assert.equal(approveAllRefreshes, 1);
+assert.deepEqual(approveAllEvent.ids, [11]);
+const approvalButtonCalls = [];
+const approvalUpdates = [];
+const approvalValidation = [];
+let approvalButtonEvent;
+let approvalRefreshes = 0;
+const approvalFormWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Order" },
+  activeView: "form",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      state: { type: "selection", string: "Status" },
+      approved_button_clicked: { type: "integer", string: "Clicked" },
+      workflow_transition_ids: { type: "many2many", string: "Transitions" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><field name="approved_button_clicked" invisible="1"/><field name="workflow_transition_ids" invisible="1"/><button name="approval_action_button" type="object" string="Approve" args="[7]" validate_form="True" context="{&#39;lang&#39;: &#39;en_US&#39;}" confirm="Confirm approval?"/><button name="approval_transition_button" type="object" string="Route" args="[9]" validate_form="False" invisible="9 not in workflow_transition_ids"/><button name="approval_transition_wizard" type="object" string="Wizard" args="[12]" validate_form="False"/><button name="approval_transition_button" type="object" string="Hidden" args="[99]" invisible="99 not in workflow_transition_ids"/></header><sheet><field name="name"/><field name="state"/></sheet></form>`,
+        id: 31
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 42, name: "PO001", state: "pending", approved_button_clicked: false, workflow_transition_ids: [9] },
+  services: {
+    dataset: {
+      callButton(model, method, args, kwargs) {
+        approvalButtonCalls.push({ model, method, args, kwargs });
+        if (method === "approval_action_button") return Promise.resolve({ type: "ir.actions.client", tag: "soft_reload" });
+        if (method === "approval_transition_wizard") return Promise.resolve({ type: "ir.actions.act_window", res_model: "workflow.process.wizard", target: "new" });
+        return Promise.resolve(false);
+      }
+    },
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(action);
+      },
+      doAction(action) {
+        approvalButtonCalls.push({ action });
+        return Promise.resolve(action);
+      }
+    }
+  },
+  confirm(message) {
+    approvalButtonCalls.push({ confirm: message });
+    return true;
+  },
+  validateForm(context) {
+    approvalValidation.push({ clicked: context.values.approved_button_clicked, button: context.button.attrs.name });
+    return true;
+  },
+  onUpdate(name, value) {
+    approvalUpdates.push({ name, value });
+  },
+  onRefresh() {
+    approvalRefreshes += 1;
+  }
+});
+const approvalForm = approvalFormWindow.children[1];
+approvalForm.addEventListener("workflow:button", (event) => { approvalButtonEvent = event.detail; });
+const formButtons = findAll(approvalForm, (node) => node.dataset?.workflowAction);
+assert.deepEqual(formButtons.map((button) => button.textContent), ["Approve", "Route", "Wizard"]);
+formButtons[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(approvalButtonCalls[0], { confirm: "Confirm approval?" });
+assert.deepEqual(approvalUpdates, [{ name: "approved_button_clicked", value: 7 }]);
+assert.deepEqual(approvalValidation, [{ clicked: 7, button: "approval_action_button" }]);
+assert.deepEqual(approvalButtonCalls[1], { model: "purchase.order", method: "approval_action_button", args: [[42], 7], kwargs: { context: { lang: "en_US" } } });
+assert.equal(approvalButtonCalls[2].action.tag, "soft_reload");
+assert.equal(approvalRefreshes, 1);
+assert.equal(approvalButtonEvent.method, "approval_action_button");
+formButtons[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(approvalButtonCalls[3], { model: "purchase.order", method: "approval_transition_button", args: [[42], 9], kwargs: {} });
+formButtons[2].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(approvalButtonCalls[4], { model: "purchase.order", method: "approval_transition_wizard", args: [[42], 12], kwargs: {} });
+assert.equal(approvalButtonCalls[5].action.res_model, "workflow.process.wizard");
+assert.deepEqual(approvalUpdates, [{ name: "approved_button_clicked", value: 7 }]);
+
+const formActionButtonCalls = [];
+const formActionButtonEvents = [];
+let formActionButtonRefreshes = 0;
+const formActionButtonWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Invoice" },
+  activeView: "form",
+  resModel: "account.move",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Number" } },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><button name="%(action_account_payment_register)d" type="action" string="Register" context="{&#39;default_move_type&#39;: &#39;out_invoice&#39;}"/><button name="base.action_direct" type="action" string="Direct"/><button name="55" type="action" string="Numeric"/></header><sheet><field name="name"/></sheet></form>`,
+        id: 33
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 91, name: "INV/001" },
+  services: {
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(typeof action === "object" ? action : { id: action });
+      },
+      doAction(action, options) {
+        formActionButtonCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  },
+  onRefresh() {
+    formActionButtonRefreshes += 1;
+  }
+});
+const formActionButtonForm = formActionButtonWindow.children[1];
+formActionButtonForm.addEventListener("workflow:action-button", (event) => formActionButtonEvents.push(event.detail));
+const actionButtons = findAll(formActionButtonForm, (node) => node.dataset?.workflowAction);
+assert.deepEqual(actionButtons.map((button) => button.textContent), ["Register", "Direct", "Numeric"]);
+actionButtons[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(formActionButtonCalls[0].action, "action_account_payment_register");
+assert.deepEqual(formActionButtonCalls[0].options.additionalContext, {
+  default_move_type: "out_invoice",
+  active_id: 91,
+  active_ids: [91],
+  active_model: "account.move",
+  active_domain: []
+});
+actionButtons[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(formActionButtonCalls[1].action, "base.action_direct");
+actionButtons[2].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(formActionButtonCalls[2].action, 55);
+assert.equal(formActionButtonRefreshes, 3);
+assert.deepEqual(formActionButtonEvents.map((event) => event.action), ["%(action_account_payment_register)d", "base.action_direct", "55"]);
+
+const wizardButtonCalls = [];
+const wizardUpdates = [];
+const wizardValues = { id: 51, comment: "" };
+const wizardWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Workflow Process" },
+  activeView: "form",
+  resModel: "workflow.process.wizard",
+  viewDescriptions: {
+    fields: {
+      comment: { type: "text", string: "Comment", required: true }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="comment"/></sheet><footer><button name="action_process" type="object" string="Process"/></footer></form>`,
+        id: 33
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: wizardValues,
+  services: {
+    dataset: {
+      callButton(model, method, args, kwargs) {
+        wizardButtonCalls.push({ model, method, args, kwargs });
+        return Promise.resolve(true);
+      }
+    }
+  },
+  onUpdate(name, value) {
+    wizardUpdates.push({ name, value });
+  }
+});
+const wizardForm = wizardWindow.children[1];
+const wizardComment = findAll(wizardForm, (node) => node.dataset?.requiredField === "comment")[0];
+const wizardProcess = findAll(wizardForm, (node) => node.dataset?.workflowAction === "action_process")[0];
+assert.equal(wizardComment.tag, "textarea");
+assert.equal(wizardComment.required, true);
+assert.equal(wizardComment.getAttribute("aria-required"), "true");
+assert.equal(wizardComment.getAttribute("aria-invalid"), "false");
+wizardProcess.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(wizardButtonCalls, []);
+assert.equal(wizardComment.getAttribute("aria-invalid"), "true");
+assert.equal(wizardComment.className.includes("is-invalid"), true);
+assert.equal(wizardComment.focused, true);
+wizardComment.value = "Approved with comment";
+wizardComment.dispatchEvent(new TestEvent("input"));
+assert.equal(wizardValues.comment, "Approved with comment");
+assert.deepEqual(wizardUpdates, [{ name: "comment", value: "Approved with comment" }]);
+assert.equal(wizardComment.getAttribute("aria-invalid"), "false");
+wizardProcess.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(wizardButtonCalls, [{ model: "workflow.process.wizard", method: "action_process", args: [[51]], kwargs: {} }]);
+
+const workflowActionCalls = [];
+user.isSystem = true;
+const workflowActionWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Order" },
+  activeView: "form",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      state: { type: "selection", string: "Status" },
+      user_can_approve: { type: "boolean", string: "Can Approve" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><field name="state"/><field name="user_can_approve" invisible="1"/></header><sheet><field name="name"/></sheet></form>`,
+        id: 32
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 45, name: "PO003", state: "pending", user_can_approve: true },
+  services: {
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(action);
+      },
+      doAction(action, options) {
+        workflowActionCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  },
+  onRefresh() {
+    workflowActionCalls.push({ refresh: true });
+  }
+});
+const workflowActionForm = workflowActionWindow.children[1];
+const workflowMenuButtons = findAll(workflowActionForm, (node) => node.dataset?.workflowAction === "update_status" || node.dataset?.workflowAction === "approval_log");
+assert.deepEqual(workflowMenuButtons.map((button) => button.dataset.workflowAction), ["approval_log", "update_status"]);
+assert.deepEqual(workflowMenuButtons.map((button) => [button.textContent, button.dataset.sequence, button.dataset.icon]), [["Approval Log", "100", "fa fa-arrows-h"], ["Update Status", "100", "fa fa-code"]]);
+assert.deepEqual(workflowMenuButtons.map((button) => button.children[0].className), ["fa fa-arrows-h", "fa fa-code"]);
+workflowMenuButtons[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(workflowActionCalls[0].action.res_model, "approval.log");
+assert.deepEqual(workflowActionCalls[0].action.domain, [["model", "=", "purchase.order"], ["record_id", "=", 45]]);
+assert.deepEqual(workflowActionCalls[0].action.context, { hide_record: true, hide_model: true });
+workflowMenuButtons[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(workflowActionCalls[1].action.res_model, "approval.state.update");
+assert.deepEqual(workflowActionCalls[1].action.context, { default_res_model: "purchase.order", default_res_ids: [45] });
+workflowActionCalls[1].options.onClose();
+assert.deepEqual(workflowActionCalls[2], { refresh: true });
+const workflowListCalls = [];
+const workflowListWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Orders" },
+  activeView: "list",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      state: { type: "selection", string: "Status" },
+      user_can_approve: { type: "boolean", string: "Can Approve" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="state"/><field name="user_can_approve"/></list>`,
+        id: 34
+      }
+    }
+  },
+  records: [{ id: 61, name: "PO061", state: "pending", user_can_approve: true }, { id: 62, name: "PO062", state: "draft", user_can_approve: true }],
+  length: 2
+}, {
+  services: {
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(action);
+      },
+      doAction(action, options) {
+        workflowListCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  }
+});
+const workflowListShell = workflowListWindow.children[1];
+const workflowListButtons = findAll(workflowListShell, (node) => node.dataset?.workflowAction === "update_status" || node.dataset?.workflowAction === "approve_log");
+assert.deepEqual(workflowListButtons.map((button) => button.dataset.workflowAction), ["update_status", "approve_log"]);
+assert.deepEqual(workflowListButtons.map((button) => [button.textContent, button.disabled, button.dataset.sequence, button.dataset.icon]), [["Update Status", true, "100", "fa fa-code"], ["Approval Log", true, "120", "fa fa-arrows-h"]]);
+assert.deepEqual(workflowListButtons.map((button) => button.children[0].className), ["fa fa-code", "fa fa-arrows-h"]);
+const workflowListCheckboxes = findAll(workflowListShell, (node) => node.tag === "input");
+workflowListCheckboxes[0].checked = true;
+workflowListCheckboxes[0].dispatchEvent(new TestEvent("change"));
+assert.deepEqual(workflowListButtons.map((button) => button.disabled), [false, false]);
+workflowListButtons[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(workflowListCalls[0].action.context, { default_res_model: "purchase.order", default_res_ids: [61] });
+workflowListButtons[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(workflowListCalls[1].action.domain, [["model", "=", "purchase.order"], ["record_id", "in", [61]]]);
+assert.deepEqual(workflowListCalls[1].action.context, { hide_record: false, hide_model: true });
+const workflowFullToolbarWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Orders" },
+  activeView: "list",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      state: { type: "selection", string: "Status" },
+      user_can_approve: { type: "boolean", string: "Can Approve" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list show_action_approve_all="true"><field name="name"/><field name="state"/><field name="user_can_approve"/></list>`,
+        id: 35
+      }
+    }
+  },
+  records: [{ id: 63, name: "PO063", state: "pending", user_can_approve: true }],
+  length: 1
+});
+const workflowFullToolbar = workflowFullToolbarWindow.children[1].children[0];
+const workflowFullButtons = findAll(workflowFullToolbar, (node) => node.dataset?.workflowAction);
+assert.deepEqual(workflowFullButtons.map((button) => [button.dataset.workflowAction, button.dataset.sequence, button.dataset.icon, button.textContent]), [
+  ["update_status", "100", "fa fa-code", "Update Status"],
+  ["approve", "110", "fa fa-thumbs-up", "Approve"],
+  ["approve_log", "120", "fa fa-arrows-h", "Approval Log"]
+]);
+assert.ok(String(workflowFullToolbar.className).includes("o_cp_action_menus"));
+assert.deepEqual(findAll(workflowFullToolbar, (node) => node.dataset?.menu).map((node) => node.dataset.menu), ["action"]);
+const serverActionMenuCalls = [];
+let serverActionMenuRefreshes = 0;
+const serverActionMenuWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partners" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/></list>`,
+        id: 36,
+        actionMenus: {
+          action: [{ id: 310, name: "Server Export", type: "ir.actions.server" }],
+          print: [{ id: 320, name: "Partner Label", type: "ir.actions.report", icon: "fa fa-file-pdf-o" }]
+        }
+      }
+    }
+  },
+  records: [{ id: 81, name: "Alpha" }, { id: 82, name: "Beta" }],
+  length: 2
+}, {
+  services: {
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(typeof action === "object" ? action : { id: action });
+      },
+      doAction(action, options) {
+        serverActionMenuCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  },
+  onRefresh() {
+    serverActionMenuRefreshes += 1;
+  }
+});
+const serverActionMenuShell = serverActionMenuWindow.children[1];
+const serverActionMenu = findAll(serverActionMenuShell, (node) => String(node.className ?? "").includes("gorp-action-menus"))[0];
+assert.deepEqual(findAll(serverActionMenu, (node) => node.dataset?.menu).map((node) => node.dataset.menu), ["print", "action"]);
+const serverExportButton = findAll(serverActionMenu, (node) => node.dataset?.actionId === "310")[0];
+const serverPrintToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "print")[0];
+assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
+assert.deepEqual([serverExportButton.disabled], [true]);
+const serverActionMenuCheckboxes = findAll(serverActionMenuShell, (node) => node.tag === "input");
+serverActionMenuCheckboxes[1].checked = true;
+serverActionMenuCheckboxes[1].dispatchEvent(new TestEvent("change"));
+assert.deepEqual([serverExportButton.disabled], [false]);
+serverExportButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(serverActionMenuCalls[0].action, 310);
+assert.deepEqual(serverActionMenuCalls[0].options.additionalContext, {
+  active_id: 82,
+  active_ids: [82],
+  active_model: "res.partner",
+  active_domain: []
+});
+serverActionMenuCalls[0].options.onClose();
+assert.equal(serverActionMenuRefreshes, 1);
+serverPrintToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const serverPrintButton = findAll(serverActionMenu, (node) => node.dataset?.actionId === "320")[0];
+assert.equal(serverPrintButton.dataset.icon, "fa fa-file-pdf-o");
+assert.equal(serverPrintButton.disabled, false);
+serverPrintButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(serverActionMenuCalls[1].action, 320);
+assert.deepEqual(serverActionMenuCalls[1].options.additionalContext.active_ids, [82]);
+serverActionMenuCheckboxes[1].checked = false;
+serverActionMenuCheckboxes[1].dispatchEvent(new TestEvent("change"));
+assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
+const actionMenuRunRequests = [];
+let actionMenuRunRefreshes = 0;
+const actionMenuRunServices = createWebClientServices({
+  transport(request) {
+    actionMenuRunRequests.push(request);
+    if (request.route === "/web/action/load") {
+      return Promise.resolve({ id: 710, type: "ir.actions.server", name: "Run Server Action" });
+    }
+    if (request.route === "/web/action/run") {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve({});
+  }
+});
+const actionMenuRunWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Server Actions" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/></list>`,
+        id: 710,
+        actionMenus: { action: [{ id: 710, name: "Run Server Action", type: "ir.actions.server" }] }
+      }
+    }
+  },
+  records: [{ id: 91, name: "Action Partner" }],
+  length: 1
+}, {
+  services: actionMenuRunServices,
+  onRefresh() {
+    actionMenuRunRefreshes += 1;
+  }
+});
+const actionMenuRunButton = findAll(actionMenuRunWindow, (node) => node.dataset?.actionId === "710")[0];
+const actionMenuRunCheckbox = findAll(actionMenuRunWindow, (node) => node.tag === "input")[0];
+actionMenuRunCheckbox.checked = true;
+actionMenuRunCheckbox.dispatchEvent(new TestEvent("change"));
+actionMenuRunButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionMenuRunRequests[0].route, "/web/action/load");
+assert.equal(actionMenuRunRequests[1].route, "/web/action/run");
+assert.deepEqual(actionMenuRunRequests[1].params.context, {
+  active_id: 91,
+  active_ids: [91],
+  active_model: "res.partner",
+  active_domain: []
+});
+assert.equal(actionMenuRunRefreshes, 1);
+const domainSelectedSearches = [];
+const domainSelectedActions = [];
+const domainSelectedReportCalls = [];
+const domainSelectedReportID = "ir.actions.report,316";
+const domainSelectedWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partners" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/></list>`,
+        id: 37,
+        actionMenus: {
+          action: [{ id: 315, name: "Domain Action" }],
+          print: [{ id: domainSelectedReportID, name: "Domain Partner Label", domain: `[("active","=",True)]` }]
+        }
+      }
+    }
+  },
+  records: [{ id: 81, name: "Alpha" }, { id: 82, name: "Beta" }],
+  length: 2
+}, {
+  activeDomain: [["active", "=", true]],
+  isDomainSelected: true,
+  activeIdsLimit: 500,
+  context: { lang: "en_US" },
+  services: {
+    orm: {
+      search(model, domain, kwargs) {
+        domainSelectedSearches.push({ model, domain, kwargs });
+        return Promise.resolve([81, 82]);
+      },
+      call(model, method, args) {
+        domainSelectedReportCalls.push({ model, method, args });
+        return Promise.resolve([domainSelectedReportID]);
+      }
+    },
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(typeof action === "object" ? action : { id: action });
+      },
+      doAction(action, options) {
+        domainSelectedActions.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  }
+});
+const domainSelectedButton = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionId === "315")[0];
+assert.equal(domainSelectedButton.disabled, false);
+domainSelectedButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(domainSelectedSearches[0], { model: "res.partner", domain: [["active", "=", true]], kwargs: { limit: 500, context: { lang: "en_US" } } });
+assert.equal(domainSelectedActions[0].action, 315);
+assert.deepEqual(domainSelectedActions[0].options.additionalContext, {
+  active_id: 81,
+  active_ids: [81, 82],
+  active_model: "res.partner",
+  active_domain: [["active", "=", true]]
+});
+const domainSelectedPrintToggle = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionMenuToggle === "print")[0];
+domainSelectedPrintToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(domainSelectedSearches[1], { model: "res.partner", domain: [["active", "=", true]], kwargs: { limit: 500, context: { lang: "en_US" } } });
+assert.deepEqual(domainSelectedReportCalls[0], {
+  model: "ir.actions.report",
+  method: "get_valid_action_reports",
+  args: [[domainSelectedReportID], "res.partner", [81, 82]]
+});
+const domainSelectedPrintButton = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionId === domainSelectedReportID)[0];
+assert.equal(domainSelectedPrintButton.disabled, false);
+const reportDomainCalls = [];
+const reportDomainActionCalls = [];
+const domainReportID = "ir.actions.report,330";
+let validDomainReports = [];
+const reportDomainWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partners" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/></list>`,
+        id: 38,
+        actionMenus: {
+          print: [{ id: domainReportID, name: "Active Partner Label", domain: `[("active","=",True)]` }]
+        }
+      }
+    }
+  },
+  records: [{ id: 84, name: "Delta" }],
+  length: 1
+}, {
+  services: {
+    orm: {
+      call(model, method, args) {
+        reportDomainCalls.push({ model, method, args });
+        return Promise.resolve(validDomainReports);
+      }
+    },
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(typeof action === "object" ? action : { id: action });
+      },
+      doAction(action, options) {
+        reportDomainActionCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  }
+});
+let printLoadedEvent;
+const reportDomainShell = reportDomainWindow.children[1];
+reportDomainShell.addEventListener("action-menu:print-loaded", (event) => { printLoadedEvent = event.detail; });
+const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input")[0];
+reportDomainCheckbox.checked = true;
+reportDomainCheckbox.dispatchEvent(new TestEvent("change"));
+const reportDomainToggle = findAll(reportDomainShell, (node) => node.dataset?.actionMenuToggle === "print")[0];
+reportDomainToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(reportDomainCalls[0], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
+assert.equal(reportDomainActionCalls.length, 0);
+assert.deepEqual(printLoadedEvent.availableIds, []);
+const emptyPrintItem = findAll(reportDomainShell, (node) => node.dataset?.actionMenuEmpty === "print")[0];
+assert.equal(emptyPrintItem.textContent, "No report available.");
+assert.equal(emptyPrintItem.disabled, true);
+validDomainReports = [domainReportID];
+reportDomainToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const reportDomainButton = findAll(reportDomainShell, (node) => node.dataset?.actionId === domainReportID)[0];
+assert.deepEqual(printLoadedEvent.availableIds, [domainReportID]);
+reportDomainButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(reportDomainActionCalls[0].action, domainReportID);
+  assert.deepEqual(reportDomainActionCalls[0].options.additionalContext.active_ids, [84]);
+  const staticActionOrmCalls = [];
+  const staticActionSearchReads = [];
+  const staticActionReads = [];
+  const staticActionCreates = [];
+  const staticActionUnlinks = [];
+  const staticActionConfirms = [];
+  const staticActionDownloads = [];
+  const staticActionFieldRequests = [];
+  const staticActionNamelists = [];
+  const staticActionNotifications = [];
+let staticActionRefreshes = 0;
+const staticActionEvents = [];
+const staticActionWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partners" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+      fields: {
+        name: { type: "char", string: "Name" },
+        active: { type: "boolean", string: "Active" },
+        email: { type: "char", string: "Email", default_export_compatible: true },
+        company_id: { type: "many2one", string: "Company" }
+      },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="active"/></list>`,
+        id: 39
+      }
+    }
+  },
+  records: [{ id: 85, name: "Echo", active: true }],
+  length: 1
+}, {
+  services: {
+    orm: {
+        call(model, method, args) {
+          staticActionOrmCalls.push({ model, method, args });
+          return Promise.resolve(method === "copy" ? [186] : true);
+        },
+        searchRead(model, domain, fields) {
+          staticActionSearchReads.push({ model, domain, fields });
+          return Promise.resolve([{ id: 501, name: "Saved Export", export_fields: [701, 702, 703] }]);
+        },
+        read(model, ids, fields) {
+          staticActionReads.push({ model, ids, fields });
+          return Promise.resolve([{ name: "email" }, { name: "company_id/name" }]);
+        },
+        create(model, records) {
+          staticActionCreates.push({ model, records });
+          return Promise.resolve([777]);
+        },
+        unlink(model, ids) {
+          staticActionUnlinks.push({ model, ids });
+          return Promise.resolve(true);
+      }
+    },
+    notification: {
+      calls: staticActionNotifications,
+      add(message, options) {
+        staticActionNotifications.push({ message, ...options });
+      }
+    }
+  },
+  confirm(message) {
+    staticActionConfirms.push(message);
+    return true;
+  },
+  exportDownload(request) {
+    staticActionDownloads.push(request);
+    return Promise.resolve({ ok: true, filename: "res_partner.csv" });
+  },
+  exportGetFields(request) {
+    staticActionFieldRequests.push(request);
+    if (request.model === "res.company") {
+      return Promise.resolve([
+        { id: "company_id/name", value: "company_id/name", string: "Company/Name", field_type: "char" },
+        { id: "company_id/industry_id", value: "company_id/industry_id/id", string: "Company/Industry", field_type: "many2one", relation: "res.partner.industry", children: true, params: { model: "res.partner.industry", prefix: "company_id/industry_id" } }
+      ]);
+    }
+    if (request.model === "res.partner.industry") {
+      return Promise.resolve([
+        { id: "company_id/industry_id/name", value: "company_id/industry_id/name", string: "Company/Industry/Name", field_type: "char" },
+        { id: "company_id/industry_id/code", value: "company_id/industry_id/code", string: "Code", field_type: "char" },
+        { id: "company_id/industry_id/category_id", value: "company_id/industry_id/category_id/id", string: "Company/Industry/Category", field_type: "many2one", relation: "res.partner.industry.category", children: true, params: { model: "res.partner.industry.category", prefix: "company_id/industry_id/category_id" } }
+      ]);
+    }
+    if (request.model !== "res.partner") return Promise.resolve([]);
+    return Promise.resolve([
+      { id: "name", value: "name", string: "Name", field_type: "char" },
+      { id: "active", value: "active", string: "Active", field_type: "boolean" },
+      { id: "email", value: "email", string: "Email", field_type: "char", default_export: true },
+      { id: "company_id", value: "company_id/id", string: "Company", field_type: "many2one", relation: "res.company", relation_field: "partner_ids", children: true, params: { model: "res.company", prefix: "company_id" } }
+    ]);
+  },
+  exportNamelist(request) {
+    staticActionNamelists.push(request);
+    return Promise.resolve([
+      { id: "email", name: "email", value: "email", string: "Email", field_type: "char" },
+      { id: "company_id/name", name: "company_id/name", value: "company_id/name", string: "Company/Name", field_type: "char" }
+    ]);
+  },
+  debug: true,
+  activeGroupBy: ["active"],
+  onRefresh() {
+    staticActionRefreshes += 1;
+  }
+});
+const staticActionShell = staticActionWindow.children[1];
+for (const eventName of ["action-menu:export", "action-menu:duplicate", "action-menu:archive", "action-menu:unarchive", "action-menu:delete"]) {
+  staticActionShell.addEventListener(eventName, (event) => staticActionEvents.push({ type: event.type, detail: event.detail }));
+}
+const staticButtons = findAll(staticActionShell, (node) => node.dataset?.staticAction);
+assert.deepEqual(staticButtons.map((button) => [button.dataset.staticAction, button.dataset.sequence, button.dataset.icon, button.disabled]), [
+  ["export", "10", "fa fa-upload", true],
+  ["duplicate", "30", "fa fa-clone", true],
+  ["archive", "40", "oi oi-archive", true],
+  ["unarchive", "45", "oi oi-unarchive", true],
+  ["delete", "50", "fa fa-trash-o", true]
+]);
+assert.ok(String(staticButtons[4].className).includes("text-danger"));
+const staticCheckbox = findAll(staticActionShell, (node) => node.tag === "input")[0];
+staticCheckbox.checked = true;
+staticCheckbox.dispatchEvent(new TestEvent("change"));
+  assert.deepEqual(staticButtons.map((button) => button.disabled), [false, false, false, false, false]);
+  staticButtons[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const exportDialog = findAll(staticActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
+  assert.ok(exportDialog);
+  const selectedExportFields = () => findAll(exportDialog, (node) => node.dataset?.exportField).map((node) => node.dataset.exportField);
+  const selectedExportRows = () => findAll(exportDialog, (node) => node.dataset?.exportField);
+  assert.deepEqual(selectedExportFields(), ["name", "active", "email"]);
+  assert.deepEqual(selectedExportRows().map((node) => [node.dataset.field_id, node.getAttribute("draggable"), String(node.className).includes("o_export_field_sortable")]), [
+    ["name", "true", true],
+    ["active", "true", true],
+    ["email", "true", true]
+  ]);
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportTreeItem === "name")[0].dataset.field_id, "name");
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportSortField).map((node) => node.dataset.exportSortField), ["name", "active", "email"]);
+  assert.ok(findAll(exportDialog, (node) => node.dataset?.exportSortField === "name")[0].className.includes("mx-1"));
+  assert.equal(exportDialog.dataset.exportIsSmall, "false");
+  globalThis.window.innerWidth = 390;
+  globalThis.window.dispatchEvent(new TestEvent("resize"));
+  assert.equal(exportDialog.dataset.exportIsSmall, "true");
+  assert.equal(findAll(exportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 0);
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportSortField).length, 0);
+  globalThis.window.innerWidth = 1024;
+  globalThis.window.dispatchEvent(new TestEvent("resize"));
+  assert.equal(exportDialog.dataset.exportIsSmall, "false");
+  assert.equal(findAll(exportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 3);
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportSortField).map((node) => node.dataset.exportSortField), ["name", "active", "email"]);
+  selectedExportRows()[0].dispatchEvent(new TestEvent("dragstart"));
+  selectedExportRows()[2].dispatchEvent(new TestEvent("drop", { detail: { previousField: "active", nextField: "email" } }));
+  assert.deepEqual(selectedExportFields(), ["active", "name", "email"]);
+  selectedExportRows().find((node) => node.dataset.exportField === "name").dispatchEvent(new TestEvent("dragstart"));
+  selectedExportRows().find((node) => node.dataset.exportField === "active").dispatchEvent(new TestEvent("drop", { detail: { previousField: "email", nextField: null } }));
+  assert.deepEqual(selectedExportFields(), ["active", "email", "name"]);
+  selectedExportRows().find((node) => node.dataset.exportField === "name").dispatchEvent(new TestEvent("dragstart"));
+  selectedExportRows().find((node) => node.dataset.exportField === "email").dispatchEvent(new TestEvent("drop", { detail: { previousField: null, nextField: "active" } }));
+  assert.deepEqual(selectedExportFields(), ["name", "active", "email"]);
+  const companyExpandButton = findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id")[0];
+  assert.ok(companyExpandButton);
+  companyExpandButton.dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const companyFieldRequest = staticActionFieldRequests.find((request) => request.model === "res.company");
+  assert.deepEqual(companyFieldRequest, {
+    model: "res.company",
+    prefix: "company_id",
+    parent_name: "Company",
+    import_compat: false,
+    parent_field_type: "many2one",
+    parent_field: {
+      id: "company_id",
+      name: "company_id",
+      string: "Company",
+      value: "company_id/id",
+      type: "many2one",
+      field_type: "many2one",
+      relation: "res.company",
+      children: true,
+      params: { model: "res.company", prefix: "company_id" },
+      relation_field: "partner_ids"
+    },
+    exclude: ["partner_ids"],
+    domain: []
+  });
+  assert.ok(findAll(exportDialog, (node) => node.dataset?.exportAddField === "company_id/name")[0]);
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id/industry_id").length, 1);
+  findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id/industry_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const industryFieldRequest = staticActionFieldRequests.find((request) => request.model === "res.partner.industry");
+  assert.deepEqual(industryFieldRequest, {
+    model: "res.partner.industry",
+    prefix: "company_id/industry_id",
+    parent_name: "Company/Industry",
+    import_compat: false,
+    parent_field_type: "many2one",
+    parent_field: {
+      id: "company_id/industry_id",
+      name: "company_id/industry_id",
+      string: "Company/Industry",
+      value: "company_id/industry_id/id",
+      type: "many2one",
+      field_type: "many2one",
+      relation: "res.partner.industry",
+      children: true,
+      params: { model: "res.partner.industry", prefix: "company_id/industry_id" }
+    },
+    exclude: [],
+    domain: []
+  });
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id/industry_id/category_id").length, 0);
+  findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id/industry_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const exportSearch = findAll(exportDialog, (node) => node.dataset?.exportSearch)[0];
+  assert.ok(exportSearch);
+  const searchRequestCount = staticActionFieldRequests.length;
+  exportSearch.value = "Industry";
+  exportSearch.dispatchEvent(new TestEvent("input"));
+  assert.equal(staticActionFieldRequests.length, searchRequestCount);
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportTreeItem).map((node) => node.dataset.exportTreeItem), ["company_id", "company_id/industry_id", "company_id/industry_id/name", "company_id/industry_id/category_id"]);
+  assert.ok(!findAll(exportDialog, (node) => node.dataset?.exportTreeItem).some((node) => node.dataset.exportTreeItem === "company_id/industry_id/code"));
+  findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id/industry_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(findAll(exportDialog, (node) => node.dataset?.exportTreeItem).some((node) => node.dataset.exportTreeItem === "company_id/industry_id/code"));
+  exportSearch.value = "Ind Cat";
+  exportSearch.dispatchEvent(new TestEvent("input"));
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportTreeItem).map((node) => node.dataset.exportTreeItem), ["company_id", "company_id/industry_id", "company_id/industry_id/category_id"]);
+  exportSearch.value = "industry_id/category_id";
+  exportSearch.dispatchEvent(new TestEvent("input"));
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportTreeItem).map((node) => node.dataset.exportTreeItem), ["company_id", "company_id/industry_id", "company_id/industry_id/category_id"]);
+  exportSearch.value = "No Such Field";
+  exportSearch.dispatchEvent(new TestEvent("input"));
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportNoMatch).length, 1);
+  exportSearch.value = "";
+  exportSearch.dispatchEvent(new TestEvent("input"));
+  findAll(exportDialog, (node) => node.dataset?.exportTreeItem === "company_id/name")[0].dispatchEvent(new TestEvent("dblclick"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(findAll(exportDialog, (node) => node.dataset?.exportField).some((node) => node.dataset.exportField === "company_id/name"));
+  findAll(exportDialog, (node) => node.dataset?.exportAddField === "company_id/industry_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  findAll(exportDialog, (node) => node.dataset?.exportConfirm)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(staticActionDownloads[0].importCompat, false);
+  assert.deepEqual(staticActionDownloads[0].fields.map((field) => field.name), ["name", "active", "email", "company_id/name", "company_id/industry_id/id"]);
+  staticActionEvents.length = 0;
+  findAll(exportDialog, (node) => node.dataset?.exportRemoveField === "company_id/name")[0].dispatchEvent(new TestEvent("click"));
+  assert.ok(!findAll(exportDialog, (node) => node.dataset?.exportField).some((node) => node.dataset.exportField === "company_id/name"));
+  const companyFetchCount = staticActionFieldRequests.filter((request) => request.model === "res.company").length;
+  companyExpandButton.dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  findAll(exportDialog, (node) => node.dataset?.exportExpandField === "company_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(staticActionFieldRequests.filter((request) => request.model === "res.company").length, companyFetchCount);
+  assert.deepEqual(staticActionSearchReads, [{
+    model: "ir.exports",
+    domain: [["resource", "=", "res.partner"]],
+    fields: ["id", "name", "export_fields"]
+  }]);
+  const exportImportCheckbox = findAll(exportDialog, (node) => node.dataset?.exportImportCompat)[0];
+  exportImportCheckbox.checked = true;
+  exportImportCheckbox.dispatchEvent(new TestEvent("change"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportSearch.value, "");
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportField).map((node) => node.dataset.exportField), ["name", "active", "email"]);
+  const exportTemplateSelect = findAll(exportDialog, (node) => node.dataset?.exportTemplateSelect)[0];
+  exportTemplateSelect.value = "501";
+  exportTemplateSelect.dispatchEvent(new TestEvent("change"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(staticActionReads, []);
+  assert.deepEqual(staticActionNamelists[0], { model: "res.partner", export_id: 501 });
+  assert.equal(exportDialog.dataset.exportTemplateId, "501");
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "false");
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportTemplateDelete)[0].getAttribute("hidden"), null);
+  selectedExportRows().find((node) => node.dataset.exportField === "company_id/name").dispatchEvent(new TestEvent("dragstart"));
+  selectedExportRows().find((node) => node.dataset.exportField === "company_id/name").dispatchEvent(new TestEvent("drop", { detail: { previousField: null, nextField: "email" } }));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "true");
+  assert.deepEqual(selectedExportFields(), ["company_id/name", "email"]);
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateCancel)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "false");
+  assert.deepEqual(selectedExportFields(), ["email", "company_id/name"]);
+  findAll(exportDialog, (node) => node.dataset?.exportRemoveField === "company_id/name")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "true");
+  assert.deepEqual(selectedExportFields(), ["email"]);
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateCancel)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "false");
+  assert.deepEqual(staticActionNamelists.at(-1), { model: "res.partner", export_id: 501 });
+  assert.deepEqual(selectedExportFields(), ["email", "company_id/name"]);
+  findAll(exportDialog, (node) => node.dataset?.exportAddField === "company_id")[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "true");
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportTemplateCancel)[0].getAttribute("hidden"), null);
+  assert.ok(findAll(exportDialog, (node) => node.dataset?.exportField).some((node) => node.dataset.exportField === "company_id"));
+  exportImportCheckbox.checked = true;
+  exportImportCheckbox.dispatchEvent(new TestEvent("change"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "false");
+  assert.equal(findAll(exportDialog, (node) => node.dataset?.exportTemplateCancel)[0].getAttribute("hidden"), "");
+  assert.ok(!findAll(exportDialog, (node) => node.dataset?.exportField).some((node) => node.dataset.exportField === "company_id"));
+  assert.deepEqual(staticActionNamelists.at(-1), { model: "res.partner", export_id: 501 });
+  assert.ok(staticActionFieldRequests.some((request) => request.model === "res.partner" && request.import_compat === true));
+  const exportFormatSelect = findAll(exportDialog, (node) => node.dataset?.exportFormat)[0];
+  exportFormatSelect.value = "csv";
+  exportFormatSelect.dispatchEvent(new TestEvent("change"));
+  exportTemplateSelect.value = "new_template";
+  exportTemplateSelect.dispatchEvent(new TestEvent("change"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateId, "new_template");
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "true");
+  assert.equal(exportTemplateSelect.getAttribute("hidden"), "");
+  const exportSaveName = findAll(exportDialog, (node) => node.dataset?.exportTemplateName)[0];
+  assert.equal(exportSaveName.getAttribute("hidden"), null);
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateSave)[0].dispatchEvent(new TestEvent("click"));
+  assert.deepEqual(staticActionNotifications.at(-1), { message: "Please enter save field list name", type: "danger" });
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateCancel)[0].dispatchEvent(new TestEvent("click"));
+  assert.equal(exportDialog.dataset.exportTemplateId, "");
+  assert.equal(exportTemplateSelect.getAttribute("hidden"), null);
+  exportSaveName.value = "Stale Name";
+  exportTemplateSelect.value = "new_template";
+  exportTemplateSelect.dispatchEvent(new TestEvent("change"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportSaveName.value, "");
+  exportSaveName.value = "Selected Fields";
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateSave)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateId, "777");
+  assert.equal(exportDialog.dataset.exportTemplateEditing, "false");
+  assert.deepEqual(staticActionCreates, [{
+    model: "ir.exports",
+    records: [{
+      name: "Selected Fields",
+      resource: "res.partner",
+      export_fields: [[0, 0, { name: "email" }], [0, 0, { name: "company_id/name" }]]
+    }]
+  }]);
+  findAll(exportDialog, (node) => node.dataset?.exportTemplateDelete)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(exportDialog.dataset.exportTemplateId, "");
+  assert.deepEqual(findAll(exportDialog, (node) => node.dataset?.exportField).map((node) => node.dataset.exportField), ["name", "active", "email"]);
+  findAll(exportDialog, (node) => node.dataset?.exportConfirm)[0].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  staticButtons[1].dispatchEvent(new TestEvent("click"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+staticButtons[2].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+staticButtons[3].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+staticButtons[4].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(staticActionOrmCalls, [
+  { model: "res.partner", method: "copy", args: [[85], {}] },
+  { model: "res.partner", method: "action_archive", args: [[85]] },
+  { model: "res.partner", method: "action_unarchive", args: [[85]] }
+  ]);
+  assert.deepEqual(staticActionDownloads.at(-1).route, "/web/export/csv");
+  assert.deepEqual(staticActionDownloads.at(-1).ids, [85]);
+  assert.equal(staticActionDownloads.at(-1).importCompat, true);
+  assert.deepEqual(staticActionDownloads.at(-1).groupby, ["active"]);
+  assert.deepEqual(staticActionDownloads.at(-1).fields.map((field) => field.name), ["id", "name", "active", "email"]);
+assert.deepEqual(staticActionUnlinks, [{ model: "ir.exports", ids: [777] }, { model: "res.partner", ids: [85] }]);
+assert.equal(staticActionRefreshes, 4);
+assert.deepEqual(staticActionEvents.map((event) => event.type), ["action-menu:export", "action-menu:duplicate", "action-menu:archive", "action-menu:unarchive", "action-menu:delete"]);
+assert.equal(staticActionEvents[0].detail.result.ok, true);
+assert.equal(staticActionConfirms.length, 3);
+const parentTemplateFieldRequests = [];
+const parentTemplateNamelists = [];
+const parentTemplateDownloads = [];
+const parentTemplateWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Parent Template Contacts" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      active: { type: "boolean", string: "Active" },
+      company_id: { type: "many2one", string: "Company", relation: "res.company" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="active"/><field name="company_id"/></list>`,
+        id: 15
+      }
+    }
+  },
+  records: [{ id: 90, name: "Parent", active: true }],
+  length: 1
+}, {
+  services: {
+    orm: {
+      searchRead(model, domain, fields) {
+        assert.deepEqual({ model, domain, fields }, {
+          model: "ir.exports",
+          domain: [["resource", "=", "res.partner"]],
+          fields: ["id", "name", "export_fields"]
+        });
+        return Promise.resolve([{ id: 601, name: "Nested Template", export_fields: [801] }]);
+      }
+    }
+  },
+  exportGetFields(request) {
+    parentTemplateFieldRequests.push(request);
+    if (request.model === "res.company") {
+      return Promise.resolve([
+        { id: "company_id/industry_id", value: "company_id/industry_id/id", string: "Company/Industry", field_type: "many2one", relation: "res.partner.industry", children: true, params: { model: "res.partner.industry", prefix: "company_id/industry_id" } }
+      ]);
+    }
+    if (request.model === "res.partner.industry") {
+      return Promise.resolve([
+        { id: "company_id/industry_id/name", value: "company_id/industry_id/name", string: "Company/Industry/Name", field_type: "char" }
+      ]);
+    }
+    return Promise.resolve([
+      { id: "name", value: "name", string: "Name", field_type: "char" },
+      { id: "active", value: "active", string: "Active", field_type: "boolean" },
+      { id: "company_id", value: "company_id/id", string: "Company", field_type: "many2one", relation: "res.company", relation_field: "partner_ids", children: true, params: { model: "res.company", prefix: "company_id" } }
+    ]);
+  },
+  exportNamelist(request) {
+    parentTemplateNamelists.push(request);
+    return Promise.resolve([
+      { id: "company_id/industry_id", name: "company_id/industry_id", value: "company_id/industry_id", string: "company_id/industry_id", field_type: "many2one" },
+      { id: "company_id/industry_id/name", name: "company_id/industry_id/name", value: "company_id/industry_id/name", string: "company_id/industry_id/name", field_type: "char" }
+    ]);
+  },
+  exportDownload(request) {
+    parentTemplateDownloads.push(request);
+    return Promise.resolve({ ok: true, filename: "res_partner.xlsx" });
+  },
+  debug: true
+});
+const parentTemplateShell = parentTemplateWindow.children[1];
+findAll(parentTemplateShell, (node) => node.tag === "input")[0].checked = true;
+findAll(parentTemplateShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(parentTemplateShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const parentTemplateDialog = findAll(parentTemplateShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
+findAll(parentTemplateDialog, (node) => node.dataset?.exportTemplateSelect)[0].value = "601";
+findAll(parentTemplateDialog, (node) => node.dataset?.exportTemplateSelect)[0].dispatchEvent(new TestEvent("change"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(parentTemplateNamelists, [{ model: "res.partner", export_id: 601 }]);
+assert.deepEqual(parentTemplateFieldRequests.map((request) => request.model), ["res.partner", "res.company", "res.partner.industry"]);
+assert.deepEqual(parentTemplateFieldRequests[2], {
+  model: "res.partner.industry",
+  prefix: "company_id/industry_id",
+  parent_name: "Company/Industry",
+  import_compat: false,
+  parent_field_type: "many2one",
+  parent_field: {
+    id: "company_id/industry_id",
+    name: "company_id/industry_id",
+    string: "Company/Industry",
+    value: "company_id/industry_id/id",
+    type: "many2one",
+    field_type: "many2one",
+    relation: "res.partner.industry",
+    children: true,
+    params: { model: "res.partner.industry", prefix: "company_id/industry_id" }
+  },
+  exclude: [],
+  domain: []
+});
+assert.deepEqual(findAll(parentTemplateDialog, (node) => node.dataset?.exportField).map((node) => node.dataset.exportField), ["company_id/industry_id", "company_id/industry_id/name"]);
+const parentNestedRow = findAll(parentTemplateDialog, (node) => node.dataset?.exportField === "company_id/industry_id/name")[0];
+assert.ok(findAll(parentNestedRow, (node) => node.tag === "span").some((node) => node.textContent === "Company/Industry/Name (company_id/industry_id/name)"));
+const requestCountAfterTemplate = parentTemplateFieldRequests.length;
+assert.equal(parentTemplateFieldRequests.length, requestCountAfterTemplate);
+assert.ok(findAll(parentTemplateDialog, (node) => node.dataset?.exportTreeItem).some((node) => node.dataset.exportTreeItem === "company_id/industry_id"));
+assert.ok(findAll(parentTemplateDialog, (node) => node.dataset?.exportTreeItem).some((node) => node.dataset.exportTreeItem === "company_id/industry_id/name"));
+assert.equal(findAll(parentTemplateDialog, (node) => node.dataset?.exportAddField === "company_id/industry_id")[0].disabled, true);
+assert.equal(findAll(parentTemplateDialog, (node) => node.dataset?.exportAddField === "company_id/industry_id/name")[0].disabled, true);
+findAll(parentTemplateDialog, (node) => node.dataset?.exportConfirm)[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(parentTemplateDownloads[0].fields.map((field) => field.name), ["company_id/industry_id/id", "company_id/industry_id/name"]);
+const mobileActionWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Mobile Contacts" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      active: { type: "boolean", string: "Active" },
+      email: { type: "char", string: "Email" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="active"/><field name="email"/></list>`,
+        id: 16
+      }
+    }
+  },
+  records: [{ id: 91, name: "Mobile", active: true, email: "m@example.com" }],
+  length: 1
+}, {
+  isSmall: true,
+  services: {
+    orm: {
+      searchRead() {
+        return Promise.resolve([]);
+      }
+    }
+  },
+  exportGetFields() {
+    return Promise.resolve([
+      { id: "name", value: "name", string: "Name", field_type: "char" },
+      { id: "active", value: "active", string: "Active", field_type: "boolean" },
+      { id: "email", value: "email", string: "Email", field_type: "char" }
+    ]);
+  }
+});
+const mobileActionShell = mobileActionWindow.children[1];
+findAll(mobileActionShell, (node) => node.tag === "input")[0].checked = true;
+findAll(mobileActionShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(mobileActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const mobileExportDialog = findAll(mobileActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
+assert.equal(findAll(mobileExportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 0);
+assert.equal(findAll(mobileExportDialog, (node) => node.dataset?.exportSortField).length, 0);
+let responsiveIsSmall = false;
+const responsiveActionWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Responsive Contacts" },
+  activeView: "list",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      active: { type: "boolean", string: "Active" },
+      email: { type: "char", string: "Email" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="active"/><field name="email"/></list>`,
+        id: 17
+      }
+    }
+  },
+  records: [{ id: 92, name: "Responsive", active: true, email: "r@example.com" }],
+  length: 1
+}, {
+  isSmall: () => responsiveIsSmall,
+  services: {
+    orm: {
+      searchRead() {
+        return Promise.resolve([]);
+      }
+    }
+  },
+  exportGetFields() {
+    return Promise.resolve([
+      { id: "name", value: "name", string: "Name", field_type: "char" },
+      { id: "active", value: "active", string: "Active", field_type: "boolean" },
+      { id: "email", value: "email", string: "Email", field_type: "char" }
+    ]);
+  }
+});
+const responsiveActionShell = responsiveActionWindow.children[1];
+const resizeListenerCount = (windowListeners.resize ?? []).length;
+findAll(responsiveActionShell, (node) => node.tag === "input")[0].checked = true;
+findAll(responsiveActionShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(responsiveActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const responsiveExportDialog = findAll(responsiveActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
+assert.equal((windowListeners.resize ?? []).length, resizeListenerCount + 1);
+assert.equal(findAll(responsiveExportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 3);
+responsiveIsSmall = true;
+globalThis.window.dispatchEvent(new TestEvent("resize"));
+assert.equal(responsiveExportDialog.dataset.exportIsSmall, "true");
+assert.equal(findAll(responsiveExportDialog, (node) => node.dataset?.exportSortField).length, 0);
+responsiveIsSmall = false;
+globalThis.window.dispatchEvent(new TestEvent("resize"));
+assert.equal(responsiveExportDialog.dataset.exportIsSmall, "false");
+assert.equal(findAll(responsiveExportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 3);
+findAll(responsiveExportDialog, (node) => node.dataset?.exportClose)[0].dispatchEvent(new TestEvent("click"));
+assert.equal((windowListeners.resize ?? []).length, resizeListenerCount);
+const accountantExportFieldRequests = [];
+const accountantDownloads = [];
+const accountantWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Journal Items" },
+  activeView: "list",
+  resModel: "account.move.line",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Label" },
+      active: { type: "boolean", string: "Active" },
+      analytic_distribution: { type: "json", string: "Analytic Distribution" },
+      analytic_line_ids: { type: "one2many", string: "Analytic Lines", relation: "account.analytic.line" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="active"/><field name="analytic_distribution"/><field name="analytic_line_ids"/></list>`,
+        id: 41
+      }
+    }
+  },
+  records: [{ id: 91, name: "Line", active: true, analytic_distribution: "{}", analytic_line_ids: [] }],
+  length: 1
+}, {
+  services: {
+    orm: {
+      searchRead() {
+        return Promise.resolve([]);
+      }
+    }
+  },
+  exportGetFields(request) {
+    accountantExportFieldRequests.push(request);
+    if (request.model === "account.move.line") {
+      return Promise.resolve([
+        { id: "name", value: "name", string: "Label", field_type: "char" },
+        { id: "active", value: "active", string: "Active", field_type: "boolean" },
+        { id: "analytic_distribution", value: "analytic_distribution", string: "Analytic Distribution", field_type: "json" },
+        { id: "analytic_line_ids", value: "analytic_line_ids/id", string: "Analytic Lines", field_type: "one2many", relation: "account.analytic.line", children: true, params: { model: "account.analytic.line", prefix: "analytic_line_ids" } }
+      ]);
+    }
+    return Promise.resolve([
+      { id: "analytic_line_ids/account_id", value: "analytic_line_ids/account_id/id", string: "Analytic Lines/Account", field_type: "many2one", params: { model: "account.analytic.account" } },
+      { id: "analytic_line_ids/auto_account_id", value: "analytic_line_ids/auto_account_id/id", string: "Analytic Lines/Automatic Account", field_type: "many2one", params: { model: "account.analytic.account" } },
+      { id: "analytic_line_ids/amount", value: "analytic_line_ids/amount", string: "Analytic Lines/Amount", field_type: "float" },
+      { id: "analytic_line_ids/name", value: "analytic_line_ids/name", string: "Analytic Lines/Description", field_type: "char" }
+    ]);
+  },
+  exportDownload(request) {
+    accountantDownloads.push(request);
+    return Promise.resolve({ ok: true });
+  }
+});
+const accountantShell = accountantWindow.children[1];
+const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input")[0];
+accountantCheckbox.checked = true;
+accountantCheckbox.dispatchEvent(new TestEvent("change"));
+findAll(accountantShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const accountantDialog = findAll(accountantShell, (node) => node.dataset?.exportDialog === "account.move.line").at(-1);
+assert.ok(accountantDialog);
+const accountantChildFieldRequest = accountantExportFieldRequests.find((request) => request.model === "account.analytic.line");
+assert.deepEqual(accountantExportFieldRequests[0], {
+  model: "account.move.line",
+  domain: [],
+  import_compat: false
+});
+assert.deepEqual(accountantChildFieldRequest, {
+  model: "account.analytic.line",
+  prefix: "analytic_line_ids",
+  parent_name: "Analytic Lines",
+  import_compat: false,
+  parent_field_type: "one2many",
+  parent_field: {
+    id: "analytic_line_ids",
+    name: "analytic_line_ids",
+    string: "Analytic Lines",
+    value: "analytic_line_ids/id",
+    type: "one2many",
+    field_type: "one2many",
+    relation: "account.analytic.line",
+    children: true,
+    params: { model: "account.analytic.line", prefix: "analytic_line_ids" }
+  },
+  exclude: [],
+  domain: []
+});
+const accountantSelectedFields = findAll(accountantDialog, (node) => node.dataset?.exportField).map((node) => node.dataset.exportField);
+assert.ok(!accountantSelectedFields.includes("analytic_distribution"));
+assert.ok(accountantSelectedFields.includes("analytic_line_ids/account_id"));
+assert.ok(accountantSelectedFields.includes("analytic_line_ids/amount"));
+assert.ok(!accountantSelectedFields.includes("analytic_line_ids/auto_account_id"));
+findAll(accountantDialog, (node) => node.dataset?.exportConfirm)[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.ok(accountantDownloads[0].fields.some((field) => field.name === "analytic_line_ids/account_id/id"));
+assert.ok(accountantDownloads[0].fields.some((field) => field.name === "analytic_line_ids/amount"));
+assert.ok(!accountantDownloads[0].fields.some((field) => field.name === "analytic_distribution"));
+const accountantImportCheckbox = findAll(accountantDialog, (node) => node.dataset?.exportImportCompat)[0];
+accountantImportCheckbox.checked = true;
+accountantImportCheckbox.dispatchEvent(new TestEvent("change"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(accountantExportFieldRequests.at(-1).import_compat, true);
+findAll(accountantDialog, (node) => node.dataset?.exportConfirm)[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(accountantDownloads.at(-1).fields[0].name, "id");
+assert.ok(accountantDownloads.at(-1).fields.some((field) => field.name === "analytic_line_ids/account_id/id"));
+const formDuplicateCalls = [];
+let formDuplicateEvent;
+const formDuplicateWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partner" },
+  activeView: "form",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" }, active: { type: "boolean", string: "Active" } },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="active"/></sheet></form>`,
+        id: 40
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 86, name: "Foxtrot", active: true },
+  services: {
+    orm: {
+      call(model, method, args) {
+        formDuplicateCalls.push({ model, method, args });
+        return Promise.resolve([187]);
+      }
+    }
+  }
+});
+const formDuplicateForm = formDuplicateWindow.children[1];
+formDuplicateForm.addEventListener("action-menu:duplicate", (event) => { formDuplicateEvent = event.detail; });
+const formDuplicateButton = findAll(formDuplicateForm, (node) => node.dataset?.staticAction === "duplicate")[0];
+assert.deepEqual([formDuplicateButton.dataset.sequence, formDuplicateButton.dataset.icon], ["30", "fa fa-clone"]);
+formDuplicateButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(formDuplicateCalls, [{ model: "res.partner", method: "copy", args: [86, {}] }]);
+assert.deepEqual(formDuplicateEvent, { model: "res.partner", ids: [86], newId: [187] });
+const formServerMenuCalls = [];
+const formServerMenuWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partner" },
+  activeView: "form",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/></sheet></form>`,
+        id: 37,
+        actionMenus: {
+          action: [{ id: 410, name: "Partner Action", type: "ir.actions.server" }]
+        }
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 83, name: "Gamma" },
+  services: {
+    action: {
+      history: [],
+      current: null,
+      loadAction(action) {
+        return Promise.resolve(typeof action === "object" ? action : { id: action });
+      },
+      doAction(action, options) {
+        formServerMenuCalls.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  }
+});
+const formServerMenu = findAll(formServerMenuWindow.children[1], (node) => String(node.className ?? "").includes("gorp-form-action-menu"))[0];
+assert.ok(String(formServerMenu.className).includes("o_cp_action_menus"));
+const formServerButton = findAll(formServerMenu, (node) => node.dataset?.actionId === "410")[0];
+assert.equal(formServerButton.textContent, "Partner Action");
+formServerButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(formServerMenuCalls[0].action, 410);
+assert.deepEqual(formServerMenuCalls[0].options.additionalContext, {
+  active_id: 83,
+  active_ids: [83],
+  active_model: "res.partner",
+  active_domain: []
+});
+const approvalUserInfoReads = [];
+let approvalUserInfoEvent;
+const approvalUserInfoWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Order" },
+  activeView: "form",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: { name: { type: "char", string: "Name" } },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><button name="" id="approval_user_info" type="action" class="btn-link btn-info" icon="fa-users"/></header><sheet><field name="name"/></sheet></form>`,
+        id: 33
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 44, name: "PO002" },
+  debug: true,
+  location: "/web#menu_id=1",
+  services: {
+    orm: {
+      webRead(model, ids, kwargs) {
+        approvalUserInfoReads.push({ model, ids, kwargs });
+        return Promise.resolve([{
+          approval_done_user_ids: [{ id: 7, display_name: "Current User" }],
+          approval_user_ids: [[9, "Approver User"]]
+        }]);
+      }
+    }
+  }
+});
+const approvalUserInfoForm = approvalUserInfoWindow.children[1];
+approvalUserInfoForm.addEventListener("workflow:approval-user-info", (event) => { approvalUserInfoEvent = event.detail; });
+const approvalUserInfoButton = findAll(approvalUserInfoForm, (node) => node.dataset?.workflowAction === "approval_user_info")[0];
+user.userId = 7;
+user.isSystem = true;
+approvalUserInfoButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(approvalUserInfoReads[0].model, "purchase.order");
+assert.deepEqual(approvalUserInfoReads[0].ids, [44]);
+assert.deepEqual(Object.keys(approvalUserInfoReads[0].kwargs.specification), ["approval_user_ids", "approval_done_user_ids"]);
+const approvalUserInfoPopover = findAll(approvalUserInfoForm, (node) => node.className === "gorp-approval-user-info-popover")[0];
+const approvalUserInfoRows = findAll(approvalUserInfoPopover, (node) => node.tag === "tr");
+assert.deepEqual(approvalUserInfoRows.map((row) => row.dataset?.userId ?? row.children?.[0]?.textContent), ["7", "Waiting Approval", "9"]);
+assert.equal(findAll(approvalUserInfoRows[0], (node) => node.tag === "img")[0].src, "/web/image/res.users/7/avatar_128");
+assert.equal(findAll(approvalUserInfoRows[0], (node) => node.tag === "a").length, 0);
+const loginAsLink = findAll(approvalUserInfoRows[2], (node) => node.tag === "a")[0];
+assert.equal(loginAsLink.href, "/web/login_as/9?redirect=%2Fweb%23menu_id%3D1");
+assert.equal(loginAsLink.title, "Login As Approver User");
+assert.equal(approvalUserInfoEvent.model, "purchase.order");
+assert.equal(approvalUserInfoEvent.id, 44);
+const statusbarSaves = [];
+const statusbarUpdates = [];
+let statusbarRefreshes = 0;
+let statusbarUpdateEvent;
+const statusbarWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Purchase Order" },
+  activeView: "form",
+  resModel: "purchase.order",
+  viewDescriptions: {
+    fields: {
+      state: { type: "selection", string: "Status", selection: [["draft", "Draft"], ["pending", "Pending"], ["approved", "Approved"], ["rejected", "Rejected"]] },
+      workflow_states: { type: "json" },
+      duration_state_tracking: { type: "json" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><field name="state" widget="statusbar_state_duration" statusbar_visible="WORKFLOW"/></header></form>`,
+        id: 32
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 43,
+    state: "pending",
+    workflow_states: ["draft", "pending", "approved"],
+    duration_state_tracking: { draft: 3661, pending: 60, rejected: 20 }
+  },
+  services: {
+    orm: {
+      webSave(model, ids, data, kwargs) {
+        statusbarSaves.push({ model, ids, data, kwargs });
+        return Promise.resolve([{ id: ids[0], ...data }]);
+      }
+    }
+  },
+  onUpdate(name, value) {
+    statusbarUpdates.push({ name, value });
+  },
+  onRefresh() {
+    statusbarRefreshes += 1;
+  }
+});
+const statusbarForm = statusbarWindow.children[1];
+statusbarForm.addEventListener("workflow:statusbar-update", (event) => { statusbarUpdateEvent = event.detail; });
+const statusbar = findAll(statusbarForm, (node) => node.className === "gorp-statusbar")[0];
+assert.equal(statusbar.dataset.field, "state");
+assert.equal(statusbar.dataset.widget, "statusbar_state_duration");
+const statusbarItems = findAll(statusbar, (node) => String(node.className ?? "").includes("gorp-statusbar-item"));
+assert.deepEqual(statusbarItems.map((item) => item.dataset.value), ["draft", "pending", "approved"]);
+assert.deepEqual(statusbarItems.map((item) => item.textContent), ["Draft", "Pending", "Approved"]);
+assert.deepEqual(statusbarItems.map((item) => item.dataset.selected), ["false", "true", "false"]);
+assert.deepEqual(statusbarItems.map((item) => item.disabled), [false, true, false]);
+assert.equal(statusbarItems[0].dataset.durationText, "1:01:01");
+assert.equal(statusbarItems[1].dataset.durationText, "1:00");
+assert.equal(statusbarItems[2].dataset.durationText, undefined);
+statusbarItems[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(statusbarSaves, []);
+statusbarItems[2].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(statusbarUpdates, [{ name: "state", value: "approved" }]);
+assert.deepEqual(statusbarSaves, [{
+  model: "purchase.order",
+  ids: [43],
+  data: { state: "approved" },
+  kwargs: { specification: { state: {} } }
+}]);
+assert.equal(statusbarRefreshes, 1);
+assert.deepEqual(statusbarUpdateEvent, { model: "purchase.order", id: 43, field: "state", value: "approved" });
+const nonStateStatusbarWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Task" },
+  activeView: "form",
+  resModel: "project.task",
+  viewDescriptions: {
+    fields: {
+      phase: { type: "selection", string: "Phase", selection: [["todo", "Todo"], ["doing", "Doing"], ["done", "Done"]] },
+      workflow_states: { type: "json" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><field name="phase" widget="statusbar" statusbar_visible="WORKFLOW"/></header></form>`,
+        id: 38
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 74, phase: "doing", workflow_states: ["todo", "doing"] }
+});
+const nonStateStatusbar = findAll(nonStateStatusbarWindow, (node) => node.className === "gorp-statusbar")[0];
+const nonStateStatusbarItems = findAll(nonStateStatusbar, (node) => String(node.className ?? "").includes("gorp-statusbar-item"));
+assert.deepEqual(nonStateStatusbarItems.map((item) => item.dataset.value), ["doing"]);
+const disabledStatusbarWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Task" },
+  activeView: "form",
+  resModel: "project.task",
+  viewDescriptions: {
+    fields: {
+      stage: { type: "selection", string: "Stage", selection: [["new", "New"], ["done", "Done"]] }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><header><field name="stage" widget="statusbar" options="{'clickable': False}"/></header></form>`,
+        id: 39
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 75, stage: "new" }
+});
+const disabledStatusbarItems = findAll(disabledStatusbarWindow, (node) => String(node.className ?? "").includes("gorp-statusbar-item"));
+assert.deepEqual(disabledStatusbarItems.map((item) => item.disabled), [true, true]);
+const groupUpdates = [];
+const groupResult = {
+  type: "ir.actions.act_window",
+  action: { name: "User" },
+  activeView: "form",
+  resModel: "res.users",
+  viewDescriptions: {
+    fields: {
+      group_ids: { type: "many2many", relation: "res.groups", string: "Access Rights" },
+      view_group_hierarchy: { type: "json" },
+      all_group_ids: { type: "many2many", relation: "res.groups" },
+      role: { type: "selection" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: "<form><sheet><field name=\"group_ids\" widget=\"res_user_group_ids\"/></sheet></form>",
+        id: 19
+      }
+    }
+  },
+  records: [],
+  length: 0
+};
+const groupWindow = renderWindowAction(groupResult, {
+  values: {
+    role: "user",
+    group_ids: [[10, "Sales / User"]],
+    all_group_ids: [[10, "Sales / User"], [11, "Sales / Manager"], [20, "Inventory / User"], [30, "Export Reports"]],
+    view_group_hierarchy: {
+      groups: {
+        "10": { id: 10, name: "Sales / User", privilege_id: 100 },
+        "11": { id: 11, name: "Sales / Manager", privilege_id: 100, implied_ids: [30], all_implied_by_ids: [40], disjoint_ids: [20] },
+        "20": { id: 20, name: "Inventory / User", privilege_id: 200 },
+        "30": { id: 30, name: "Export Reports" }
+      },
+      privileges: {
+        "100": { id: 100, name: "Sales Access", category_id: 1, placeholder: "No Sales", group_ids: [10, 11] },
+        "200": { id: 200, name: "Inventory Access", category_id: 2, group_ids: [20] }
+      },
+      categories: [
+        { id: 1, name: "Sales", privilege_ids: [100] },
+        { id: 2, name: "Inventory", privilege_ids: [200] }
+      ]
+    }
+  },
+  onUpdate(name, value) {
+    groupUpdates.push({ name, value });
+  }
+});
+const groupField = findAll(groupWindow, (node) => node.className === "gorp-form-field gorp-res-user-group-ids")[0];
+assert.equal(groupField.dataset.field, "group_ids");
+assert.equal(groupField.dataset.role, "user");
+assert.deepEqual(findAll(groupField, (node) => node.tag === "h2").map((node) => node.textContent), ["Extra Rights", "Inventory", "Sales"]);
+const selects = findAll(groupField, (node) => node.tag === "select");
+assert.equal(selects.length, 2);
+const salesSelect = selects.find((node) => node.dataset.privilegeId === "100");
+assert.equal(salesSelect.value, "10");
+assert.equal(findAll(salesSelect, (node) => node.tag === "option")[0].textContent, "No Sales");
+const managerOption = findAll(salesSelect, (node) => node.tag === "option").find((node) => node.dataset.groupId === "11");
+assert.equal(managerOption.dataset.impliedIds, "30");
+assert.equal(managerOption.dataset.impliedByIds, "40");
+assert.equal(managerOption.dataset.disjointIds, "20");
+assert.equal(managerOption.title, "implies 30; implied by 40; incompatible 20");
+salesSelect.value = "11";
+salesSelect.dispatchEvent(new TestEvent("change"));
+assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, [11]]] });
+salesSelect.value = "";
+salesSelect.dispatchEvent(new TestEvent("change"));
+assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, []]] });
+const checkboxes = findAll(groupField, (node) => node.tag === "input");
+assert.equal(checkboxes.length, 1);
+const exportCheckbox = checkboxes.find((node) => node.dataset.groupId === "30");
+exportCheckbox.checked = true;
+exportCheckbox.dispatchEvent(new TestEvent("change"));
+assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, [30]]] });
+
+const userGroupSpecRequests = [];
+const userGroupSpecServices = createWebClientServices({
+  transport(request) {
+    userGroupSpecRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/res.users/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><sheet><field name=\"group_ids\" widget=\"res_user_group_ids\"/></sheet></form>", id: 19 }
+        },
+        models: {
+          "res.users": {
+            fields: {
+              group_ids: { type: "many2many", relation: "res.groups", string: "Groups" },
+              all_group_ids: { type: "many2many", relation: "res.groups", string: "Groups and implied groups" },
+              view_group_hierarchy: { type: "json", string: "Technical field for user group setting" },
+              role: { type: "selection", string: "Role" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.users/web_read") {
+      return Promise.resolve([{ id: 7, group_ids: [10], all_group_ids: [10, 11], role: "group_user", view_group_hierarchy: {} }]);
+    }
+    return Promise.resolve({});
+  }
+});
+await userGroupSpecServices.action.doAction({
+  type: "ir.actions.act_window",
+  res_model: "res.users",
+  res_id: 7,
+  target: "current",
+  views: [[19, "form"]]
+});
+assert.deepEqual(userGroupSpecRequests[1].params.kwargs.specification, {
+  group_ids: {},
+  all_group_ids: {},
+  view_group_hierarchy: {},
+  role: {}
+});
+assert.equal(windowActionRequests[0].route, "/web/action/load");
+assert.deepEqual(windowActionRequests[0].params.context, { active_id: 42, active_ids: [1, 2], lang: "en_US", from_context: 7 });
+assert.equal(windowActionRequests[1].route, "/web/dataset/call_kw/res.partner/get_views");
+assert.deepEqual(windowActionRequests[1].params.kwargs.views, [[8, "list"], [false, "form"], [9, "search"]]);
+assert.equal(windowActionRequests[1].params.kwargs.options.load_filters, true);
+assert.equal(windowActionRequests[1].params.kwargs.options.toolbar, true);
+assert.deepEqual(windowActionRequests[1].params.kwargs.context, { lang: "en_US" });
+assert.equal(windowActionRequests[2].route, "/web/dataset/call_kw/res.partner/web_search_read");
+assert.deepEqual(windowActionRequests[2].params.kwargs.domain, [["active", "=", true], ["id", "in", [1, 2]]]);
+assert.deepEqual(windowActionRequests[2].params.kwargs.specification, {
+  name: {},
+  company_id: {
+    fields: { display_name: {} },
+    context: { default_active_id: 42, from_context: 7, none_value: null }
+  },
+  legacy_note: {},
+  column_note: {},
+  line_ids: {
+    fields: {
+      description: {},
+      user_id: { fields: { display_name: {} } }
+    },
+    context: { default_partner_id: 42, flag: true },
+    limit: 2,
+    order: "sequence desc"
+  }
+});
+assert.equal(windowActionRequests[2].params.kwargs.limit, 25);
+assert.deepEqual(windowActionRequests[2].params.kwargs.context, { bin_size: true, lang: "en_US", search_default_customer: true, active_id: 42, active_ids: [1, 2], from_context: 7 });
+
+const formActionRequests = [];
+const formServices = createWebClientServices({
+  transport(request) {
+    formActionRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/res.partner/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><sheet><field name=\"name\"/><field name=\"company_id\"/></sheet></form>", id: 10 }
+        },
+        models: {
+          "res.partner": {
+            fields: {
+              name: { type: "char", string: "Name" },
+              company_id: { type: "many2one", relation: "res.company", string: "Company" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/web_read") {
+      return Promise.resolve([{ id: 77, name: "Deco Addict", company_id: [3, "My Company"] }]);
+    }
+    return Promise.resolve({});
+  }
+});
+const formResult = await formServices.action.doAction({
+  id: 8,
+  type: "ir.actions.act_window",
+  name: "Partner",
+  res_model: "res.partner",
+  res_id: 77,
+  views: [[10, "form"]],
+  target: "current",
+  context: { lang: "en_US" }
+});
+assert.equal(formResult.activeView, "form");
+assert.equal(formResult.length, 1);
+assert.equal(formResult.records[0].name, "Deco Addict");
+assert.equal(formActionRequests[0].route, "/web/dataset/call_kw/res.partner/get_views");
+assert.equal(formActionRequests[1].route, "/web/dataset/call_kw/res.partner/web_read");
+assert.deepEqual(formActionRequests[1].params.args, [[77]]);
+assert.deepEqual(formActionRequests[1].params.kwargs.specification, {
+  name: {},
+  company_id: { fields: { display_name: {} } }
+});
+assert.deepEqual(formActionRequests[1].params.kwargs.context, { bin_size: true, lang: "en_US" });
+
+const workflowSelectionRequests = [];
+const workflowSelectionServices = createWebClientServices({
+  transport(request) {
+    workflowSelectionRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/purchase.order/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><sheet><field name=\"name\"/><field name=\"company_id\"/></sheet></form>", id: 55 }
+        },
+        models: {
+          "purchase.order": {
+            fields: {
+              name: { type: "char", string: "Name" },
+              company_id: { type: "many2one", relation: "res.company", string: "Company" }
+            }
+          }
+        }
+      });
+    }
+    return Promise.resolve({});
+  }
+});
+const selectedWorkflowResult = await workflowSelectionServices.action.doAction(
+  {
+    type: "ir.actions.act_window",
+    name: "New PO",
+    res_model: "purchase.order",
+    target: "current",
+    views: [[55, "form"]]
+  },
+  { additional_context: { approval_auto_submit: true, default_company_id: 3 } }
+);
+assert.equal(selectedWorkflowResult.activeView, "form");
+assert.equal(selectedWorkflowResult.resModel, "purchase.order");
+assert.equal(selectedWorkflowResult.viewDescriptions.views.form.id, 55);
+assert.deepEqual(selectedWorkflowResult.action.context, { approval_auto_submit: true, default_company_id: 3 });
+assert.equal(workflowSelectionRequests[0].route, "/web/dataset/call_kw/purchase.order/get_views");
+assert.deepEqual(workflowSelectionRequests[0].params.kwargs.views, [[55, "form"]]);
+assert.deepEqual(workflowSelectionRequests[0].params.kwargs.context, {});
+
+const workflowOpenRequests = [];
+const workflowOpenServices = createWebClientServices({
+  transport(request) {
+    workflowOpenRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/purchase.order/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><sheet><field name=\"name\"/></sheet></form>", id: 66 }
+        },
+        models: {
+          "purchase.order": {
+            fields: {
+              name: { type: "char", string: "Name" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/purchase.order/web_read") {
+      return Promise.resolve([{ id: 101, name: "PO101" }]);
+    }
+    return Promise.resolve({});
+  }
+});
+const workflowOpenResult = await workflowOpenServices.action.doAction({
+  type: "ir.actions.act_window",
+  res_model: "purchase.order",
+  res_id: 101,
+  target: "current",
+  views: [[66, "form"]]
+});
+assert.equal(workflowOpenResult.activeView, "form");
+assert.deepEqual(workflowOpenResult.records, [{ id: 101, name: "PO101" }]);
+assert.equal(workflowOpenRequests[0].route, "/web/dataset/call_kw/purchase.order/get_views");
+assert.equal(workflowOpenRequests[1].route, "/web/dataset/call_kw/purchase.order/web_read");
+assert.deepEqual(workflowOpenRequests[1].params.args, [[101]]);
+assert.deepEqual(workflowOpenRequests[1].params.kwargs.specification, { name: {} });

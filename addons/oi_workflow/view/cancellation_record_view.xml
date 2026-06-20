@@ -1,0 +1,12 @@
+<odoo>
+  <record id="view_cancellation_record_list" model="ir.ui.view">
+    <field name="name">cancellation.record.list</field>
+    <field name="model">cancellation.record</field>
+    <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="state"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_cancellation_record_form" model="ir.ui.view">
+    <field name="name">cancellation.record.form</field>
+    <field name="model">cancellation.record</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="reason"/&gt;&lt;field name="state"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

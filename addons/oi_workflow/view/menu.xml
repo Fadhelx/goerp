@@ -1,0 +1,29 @@
+<odoo>
+  <record id="menu_approval_root" model="ir.ui.menu">
+    <field name="name">Approvals</field>
+  </record>
+  <record id="menu_approval_operations" model="ir.ui.menu">
+    <field name="name">Operations</field>
+    <field name="parent_id" ref="menu_approval_root"/>
+  </record>
+  <record id="menu_approval_settings" model="ir.ui.menu">
+    <field name="name">Approval Settings</field>
+    <field name="parent_id" ref="menu_approval_operations"/>
+    <field name="action">ir.actions.act_window,act_approval_settings</field>
+  </record>
+  <record id="menu_approval_buttons" model="ir.ui.menu">
+    <field name="name">Approval Buttons</field>
+    <field name="parent_id" ref="menu_approval_operations"/>
+    <field name="action">ir.actions.act_window,act_approval_buttons</field>
+  </record>
+  <record id="menu_approval_logs" model="ir.ui.menu">
+    <field name="name">Approval Logs</field>
+    <field name="parent_id" ref="menu_approval_operations"/>
+    <field name="action">ir.actions.act_window,act_approval_logs</field>
+  </record>
+  <record id="menu_cancellation_records" model="ir.ui.menu">
+    <field name="name">Cancellation Records</field>
+    <field name="parent_id" ref="menu_approval_operations"/>
+    <field name="action">ir.actions.act_window,act_cancellation_records</field>
+  </record>
+</odoo>

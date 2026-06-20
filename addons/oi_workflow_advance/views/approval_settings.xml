@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_approval_settings_workflow_advance_form" model="ir.ui.view">
+    <field name="name">approval.settings.workflow.advance.form</field>
+    <field name="model">approval.settings</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="state_field"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

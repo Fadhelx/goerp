@@ -1,0 +1,12 @@
+<odoo>
+  <record id="view_approval_buttons_list" model="ir.ui.view">
+    <field name="name">approval.buttons.list</field>
+    <field name="model">approval.buttons</field>
+    <field name="arch">&lt;list&gt;&lt;field name="sequence"/&gt;&lt;field name="name"/&gt;&lt;field name="action_type"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_approval_buttons_form" model="ir.ui.view">
+    <field name="name">approval.buttons.form</field>
+    <field name="model">approval.buttons</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="action_type"/&gt;&lt;field name="state_value"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

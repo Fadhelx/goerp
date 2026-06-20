@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_approval_log_list" model="ir.ui.view">
+    <field name="name">approval.log.list</field>
+    <field name="model">approval.log</field>
+    <field name="arch">&lt;list&gt;&lt;field name="model"/&gt;&lt;field name="record_id"/&gt;&lt;field name="old_state"/&gt;&lt;field name="new_state"/&gt;&lt;/list&gt;</field>
+  </record>
+</odoo>

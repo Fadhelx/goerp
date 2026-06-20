@@ -1,0 +1,79 @@
+<odoo>
+    <data noupdate="1">
+        <record id="autovacuum_job" model="ir.cron">
+            <field name="name">Base: Auto-vacuum internal data</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number" eval="1"/>
+            <field name="interval_type">days</field>
+            <field name="nextcall">1970-01-01 00:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="action_name">base.autovacuum</field>
+        </record>
+
+        <record id="ir_cron_res_users_deletion" model="ir.cron">
+            <field name="name">Base: Portal users cleanup</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number" eval="1"/>
+            <field name="interval_type">days</field>
+            <field name="nextcall">1970-01-01 00:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="action_name">base.res_users_cleanup</field>
+        </record>
+
+        <record id="mail.ir_cron_mail_scheduler_action" model="ir.cron">
+            <field name="name">Mail: Email Queue Manager</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number" eval="1"/>
+            <field name="interval_type">hours</field>
+            <field name="nextcall">1970-01-01 00:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="priority" eval="6"/>
+            <field name="model_id" ref="model_mail_mail"/>
+            <field name="state">code</field>
+            <field name="code">model.process_email_queue(batch_size=1000)</field>
+            <field name="action_name">mail.process_email_queue</field>
+        </record>
+
+        <record id="mail.ir_cron_mail_gateway_action" model="ir.cron">
+            <field name="name">Mail: Fetchmail Service</field>
+            <field name="active" eval="False"/>
+            <field name="interval_number" eval="5"/>
+            <field name="interval_type">minutes</field>
+            <field name="nextcall">1970-01-01 00:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="priority" eval="6"/>
+            <field name="model_id" ref="model_fetchmail_server"/>
+            <field name="state">code</field>
+            <field name="code">model._fetch_mails()</field>
+            <field name="action_name">mail.fetchmail</field>
+        </record>
+
+        <record id="mass_mailing.ir_cron_mass_mailing_queue" model="ir.cron">
+            <field name="name">Mass Mailing: Process queue</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number" eval="1"/>
+            <field name="interval_type">hours</field>
+            <field name="nextcall">1970-01-01 00:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="priority" eval="6"/>
+            <field name="model_id" ref="model_mailing_mailing"/>
+            <field name="state">code</field>
+            <field name="code">model._process_mass_mailing_queue()</field>
+            <field name="action_name">mailing.mailing.process_mass_mailing_queue</field>
+        </record>
+
+        <record id="digest.ir_cron_digest_scheduler_action" model="ir.cron">
+            <field name="name">Digest Emails</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number" eval="1"/>
+            <field name="interval_type">days</field>
+            <field name="nextcall">1970-01-01 02:00:00</field>
+            <field name="failure_count" eval="0"/>
+            <field name="priority" eval="5"/>
+            <field name="model_id" ref="model_digest_digest"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_digest_email()</field>
+            <field name="action_name">digest.digest._cron_send_digest_email</field>
+        </record>
+    </data>
+</odoo>

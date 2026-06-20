@@ -1,0 +1,16 @@
+<odoo>
+  <data>
+    <template id="portal.portal_layout"><div id="wrap"><t t-out="0"/></div></template>
+    <template id="portal.portal_breadcrumbs"><ol class="breadcrumb"/></template>
+    <template id="portal.portal_my_home"><div class="o_portal_my_home"/></template>
+    <template id="portal.portal_docs_entry"><div class="o_portal_docs_entry"/></template>
+    <template id="portal.portal_searchbar"><div class="o_portal_searchbar"/></template>
+    <template id="portal.portal_table"><table class="table"/></template>
+    <template id="portal.portal_sidebar"><aside class="o_portal_sidebar"/></template>
+    <template id="portal.portal_back_in_edit_mode"><div class="o_portal_back_in_edit_mode"/></template>
+    <template id="portal.portal_record_sidebar"><aside class="o_portal_record_sidebar"/></template>
+    <template id="portal.portal_my_contact"><div class="o_portal_my_contact"/></template>
+    <template id="portal.message_thread"><div class="o_portal_chatter"/></template>
+    <template id="portal.portal_my_details"><div class="o_portal_my_details"/></template>
+  </data>
+</odoo>

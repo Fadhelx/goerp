@@ -1,0 +1,7 @@
+<odoo>
+  <record id="view_workflow_process_wizard_form" model="ir.ui.view">
+    <field name="name">workflow.process.wizard.form</field>
+    <field name="model">workflow.process.wizard</field>
+    <field name="arch">&lt;form&gt;&lt;field name="record_name" readonly="1"/&gt;&lt;field name="workflow_transition_ids" invisible="1"/&gt;&lt;field name="comment_required" invisible="1"/&gt;&lt;field name="workflow_transition_id" domain="[('id','in',workflow_transition_ids)]"/&gt;&lt;field name="comment" required="comment_required"/&gt;&lt;footer&gt;&lt;button name="process" type="object" string="Apply" class="btn-primary"/&gt;&lt;button string="Cancel" special="cancel"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

@@ -1,0 +1,12 @@
+<odoo>
+  <record id="view_approval_settings_list" model="ir.ui.view">
+    <field name="name">approval.settings.list</field>
+    <field name="model">approval.settings</field>
+    <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+  </record>
+  <record id="view_approval_settings_form" model="ir.ui.view">
+    <field name="name">approval.settings.form</field>
+    <field name="model">approval.settings</field>
+    <field name="arch">&lt;form&gt;&lt;field name="name"/&gt;&lt;field name="model"/&gt;&lt;field name="state_field"/&gt;&lt;/form&gt;</field>
+  </record>
+</odoo>

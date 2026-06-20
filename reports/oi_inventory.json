@@ -1,0 +1,1109 @@
+{
+  "generated_at": "2026-06-16T18:37:51Z",
+  "source_base": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons",
+  "modules": [
+    {
+      "name": "oi_base",
+      "root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base",
+      "entries": [
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/controllers/__init__.py",
+          "relative": "controllers/__init__.py",
+          "category": "controller",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/controllers/main.py",
+          "relative": "controllers/main.py",
+          "category": "controller",
+          "status": "implemented",
+          "target": "addons/oi_base.Ping",
+          "reason": "Health endpoint semantics are represented by Ping."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/__init__.py",
+          "relative": "models/__init__.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/base.py",
+          "relative": "models/base.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/ir_actions_actions.py",
+          "relative": "models/ir_actions_actions.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/ir_attachment.py",
+          "relative": "models/ir_attachment.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "addons/oi_base",
+          "reason": "Odoo attachment mixin behavior is not required by current OI Go add-ons."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/ir_qweb.py",
+          "relative": "models/ir_qweb.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/ir_sequence.py",
+          "relative": "models/ir_sequence.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/many2many_attachment_res_id_mixin.py",
+          "relative": "models/many2many_attachment_res_id_mixin.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "addons/oi_base",
+          "reason": "Odoo attachment mixin behavior is not required by current OI Go add-ons."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/res_config_settings.py",
+          "relative": "models/res_config_settings.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/res_groups.py",
+          "relative": "models/res_groups.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/tools.py",
+          "relative": "models/tools.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/models/xml_mixin.py",
+          "relative": "models/xml_mixin.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_base/view/res_groups.xml",
+          "relative": "view/res_groups.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "addons/oi_base",
+          "reason": "Base helpers, sequences, groups, XML IDs, escaping, and national ID helpers are represented."
+        }
+      ],
+      "summary": {
+        "total": 14,
+        "implemented": 10,
+        "intentionally_omitted": 4,
+        "blocked": 0
+      }
+    },
+    {
+      "name": "oi_workflow",
+      "root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow",
+      "entries": [
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/data/approval_record_templates.xml",
+          "relative": "data/approval_record_templates.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/data/approval_settings.xml",
+          "relative": "data/approval_settings.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/data/ir_cron.xml",
+          "relative": "data/ir_cron.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/data/ir_sequence.xml",
+          "relative": "data/ir_sequence.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/data/mail_activity_type.xml",
+          "relative": "data/mail_activity_type.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/__init__.py",
+          "relative": "models/__init__.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_automation.py",
+          "relative": "models/approval_automation.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_buttons.py",
+          "relative": "models/approval_buttons.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_config.py",
+          "relative": "models/approval_config.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_escalation.py",
+          "relative": "models/approval_escalation.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_forward.py",
+          "relative": "models/approval_forward.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_log.py",
+          "relative": "models/approval_log.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_log_voting.py",
+          "relative": "models/approval_log_voting.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_record.py",
+          "relative": "models/approval_record.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_settings.py",
+          "relative": "models/approval_settings.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/approval_settings_state.py",
+          "relative": "models/approval_settings_state.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/cancellation_record.py",
+          "relative": "models/cancellation_record.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/ir_http.py",
+          "relative": "models/ir_http.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/ir_model.py",
+          "relative": "models/ir_model.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/mail_activity.py",
+          "relative": "models/mail_activity.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/mail_template.py",
+          "relative": "models/mail_template.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/name_sequence_mixin.py",
+          "relative": "models/name_sequence_mixin.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/res_config_settings.py",
+          "relative": "models/res_config_settings.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/res_groups.py",
+          "relative": "models/res_groups.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/res_users.py",
+          "relative": "models/res_users.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/models/state_tags.py",
+          "relative": "models/state_tags.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/security/ir.model.access.csv",
+          "relative": "security/ir.model.access.csv",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/action.xml",
+          "relative": "view/action.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_automation.xml",
+          "relative": "view/approval_automation.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_buttons.xml",
+          "relative": "view/approval_buttons.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_config.xml",
+          "relative": "view/approval_config.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_escalation.xml",
+          "relative": "view/approval_escalation.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_log.xml",
+          "relative": "view/approval_log.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_process_wizard.xml",
+          "relative": "view/approval_process_wizard.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_settings.xml",
+          "relative": "view/approval_settings.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/approval_state_update.xml",
+          "relative": "view/approval_state_update.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/cancellation_record_view.xml",
+          "relative": "view/cancellation_record_view.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/ir_model.xml",
+          "relative": "view/ir_model.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/menu.xml",
+          "relative": "view/menu.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/model_expression_editor.xml",
+          "relative": "view/model_expression_editor.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/res_config_settings.xml",
+          "relative": "view/res_config_settings.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/res_groups.xml",
+          "relative": "view/res_groups.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/view/templates.xml",
+          "relative": "view/templates.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/views/approval_record_templates.xml",
+          "relative": "views/approval_record_templates.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/wizard/__init__.py",
+          "relative": "wizard/__init__.py",
+          "category": "wizard",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/wizard/approval_process_wizard.py",
+          "relative": "wizard/approval_process_wizard.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/wizard/approval_state_update.py",
+          "relative": "wizard/approval_state_update.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/wizard/mail_compose_message.py",
+          "relative": "wizard/mail_compose_message.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow/wizard/model_expression_editor.py",
+          "relative": "wizard/model_expression_editor.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow; addons/oi_workflow; frontend/packages/oi-workflow",
+          "reason": "Workflow model metadata, transitions, actions, logs, voting, view metadata, and frontend descriptors are represented."
+        }
+      ],
+      "summary": {
+        "total": 49,
+        "implemented": 47,
+        "intentionally_omitted": 2,
+        "blocked": 0
+      }
+    },
+    {
+      "name": "oi_workflow_advance",
+      "root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance",
+      "entries": [
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/data/ir_cron.xml",
+          "relative": "data/ir_cron.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/__init__.py",
+          "relative": "models/__init__.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/approval_config.py",
+          "relative": "models/approval_config.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/approval_forward.py",
+          "relative": "models/approval_forward.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/approval_log.py",
+          "relative": "models/approval_log.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/approval_record.py",
+          "relative": "models/approval_record.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/approval_settings.py",
+          "relative": "models/approval_settings.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/ir_actions_act_window.py",
+          "relative": "models/ir_actions_act_window.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/workflow.py",
+          "relative": "models/workflow.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/workflow_node.py",
+          "relative": "models/workflow_node.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/workflow_node_action.py",
+          "relative": "models/workflow_node_action.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/workflow_process.py",
+          "relative": "models/workflow_process.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/models/workflow_transition.py",
+          "relative": "models/workflow_transition.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/security/ir.model.access.csv",
+          "relative": "security/ir.model.access.csv",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/security/ir_rule.xml",
+          "relative": "security/ir_rule.xml",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/action.xml",
+          "relative": "views/action.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/approval_config.xml",
+          "relative": "views/approval_config.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/approval_log.xml",
+          "relative": "views/approval_log.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/approval_settings.xml",
+          "relative": "views/approval_settings.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/approval_state_update.xml",
+          "relative": "views/approval_state_update.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/workflow.xml",
+          "relative": "views/workflow.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/workflow_node.xml",
+          "relative": "views/workflow_node.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/workflow_process_wizard.xml",
+          "relative": "views/workflow_process_wizard.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/views/workflow_transition.xml",
+          "relative": "views/workflow_transition.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/wizard/__init__.py",
+          "relative": "wizard/__init__.py",
+          "category": "wizard",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/wizard/approval_state_update.py",
+          "relative": "wizard/approval_state_update.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/wizard/mail_compose_message.py",
+          "relative": "wizard/mail_compose_message.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_workflow_advance/wizard/workflow_process_wizard.py",
+          "relative": "wizard/workflow_process_wizard.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/workflow/advanced.go; addons/oi_workflow_advance; frontend/packages/oi-flowchart",
+          "reason": "Advanced workflow graph, nodes, transitions, process wizard, hooks, and flowchart metadata are represented."
+        }
+      ],
+      "summary": {
+        "total": 28,
+        "implemented": 26,
+        "intentionally_omitted": 2,
+        "blocked": 0
+      }
+    },
+    {
+      "name": "oi_delegation",
+      "root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation",
+      "entries": [
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/data/approval_buttons.xml",
+          "relative": "data/approval_buttons.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/data/approval_config.xml",
+          "relative": "data/approval_config.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/data/ir_cron.xml",
+          "relative": "data/ir_cron.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/data/mail_template.xml",
+          "relative": "data/mail_template.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/data/sequences.xml",
+          "relative": "data/sequences.xml",
+          "category": "data",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/__init__.py",
+          "relative": "models/__init__.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/approval_log.py",
+          "relative": "models/approval_log.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/approval_record.py",
+          "relative": "models/approval_record.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/delegation.py",
+          "relative": "models/delegation.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/delegation_line.py",
+          "relative": "models/delegation_line.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/hr_employee.py",
+          "relative": "models/hr_employee.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/ir_model_access.py",
+          "relative": "models/ir_model_access.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/ir_rule.py",
+          "relative": "models/ir_rule.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/ir_ui_menu.py",
+          "relative": "models/ir_ui_menu.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/mail_mail.py",
+          "relative": "models/mail_mail.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/mail_template.py",
+          "relative": "models/mail_template.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/res_groups.py",
+          "relative": "models/res_groups.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/models/res_users.py",
+          "relative": "models/res_users.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/security/group.xml",
+          "relative": "security/group.xml",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/security/ir.model.access.csv",
+          "relative": "security/ir.model.access.csv",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/security/rules.xml",
+          "relative": "security/rules.xml",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/action.xml",
+          "relative": "view/action.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/approval_log.xml",
+          "relative": "view/approval_log.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/delegation.xml",
+          "relative": "view/delegation.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/mail_template.xml",
+          "relative": "view/mail_template.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/menu.xml",
+          "relative": "view/menu.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_delegation/view/res_groups.xml",
+          "relative": "view/res_groups.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/delegation; addons/oi_delegation",
+          "reason": "Delegation lifecycle, security metadata, mail/menu/access hooks, cache invalidation, and expiration are represented."
+        }
+      ],
+      "summary": {
+        "total": 27,
+        "implemented": 26,
+        "intentionally_omitted": 1,
+        "blocked": 0
+      }
+    },
+    {
+      "name": "oi_login_as",
+      "root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as",
+      "entries": [
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/controllers/__init__.py",
+          "relative": "controllers/__init__.py",
+          "category": "controller",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/controllers/main.py",
+          "relative": "controllers/main.py",
+          "category": "controller",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/models/__init__.py",
+          "relative": "models/__init__.py",
+          "category": "model",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/models/ir_http.py",
+          "relative": "models/ir_http.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/models/res_users.py",
+          "relative": "models/res_users.py",
+          "category": "model",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/security/ir.model.access.csv",
+          "relative": "security/ir.model.access.csv",
+          "category": "security",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/view/action.xml",
+          "relative": "view/action.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/view/login_as.xml",
+          "relative": "view/login_as.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/view/templates.xml",
+          "relative": "view/templates.xml",
+          "category": "view",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/wizard/__init__.py",
+          "relative": "wizard/__init__.py",
+          "category": "wizard",
+          "status": "intentionally_omitted",
+          "target": "Go package initialization",
+          "reason": "Python import glue is not needed in the Go module system."
+        },
+        {
+          "source_path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/odoo18-addons/oi_login_as/wizard/login_as.py",
+          "relative": "wizard/login_as.py",
+          "category": "wizard",
+          "status": "implemented",
+          "target": "internal/impersonation; addons/oi_login_as; frontend/packages/oi-login-as",
+          "reason": "Routes, guarded switching, return flow, debug gate, banner context, portal support, and audit are represented."
+        }
+      ],
+      "summary": {
+        "total": 11,
+        "implemented": 8,
+        "intentionally_omitted": 3,
+        "blocked": 0
+      }
+    }
+  ],
+  "summary": {
+    "total": 129,
+    "implemented": 117,
+    "intentionally_omitted": 12,
+    "blocked": 0
+  },
+  "notes": [
+    "Generated from local Odoo 18 OI source inventory.",
+    "OPL-1 source code and static media were not copied.",
+    "Python safe_eval/code execution is replaced by Go callbacks and safe expression/action DSLs."
+  ]
+}

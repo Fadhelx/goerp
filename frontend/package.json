@@ -1,0 +1,17 @@
+{
+  "name": "gorp-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "node ./scripts/lint.mjs",
+    "test": "tsc -p tsconfig.json && node ./scripts/test.mjs",
+    "build": "tsc -p tsconfig.json && node ./scripts/build.mjs",
+    "test:e2e": "tsc -p tsconfig.json && node ./scripts/e2e.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

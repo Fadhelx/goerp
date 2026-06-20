@@ -1,0 +1,118 @@
+<odoo>
+  <data noupdate="1">
+    <record id="ir_actions_server_get_fields" model="ir.actions.server">
+      <field name="name">AI: Get Fields</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.get_fields</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_description">List searchable fields for a model as pipe-delimited field metadata.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"model_name":{"type":"string","description":"Technical model name."},"include_description":{"type":"boolean","description":"Include help text."}},"required":["model_name"]}</field>
+    </record>
+    <record id="ir_actions_server_search" model="ir.actions.server">
+      <field name="name">AI: Search</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.search</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_description">Search records with a JSON Odoo domain and return selected fields.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"model_name":{"type":"string"},"domain":{"type":"string","description":"JSON encoded Odoo domain."},"fields":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer"},"limit":{"type":"integer"},"order":{"type":"string"}},"required":["model_name","domain"]}</field>
+    </record>
+    <record id="ir_actions_server_read_group" model="ir.actions.server">
+      <field name="name">AI: Read Group</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.read_group</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_description">Group records with a JSON Odoo domain and return counts by group.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"model_name":{"type":"string"},"domain":{"type":"string"},"groupby":{"type":"array","items":{"type":"string"}},"aggregates":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer"},"limit":{"type":"integer"},"order":{"type":"string"}},"required":["model_name","domain"]}</field>
+    </record>
+    <record id="ir_actions_server_get_menu_details" model="ir.actions.server">
+      <field name="name">AI: Get Menu Details</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.get_menu_details</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_description">Return menu model, context, domain, and search view metadata as pipe-delimited text.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"menu_ids":{"type":"array","items":{"type":"number"},"description":"Menu IDs to inspect."}},"required":["menu_ids"]}</field>
+    </record>
+    <record id="ir_actions_server_compute_report_measures" model="ir.actions.server">
+      <field name="name">AI: Compute Report Measures</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.compute_report_measures</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_description">List numeric measures available for reporting on a model.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"model":{"type":"string"},"model_name":{"type":"string"}},"required":["model"]}</field>
+    </record>
+    <record id="ir_actions_server_open_menu_list" model="ir.actions.server">
+      <field name="name">AI: Open Menu List</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.open_menu_list</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_allow_end_message" eval="True"/>
+      <field name="ai_tool_description">Prepare a list-view navigation payload for a menu.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"menu_id":{"type":"number"},"model_name":{"type":"string"},"selected_filters":{"type":"array","items":{"type":"string"}},"selected_groupbys":{"type":"array","items":{"type":"string"}},"search":{"type":"array","items":{"type":"string"}},"custom_domain":{"type":"string"}},"required":["menu_id","model_name","selected_filters","selected_groupbys","search"]}</field>
+    </record>
+    <record id="ir_actions_server_open_menu_kanban" model="ir.actions.server">
+      <field name="name">AI: Open Menu Kanban</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.open_menu_kanban</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_allow_end_message" eval="True"/>
+      <field name="ai_tool_description">Prepare a kanban-view navigation payload for a menu.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"menu_id":{"type":"number"},"model_name":{"type":"string"},"selected_filters":{"type":"array","items":{"type":"string"}},"selected_groupbys":{"type":"array","items":{"type":"string"}},"search":{"type":"array","items":{"type":"string"}},"custom_domain":{"type":"string"}},"required":["menu_id","model_name","selected_filters","selected_groupbys","search"]}</field>
+    </record>
+    <record id="ir_actions_server_open_menu_pivot" model="ir.actions.server">
+      <field name="name">AI: Open Menu Pivot</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.open_menu_pivot</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_allow_end_message" eval="True"/>
+      <field name="ai_tool_description">Prepare a pivot-view navigation payload for a menu.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"menu_id":{"type":"number"},"model_name":{"type":"string"},"selected_filters":{"type":"array","items":{"type":"string"}},"row_groupbys":{"type":"array","items":{"type":"string"}},"col_groupbys":{"type":"array","items":{"type":"string"}},"measures":{"type":"array","items":{"type":"string"}},"search":{"type":"array","items":{"type":"string"}},"custom_domain":{"type":"string"}},"required":["menu_id","model_name","selected_filters","row_groupbys","col_groupbys","measures","search"]}</field>
+    </record>
+    <record id="ir_actions_server_open_menu_graph" model="ir.actions.server">
+      <field name="name">AI: Open Menu Graph</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.open_menu_graph</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_allow_end_message" eval="True"/>
+      <field name="ai_tool_description">Prepare a graph-view navigation payload for a menu.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"menu_id":{"type":"number"},"model_name":{"type":"string"},"selected_filters":{"type":"array","items":{"type":"string"}},"selected_groupbys":{"type":"array","items":{"type":"string"}},"measure":{"type":"string"},"mode":{"type":"string"},"order":{"type":"string"},"search":{"type":"array","items":{"type":"string"}},"stacked":{"type":"boolean"},"cumulated":{"type":"boolean"},"custom_domain":{"type":"string"}},"required":["menu_id","model_name","selected_filters","selected_groupbys","measure","mode","order","search"]}</field>
+    </record>
+    <record id="ir_actions_server_adjust_search" model="ir.actions.server">
+      <field name="name">AI: Adjust Search</field>
+      <field name="model_name">ai.agent</field>
+      <field name="state">code</field>
+      <field name="go_action_name">ai.adjust_search</field>
+      <field name="active" eval="True"/>
+      <field name="use_in_ai" eval="True"/>
+      <field name="ai_tool_allow_end_message" eval="True"/>
+      <field name="ai_tool_description">Prepare a payload to adjust the current search/view state.</field>
+      <field name="ai_tool_schema">{"type":"object","properties":{"model_name":{"type":"string"},"remove_facets":{"type":"array","items":{"type":"string"}},"toggle_filters":{"type":"array","items":{"type":"string"}},"toggle_groupbys":{"type":"array","items":{"type":"string"}},"apply_searches":{"type":"array","items":{"type":"string"}},"measures":{"type":"array","items":{"type":"string"}},"mode":{"type":"string"},"order":{"type":"string"},"stacked":{"type":"boolean"},"cumulated":{"type":"boolean"},"custom_domain":{"type":"string"},"switch_view_type":{"type":"string"}},"required":[]}</field>
+    </record>
+    <record id="action_ai_record_assistant" model="ir.actions.server">
+      <field name="name">Ask AI</field>
+      <field name="model_name">mail.thread</field>
+      <field name="state">ai</field>
+      <field name="active" eval="True"/>
+      <field name="ai_action_prompt">Help with the current record using allowed AI tools only.</field>
+      <field name="ai_tool_ids" eval="[(6, 0, [ref('ir_actions_server_get_fields'), ref('ir_actions_server_search'), ref('ir_actions_server_read_group')])]"/>
+      <field name="usage">ir_actions_server</field>
+    </record>
+  </data>
+</odoo>
