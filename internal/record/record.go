@@ -274,7 +274,7 @@ func (m ModelSet) Create(values map[string]any) (int64, error) {
 	needsActionBase := m.needsActionBaseSync()
 	envSnapshot := map[string]storeSnapshot{}
 	irExportsPayload, hasIrExportsPayload := values["export_fields"]
-	if len(m.env.afterCreateHooks) > 0 || needsActionBase || (m.model.Name == "ir.exports" && hasIrExportsPayload) || m.model.Name == "mail.alias.domain" || m.model.Name == "link.tracker" || m.model.Name == "mailing.mailing" || m.model.Name == "fetchmail.server" {
+	if len(m.env.afterCreateHooks) > 0 || needsActionBase || (m.model.Name == "ir.exports" && hasIrExportsPayload) || m.model.Name == "mail.alias.domain" || m.model.Name == "link.tracker" || m.model.Name == "mailing.mailing" || m.model.Name == "fetchmail.server" || m.model.Name == "delegation" {
 		envSnapshot = m.snapshotEnv()
 	}
 	createdID := int64(0)
@@ -456,6 +456,15 @@ func (m ModelSet) Create(values map[string]any) (int64, error) {
 	if m.model.Name == "fetchmail.server" {
 		if err := m.syncFetchmailGatewayCron(); err != nil {
 			return restoreCreate(err)
+		}
+	}
+	if m.model.Name == "delegation" {
+		if lineCommands, ok := values["lines"]; ok {
+			lineIDs, err := m.materializeDelegationLineCommands(id, lineCommands)
+			if err != nil {
+				return restoreCreate(err)
+			}
+			row["lines"] = lineIDs
 		}
 	}
 	for _, hook := range m.env.afterCreateHooks {
@@ -2195,6 +2204,11 @@ func (m ModelSet) normalizeDelegationValues(existing map[string]any, values map[
 		if _, ok := out["date_from"]; !ok && m.hasField("date_from") {
 			out["date_from"] = time.Now().UTC().Format("2006-01-02")
 		}
+		if _, ok := out["employee_id"]; !ok && m.hasField("employee_id") {
+			if employeeID := m.currentUserEmployeeID(); employeeID != 0 {
+				out["employee_id"] = employeeID
+			}
+		}
 	}
 	if source, ok := out["delegateTo_employee_id"]; ok {
 		out["delegate_to_employee_id"] = source
@@ -2247,6 +2261,106 @@ func (m ModelSet) normalizeDelegationLineValues(existing map[string]any, values 
 	return out
 }
 
+func (m ModelSet) materializeDelegationLineCommands(delegationID int64, raw any) ([]int64, error) {
+	if delegationID == 0 {
+		return nil, nil
+	}
+	linkExisting := func(ids []int64) ([]int64, error) {
+		ids = uniqueRecordIDs(ids)
+		if len(ids) == 0 {
+			return []int64{}, nil
+		}
+		if err := m.env.Model("delegation.line").Browse(ids...).Write(map[string]any{"delegation_id": delegationID}); err != nil {
+			return nil, err
+		}
+		return ids, nil
+	}
+	createLine := func(values any) (int64, error) {
+		lineValues := mapRecordValue(values)
+		if lineValues == nil {
+			lineValues = map[string]any{}
+		} else {
+			lineValues = copyValues(lineValues)
+		}
+		lineValues["delegation_id"] = delegationID
+		return m.env.Model("delegation.line").Create(lineValues)
+	}
+	switch typed := raw.(type) {
+	case []int64:
+		return linkExisting(typed)
+	case []any:
+		if len(typed) == 0 {
+			return []int64{}, nil
+		}
+		if !x2ManyCommandItems(typed) {
+			return linkExisting(int64Values(typed))
+		}
+		ids := []int64{}
+		for _, item := range typed {
+			command := item.([]any)
+			switch numericID(command[0]) {
+			case 0:
+				var payload any
+				if len(command) > 2 {
+					payload = command[2]
+				}
+				id, err := createLine(payload)
+				if err != nil {
+					return nil, err
+				}
+				ids = append(ids, id)
+			case 2, 3:
+				if len(command) > 1 {
+					lineID := numericID(command[1])
+					ids = removeRecordID(ids, lineID)
+					if lineID != 0 {
+						if err := m.env.Model("delegation.line").Browse(lineID).Unlink(); err != nil {
+							return nil, err
+						}
+					}
+				}
+			case 4:
+				if len(command) > 1 {
+					ids = appendUniqueID(ids, numericID(command[1]))
+				}
+			case 5:
+				if err := m.clearDelegationLineRecords(delegationID); err != nil {
+					return nil, err
+				}
+				ids = []int64{}
+			case 6:
+				if len(command) > 2 {
+					ids = uniqueRecordIDs(int64Values(command[2]))
+				}
+			}
+		}
+		return linkExisting(ids)
+	default:
+		return linkExisting(int64Values(raw))
+	}
+}
+
+func mapRecordValue(value any) map[string]any {
+	if typed, ok := value.(map[string]any); ok {
+		return typed
+	}
+	return nil
+}
+
+func (m ModelSet) clearDelegationLineRecords(delegationID int64) error {
+	if delegationID == 0 {
+		return nil
+	}
+	found, err := m.env.Model("delegation.line").Search(domain.Cond("delegation_id", domain.Equal, delegationID))
+	if err != nil {
+		return err
+	}
+	if found.Len() == 0 {
+		return nil
+	}
+	return found.Unlink()
+}
+
 func (m ModelSet) employeeUserID(employeeID int64) int64 {
 	if employeeID == 0 {
 		return 0
@@ -2256,6 +2370,19 @@ func (m ModelSet) employeeUserID(employeeID int64) int64 {
 		return 0
 	}
 	return numericID(row["user_id"])
+}
+
+func (m ModelSet) currentUserEmployeeID() int64 {
+	userID := m.env.Context().UserID
+	if userID == 0 {
+		return 0
+	}
+	for _, row := range m.rows("hr.employee") {
+		if numericID(row["user_id"]) == userID {
+			return numericID(row["id"])
+		}
+	}
+	return 0
 }
 
 func (m ModelSet) validateDelegationLine(row map[string]any) error {
@@ -5589,6 +5716,17 @@ func (m ModelSet) DefaultGet(names []string, context map[string]any) (map[string
 			}
 		}
 	}
+	if m.model.Name == "delegation" {
+		defaults := m.normalizeDelegationValues(nil, map[string]any{})
+		for _, name := range names {
+			if _, exists := out[name]; exists {
+				continue
+			}
+			if value, ok := defaults[name]; ok {
+				out[name] = value
+			}
+		}
+	}
 	return out, nil
 }
 
@@ -6021,7 +6159,7 @@ func (r RecordSet) Write(values map[string]any) error {
 	}
 	needsActionBase := r.model.needsActionBaseSync()
 	envSnapshot := map[string]storeSnapshot{}
-	if len(r.model.env.afterWriteHooks) > 0 || needsActionBase || r.model.model.Name == "account.move" || r.model.model.Name == "mail.alias.domain" || r.model.model.Name == "link.tracker" || r.model.model.Name == "mailing.mailing" || r.model.model.Name == "utm.campaign" || r.model.model.Name == "fetchmail.server" {
+	if len(r.model.env.afterWriteHooks) > 0 || needsActionBase || r.model.model.Name == "account.move" || r.model.model.Name == "mail.alias.domain" || r.model.model.Name == "link.tracker" || r.model.model.Name == "mailing.mailing" || r.model.model.Name == "utm.campaign" || r.model.model.Name == "fetchmail.server" || r.model.model.Name == "delegation" {
 		envSnapshot = r.model.snapshotEnv()
 	}
 	oldRows := map[int64]map[string]any{}
@@ -6097,6 +6235,24 @@ func (r RecordSet) Write(values map[string]any) error {
 				r.model.store.records[oldID] = oldRow
 			}
 			return err
+		}
+	}
+	if r.model.model.Name == "delegation" {
+		for _, id := range r.ids {
+			row, ok := r.model.store.records[id]
+			if !ok {
+				continue
+			}
+			lineCommands, ok := writeValues[id]["lines"]
+			if !ok {
+				continue
+			}
+			lineIDs, err := r.model.materializeDelegationLineCommands(id, lineCommands)
+			if err != nil {
+				r.model.restoreEnv(envSnapshot)
+				return err
+			}
+			row["lines"] = lineIDs
 		}
 	}
 	if r.model.model.Name == "account.move" {

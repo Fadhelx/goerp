@@ -68,6 +68,9 @@ func TestManifestInstallAndModels(t *testing.T) {
 	if !request.Fields["user_id"].Readonly || request.Fields["user_id"].RelationField != "employee_id.user_id" {
 		t.Fatalf("delegation user_id metadata = %+v", request.Fields["user_id"])
 	}
+	if request.Fields["lines"].Relation != ModelDelegationLine || request.Fields["lines"].RelationField != "delegation_id" {
+		t.Fatalf("delegation lines metadata = %+v", request.Fields["lines"])
+	}
 	line := reg.Models[ModelDelegationLine]
 	if !line.Fields["delegation_id"].Required || !line.Fields["group_id"].Required {
 		t.Fatalf("delegation line required metadata = %+v %+v", line.Fields["delegation_id"], line.Fields["group_id"])
@@ -143,6 +146,81 @@ func TestDelegationSourceFieldAliasesAndLineUniqueness(t *testing.T) {
 	}
 	if _, err := env.Model(ModelDelegationLine).Create(map[string]any{"delegation_id": requestID, "group_id": groupID, "employee_id": delegateEmployeeID}); err == nil || !strings.Contains(err.Error(), "role should be unique") {
 		t.Fatalf("expected source unique role error, got %v", err)
+	}
+}
+
+func TestDelegationDefaultsAndLineCommandMaterialization(t *testing.T) {
+	env := delegationFixtureEnv(t)
+	alphaGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Alpha", "full_name": "Role / Alpha", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockedGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Blocked", "full_name": "Role / Blocked", "allow_delegation": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	betaGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Beta", "full_name": "Role / Beta", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorUserID, err := env.Model("res.users").Create(map[string]any{"id": int64(1), "login": "delegator", "name": "Delegator", "groups_id": []int64{alphaGroupID, blockedGroupID, betaGroupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegatorEmployeeID, err := env.Model("hr.employee").Create(map[string]any{"name": "Delegator", "user_id": delegatorUserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults, err := env.Model(ModelDelegation).DefaultGet([]string{"date_from", "employee_id", "user_id", "lines"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defaults["date_from"] == nil || defaults["employee_id"] != delegatorEmployeeID || defaults["user_id"] != delegatorUserID {
+		t.Fatalf("delegation defaults = %+v", defaults)
+	}
+	if _, ok := defaults["lines"]; ok {
+		t.Fatalf("delegation defaults unexpectedly seeded lines = %+v", defaults)
+	}
+
+	delegationID, err := env.Model(ModelDelegation).Create(map[string]any{
+		"date_to": "2099-12-31",
+		"lines": []any{
+			[]any{int64(0), false, map[string]any{"group_id": alphaGroupID}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineRows, err := env.Model(ModelDelegationLine).Search(domain.Cond("delegation_id", domain.Equal, delegationID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := lineRows.Read("group_id", "delegator_id", "delegator_user_id", "date_to", "active")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["group_id"] != alphaGroupID || rows[0]["delegator_id"] != delegatorEmployeeID || rows[0]["delegator_user_id"] != delegatorUserID || rows[0]["date_to"] != "2099-12-31" || rows[0]["active"] != true {
+		t.Fatalf("delegation line command rows = %+v", rows)
+	}
+
+	if err := env.Model(ModelDelegation).Browse(delegationID).Write(map[string]any{
+		"lines": []any{
+			[]any{int64(5), false, false},
+			[]any{int64(0), false, map[string]any{"group_id": betaGroupID}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := env.Model(ModelDelegationLine).Search(domain.Cond("delegation_id", domain.Equal, delegationID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterRows, err := after.Read("group_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(afterRows) != 1 || afterRows[0]["group_id"] != betaGroupID {
+		t.Fatalf("delegation line command replacement rows = %+v", afterRows)
 	}
 }
 

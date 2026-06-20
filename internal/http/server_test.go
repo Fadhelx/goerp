@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	hraddon "gorp/addons/hr"
+	oidelegation "gorp/addons/oi_delegation"
 	"gorp/addons/oi_login_as"
 	coreaccounting "gorp/internal/accounting"
 	internalactions "gorp/internal/actions"
@@ -10027,6 +10029,120 @@ func TestOnchangeResUsersRoleUpdatesGroups(t *testing.T) {
 	}
 }
 
+func TestOnchangeDelegationSeedsDelegableGroupLines(t *testing.T) {
+	server := testDelegationHTTPServer(t)
+	handler := server.Handler()
+	zuluGroupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Zulu", "full_name": "Role / Zulu", "name_delegation": "Zulu Delegation", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockedGroupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Blocked", "full_name": "Role / Blocked", "name_delegation": "Blocked Delegation", "allow_delegation": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alphaGroupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Alpha", "full_name": "Role / Alpha", "name_delegation": "Alpha Delegation", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := server.Env.Model("res.users").Create(map[string]any{"login": "delegator", "name": "Delegator", "groups_id": []int64{zuluGroupID, blockedGroupID, alphaGroupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	employeeID, err := server.Env.Model("hr.employee").Create(map[string]any{"name": "Delegator", "user_id": userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delegateEmployeeID, err := server.Env.Model("hr.employee").Create(map[string]any{"name": "Delegate"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := postCallKW(t, handler, fmt.Sprintf(`{
+		"model":"delegation",
+		"method":"onchange",
+		"args":[{"employee_id":%d},["employee_id"],{}],
+		"kwargs":{"context":{"delegation":true}}
+	}`, employeeID))
+	payload := decodeJSON(t, []byte(body))
+	values := payload["value"].(map[string]any)
+	commands := values["lines"].([]any)
+	if len(commands) != 3 {
+		t.Fatalf("delegation onchange commands = %#v", commands)
+	}
+	clearCommand := commands[0].([]any)
+	if clearCommand[0] != float64(5) {
+		t.Fatalf("delegation onchange clear command = %#v", clearCommand)
+	}
+	firstCreate := commands[1].([]any)
+	secondCreate := commands[2].([]any)
+	firstValues := firstCreate[2].(map[string]any)
+	secondValues := secondCreate[2].(map[string]any)
+	if firstCreate[0] != float64(0) || secondCreate[0] != float64(0) || int64Value(firstValues["group_id"]) != alphaGroupID || int64Value(secondValues["group_id"]) != zuluGroupID {
+		t.Fatalf("delegation onchange seeded groups = %#v", commands)
+	}
+	if testContainsRecordID([]any{firstValues["group_id"], secondValues["group_id"]}, blockedGroupID) {
+		t.Fatalf("delegation onchange included non-delegable group = %#v", commands)
+	}
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{
+		"model":"delegation",
+		"method":"onchange",
+		"args":[{"delegateTo_employee_id":%d,"lines":[[0,false,{"group_id":%d}]]},["delegateTo_employee_id"],{}]
+	}`, delegateEmployeeID, alphaGroupID))
+	payload = decodeJSON(t, []byte(body))
+	values = payload["value"].(map[string]any)
+	commands = values["lines"].([]any)
+	lineValues := commands[0].([]any)[2].(map[string]any)
+	if int64Value(lineValues["employee_id"]) != delegateEmployeeID {
+		t.Fatalf("delegation delegate onchange = %#v", commands)
+	}
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{
+		"model":"delegation",
+		"method":"onchange",
+		"args":[{"one_employee":false,"delegateTo_employee_id":%d},["one_employee"],{}]
+	}`, delegateEmployeeID))
+	payload = decodeJSON(t, []byte(body))
+	values = payload["value"].(map[string]any)
+	if values["delegateTo_employee_id"] != false || values["delegate_to_employee_id"] != false {
+		t.Fatalf("delegation one_employee onchange = %#v", values)
+	}
+}
+
+func TestWebSaveDelegationPersistsLineCommands(t *testing.T) {
+	server := testDelegationHTTPServer(t)
+	handler := server.Handler()
+	groupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Delegable", "allow_delegation": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := server.Env.Model("res.users").Create(map[string]any{"id": int64(1), "login": "delegator", "name": "Delegator", "groups_id": []int64{groupID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	employeeID, err := server.Env.Model("hr.employee").Create(map[string]any{"name": "Delegator", "user_id": userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := postCallKW(t, handler, fmt.Sprintf(`{
+		"model":"delegation",
+		"method":"web_save",
+		"args":[[],{"employee_id":%d,"date_to":"2099-12-31","lines":[[0,false,{"group_id":%d}]]}],
+		"kwargs":{"specification":{"employee_id":{},"lines":{"fields":{"group_id":{},"delegator_user_id":{}}}}}
+	}`, employeeID, groupID))
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("delegation web_save rows = %#v", rows)
+	}
+	lines := rows[0]["lines"].([]any)
+	if len(lines) != 1 || firstID(lines[0].(map[string]any)["group_id"]) != groupID || firstID(lines[0].(map[string]any)["delegator_user_id"]) != userID {
+		t.Fatalf("delegation web_save lines = %#v", rows)
+	}
+}
+
 func TestResGroupsDefinitionsAndShowAllUsersAction(t *testing.T) {
 	server, ids := testViewGroupXMLIDServer(t)
 	handler := server.Handler()
@@ -16655,6 +16771,43 @@ func testViewGroupXMLIDServer(t *testing.T) (Server, map[string]int64) {
 		ids[key] = item.ResID
 	}
 	return Server{Env: env, Views: view.NewRegistry()}, ids
+}
+
+func testDelegationHTTPServer(t *testing.T) Server {
+	t.Helper()
+	models := map[string]model.Model{}
+	order := []string{}
+	add := func(m model.Model) {
+		if existing, ok := models[m.Name]; ok {
+			models[m.Name] = m.Compose(existing)
+			return
+		}
+		models[m.Name] = m
+		order = append(order, m.Name)
+	}
+	for _, m := range internalbase.Models() {
+		add(m)
+	}
+	for _, m := range internalworkflow.Models() {
+		add(m)
+	}
+	for _, m := range hraddon.Models() {
+		add(m)
+	}
+	for _, m := range oidelegation.Models() {
+		add(m)
+	}
+	for _, m := range oidelegation.ExtensionModels() {
+		add(m)
+	}
+	reg := record.NewRegistry()
+	for _, name := range order {
+		if err := reg.Register(models[name]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	env := record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
+	return Server{Env: env, Views: view.NewRegistry()}
 }
 
 func testContainsRecordID(value any, target int64) bool {

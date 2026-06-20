@@ -214,7 +214,7 @@ func delegationModel() model.Model {
 		readonly(related(field.New("delegate_to_user_id", field.Many2One).WithRelation("res.users"), "delegate_to_employee_id.user_id")),
 		field.New("isactive", field.Bool),
 		field.New("state", field.Selection),
-		field.New("lines", field.One2Many).WithRelation(ModelDelegationLine),
+		field.New("lines", field.One2Many).WithRelation(ModelDelegationLine).WithRelationField("delegation_id"),
 		field.New("department_ids", field.Many2Many).WithRelation("hr.department"),
 		field.New("source_model", field.Char),
 		field.New("source_record_id", field.Int),

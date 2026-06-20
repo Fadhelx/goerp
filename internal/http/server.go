@@ -9222,6 +9222,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		if req.Model == "res.users" {
 			values = resUsersOnchangeValues(env, values)
 		}
+		if req.Model == "delegation" {
+			values = delegationOnchangeValues(env, values, stringSlice(arg(req.Args, 1)), mapValue(kwarg(req.Kwargs, "context")))
+		}
 		if req.Model == internalworkflow.ModelStateUpdateWizard {
 			var err error
 			values, err = internalworkflow.StateUpdateWizardOnchange(env, values, stringSlice(arg(req.Args, 1)))
@@ -16309,6 +16312,156 @@ func resUsersOnchangeValues(env *record.Env, values map[string]any) map[string]a
 		next = appendUniqueHTTPID(next, groupUserID)
 	}
 	out["group_ids"] = []any{[]any{int64(6), false, next}}
+	return out
+}
+
+func delegationOnchangeValues(env *record.Env, values map[string]any, changed []string, context map[string]any) map[string]any {
+	out := map[string]any{}
+	for key, value := range values {
+		out[key] = value
+	}
+	if onchangeIncludes(changed, "user_id") || onchangeIncludes(changed, "employee_id") {
+		userID := firstID(firstNonNil(out["user_id"], out["user_ids"]))
+		if userID == 0 {
+			userID = delegationUserIDFromEmployee(env, firstID(out["employee_id"]))
+			if userID != 0 {
+				out["user_id"] = userID
+			}
+		}
+		if userID != 0 {
+			out["lines"] = delegationLineSeedCommands(env, userID, truthyHTTPValue(context["delegation"]))
+		}
+	}
+	if onchangeIncludes(changed, "delegateTo_employee_id") || onchangeIncludes(changed, "delegate_to_employee_id") {
+		delegateID := firstID(firstNonNil(out["delegateTo_employee_id"], out["delegate_to_employee_id"]))
+		out["lines"] = delegationLineEmployeeCommands(out["lines"], delegateID)
+	}
+	if onchangeIncludes(changed, "one_employee") && !truthyHTTPValue(out["one_employee"]) {
+		out["delegateTo_employee_id"] = false
+		out["delegate_to_employee_id"] = false
+	}
+	return out
+}
+
+func onchangeIncludes(changed []string, fieldName string) bool {
+	if len(changed) == 0 {
+		return true
+	}
+	for _, item := range changed {
+		if item == fieldName {
+			return true
+		}
+	}
+	return false
+}
+
+func delegationUserIDFromEmployee(env *record.Env, employeeID int64) int64 {
+	if env == nil || employeeID == 0 || !modelHasField(env, "hr.employee", "user_id") {
+		return 0
+	}
+	rows, err := env.Model("hr.employee").Browse(employeeID).Read("user_id")
+	if err != nil || len(rows) == 0 {
+		return 0
+	}
+	return int64Value(rows[0]["user_id"])
+}
+
+func delegationLineSeedCommands(env *record.Env, userID int64, delegationContext bool) []any {
+	groupIDs := delegationAllowedGroupIDs(env, userID, delegationContext)
+	commands := make([]any, 0, len(groupIDs)+1)
+	commands = append(commands, []any{int64(5), false, false})
+	for _, groupID := range groupIDs {
+		commands = append(commands, []any{int64(0), false, map[string]any{"group_id": groupID}})
+	}
+	return commands
+}
+
+func delegationAllowedGroupIDs(env *record.Env, userID int64, delegationContext bool) []int64 {
+	if env == nil || userID == 0 {
+		return nil
+	}
+	userFields := availableModelFields(env, "res.users", "groups_id", "group_ids")
+	rows, err := env.Model("res.users").Browse(userID).Read(userFields...)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	userGroups := httpGroupIDsFromValue(firstNonNil(rows[0]["groups_id"], rows[0]["group_ids"]))
+	if len(userGroups) == 0 || !modelHasField(env, "res.groups", "allow_delegation") {
+		return nil
+	}
+	groupRows, err := env.Model("res.groups").Browse(userGroups...).Read(availableModelFields(env, "res.groups", "id", "name", "full_name", "name_delegation", "allow_delegation")...)
+	if err != nil {
+		return nil
+	}
+	type groupSort struct {
+		id   int64
+		name string
+	}
+	groups := []groupSort{}
+	for _, row := range groupRows {
+		if !truthyHTTPValue(row["allow_delegation"]) {
+			continue
+		}
+		label := firstTextHTTP(row["full_name"], row["name"])
+		if delegationContext {
+			label = firstTextHTTP(row["name_delegation"], row["full_name"], row["name"])
+		}
+		groups = append(groups, groupSort{id: int64Value(row["id"]), name: label})
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		if groups[i].name == groups[j].name {
+			return groups[i].id < groups[j].id
+		}
+		return groups[i].name < groups[j].name
+	})
+	ids := make([]int64, 0, len(groups))
+	for _, group := range groups {
+		ids = append(ids, group.id)
+	}
+	return ids
+}
+
+func delegationLineEmployeeCommands(raw any, employeeID int64) []any {
+	items, ok := raw.([]any)
+	if !ok || len(items) == 0 {
+		return nil
+	}
+	out := make([]any, 0, len(items))
+	for _, item := range items {
+		command, ok := item.([]any)
+		if !ok || len(command) == 0 {
+			if id := int64Value(item); id != 0 {
+				out = append(out, []any{int64(1), id, map[string]any{"employee_id": falseIfZero(employeeID)}})
+			}
+			continue
+		}
+		switch int64Value(command[0]) {
+		case 0:
+			next := append([]any(nil), command...)
+			for len(next) < 3 {
+				next = append(next, false)
+			}
+			values := mapValue(next[2])
+			values["employee_id"] = falseIfZero(employeeID)
+			next[2] = values
+			out = append(out, next)
+		case 1:
+			next := append([]any(nil), command...)
+			for len(next) < 3 {
+				next = append(next, false)
+			}
+			values := mapValue(next[2])
+			values["employee_id"] = falseIfZero(employeeID)
+			next[2] = values
+			out = append(out, next)
+		case 4:
+			if len(command) > 1 {
+				out = append(out, []any{int64(1), int64Value(command[1]), map[string]any{"employee_id": falseIfZero(employeeID)}})
+			}
+		default:
+			out = append(out, command)
+		}
+	}
 	return out
 }
 
