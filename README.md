@@ -59,3 +59,11 @@ Run the server shell:
 ```sh
 go run ./cmd/gorpd
 ```
+
+## Agent Guidance
+
+Repo-local agent skills live in `agent_skills/`.
+
+Eve-ready agent blueprints live in `agents/eve/`. They follow Eve's filesystem-first layout with `agent/instructions.md`, optional `agent.ts`, `skills/`, and `subagents/`.
+
+Use these files to start future platform, OI parity, and UI verification agents without rediscovering repository structure.
