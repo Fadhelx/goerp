@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -43,6 +45,33 @@ import (
 	"gorp/internal/security"
 	internalworkflow "gorp/internal/workflow"
 )
+
+func TestRepoRootFromCandidatesFindsReleaseLayouts(t *testing.T) {
+	release := t.TempDir()
+	if err := os.WriteFile(filepath.Join(release, "go.mod"), []byte("module gorp\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dataDir := filepath.Join(release, "internal", "base", "data")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "res_bank.xml"), []byte("<odoo/>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	current := filepath.Join(home, "current")
+	if err := os.Symlink(release, current); err != nil {
+		t.Fatal(err)
+	}
+	root, ok := repoRootFromCandidates(filepath.Join(release, "bin"))
+	if !ok || root != release {
+		t.Fatalf("release executable root = %q, %v; want %q, true", root, ok, release)
+	}
+	root, ok = repoRootFromCandidates(home)
+	if !ok || root != current {
+		t.Fatalf("current symlink root = %q, %v; want %q, true", root, ok, current)
+	}
+}
 
 func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 	app, err := BootstrapOI("")

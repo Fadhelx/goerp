@@ -3940,10 +3940,13 @@ func modelExternalID(modelName string) string {
 
 func repoRoot() string {
 	if cwd, err := os.Getwd(); err == nil {
-		for _, candidate := range []string{cwd, filepath.Join(cwd, "current"), filepath.Join(cwd, "gorp")} {
-			if root, ok := findRepoRoot(candidate); ok {
-				return root
-			}
+		if root, ok := repoRootFromCandidates(cwd); ok {
+			return root
+		}
+	}
+	if executable, err := os.Executable(); err == nil {
+		if root, ok := repoRootFromCandidates(filepath.Dir(executable)); ok {
+			return root
 		}
 	}
 	_, file, _, ok := goruntime.Caller(0)
@@ -3954,6 +3957,17 @@ func repoRoot() string {
 		return root
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
+}
+
+func repoRootFromCandidates(bases ...string) (string, bool) {
+	for _, base := range bases {
+		for _, candidate := range []string{base, filepath.Join(base, "current"), filepath.Join(base, "gorp")} {
+			if root, ok := findRepoRoot(candidate); ok {
+				return root, true
+			}
+		}
+	}
+	return "", false
 }
 
 func findRepoRoot(start string) (string, bool) {
