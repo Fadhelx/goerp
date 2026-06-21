@@ -18,6 +18,7 @@ export interface ControlPanelMenuItem {
   label: string;
   active?: boolean;
   disabled?: boolean;
+  facet?: SearchFacet;
   children?: readonly ControlPanelMenuItem[];
   separatorBefore?: boolean;
 }
@@ -369,6 +370,7 @@ function normalizeMenuItem(item: ControlPanelMenuItem): ControlPanelMenuItem {
     label: item.label,
     active: item.active === true,
     disabled: item.disabled === true,
+    facet: item.facet ? { ...item.facet } : undefined,
     children: item.children?.map(normalizeMenuItem),
     separatorBefore: item.separatorBefore === true
   };

@@ -9,6 +9,7 @@ import {
 } from "./services/action_stack.js";
 import {
   createSearchModel as createActionSearchModel,
+  type SearchFacet,
   type SearchModelState
 } from "./search/search_model.js";
 import {
@@ -1929,6 +1930,10 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     favorites: result.search?.favorites ?? []
   }, {
     onViewSwitch: (viewType) => {
+      if (options.services?.action && viewType !== result.activeView) {
+        void options.services.action.doAction(actionWithViewType(result.action, viewType), replaceActionOptions(options));
+        return;
+      }
       root.dispatchEvent(new CustomEvent("action:view-switch", {
         bubbles: true,
         detail: { viewType, model: result.resModel }
@@ -1940,10 +1945,20 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
         detail: { query, model: result.resModel }
       }));
     },
-    onFilter: (item) => dispatchSearchMenuEvent(root, "action:search-filter", result, item),
-    onGroupBy: (item) => dispatchSearchMenuEvent(root, "action:search-group-by", result, item),
-    onFavorite: (item) => dispatchSearchMenuEvent(root, "action:search-favorite", result, item),
+    onFilter: (item) => {
+      if (rerunActionWithSearchMenuItem(result, item, "toggle", options)) return;
+      dispatchSearchMenuEvent(root, "action:search-filter", result, item);
+    },
+    onGroupBy: (item) => {
+      if (rerunActionWithSearchMenuItem(result, item, "toggle", options)) return;
+      dispatchSearchMenuEvent(root, "action:search-group-by", result, item);
+    },
+    onFavorite: (item) => {
+      if (rerunActionWithSearchMenuItem(result, item, "replace", options)) return;
+      dispatchSearchMenuEvent(root, "action:search-favorite", result, item);
+    },
     onFacetRemove: (facet) => {
+      if (rerunActionWithFacets(result, withoutSearchFacet(result.search?.state.facets ?? [], facet.id), options)) return;
       root.dispatchEvent(new CustomEvent("action:search-facet-remove", {
         bubbles: true,
         detail: { facet, model: result.resModel }
@@ -1957,6 +1972,70 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
   if (createButton && mainButtons) mainButtons.append(createButton);
   return controlPanel;
+}
+
+function actionWithViewType(action: Record<string, unknown>, viewType: string): Record<string, unknown> {
+  const cleanViewType = viewType.trim();
+  const views = normalizeActionViews(action);
+  const target = views.find((view) => view[1] === cleanViewType) ?? [false, cleanViewType] as ViewRef;
+  const reordered = [target, ...views.filter((view) => view[1] !== cleanViewType)];
+  const next: Record<string, unknown> = {
+    ...action,
+    view_mode: reordered.filter((view) => view[1] !== "search").map((view) => view[1]).join(","),
+    views: reordered,
+    view_type: cleanViewType
+  };
+  if (cleanViewType !== "form") delete next.res_id;
+  return next;
+}
+
+function rerunActionWithSearchMenuItem(
+  result: WindowActionResult,
+  item: ActionControlPanelMenuItem,
+  mode: "toggle" | "replace",
+  options: RenderWindowActionOptions
+): boolean {
+  if (!item.facet || !options.services?.action) return false;
+  const currentFacets = result.search?.state.facets ?? [];
+  const nextFacets = mode === "replace"
+    ? [cloneSearchFacet(item.facet)]
+    : toggleSearchFacet(currentFacets, item.facet);
+  return rerunActionWithFacets(result, nextFacets, options);
+}
+
+function rerunActionWithFacets(result: WindowActionResult, facets: readonly SearchFacet[], options: RenderWindowActionOptions): boolean {
+  if (!options.services?.action) return false;
+  void options.services.action.doAction({
+    ...result.action,
+    __search_facets: facets.map(cloneSearchFacet)
+  }, replaceActionOptions(options));
+  return true;
+}
+
+function replaceActionOptions(options: RenderWindowActionOptions): ActionServiceOptions {
+  return {
+    additionalContext: { ...(options.context ?? {}) },
+    replaceLastAction: true
+  };
+}
+
+function toggleSearchFacet(currentFacets: readonly SearchFacet[], facet: SearchFacet): SearchFacet[] {
+  if (currentFacets.some((item) => item.id === facet.id)) return withoutSearchFacet(currentFacets, facet.id);
+  return [...currentFacets.map(cloneSearchFacet), cloneSearchFacet(facet)];
+}
+
+function withoutSearchFacet(facets: readonly SearchFacet[], id: string): SearchFacet[] {
+  return facets.filter((facet) => facet.id !== id).map(cloneSearchFacet);
+}
+
+function cloneSearchFacet(facet: SearchFacet): SearchFacet {
+  return {
+    ...facet,
+    domain: facet.domain ? [...facet.domain] : undefined,
+    context: facet.context ? { ...facet.context } : undefined,
+    groupBy: facet.groupBy ? [...facet.groupBy] : undefined,
+    valueLabels: facet.valueLabels ? [...facet.valueLabels] : undefined
+  };
 }
 
 function dispatchSearchMenuEvent(root: HTMLElement, type: string, result: WindowActionResult, item: ActionControlPanelMenuItem): void {
@@ -5043,8 +5122,10 @@ function buildWindowActionSearch(
     context,
     irFilters: searchView?.irFilters ?? []
   });
+  const explicitFacets = searchFacetsFromAction(action);
   const model = createActionSearchModel({
-    facets: parsed.defaultFacets,
+    facets: explicitFacets ?? parsed.defaultFacets,
+    query: typeof action.__search_query === "string" ? action.__search_query : "",
     baseDomain: normalizeDomainExpression(action.domain, context),
     baseContext: context
   });
@@ -5065,6 +5146,7 @@ function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: Rea
   return items.map((item) => ({
     id: item.id,
     label: item.label,
+    facet: parsedSearchItemFacet(item),
     active: activeFacetIDs.has(parsedSearchItemFacet(item).id)
   }));
 }
@@ -5073,13 +5155,13 @@ function fallbackFilterMenuItems(fields: Record<string, unknown>): ActionControl
   const items: ActionControlPanelMenuItem[] = [];
   if (fields.active) {
     items.push(
-      { id: "filter-active", label: "Active" },
-      { id: "filter-archived", label: "Archived" }
+      { id: "filter-active", label: "Active", facet: { id: "filter-active", type: "filter", label: "Active", domain: [["active", "=", true]] } },
+      { id: "filter-archived", label: "Archived", facet: { id: "filter-archived", type: "filter", label: "Archived", domain: [["active", "=", false]], context: { active_test: false } } }
     );
   }
   if (fields.state) {
     const codeLabel = selectionOptions(fields.state).find(([value]) => value === "code")?.[1];
-    items.push({ id: "filter-code", label: codeLabel || fieldLabel(fields, "state") });
+    items.push({ id: "filter-code", label: codeLabel || fieldLabel(fields, "state"), facet: { id: "filter-code", type: "filter", label: codeLabel || fieldLabel(fields, "state"), domain: [["state", "=", "code"]] } });
   }
   return dedupeMenuItems(items);
 }
@@ -5095,17 +5177,41 @@ function fallbackGroupByMenuItems(fields: Record<string, unknown>): ActionContro
   ];
   const items: ActionControlPanelMenuItem[] = [];
   for (const [name, id] of preferred) {
-    if (fields[name]) items.push({ id, label: fieldLabel(fields, name) });
+    if (fields[name]) items.push({ id, label: fieldLabel(fields, name), facet: { id, type: "groupBy", label: fieldLabel(fields, name), field: name } });
   }
   if (!items.length) {
     for (const [name, description] of Object.entries(fields)) {
       if (name === "id" || name === "display_name") continue;
       if (!["many2one", "selection", "boolean"].includes(fieldTypeValue(description))) continue;
-      items.push({ id: `group-by-${name}`, label: fieldLabel(fields, name) });
+      items.push({ id: `group-by-${name}`, label: fieldLabel(fields, name), facet: { id: `group-by-${name}`, type: "groupBy", label: fieldLabel(fields, name), field: name } });
       if (items.length >= 3) break;
     }
   }
   return dedupeMenuItems(items);
+}
+
+function searchFacetsFromAction(action: Record<string, unknown>): SearchFacet[] | undefined {
+  if (!Array.isArray(action.__search_facets)) return undefined;
+  const facets: SearchFacet[] = [];
+  for (const raw of action.__search_facets) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string" || typeof raw.label !== "string") continue;
+    facets.push({
+      id: raw.id,
+      type: raw.type as SearchFacet["type"],
+      label: raw.label,
+      ...(typeof raw.categoryLabel === "string" ? { categoryLabel: raw.categoryLabel } : {}),
+      ...(Array.isArray(raw.valueLabels) ? { valueLabels: raw.valueLabels.map((item) => String(item)) } : {}),
+      ...(typeof raw.field === "string" ? { field: raw.field } : {}),
+      ...(typeof raw.operator === "string" ? { operator: raw.operator } : {}),
+      ...("value" in raw ? { value: raw.value } : {}),
+      ...(Array.isArray(raw.domain) ? { domain: [...raw.domain] } : {}),
+      ...(isRecord(raw.context) ? { context: { ...raw.context } } : {}),
+      ...(Array.isArray(raw.groupBy) ? { groupBy: raw.groupBy.map((item) => String(item)) } : {}),
+      ...(typeof raw.interval === "string" ? { interval: raw.interval as SearchFacet["interval"] } : {}),
+      ...(raw.group !== undefined ? { group: raw.group as string | number } : {})
+    });
+  }
+  return facets;
 }
 
 function dedupeMenuItems(items: readonly ActionControlPanelMenuItem[]): ActionControlPanelMenuItem[] {

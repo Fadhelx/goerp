@@ -819,6 +819,84 @@ assert.equal(listOpenCalls[0].action.res_id, 1);
 assert.equal(listOpenCalls[0].action.res_model, "res.partner");
 assert.equal(listOpenCalls[0].action.view_mode, "form");
 assert.deepEqual(listOpenCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
+const controlActionCalls = [];
+const controlActionWindow = renderWindowAction(windowResult, {
+  services: {
+    action: {
+      doAction(action, options) {
+        controlActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "filter-customer")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 1);
+assert.deepEqual(controlActionCalls[0].action.__search_facets, []);
+assert.deepEqual(controlActionCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "group-by-group_company")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 2);
+assert.deepEqual(controlActionCalls[1].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field]), [
+  ["filter-customer", "filter", undefined],
+  ["group-by-group_company", "groupBy", "company_id"]
+]);
+assert.deepEqual(controlActionCalls[1].options, { additionalContext: {}, replaceLastAction: true });
+findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 3);
+assert.deepEqual(controlActionCalls[2].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
+assert.equal(controlActionCalls[2].action.view_mode, "form,list");
+assert.equal(controlActionCalls[2].action.view_type, "form");
+assert.deepEqual(controlActionCalls[2].options, { additionalContext: {}, replaceLastAction: true });
+
+const nonFormSwitchCalls = [];
+const formSwitchWindow = renderWindowAction({
+  ...windowResult,
+  activeView: "form",
+  action: {
+    ...windowResult.action,
+    res_id: 1,
+    views: [[false, "form"], [8, "list"], [false, "kanban"], [9, "search"]],
+    view_mode: "form,list,kanban"
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        nonFormSwitchCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(formSwitchWindow, (node) => node.dataset?.viewType === "list")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(nonFormSwitchCalls.length, 1);
+assert.equal(nonFormSwitchCalls[0].action.views[0][1], "list");
+assert.equal(nonFormSwitchCalls[0].action.view_mode, "list,form,kanban");
+assert.equal(nonFormSwitchCalls[0].action.view_type, "list");
+assert.equal("res_id" in nonFormSwitchCalls[0].action, false);
+findAll(formSwitchWindow, (node) => node.dataset?.viewType === "kanban")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(nonFormSwitchCalls.length, 2);
+assert.equal(nonFormSwitchCalls[1].action.views[0][1], "kanban");
+assert.equal(nonFormSwitchCalls[1].action.view_mode, "kanban,form,list");
+assert.equal(nonFormSwitchCalls[1].action.view_type, "kanban");
+assert.equal("res_id" in nonFormSwitchCalls[1].action, false);
+
+const groupedRequestStart = windowActionRequests.length;
+const groupedWindowResult = await actionServices.action.doAction({
+  ...windowResult.action,
+  __search_facets: [
+    { id: "group-by-group_company", type: "groupBy", label: "Company", field: "company_id" }
+  ]
+});
+const groupedSearchRead = windowActionRequests.slice(groupedRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.deepEqual(groupedSearchRead.params.kwargs.groupby, ["company_id"]);
+assert.deepEqual(groupedWindowResult.search.state.facets.map((facet) => facet.id), ["group-by-group_company"]);
 const dialogCloseEvents = [];
 const renderedDialog = renderWindowActionDialog({
   ...windowResult,

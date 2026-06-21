@@ -95,6 +95,7 @@ assert.equal(routeFromStack.debug, true);
 assert.deepEqual(routeFromStack.actionStack.map((item) => item.displayName), ["Partners", "Azure Interior"]);
 assert.equal(routeFromStack.actionStack.length, 2);
 assert.equal(serializeRouteState(routeFromStack), "#action=9&model=res.partner&view_type=form&id=42&menu_id=3&debug=1");
+assert.equal(serializeRouteState({ action: 9, model: "res.partner", view_type: "kanban", menu_id: 3 }), "#action=9&model=res.partner&view_type=kanban&menu_id=3");
 
 const routeFromStackWithActiveIds = routeStateFromStack(stack.entries, {
   active_id: 42,

@@ -119,6 +119,43 @@ export const scenarios = [
     }
   },
   {
+    name: "default-search-filter-click-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_filter_menu .o_menu_item[data-menu-item-id='filter-code']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS filtered action ready");
+      const facetCount = await waitForCount(page, ".o_web_client .o_action_manager .o_searchview_facet[data-facet-id='filter-code']", 1, "TS filter facet");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const selectedCount = await waitForCount(page, ".o_web_client .o_action_manager .o_filter_menu .o_menu_item.selected[data-menu-item-id='filter-code']", 1, "TS selected filter item");
+      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS filtered rows");
+      return { facet_count: facetCount, selected_filter_count: selectedCount, row_count: rowCount };
+    }
+  },
+  {
+    name: "default-view-switch-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_switch_view.o_form");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS form switch ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS switched form");
+      const formHash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") ? hash : "";
+      })()`, "TS switched form hash");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_switch_view.o_list");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS list switch ready");
+      const listCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 1, "TS switched list");
+      const listHash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("model=ir.actions.server") && hash.includes("view_type=list") ? hash : "";
+      })()`, "TS switched list hash");
+      return { form_count: formCount, list_count: listCount, form_hash: formHash, list_hash: listHash };
+    }
+  },
+  {
     name: "default-hash-route-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
