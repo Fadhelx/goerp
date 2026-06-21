@@ -48,6 +48,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "launcher-desktop",
     "settings-desktop",
     "default-webclient-takeover",
+    "default-systray-dropdowns-desktop",
     "default-webclient-action-desktop",
     "default-technical-search-desktop",
     "default-technical-form-desktop",

@@ -4,7 +4,11 @@ import {
   renderNavbar
 } from "../../../../../dist/packages/webclient/src/webclient/navbar/navbar.js";
 
+const documentEvents = {};
 globalThis.document = {
+  addEventListener(type, listener) {
+    documentEvents[type] = [...(documentEvents[type] ?? []), listener];
+  },
   createTextNode(text) {
     return { tag: "#text", textContent: text, children: [] };
   },
@@ -16,8 +20,12 @@ globalThis.document = {
       dataset: {},
       attributes: {},
       textContent: "",
+      hidden: false,
       children: [],
       listeners: {},
+      contains() {
+        return false;
+      },
       append(...nodes) {
         this.children.push(...nodes);
       },
@@ -70,7 +78,23 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("o_switch
 assert.equal(findAll(navbar, (node) => String(node.className).includes("oe_topbar_name")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_debug_manager")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_menu")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 5);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu") && node.hidden === true).length, 5);
 assert.equal(findAll(navbar, (node) => String(node.textContent).includes("Gorp")).length, 0);
+const messageSystray = findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item"))[0];
+const messageMenu = findAll(navbar, (node) => node.dataset?.systrayDropdown === "messages")[0];
+messageSystray.listeners.click[0]({ stopPropagation() {} });
+assert.equal(messageSystray.attributes["aria-expanded"], "true");
+assert.equal(messageMenu.hidden, false);
+assert.match(messageMenu.className, /show/);
+const activitySystray = findAll(navbar, (node) => String(node.className).includes("o_activity_menu"))[0];
+activitySystray.listeners.click[0]({ stopPropagation() {} });
+assert.equal(messageSystray.attributes["aria-expanded"], "false");
+assert.equal(messageMenu.hidden, true);
+assert.equal(activitySystray.attributes["aria-expanded"], "true");
+documentEvents.keydown[0]({ key: "Escape" });
+assert.equal(activitySystray.attributes["aria-expanded"], "false");
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu show")).length, 0);
 
 const toggled = [];
 const interactiveNavbar = renderNavbar({

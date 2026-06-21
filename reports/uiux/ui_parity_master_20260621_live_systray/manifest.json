@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-06-21T17:54:03.502Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-systray-dropdowns-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-systray-dropdowns-desktop.png",
+      "sha256": "ce770cbedd547cf9157c847e1d3b42f6ba79bc4d896ba9a0b056d01ab01acb8f",
+      "assertions": {
+        "systray_count": 1,
+        "item_count": 5,
+        "open_menu_items": 3,
+        "action_status": ""
+      },
+      "duration_ms": 263
+    }
+  ],
+  "duration_ms": 944
+}

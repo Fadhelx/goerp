@@ -8,6 +8,7 @@ export interface SystrayItem {
   label: string;
   count?: number;
   className: string;
+  menuItems?: readonly string[];
 }
 
 export interface NavbarOptions {
@@ -27,8 +28,8 @@ export interface RenderedNavbar extends HTMLElement {
 
 export function defaultSystrayItems(): SystrayItem[] {
   return [
-    { key: "messages", label: "Messages", count: 0, className: "o_mail_systray_item" },
-    { key: "activities", label: "Activities", count: 0, className: "o_activity_menu" }
+    { key: "messages", label: "Messages", count: 0, className: "o_mail_systray_item", menuItems: ["Inbox", "Starred", "New Message"] },
+    { key: "activities", label: "Activities", count: 0, className: "o_activity_menu", menuItems: ["Activities", "Late", "Today"] }
   ];
 }
 
@@ -37,6 +38,8 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   header.className = "o_main_navbar d-print-none";
   let setMobileMenuExpanded = (_expanded: boolean) => {};
   const appButtons = new Map<string, HTMLElement>();
+  const dropdowns: HTMLElement[] = [];
+  const dropdownButtons = new Map<HTMLElement, HTMLElement>();
 
   const brand = document.createElement("div");
   brand.className = "o_navbar_apps_menu o-brand";
@@ -88,12 +91,13 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   systray.className = "o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit";
   systray.setAttribute("role", "menu");
   systray.setAttribute("aria-label", "Systray");
-  for (const item of defaultSystrayItems()) systray.append(renderSystrayItem(item));
-  systray.append(renderCompanySwitcher(options.companyName ?? "My Company"));
-  if (options.debug) systray.append(renderDebugItem());
-  systray.append(renderUserMenu(options.userName ?? "Administrator"));
+  for (const item of defaultSystrayItems()) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label]));
+  appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderSystrayMenu("company", [options.companyName ?? "My Company", "Switch Company"]));
+  if (options.debug) appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", ["Open Developer Tools", "View Metadata", "Become Superuser"]));
+  appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", ["Preferences", "My Profile", "Log out"]));
 
   header.append(brand, mobileMenu, nav, systray);
+  bindSystrayAutoClose(header, closeDropdowns);
   header.setActiveApp = setActiveApp;
   setActiveApp(options.activeAppId);
   return header;
@@ -113,6 +117,27 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       const active = key === activeKey;
       button.className = active ? "o_nav_entry active" : "o_nav_entry";
       setPageCurrent(button, active);
+    }
+  }
+
+  function appendDropdown(parent: HTMLElement, button: HTMLElement, menu: HTMLElement): void {
+    dropdowns.push(menu);
+    dropdownButtons.set(menu, button);
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    button.addEventListener("click", (event) => {
+      event.stopPropagation?.();
+      const open = button.getAttribute("aria-expanded") !== "true";
+      closeDropdowns(menu);
+      setDropdownOpen(button, menu, open);
+    });
+    parent.append(button, menu);
+  }
+
+  function closeDropdowns(except?: HTMLElement): void {
+    for (const menu of dropdowns) {
+      if (menu === except) continue;
+      setDropdownOpen(dropdownButtons.get(menu) ?? null, menu, false);
     }
   }
 }
@@ -158,6 +183,40 @@ function renderSystrayItem(item: SystrayItem): HTMLElement {
   counter.hidden = (item.count ?? 0) <= 0;
   button.append(icon, counter);
   return button;
+}
+
+function renderSystrayMenu(key: string, items: readonly string[]): HTMLElement {
+  const menu = document.createElement("div");
+  menu.className = "dropdown-menu o-dropdown-menu";
+  menu.dataset.systrayDropdown = key;
+  menu.hidden = true;
+  menu.setAttribute("role", "menu");
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "dropdown-item";
+    button.setAttribute("role", "menuitem");
+    button.textContent = item;
+    menu.append(button);
+  }
+  return menu;
+}
+
+function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: boolean): void {
+  if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
+  menu.hidden = !open;
+  menu.className = open ? "dropdown-menu o-dropdown-menu show" : "dropdown-menu o-dropdown-menu";
+}
+
+function bindSystrayAutoClose(root: HTMLElement, closeDropdowns: () => void): void {
+  const doc = globalThis.document as Document & { addEventListener?: Document["addEventListener"] };
+  if (typeof doc.addEventListener !== "function") return;
+  doc.addEventListener("click", (event) => {
+    if (typeof root.contains === "function" && !root.contains(event.target as Node)) closeDropdowns();
+  });
+  doc.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDropdowns();
+  });
 }
 
 function renderCompanySwitcher(companyName: string): HTMLElement {

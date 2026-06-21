@@ -54,6 +54,44 @@ export const scenarios = [
     }
   },
   {
+    name: "default-systray-dropdowns-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?debug=1&smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "systray TS webclient ready");
+      const systrayCount = await waitForCount(page, ".o_web_client .o_menu_systray", 1, "TS systray");
+      const selectors = [
+        ".o_web_client .o_mail_systray_item",
+        ".o_web_client .o_activity_menu",
+        ".o_web_client .o_switch_company_menu",
+        ".o_web_client .o_debug_manager",
+        ".o_web_client .o_user_menu"
+      ];
+      const actionStatusBefore = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus || ""`);
+      for (const selector of selectors) {
+        await waitForCount(page, selector, 1, `systray item ${selector}`);
+        await clickSelector(page, selector);
+        await waitFor(page, `(() => {
+          const button = document.querySelector(${JSON.stringify(selector)});
+          const menu = button?.nextElementSibling;
+          return button?.getAttribute("aria-expanded") === "true" && menu?.classList.contains("show") && menu.querySelectorAll("[role='menuitem']").length >= 1;
+        })()`, `systray dropdown opens ${selector}`);
+        await evaluate(page, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
+        await waitFor(page, `(() => !document.querySelector(".o_web_client .o_menu_systray .dropdown-menu.show"))()`, `systray dropdown escape closes ${selector}`);
+      }
+      await clickSelector(page, ".o_web_client .o_user_menu");
+      await waitFor(page, `document.querySelector(".o_web_client .o_user_menu")?.getAttribute("aria-expanded") === "true"`, "user menu opened before outside click");
+      await evaluate(page, `document.body.click()`);
+      await waitFor(page, `(() => !document.querySelector(".o_web_client .o_menu_systray .dropdown-menu.show"))()`, "systray outside click closes");
+      const actionStatusAfter = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus || ""`);
+      if (actionStatusAfter !== actionStatusBefore) throw new Error(`systray changed action status: ${actionStatusBefore} -> ${actionStatusAfter}`);
+      await clickSelector(page, ".o_web_client .o_user_menu");
+      const openMenuItems = await waitForCount(page, ".o_web_client .o_user_menu + .dropdown-menu.show [role='menuitem']", 1, "user menu final open items");
+      return { systray_count: systrayCount, item_count: selectors.length, open_menu_items: openMenuItems, action_status: actionStatusAfter };
+    }
+  },
+  {
     name: "default-webclient-action-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -372,6 +410,10 @@ export const scenarios = [
       await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_uninstall_button", 1, "AI module uninstall button");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_upgrade_button");
       const afterUpgradeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module upgraded state");
+      await waitFor(page, `(() => {
+        const button = document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_uninstall_button");
+        return button && !button.disabled && button.textContent.trim() === "Uninstall" ? "ready" : "";
+      })()`, "AI module uninstall button ready after upgrade");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_uninstall_button");
       const afterUninstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled after uninstall action");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");

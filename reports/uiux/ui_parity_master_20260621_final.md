@@ -51,19 +51,22 @@ Existing Odoo screenshots were used as visual reference:
 - The default TypeScript `/web` Apps catalog now renders an Odoo-shaped module catalog from `/web/session/modules`, preserves the active catalog search across lifecycle actions, and covers install, upgrade, uninstall, cancel install, cancel upgrade, cancel uninstall, and restore smoke for the `ai` module.
 - Direct `ir.module.module` lifecycle RPC calls now require admin/system-user context.
 - Default mobile `/web` smoke now opens Server Actions, renders mobile list cards, opens a form, verifies breadcrumbs/form sheet visibility, checks hash routing, and proves no horizontal overflow.
+- The TypeScript systray now opens message, activity, company, debug, and user dropdowns, closes on Escape/outside click, and stays out of the action manager state.
 
 ## Evidence
 
 Local app:
 - URL: `http://127.0.0.1:8069/web`
-- Visual smoke: 22/22 passed.
+- Visual smoke: 23/23 passed.
 - Manifest: `reports/uiux/ui_parity_master_20260621_live/manifest.json`
 - Apps lifecycle manifest: `reports/uiux/ui_parity_master_20260621_live_apps_lifecycle/manifest.json`
 - Apps cancel-state manifest: `reports/uiux/ui_parity_master_20260621_live_apps_cancel/manifest.json`
 - Mobile flow manifest: `reports/uiux/ui_parity_master_20260621_live_mobile_flow/manifest.json`
+- Systray manifest: `reports/uiux/ui_parity_master_20260621_live_systray/manifest.json`
 
 Key screenshots:
 - `reports/uiux/ui_parity_master_20260621_live/default-webclient-takeover.png`
+- `reports/uiux/ui_parity_master_20260621_live/default-systray-dropdowns-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-webclient-action-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-technical-search-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-technical-form-desktop.png`
@@ -88,14 +91,14 @@ P0:
 P1:
 - Apps install flow has bounded method-backed install, upgrade, uninstall, cancel-state, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and confirmation/wizard behavior.
 - Dialogs need footer action mapping, stacked inactive state, confirmation dialogs, backdrop policy, draggable desktop, and mobile fullscreen/bottom-sheet behavior.
-- Systray is mostly static: user/company/debug/mail/activity dropdowns are not behaviorally complete.
+- Systray dropdown shells now open and close for user/company/debug/mail/activity; real menu data, counters, and actions are still shallow.
 - Kanban needs grouped columns, quick create, drag/drop, folded groups, progress bars, and load-more.
 - Mobile shell is usable without overflow, but still desktop-shaped.
 
 P2:
 - Pivot, graph, calendar, activity, cohort, gantt, and dashboard views are not implemented.
 - OWL compatibility exports are still shallow for many field widgets/services.
-- Visual regression suite still needs systray dropdown, dialog, and mobile search-panel scenarios.
+- Visual regression suite still needs dialog and mobile search-panel scenarios.
 
 ## Bounded Implementation Tasks
 
@@ -104,7 +107,7 @@ P2:
 3. Implement list grouping/sorting/optional-columns/select-all.
 4. Implement form notebooks/groups/smart-buttons/x2many/onchange/dirty guards.
 5. Expand Apps catalog to categories, filters, module detail behavior, and confirmation/wizard flows.
-6. Implement systray dropdown services for user/company/debug/mail/activity.
+6. Implement real systray data/actions for user/company/debug/mail/activity.
 7. Implement kanban grouped columns and quick-create.
 8. Add production smoke after every deploy for `/web`, Settings, Server Actions, view switch, search filter, normal user, and mobile.
 

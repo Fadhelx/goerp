@@ -5549,13 +5549,14 @@ const webClientShellHTML = `<!doctype html>
 		color: #fff;
 	}
 	.o-search input::placeholder { color: rgba(255,255,255,.7); }
-	.o-menu-systray {
-		display: inline-flex;
-		align-items: stretch;
-		align-self: stretch;
-		margin-left: auto;
-		min-width: 0;
-	}
+		.o-menu-systray {
+			display: inline-flex;
+			align-items: stretch;
+			align-self: stretch;
+			margin-left: auto;
+			min-width: 0;
+			position: relative;
+		}
 	.o-systray-item {
 		display: inline-flex;
 		align-items: center;
@@ -5586,16 +5587,49 @@ const webClientShellHTML = `<!doctype html>
 		font-weight: 700;
 		line-height: 1;
 	}
-	.o-systray-counter {
-		min-width: 16px;
-		height: 16px;
-		border-radius: 999px;
-		background: rgba(255,255,255,.2);
+		.o-systray-counter {
+			min-width: 16px;
+			height: 16px;
+			border-radius: 999px;
+			background: rgba(255,255,255,.2);
 		padding: 0 5px;
 		font-size: 11px;
-		line-height: 16px;
-		text-align: center;
-	}
+			line-height: 16px;
+			text-align: center;
+		}
+		.o-menu-systray .dropdown-menu {
+			position: absolute;
+			top: 100%;
+			right: 0;
+			z-index: 1050;
+			display: none;
+			min-width: 180px;
+			margin: 0;
+			padding: 6px 0;
+			background: #fff;
+			border: 1px solid rgba(0,0,0,.12);
+			border-radius: 4px;
+			box-shadow: 0 8px 24px rgba(0,0,0,.18);
+			color: #1f2933;
+		}
+		.o-menu-systray .dropdown-menu.show {
+			display: block;
+		}
+		.o-menu-systray .dropdown-item {
+			display: block;
+			width: 100%;
+			padding: 7px 16px;
+			border: 0;
+			background: transparent;
+			color: #1f2933;
+			font: inherit;
+			text-align: left;
+			white-space: nowrap;
+		}
+		.o-menu-systray .dropdown-item:hover,
+		.o-menu-systray .dropdown-item:focus-visible {
+			background: #f3f4f6;
+		}
 	.o-company-switcher span,
 	.o-user-menu-button span {
 		overflow: hidden;
