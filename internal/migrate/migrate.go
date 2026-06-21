@@ -2574,4 +2574,7 @@ CREATE TABLE IF NOT EXISTS mail_canned_response (
   write_date TIMESTAMPTZ
 );
 `},
+	{Version: 221, Name: "ir_module_dependency_auto_install_required", SQL: `
+ALTER TABLE ir_module_module_dependency ADD COLUMN IF NOT EXISTS auto_install_required BOOLEAN NOT NULL DEFAULT false;
+`},
 }

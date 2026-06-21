@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-06-21T16:16:26.290Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-technical-search-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-search-desktop.png",
+      "sha256": "c2813b0f24dc7892061b890693d2bc2c80372b3ff52296dee7c49498198f5abd",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "action_card_count": 1,
+        "window_count": 1,
+        "row_count": 20
+      },
+      "duration_ms": 450
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "06697ef3bcd197fcf98d87cd063e99c2921bb703d804d67b8d699effdd0b0091",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "form_count": 1,
+        "field_count": 6
+      },
+      "duration_ms": 580
+    },
+    {
+      "name": "default-view-switch-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-view-switch-desktop.png",
+      "sha256": "33a76d5495b4c229edb96a3e7fffc1b69a87af7f27da178a226bd115d8144164",
+      "assertions": {
+        "form_count": 1,
+        "list_count": 20,
+        "form_hash": "#action=7&model=ir.actions.server&view_type=form&menu_id=8",
+        "list_hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8"
+      },
+      "duration_ms": 721
+    },
+    {
+      "name": "default-webclient-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-webclient-mobile.png",
+      "sha256": "6765f8cd5f6f9787c021a77bbaf781407f4704b70ac2d0e183e6955c4baf6246",
+      "assertions": {
+        "app_count": 4,
+        "mobile_toggle_count": 1,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 507
+    }
+  ],
+  "duration_ms": 2391
+}

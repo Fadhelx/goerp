@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-06-21T16:44:58.465Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "normal-user-launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "normal-user-launcher-desktop.png",
+      "sha256": "327bfcf89240acdafe70aa0034524608800a18594ad6e1ff310608c9bc7d2cc1",
+      "assertions": {
+        "uid": 5,
+        "app_count": 1,
+        "menu_count": 5,
+        "title": "Approval Buttons",
+        "model": "approval.buttons",
+        "window_count": 1
+      },
+      "duration_ms": 793
+    }
+  ],
+  "duration_ms": 965
+}

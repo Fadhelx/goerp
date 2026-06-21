@@ -3185,7 +3185,7 @@ CREATE TABLE IF NOT EXISTS ir_model_constraint (id BIGSERIAL PRIMARY KEY, name T
 CREATE TABLE IF NOT EXISTS ir_model_relation (id BIGSERIAL PRIMARY KEY, name TEXT, model BIGINT);
 CREATE TABLE IF NOT EXISTS ir_model_inherit (id BIGSERIAL PRIMARY KEY, name TEXT, model_id BIGINT);
 CREATE TABLE IF NOT EXISTS ir_model_fields_selection (id BIGSERIAL PRIMARY KEY, name TEXT, field_id BIGINT, value TEXT, sequence INTEGER);
-CREATE TABLE IF NOT EXISTS ir_module_module_dependency (id BIGSERIAL PRIMARY KEY, name TEXT, module_id BIGINT);
+CREATE TABLE IF NOT EXISTS ir_module_module_dependency (id BIGSERIAL PRIMARY KEY, name TEXT, module_id BIGINT, auto_install_required BOOLEAN NOT NULL DEFAULT false);
 CREATE TABLE IF NOT EXISTS ir_module_module_exclusion (id BIGSERIAL PRIMARY KEY, name TEXT, module_id BIGINT);
 CREATE TABLE IF NOT EXISTS reset_view_arch_wizard (id BIGSERIAL PRIMARY KEY, view_id BIGINT);
 CREATE TABLE IF NOT EXISTS res_partner_category (id BIGSERIAL PRIMARY KEY, name TEXT, parent_id BIGINT);

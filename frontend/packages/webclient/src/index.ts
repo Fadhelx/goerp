@@ -1689,10 +1689,13 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   overlay.className = "o_dialog gorp-action-dialog";
   overlay.dataset.target = "new";
   overlay.dataset.model = result.resModel;
+  overlay.setAttribute("tabindex", "-1");
   const modal = document.createElement("div");
   modal.className = "modal o_dialog_container show d-block";
   modal.setAttribute("role", "dialog");
   modal.setAttribute("aria-modal", "true");
+  const titleID = uniqueId("dialog-title-");
+  modal.setAttribute("aria-labelledby", titleID);
   const dialog = document.createElement("div");
   dialog.className = "modal-dialog modal-lg";
   const content = document.createElement("div");
@@ -1701,6 +1704,7 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   header.className = "modal-header";
   const title = document.createElement("h1");
   title.className = "modal-title";
+  title.id = titleID;
   title.textContent = options.title || (typeof result.action.name === "string" && result.action.name.trim()) || result.resModel;
   const close = document.createElement("button");
   close.type = "button";
@@ -1711,6 +1715,11 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
       bubbles: true,
       detail: { model: result.resModel }
     }));
+  });
+  overlay.addEventListener("keydown", (event) => {
+    if ((event as KeyboardEvent).key !== "Escape") return;
+    event.preventDefault();
+    close.dispatchEvent(new CustomEvent("click"));
   });
   header.append(title, close);
   const body = document.createElement("div");
@@ -2142,10 +2151,10 @@ function renderListView(
   const showToolbar = showApproveAll || showUpdateStatus || showApprovalLog || showStaticActions || actionMenusHaveItems(viewDescription?.actionMenus);
   const selectedIds = new Set<number>();
   const shell = document.createElement("section");
-  shell.className = "gorp-list-shell";
+  shell.className = "gorp-list-shell o-list-view";
   if (model) shell.dataset.model = model;
   const table = document.createElement("table");
-  table.className = "gorp-list-view";
+  table.className = "gorp-list-view o_list_renderer o_list_table";
   const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {});
   const names = fieldNodes.map((node) => node.name);
   const thead = document.createElement("thead");
@@ -2225,10 +2234,56 @@ function renderListView(
       root: shell,
       options
     });
-    shell.append(toolbar, table);
+    shell.append(toolbar, table, renderMobileListCards(fieldNodes, fields, records, model, action, options));
     return shell;
   }
-  return table;
+  shell.append(table, renderMobileListCards(fieldNodes, fields, records, model, action, options));
+  return shell;
+}
+
+function renderMobileListCards(
+  fieldNodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown>,
+  records: readonly Record<string, unknown>[],
+  model: string | undefined,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions
+): HTMLElement {
+  const cards = document.createElement("div");
+  cards.className = "o_mobile_list_cards";
+  for (const record of records) {
+    const card = document.createElement("article");
+    card.className = "o_mobile_record_card";
+    const recordID = numberRecordID(record.id);
+    if (recordID !== undefined) card.dataset.id = String(recordID);
+    if (model) card.dataset.model = model;
+    for (const node of fieldNodes) {
+      const line = document.createElement("div");
+      line.className = "o_mobile_record_line";
+      line.dataset.field = node.name;
+      const label = document.createElement("span");
+      label.className = "o_mobile_record_label";
+      label.textContent = fieldLabel(fields, node.name);
+      const value = document.createElement("span");
+      value.className = "o_mobile_record_value";
+      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
+      line.append(label, value);
+      card.append(line);
+    }
+    if (model && recordID !== undefined) {
+      const openButton = document.createElement("button");
+      openButton.type = "button";
+      openButton.className = "btn btn-secondary o_mobile_record_open";
+      openButton.dataset.recordId = String(recordID);
+      openButton.textContent = "Open";
+      openButton.addEventListener("click", async () => {
+        await openListRecord(model, recordID, action, options, cards);
+      });
+      card.append(openButton);
+    }
+    cards.append(card);
+  }
+  return cards;
 }
 
 function listRowClickIgnored(event: Event): boolean {
@@ -3862,7 +3917,7 @@ function renderFormView(
   options: RenderWindowActionOptions = {}
 ): HTMLElement {
   const form = document.createElement("form");
-  form.className = "gorp-form-view";
+  form.className = "gorp-form-view o_form_view";
   const arch = viewDescription?.arch ?? "";
   const recordValues = values;
   const allFieldNodes = parseViewFieldNodes(arch);
@@ -3871,14 +3926,6 @@ function renderFormView(
   const actionMenu = renderFormWorkflowActionMenu(viewDescription, model, recordID, fields, activeFieldNames, recordValues, form, options);
   if (actionMenu) form.append(actionMenu);
   const buttons = parseViewButtonNodes(arch).filter((node) => !nodeInvisible(node.attrs, recordValues));
-  if (buttons.length) {
-    const header = document.createElement("div");
-    header.className = "gorp-form-header";
-    for (const node of buttons) {
-      header.append(renderFormButton(model, node, recordValues, activeFieldNames, form, options));
-    }
-    form.append(header);
-  }
   const nodes = allFieldNodes.filter((node) => !fieldInvisible(node, recordValues));
   const fieldNodes: ViewFieldNode[] = nodes.length
     ? nodes
@@ -3886,20 +3933,40 @@ function renderFormView(
       .filter((name) => name !== "id" && name !== "display_name")
       .slice(0, 6)
       .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
+  const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
+  if (buttons.length || statusbarNodes.length) {
+    const header = document.createElement("div");
+    header.className = "gorp-form-header o_form_statusbar";
+    for (const node of statusbarNodes) {
+      header.append(renderStatusbarField(model, node, fields[node.name], recordValues, form, options));
+    }
+    for (const node of buttons) {
+      header.append(renderFormButton(model, node, recordValues, activeFieldNames, form, options));
+    }
+    form.append(header);
+  }
+  const body = document.createElement("div");
+  body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
+  body.setAttribute("style", "padding:14px 18px 24px;background:#eef0f3;");
+  const sheet = document.createElement("section");
+  sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
+  sheet.setAttribute("style", "max-width:980px;margin:0 auto;background:#fff;border:1px solid var(--line);padding:20px;");
+  const title = renderFormTitle(recordValues);
+  if (title) sheet.append(title);
+  const group = document.createElement("div");
+  group.className = "gorp-form-fields record-grid o_group";
   for (const node of fieldNodes) {
     const name = node.name;
+    if (statusbarNodes.includes(node)) continue;
     if (node.attrs.widget === "res_user_group_ids" && name === "group_ids") {
-      form.append(renderResUserGroupIdsField(node, fields, recordValues, form, options.onUpdate));
-      continue;
-    }
-    if (isStatusbarFieldNode(node, fields[name])) {
-      form.append(renderStatusbarField(model, node, fields[name], recordValues, form, options));
+      group.append(renderResUserGroupIdsField(node, fields, recordValues, form, options.onUpdate));
       continue;
     }
     const label = document.createElement("label");
-    label.className = "gorp-form-field";
+    label.className = "gorp-form-field o_wrap_field";
     label.dataset.field = name;
     const caption = document.createElement("span");
+    caption.className = "o_form_label";
     caption.textContent = fieldLabel(fields, name);
     const required = formFieldRequired(node, fields[name], recordValues);
     if (required) label.dataset.required = "true";
@@ -3907,10 +3974,24 @@ function renderFormView(
       ? renderEditableFormField(node, fields[name], recordValues, form, options)
       : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues);
     label.append(caption, value);
-    form.append(label);
+    group.append(label);
   }
+  sheet.append(group);
+  body.append(sheet);
+  form.append(body);
   if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
   return form;
+}
+
+function renderFormTitle(values: Record<string, unknown>): HTMLElement | null {
+  const titleText = firstText(values.display_name, values.name);
+  if (!titleText) return null;
+  const title = document.createElement("div");
+  title.className = "oe_title";
+  const heading = document.createElement("h1");
+  heading.textContent = titleText;
+  title.append(heading);
+  return title;
 }
 
 const decorationOrder = ["danger", "warning", "success", "info", "primary", "muted", "bf", "it"] as const;
@@ -3928,6 +4009,7 @@ function renderReadonlyFieldValue(
     return renderBadgeValue(node, description, value, evalContext);
   }
   const output = document.createElement("output");
+  output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value);
   return output;
 }
@@ -4734,7 +4816,7 @@ function renderEditableFormField(
   const control = fieldType === "text" || fieldType === "html" || node.attrs.widget === "text"
     ? document.createElement("textarea")
     : document.createElement("input");
-  control.className = "gorp-form-control";
+  control.className = "gorp-form-control o_input";
   control.dataset.field = node.name;
   control.dataset.requiredField = node.name;
   control.setAttribute("aria-required", "true");

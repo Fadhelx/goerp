@@ -166,6 +166,10 @@ assert.deepEqual(
 assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_facet_value_separator"))[0].textContent, "or");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_previous"))[0].attributes["aria-label"], "Previous");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].children[0].textContent, ">");
+assert.equal(findAll(root, (node) => node.dataset?.viewType === "list")[0].attributes["aria-label"], "list");
+assert.equal(findAll(root, (node) => node.dataset?.viewType === "form")[0].children[0].textContent, "F");
 
 const input = findAll(root, (node) => String(node.className).includes("o_searchview_input") && node.attributes?.role === "searchbox")[0];
 input.value = "beta";

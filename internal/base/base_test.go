@@ -495,7 +495,7 @@ func TestSecurityModelsExposeOdooFields(t *testing.T) {
 	assertFields(t, models["ir.model.relation"], "name", "model")
 	assertFields(t, models["ir.model.inherit"], "name", "model_id")
 	assertFields(t, models["ir.module.category"], "name", "parent_id", "child_ids", "module_ids", "privilege_ids", "description", "sequence", "visible", "exclusive", "xml_id")
-	assertFields(t, models["ir.module.module.dependency"], "name", "module_id")
+	assertFields(t, models["ir.module.module.dependency"], "name", "module_id", "auto_install_required")
 	assertFields(t, models["ir.module.module.exclusion"], "name", "module_id")
 	assertFields(t, models["ir.rule"], "name", "model", "model_id", "domain", "domain_force", "groups", "group_ids", "global", "active", "perm_read", "perm_write", "perm_create", "perm_unlink")
 	assertFields(t, models["ir.model.data"], "module", "name", "complete_name", "model", "res_id", "noupdate")

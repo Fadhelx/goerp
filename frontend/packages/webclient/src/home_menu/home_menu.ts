@@ -1,5 +1,7 @@
 import {
   appKey,
+  homeMenuAppsCatalogApp,
+  isAppsCatalogApp,
   normalizeHomeMenuApps,
   type HomeMenuApp,
   type HomeMenuPayload
@@ -9,7 +11,7 @@ export interface HomeMenuRenderOptions {
   query?: string;
   includeAppsCatalog?: boolean;
   onOpenApp?: (app: HomeMenuApp) => void;
-  onOpenAppsCatalog?: () => void;
+  onOpenAppsCatalog?: (app?: HomeMenuApp) => void;
 }
 
 export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRenderOptions = {}): HTMLElement {
@@ -35,22 +37,30 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
     const query = search.value.trim().toLowerCase();
     const apps = normalizeHomeMenuApps(payload, { includeDescendantActions: Boolean(query) });
     const visible = query ? apps.filter((app) => app.searchText.includes(query)) : apps;
+    const catalogApp = homeMenuAppsCatalogApp(payload);
     grid.replaceChildren();
     for (const app of visible) {
       grid.append(renderHomeMenuApp(app, () => options.onOpenApp?.(app)));
     }
 
-    if (options.includeAppsCatalog !== false && (!query || "apps".includes(query)) && !apps.some((app) => app.key === "apps")) {
-      grid.append(renderHomeMenuApp({
+    if (options.includeAppsCatalog !== false && shouldAppendAppsCatalog(query, visible, catalogApp)) {
+      const app: HomeMenuApp = catalogApp ?? {
         id: "apps",
         key: "apps",
         name: "Apps",
         initials: "A",
         iconToken: "teal",
         sequence: apps.length,
-        searchText: "apps",
+        searchText: APPS_CATALOG_SEARCH_TEXT,
         menu: { id: "apps", name: "Apps" }
-      }, () => options.onOpenAppsCatalog?.()));
+      };
+      grid.append(renderHomeMenuApp(app, () => {
+        if (catalogApp && options.onOpenApp) {
+          options.onOpenApp?.(catalogApp);
+        } else {
+          options.onOpenAppsCatalog?.(catalogApp ?? undefined);
+        }
+      }));
     }
 
     if (!grid.children.length) {
@@ -89,7 +99,8 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   const name = document.createElement("strong");
   name.className = "o_app_name";
   name.textContent = app.name;
-  button.append(icon, name);
+  const iconImage = appIconImage(app);
+  button.append(iconImage ?? icon, name);
 
   if (app.parentPath) {
     const path = document.createElement("span");
@@ -99,4 +110,38 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   }
   if (onClick) button.addEventListener("click", onClick);
   return button;
+}
+
+const APPS_CATALOG_SEARCH_TEXT = "apps applications modules install";
+
+function shouldAppendAppsCatalog(query: string, visible: readonly HomeMenuApp[], catalogApp: HomeMenuApp | null): boolean {
+  if (!catalogApp) return false;
+  if (visible.some((app) => app.key === "apps" || isAppsCatalogApp(app))) return false;
+  if (!query) return true;
+  return APPS_CATALOG_SEARCH_TEXT.includes(query) || catalogApp.searchText.includes(query);
+}
+
+function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
+  const source = typeof app.menu.webIconData === "string" ? app.menu.webIconData.trim() : "";
+  const iconSource = appIconSource(source, app.menu.webIconDataMimetype);
+  if (!iconSource) return null;
+  const image = document.createElement("img");
+  image.className = "app-icon o_app_icon";
+  image.alt = "";
+  image.src = iconSource;
+  image.setAttribute("aria-hidden", "true");
+  if (typeof app.menu.webIconDataMimetype === "string" && app.menu.webIconDataMimetype.trim()) {
+    image.dataset.mimetype = app.menu.webIconDataMimetype.trim();
+  }
+  return image;
+}
+
+function appIconSource(source: string, mimetype: unknown): string {
+  if (!source || source.endsWith("/default_icon_app.png")) return "";
+  if (/^(data:|https?:\/\/|\/)/.test(source)) return source;
+  const mediaType = typeof mimetype === "string" && mimetype.trim() ? mimetype.trim() : "image/png";
+  if (source.length >= 32 && /^[A-Za-z0-9+/=]+$/.test(source)) {
+    return `data:${mediaType};base64,${source}`;
+  }
+  return "";
 }

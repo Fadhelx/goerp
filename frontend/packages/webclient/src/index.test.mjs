@@ -796,9 +796,14 @@ assert.deepEqual(findAll(renderedWindow, (node) => node.dataset?.menuItemId).map
   "favorite-14"
 ]);
 assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value")[0].textContent, "Customers");
-assert.equal(renderedWindow.children[1].className, "gorp-list-view");
-assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
-assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+assert.ok(String(renderedWindow.children[1].className).includes("gorp-list-shell"));
+assert.ok(String(renderedWindow.children[1].className).includes("o-list-view"));
+const renderedListTable = findAll(renderedWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.ok(String(renderedListTable.className).includes("o_list_table"));
+assert.equal(renderedListTable.children[0].children[0].children[0].textContent, "Name");
+assert.equal(renderedListTable.children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+const renderedMobileCard = findAll(renderedWindow, (node) => String(node.className ?? "").includes("o_mobile_record_card"))[0];
+assert.equal(findAll(renderedMobileCard, (node) => String(node.className ?? "").includes("o_mobile_record_value"))[0].children[0].textContent, "Azure Interior");
 const listOpenCalls = [];
 const interactiveListWindow = renderWindowAction(windowResult, {
   services: {
@@ -1298,7 +1303,8 @@ const approveAllWindow = renderWindowAction({
 });
 const approveAllShell = approveAllWindow.children[1];
 approveAllShell.addEventListener("workflow:approve-all", (event) => { approveAllEvent = event.detail; });
-assert.equal(approveAllShell.className, "gorp-list-shell");
+assert.ok(String(approveAllShell.className).includes("gorp-list-shell"));
+assert.ok(String(approveAllShell.className).includes("o-list-view"));
 const approveAllButton = findAll(approveAllShell, (node) => node.dataset?.workflowAction === "approve")[0];
 assert.equal(approveAllButton.textContent, "Approve");
 assert.equal(approveAllButton.dataset.sequence, "110");

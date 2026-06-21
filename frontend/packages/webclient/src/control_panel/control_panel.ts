@@ -322,12 +322,38 @@ function renderViewSwitcher(views: readonly ControlPanelView[], callbacks: Contr
     const button = document.createElement("button");
     button.type = "button";
     button.className = view.active ? `btn btn-secondary o_switch_view o_${view.type} active` : `btn btn-secondary o_switch_view o_${view.type}`;
-    button.textContent = view.label || view.type;
+    button.setAttribute("aria-label", view.label || view.type);
+    button.setAttribute("title", view.label || view.type);
     button.dataset.viewType = view.type;
+    const icon = document.createElement("i");
+    icon.className = viewIconClass(view.type);
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = viewIconText(view.type);
+    button.append(icon);
     button.addEventListener("click", () => callbacks.onViewSwitch?.(view.type));
     root.append(button);
   }
   return root;
+}
+
+function viewIconClass(viewType: string): string {
+  if (viewType === "list") return "oi oi-view-list";
+  if (viewType === "kanban") return "oi oi-view-kanban";
+  if (viewType === "form") return "oi oi-view-form";
+  if (viewType === "calendar") return "oi oi-calendar";
+  if (viewType === "pivot") return "oi oi-view-pivot";
+  if (viewType === "graph") return "oi oi-view-graph";
+  return "oi oi-view";
+}
+
+function viewIconText(viewType: string): string {
+  if (viewType === "list") return "L";
+  if (viewType === "kanban") return "K";
+  if (viewType === "form") return "F";
+  if (viewType === "calendar") return "C";
+  if (viewType === "pivot") return "P";
+  if (viewType === "graph") return "G";
+  return "";
 }
 
 function pagerButton(
@@ -339,7 +365,13 @@ function pagerButton(
   const button = document.createElement("button");
   button.type = "button";
   button.className = `btn btn-secondary o_pager_${direction}`;
-  button.textContent = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  const icon = document.createElement("i");
+  icon.className = direction === "previous" ? "oi oi-chevron-left" : "oi oi-chevron-right";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = direction === "previous" ? "<" : ">";
+  button.append(icon);
   button.disabled = disabled;
   button.addEventListener("click", () => callback?.());
   return button;

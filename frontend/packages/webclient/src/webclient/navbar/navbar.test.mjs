@@ -27,6 +27,9 @@ globalThis.document = {
       getAttribute(name) {
         return this.attributes[name] ?? null;
       },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
       addEventListener(type, listener) {
         this.listeners[type] = [...(this.listeners[type] ?? []), listener];
       }
@@ -55,6 +58,8 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_t
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_navbar_apps_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(navbar, (node) => node.dataset?.menuId === "7" && node.attributes?.["aria-current"] === "page").length, 1);
+assert.equal(navbar.dataset.activeMenuId, "7");
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Sales").length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_systray")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_activity_menu")).length, 1);
@@ -78,3 +83,13 @@ assert.equal(mobileMenu.attributes["aria-expanded"], "true");
 mobileMenu.listeners.click[0]();
 assert.equal(mobileMenu.attributes["aria-expanded"], "false");
 assert.deepEqual(toggled, [true, false]);
+
+const activeNavbar = renderNavbar({
+  apps: [{ id: 7, name: "Sales" }, { id: 8, name: "Settings" }]
+});
+findAll(activeNavbar, (node) => node.dataset?.menuId === "8")[0].listeners.click[0]();
+assert.equal(activeNavbar.dataset.activeMenuId, "8");
+assert.equal(findAll(activeNavbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Settings").length, 1);
+findAll(activeNavbar, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
+assert.equal(activeNavbar.dataset.activeMenuId, undefined);
+assert.equal(findAll(activeNavbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Odoo").length, 1);

@@ -289,6 +289,39 @@ export const scenarios = [
       const layout = await assertFormHeaderLayout(page, "mobile technical form");
       return { title, field_count: fieldCount, horizontal_overflow_px: overflow, ...layout };
     }
+  },
+  {
+    name: "normal-user-launcher-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&normal_user_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "normal-user setup document ready");
+      const normalUser = await createNormalUserSession(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&normal_user=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "normal-user TS webclient ready");
+      const appLabels = await waitFor(page, `(() => {
+        const labels = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app_name")]
+          .map((node) => (node.textContent || "").trim())
+          .filter(Boolean);
+        return labels.length ? labels : null;
+      })()`, "normal-user app labels");
+      assertIncludes(appLabels, "Approvals", "normal-user launcher");
+      for (const hidden of ["Apps", "Delegation", "Settings", "Technical"]) {
+        assertExcludes(appLabels, hidden, "normal-user launcher");
+      }
+      const menus = await webRequestJSON(page, config, "/web/webclient/load_menus", null, "GET");
+      const menuLabels = flattenMenuNames(menus);
+      for (const hidden of ["Apps", "Delegation", "Settings", "Technical"]) {
+        assertExcludes(menuLabels, hidden, "normal-user menus");
+      }
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Approvals", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "normal-user Approvals action ready");
+      const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action", 1, "normal-user Approvals action");
+      const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      const model = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager .gorp-window-action")?.dataset.model || ""`);
+      return { uid: normalUser.uid, app_count: appLabels.length, menu_count: menuLabels.length, title, model, window_count: windowCount };
+    }
   }
 ];
 
@@ -586,6 +619,91 @@ async function openWeb(page, config, viewport) {
   await waitFor(page, `Boolean(document.querySelector(".o_web_client .o_action_manager"))`, "web client shell");
   await maybeLogin(page);
   await waitForCount(page, "#appGrid .o_app", 2, "app launcher tiles");
+}
+
+async function createNormalUserSession(page, config) {
+  await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+  const groupRows = await webCallKW(page, config, "ir.model.data", "search_read", {
+    args: [[["module", "=", "base"], ["name", "=", "group_user"]]],
+    kwargs: { fields: ["res_id"], limit: 1 }
+  });
+  const groupID = Number(groupRows?.[0]?.res_id || 0);
+  if (!groupID) throw new Error("base.group_user not found for normal-user smoke");
+  const session = await webRequestJSON(page, config, "/web/session/info", null, "GET");
+  const companyID = Number(session?.company_id || 0);
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const login = `visual-normal-${suffix}@example.test`;
+  const password = `visual-normal-${suffix}`;
+  const values = {
+    login,
+    password,
+    email: login,
+    name: "Visual Normal User",
+    active: true,
+    groups_id: [groupID],
+    group_ids: [groupID],
+    all_group_ids: [groupID]
+  };
+  if (companyID > 0) {
+    values.company_id = companyID;
+    values.company_ids = [companyID];
+  }
+  const created = await webCallKW(page, config, "res.users", "create", { values });
+  const uid = Number(created?.id || created || 0);
+  if (!uid) throw new Error("normal-user smoke user was not created");
+  const authenticated = await webRequestJSON(page, config, "/web/session/authenticate", { login, password });
+  const authenticatedUID = Number(authenticated?.uid || 0);
+  if (authenticatedUID !== uid) throw new Error(`normal-user authenticate uid mismatch: ${authenticatedUID} !== ${uid}`);
+  return { uid };
+}
+
+async function webCallKW(page, config, model, method, payload = {}) {
+  return webRequestJSON(page, config, "/web/dataset/call_kw", Object.assign({ model, method }, payload));
+}
+
+async function webRequestJSON(page, config, path, payload = null, method = "POST") {
+  const url = appURL(config.baseURL, path);
+  const body = payload == null ? "" : JSON.stringify(payload);
+  return evaluate(page, `(async () => {
+    const options = {
+      method: ${JSON.stringify(method)},
+      credentials: "include",
+      headers: {"Content-Type": "application/json"}
+    };
+    if (${JSON.stringify(body)} !== "") options.body = ${JSON.stringify(body)};
+    const response = await fetch(${JSON.stringify(url)}, options);
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_error) { data = text; }
+    const rpcError = data && typeof data === "object" && data.error;
+    if (!response.ok || rpcError) {
+      const message = rpcError?.message || rpcError?.data?.message || (typeof data === "string" ? data : JSON.stringify(data));
+      throw new Error("request failed " + response.status + " " + ${JSON.stringify(path)} + ": " + message);
+    }
+    return data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "result") ? data.result : data;
+  })()`);
+}
+
+function flattenMenuNames(menus) {
+  const labels = [];
+  const children = menus?.children && typeof menus.children === "object" ? menus.children : {};
+  const collect = (node) => {
+    if (!node || typeof node !== "object") return;
+    const name = normalizeText(node.name);
+    if (name) labels.push(name);
+    const ids = Array.isArray(node.children) ? node.children : [];
+    for (const id of ids) collect(children[String(id)] || children[id]);
+  };
+  for (const id of Object.keys(children)) collect(children[id]);
+  return [...new Set(labels)];
+}
+
+function assertIncludes(values, wanted, label) {
+  if (!values.includes(wanted)) throw new Error(`${label}: expected ${wanted} in ${JSON.stringify(values)}`);
+}
+
+function assertExcludes(values, unwanted, label) {
+  if (values.includes(unwanted)) throw new Error(`${label}: expected ${unwanted} to be hidden in ${JSON.stringify(values)}`);
 }
 
 async function maybeLogin(page) {

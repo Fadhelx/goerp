@@ -607,23 +607,100 @@ func createInstalledModuleRows(env *record.Env, manifests []module.Manifest) err
 	if err != nil {
 		return err
 	}
-	rows, err := existing.Read("name")
+	rows, err := existing.Read("id", "name")
 	if err != nil {
 		return err
 	}
 	seen := map[string]bool{}
+	moduleIDs := map[string]int64{}
 	for _, row := range rows {
-		seen[stringValue(row["name"])] = true
+		name := stringValue(row["name"])
+		seen[name] = true
+		moduleIDs[name] = int64Value(row["id"])
 	}
 	for _, manifest := range manifests {
 		if seen[manifest.TechnicalName] {
 			continue
 		}
-		if _, err := env.Model("ir.module.module").Create(map[string]any{"name": manifest.TechnicalName, "state": "installed"}); err != nil {
+		id, err := env.Model("ir.module.module").Create(map[string]any{"name": manifest.TechnicalName, "state": "installed"})
+		if err != nil {
 			return err
+		}
+		moduleIDs[manifest.TechnicalName] = id
+	}
+	return syncModuleDependencyRows(env, manifests, moduleIDs)
+}
+
+func syncModuleDependencyRows(env *record.Env, manifests []module.Manifest, moduleIDs map[string]int64) error {
+	existing, err := env.Model("ir.module.module.dependency").Search(domain.And())
+	if err != nil {
+		return err
+	}
+	rows, err := existing.Read("id", "module_id", "name", "auto_install_required")
+	if err != nil {
+		return err
+	}
+	seen := map[string]map[string]int64{}
+	for _, row := range rows {
+		moduleID := int64Value(row["module_id"])
+		name := stringValue(row["name"])
+		if moduleID == 0 || name == "" {
+			continue
+		}
+		key := strconv.FormatInt(moduleID, 10)
+		if seen[key] == nil {
+			seen[key] = map[string]int64{}
+		}
+		seen[key][name] = int64Value(row["id"])
+	}
+	for _, manifest := range manifests {
+		moduleID := moduleIDs[manifest.TechnicalName]
+		if moduleID == 0 {
+			continue
+		}
+		required := autoInstallRequiredDependencies(manifest)
+		moduleKey := strconv.FormatInt(moduleID, 10)
+		if seen[moduleKey] == nil {
+			seen[moduleKey] = map[string]int64{}
+		}
+		for _, dep := range manifest.Depends {
+			dep = strings.TrimSpace(dep)
+			if dep == "" {
+				continue
+			}
+			values := map[string]any{"name": dep, "module_id": moduleID, "auto_install_required": required[dep]}
+			if id := seen[moduleKey][dep]; id > 0 {
+				if err := env.Model("ir.module.module.dependency").Browse(id).Write(values); err != nil {
+					return err
+				}
+				continue
+			}
+			id, err := env.Model("ir.module.module.dependency").Create(values)
+			if err != nil {
+				return err
+			}
+			seen[moduleKey][dep] = id
 		}
 	}
 	return nil
+}
+
+func autoInstallRequiredDependencies(manifest module.Manifest) map[string]bool {
+	required := map[string]bool{}
+	if !manifest.AutoInstall {
+		return required
+	}
+	deps := manifest.AutoInstallDepends
+	if len(deps) == 0 {
+		deps = manifest.Depends
+	}
+	for _, dep := range deps {
+		dep = strings.TrimSpace(dep)
+		if dep != "" {
+			required[dep] = true
+		}
+	}
+	return required
 }
 
 func assetsFromSources(root string, env *record.Env, manifests []module.Manifest) (*assets.Registry, error) {

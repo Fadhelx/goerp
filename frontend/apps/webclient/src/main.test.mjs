@@ -187,7 +187,7 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_na
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
   ["/web/webclient/load_menus", "GET"]

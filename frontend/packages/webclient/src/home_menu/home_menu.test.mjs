@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   appInitials,
+  homeMenuAppsCatalogApp,
   normalizeHomeMenuApps
 } from "../../../../dist/packages/webclient/src/home_menu/app_metadata.js";
 import { renderHomeMenu } from "../../../../dist/packages/webclient/src/home_menu/home_menu.js";
@@ -50,14 +51,16 @@ const payload = {
   3: { id: 3, name: "Sales Orders", children: [] },
   4: { id: 4, name: "Settings", children: [40] },
   10: { id: 10, name: "Requests" },
-  40: { id: 40, name: "Technical", children: [41] },
-  41: { id: 41, name: "Server Actions", actionID: 55, children: [] }
+  40: { id: 40, name: "Technical", children: [41, 42] },
+  41: { id: 41, name: "Server Actions", actionID: 55, children: [] },
+  42: { id: 42, name: "Apps", actionID: 66, actionPath: "apps", xmlid: "base.menu_ir_module_module", children: [] }
 };
 
 const apps = normalizeHomeMenuApps(payload);
 assert.deepEqual(apps.map((item) => item.name), ["Delegation", "Sales Orders", "Settings"]);
 assert.equal(apps[0].id, 2);
 assert.equal(appInitials("Sales Orders"), "SO");
+assert.equal(homeMenuAppsCatalogApp(payload)?.id, 42);
 
 const homeMenu = renderHomeMenu(payload, { query: "sales" });
 assert.match(homeMenu.className, /o_app_launcher/);
@@ -84,3 +87,36 @@ const searchInput = findAll(liveMenu, (node) => String(node.className).includes(
 searchInput.value = "server";
 searchInput.listeners.input[0]();
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41" && node.dataset?.menuAction === "true").length, 1);
+
+const normalUserMenu = renderHomeMenu({
+  menu_roots: [1],
+  1: { id: 1, name: "Approvals", children: [] }
+});
+assert.equal(findAll(normalUserMenu, (node) => node.dataset?.appName === "Approvals").length, 1);
+assert.equal(findAll(normalUserMenu, (node) => node.dataset?.appKey === "apps").length, 0);
+
+const catalogEvents = [];
+const installMenu = renderHomeMenu(payload, {
+  query: "install",
+  onOpenApp: (app) => catalogEvents.push(["app", app.id])
+});
+const catalogCard = findAll(installMenu, (node) => node.dataset?.menuId === "42" && node.dataset?.menuAction === "true")[0];
+assert.equal(catalogCard.dataset.menuPath, "Settings / Technical");
+catalogCard.listeners.click[0]();
+assert.deepEqual(catalogEvents, [["app", 42]]);
+
+const technicalSearch = renderHomeMenu(payload, { query: "developer" });
+assert.equal(findAll(technicalSearch, (node) => node.dataset?.menuId === "41").length, 1);
+
+const imageMenu = renderHomeMenu({
+  root: { children: [1] },
+  1: { id: 1, name: "Inventory", children: [], webIconData: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", webIconDataMimetype: "image/png" }
+});
+const imageIcon = findAll(imageMenu, (node) => node.tag === "img")[0];
+assert.match(imageIcon.src, /^data:image\/png;base64,/);
+const fallbackMenu = renderHomeMenu({
+  root: { children: [1] },
+  1: { id: 1, name: "Broken Icon", children: [], webIconData: "abc123", webIconDataMimetype: "image/png" }
+});
+assert.equal(findAll(fallbackMenu, (node) => node.tag === "img").length, 0);
+assert.equal(findAll(fallbackMenu, (node) => String(node.className).includes("o_app_icon"))[0].textContent, "BI");

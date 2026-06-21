@@ -1,7 +1,7 @@
 import type { ThemeTokens } from "../../../theme-tokens/src/index";
-import { normalizeHomeMenuApps, type HomeMenuApp, type HomeMenuPayload } from "../home_menu/app_metadata.js";
+import { homeMenuAppsCatalogApp, normalizeHomeMenuApps, type HomeMenuApp, type HomeMenuPayload } from "../home_menu/app_metadata.js";
 import { renderHomeMenu } from "../home_menu/home_menu.js";
-import { renderNavbar, type NavbarApp } from "./navbar/navbar.js";
+import { renderNavbar, type NavbarApp, type RenderedNavbar } from "./navbar/navbar.js";
 
 export interface WebClientShellOptions {
   theme: ThemeTokens;
@@ -26,20 +26,28 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   const setMobileMenuOpen = (open: boolean) => {
     document.body?.classList?.toggle("o-mobile-menu-open", open);
   };
+  let setNavbarActive: (appId?: number | string) => void = () => {};
   const openApp = (app: HomeMenuApp) => {
     setMobileMenuOpen(false);
+    setNavbarActive(app.rootId ?? app.id);
     return options.onOpenApp?.(app, action);
+  };
+  const openAppsCatalog = () => {
+    const catalogApp = homeMenuAppsCatalogApp(options.menus);
+    if (catalogApp) return openApp(catalogApp);
+    return options.onOpenAppsCatalog?.(action);
   };
   const renderApps = () => {
     setMobileMenuOpen(false);
+    setNavbarActive(undefined);
     if (!options.menus) return;
     action.replaceChildren(renderHomeMenu(options.menus, {
       onOpenApp: openApp,
-      onOpenAppsCatalog: () => options.onOpenAppsCatalog?.(action)
+      onOpenAppsCatalog: openAppsCatalog
     }));
   };
 
-  const navbar = renderNavbar({
+  const navbar: RenderedNavbar = renderNavbar({
     apps,
     userName: options.userName,
     companyName: options.companyName,
@@ -51,6 +59,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
       if (menuApp) openApp(menuApp);
     }
   });
+  setNavbarActive = navbar.setActiveApp;
 
   if (options.menus) {
     renderApps();

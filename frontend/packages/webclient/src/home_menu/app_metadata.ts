@@ -4,6 +4,12 @@ export interface HomeMenuEntry {
   children?: readonly (number | string)[];
   actionID?: number | string | false;
   actionId?: number | string | false;
+  directActionID?: number | string | false;
+  xmlid?: string | false;
+  actionPath?: string | false;
+  action_path?: string | false;
+  webIconData?: string | false;
+  webIconDataMimetype?: string | false;
 }
 
 export type HomeMenuPayload = Record<string, unknown> & {
@@ -111,8 +117,19 @@ export function normalizeHomeMenuApps(
   ].sort((left, right) => left.sequence - right.sequence || left.name.localeCompare(right.name));
 }
 
+export function homeMenuAppsCatalogApp(payload: HomeMenuPayload | null | undefined): HomeMenuApp | null {
+  const candidates = normalizeHomeMenuApps(payload, { includeDescendantActions: true })
+    .filter(isAppsCatalogApp)
+    .sort((left, right) => appsCatalogScore(right) - appsCatalogScore(left) || left.sequence - right.sequence);
+  return candidates[0] ?? null;
+}
+
+export function isAppsCatalogApp(app: HomeMenuApp): boolean {
+  return menuActionValue(app.menu) !== undefined && isAppsCatalogMenu(app.menu);
+}
+
 function homeMenuSearchText(payload: HomeMenuPayload, menu: HomeMenuEntry): string {
-  const parts = [cleanAppName(menu.name)];
+  const parts = [cleanAppName(menu.name), ...menuSearchAliases(menu)];
   collectMenuNames(payload, menu.children ?? [], new Set(), parts);
   return parts.join(" ").toLowerCase();
 }
@@ -128,7 +145,7 @@ function isBetterMenuCandidate(existing: HomeMenuEntry, candidate: HomeMenuEntry
 function descendantActionApps(payload: HomeMenuPayload, root: HomeMenuApp): HomeMenuApp[] {
   const out: HomeMenuApp[] = [];
   const rootName = cleanAppName(root.menu.name ?? root.name);
-  const visit = (id: number | string, path: string[], visited: Set<string>) => {
+  const visit = (id: number | string, path: string[], searchPath: string[], visited: Set<string>) => {
     const key = String(id);
     if (visited.has(key)) return;
     const nextVisited = new Set(visited);
@@ -137,6 +154,7 @@ function descendantActionApps(payload: HomeMenuPayload, root: HomeMenuApp): Home
     if (!menu) return;
     const name = cleanAppName(menu.name);
     const nextPath = [...path, name];
+    const nextSearchPath = [...searchPath, name, ...menuSearchAliases(menu)];
     const action = menuActionValue(menu);
     if (action !== undefined) {
       out.push({
@@ -146,16 +164,17 @@ function descendantActionApps(payload: HomeMenuPayload, root: HomeMenuApp): Home
         initials: appInitials(name),
         iconToken: root.iconToken,
         sequence: root.sequence + ((out.length + 1) / 1000),
-        searchText: nextPath.join(" ").toLowerCase(),
+        searchText: nextSearchPath.join(" ").toLowerCase(),
         menu,
         parentPath: path.join(" / "),
         rootId: root.id,
         isMenuAction: true
       });
     }
-    for (const childId of menu.children ?? []) visit(childId, nextPath, nextVisited);
+    for (const childId of menu.children ?? []) visit(childId, nextPath, nextSearchPath, nextVisited);
   };
-  for (const childId of root.menu.children ?? []) visit(childId, [rootName], new Set([String(root.id)]));
+  const rootSearchPath = [rootName, ...menuSearchAliases(root.menu)];
+  for (const childId of root.menu.children ?? []) visit(childId, [rootName], rootSearchPath, new Set([String(root.id)]));
   return out;
 }
 
@@ -166,14 +185,42 @@ function collectMenuNames(payload: HomeMenuPayload, ids: readonly (number | stri
     visited.add(key);
     const menu = homeMenuEntry(payload, id);
     if (!menu) continue;
-    if (menu.name) out.push(cleanAppName(menu.name));
+    if (menu.name) out.push(cleanAppName(menu.name), ...menuSearchAliases(menu));
     collectMenuNames(payload, menu.children ?? [], visited, out);
   }
 }
 
-function menuActionValue(menu: HomeMenuEntry): number | string | undefined {
+export function menuActionValue(menu: HomeMenuEntry): number | string | undefined {
   const value = menu.actionID ?? menu.actionId;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) return value.trim();
   return undefined;
+}
+
+function isAppsCatalogMenu(menu: HomeMenuEntry): boolean {
+  const name = cleanAppName(menu.name).toLowerCase();
+  const xmlid = textValue(menu.xmlid).toLowerCase();
+  const actionPath = textValue(menu.actionPath ?? menu.action_path).toLowerCase();
+  return xmlid === "base.menu_ir_module_module" || actionPath === "apps" || name === "apps";
+}
+
+function appsCatalogScore(app: HomeMenuApp): number {
+  const menu = app.menu;
+  const xmlid = textValue(menu.xmlid).toLowerCase();
+  const actionPath = textValue(menu.actionPath ?? menu.action_path).toLowerCase();
+  if (xmlid === "base.menu_ir_module_module") return 3;
+  if (actionPath === "apps") return 2;
+  return 1;
+}
+
+function menuSearchAliases(menu: HomeMenuEntry): string[] {
+  const name = cleanAppName(menu.name).toLowerCase();
+  if (name === "apps") return ["applications", "modules", "install"];
+  if (name === "settings") return ["configuration", "preferences"];
+  if (name === "technical") return ["developer", "debug", "system"];
+  return [];
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }

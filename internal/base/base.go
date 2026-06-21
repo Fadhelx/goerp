@@ -50,7 +50,7 @@ func RegisterModels(reg *registry.Registry) error {
 func Models() []model.Model {
 	return []model.Model{
 		simple("ir.module.module", "ir_module_module", field.New("name", field.Char), field.New("state", field.Selection)),
-		simple("ir.module.module.dependency", "ir_module_module_dependency", field.New("name", field.Char), field.New("module_id", field.Many2One).WithRelation("ir.module.module")),
+		simple("ir.module.module.dependency", "ir_module_module_dependency", field.New("name", field.Char), field.New("module_id", field.Many2One).WithRelation("ir.module.module"), field.New("auto_install_required", field.Bool)),
 		simple("ir.module.module.exclusion", "ir_module_module_exclusion", field.New("name", field.Char), field.New("module_id", field.Many2One).WithRelation("ir.module.module")),
 		simple("ir.module.category",
 			"ir_module_category",

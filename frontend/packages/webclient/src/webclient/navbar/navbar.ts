@@ -21,6 +21,10 @@ export interface NavbarOptions {
   onToggleMobileMenu?: (expanded: boolean) => void;
 }
 
+export interface RenderedNavbar extends HTMLElement {
+  setActiveApp: (appId?: number | string) => void;
+}
+
 export function defaultSystrayItems(): SystrayItem[] {
   return [
     { key: "messages", label: "Messages", count: 0, className: "o_mail_systray_item" },
@@ -28,10 +32,11 @@ export function defaultSystrayItems(): SystrayItem[] {
   ];
 }
 
-export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
-  const header = document.createElement("header");
+export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
+  const header = document.createElement("header") as RenderedNavbar;
   header.className = "o_main_navbar d-print-none";
   let setMobileMenuExpanded = (_expanded: boolean) => {};
+  const appButtons = new Map<string, HTMLElement>();
 
   const brand = document.createElement("div");
   brand.className = "o_navbar_apps_menu o-brand";
@@ -41,18 +46,15 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
   launcher.dataset.view = "apps";
   launcher.setAttribute("aria-label", "Apps");
   launcher.setAttribute("accesskey", "h");
-  if (options.activeAppId == null) {
-    launcher.className = "o_menu_toggle o-launcher-button border-0 active";
-    launcher.setAttribute("aria-current", "page");
-  }
   launcher.append(renderLauncherIcon());
   launcher.addEventListener("click", () => {
     setMobileMenuExpanded(false);
+    setActiveApp(undefined);
     options.onOpenApps?.();
   });
   const title = document.createElement("h1");
   title.className = "o_menu_brand";
-  title.textContent = "Odoo";
+  title.textContent = activeAppName(options.apps ?? [], options.activeAppId) ?? "Odoo";
   brand.append(launcher, title);
 
   const mobileMenu = renderMobileMenuToggle((expanded) => {
@@ -73,12 +75,10 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
     button.className = "o_nav_entry";
     button.dataset.menuId = String(app.id);
     button.title = app.name;
-    if (String(app.id) === String(options.activeAppId ?? "")) {
-      button.className = "o_nav_entry active";
-      button.setAttribute("aria-current", "page");
-    }
+    appButtons.set(String(app.id), button);
     button.addEventListener("click", () => {
       setMobileMenuExpanded(false);
+      setActiveApp(app.id);
       options.onOpenApp?.(app);
     });
     nav.append(button);
@@ -94,7 +94,27 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
   systray.append(renderUserMenu(options.userName ?? "Administrator"));
 
   header.append(brand, mobileMenu, nav, systray);
+  header.setActiveApp = setActiveApp;
+  setActiveApp(options.activeAppId);
   return header;
+
+  function setActiveApp(appId?: number | string): void {
+    const activeKey = appId === undefined || appId === null ? "" : String(appId);
+    if (activeKey) {
+      header.dataset.activeMenuId = activeKey;
+    } else {
+      delete header.dataset.activeMenuId;
+    }
+    const activeName = activeAppName(options.apps ?? [], appId);
+    title.textContent = activeName ?? "Odoo";
+    launcher.className = activeKey ? "o_menu_toggle o-launcher-button border-0" : "o_menu_toggle o-launcher-button border-0 active";
+    setPageCurrent(launcher, !activeKey);
+    for (const [key, button] of appButtons) {
+      const active = key === activeKey;
+      button.className = active ? "o_nav_entry active" : "o_nav_entry";
+      setPageCurrent(button, active);
+    }
+  }
 }
 
 function renderLauncherIcon(): HTMLElement {
@@ -172,4 +192,19 @@ function renderUserMenu(userName: string): HTMLElement {
   label.textContent = userName;
   button.append(label);
   return button;
+}
+
+function activeAppName(apps: readonly NavbarApp[], appId: number | string | undefined): string | undefined {
+  if (appId === undefined || appId === null) return undefined;
+  return apps.find((app) => String(app.id) === String(appId))?.name;
+}
+
+function setPageCurrent(node: HTMLElement, current: boolean): void {
+  if (current) {
+    node.setAttribute("aria-current", "page");
+  } else if (typeof node.removeAttribute === "function") {
+    node.removeAttribute("aria-current");
+  } else {
+    node.setAttribute("aria-current", "false");
+  }
 }

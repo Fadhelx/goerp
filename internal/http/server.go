@@ -45,6 +45,7 @@ import (
 	"gorp/internal/meta/view"
 	"gorp/internal/model"
 	"gorp/internal/module"
+	modulelifecycle "gorp/internal/module/lifecycle"
 	"gorp/internal/notifications"
 	"gorp/internal/phone"
 	"gorp/internal/record"
@@ -5807,6 +5808,20 @@ const webClientShellHTML = `<!doctype html>
 		min-width: 0;
 		background: #eef0f3;
 	}
+	main.o_web_client {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		background: #eef0f3;
+	}
+	main.o_web_client > .o_action_manager {
+		flex: 1 1 auto;
+		min-height: calc(100vh - 46px);
+		background: #eef0f3;
+	}
+	main.o_web_client > .o_action_manager > .o-app-launcher-view {
+		min-height: calc(100vh - 46px);
+	}
 	.panel {
 		background: transparent;
 		border-bottom: 0;
@@ -7641,15 +7656,25 @@ const webClientShellHTML = `<!doctype html>
       });
     }
 
-    function menuHasDirectAction(menu) {
-      return Boolean(menu && (menu.hasDirectAction || menu.directActionID));
-    }
+	    function menuHasDirectAction(menu) {
+	      return Boolean(menu && (menu.hasDirectAction || menu.directActionID));
+	    }
 
-    function findActionMenu(names) {
-      const lowered = names.map((name) => cleanAppName(name).toLowerCase());
-      return allMenuEntries(workbench.menus).find((menu) => {
-        if (!menuHasDirectAction(menu)) return false;
-        const name = cleanAppName(menu.name).toLowerCase();
+	    function appsCatalogMenu(payload) {
+	      return allMenuEntries(payload).find((menu) => {
+	        if (!menuHasDirectAction(menu)) return false;
+	        const name = cleanAppName(menu.name).toLowerCase();
+	        const xmlid = String(menu.xmlid || "").toLowerCase();
+	        const actionPath = String(menu.actionPath || menu.action_path || "").toLowerCase();
+	        return xmlid === "base.menu_ir_module_module" || actionPath === "apps" || name === "apps";
+	      }) || null;
+	    }
+
+	    function findActionMenu(names) {
+	      const lowered = names.map((name) => cleanAppName(name).toLowerCase());
+	      return allMenuEntries(workbench.menus).find((menu) => {
+	        if (!menuHasDirectAction(menu)) return false;
+	        const name = cleanAppName(menu.name).toLowerCase();
         return lowered.includes(name);
       }) || null;
     }
@@ -7814,15 +7839,13 @@ const webClientShellHTML = `<!doctype html>
             key: "menu-" + menu.id,
             initials: appInitials(menu.name || path),
             subtitle: path
-          }, () => openMenu(menu.id));
-        }
-      }
-      if ((!needle || "apps".includes(needle)) && !apps.some((app) => app.key === "apps")) {
-        appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {
-          setView("install");
-          loadInstallApps();
-        });
-      }
+	          }, () => openMenu(menu.id));
+	        }
+	      }
+	      const catalogMenu = appsCatalogMenu(payload);
+	      if (catalogMenu && (!needle || "apps applications modules install".includes(needle)) && !apps.some((app) => app.key === "apps")) {
+	        appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => openMenu(catalogMenu.id));
+	      }
       if (!found) {
         const empty = document.createElement("p");
         empty.className = "muted";
@@ -7962,7 +7985,7 @@ const webClientShellHTML = `<!doctype html>
     }
 
     async function installModule(id) {
-      await callKW("ir.module.module", "write", {args: [[id], {state: "installed"}]});
+      await callKW("ir.module.module", "button_immediate_install", {args: [[id]]});
       await loadInstallApps();
     }
 
@@ -8622,12 +8645,15 @@ func (s Server) sessionCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) sessionModules(w http.ResponseWriter, r *http.Request) {
+	env := s.Env
 	if s.Security != nil {
-		if _, ok := s.requireWebSession(w, r, nil); !ok {
+		sessionEnv, ok := s.requireWebSession(w, r, nil)
+		if !ok {
 			return
 		}
+		env = sessionEnv
 	}
-	s.writeMaybeRPC(w, r, modulesPayload(s.Modules))
+	s.writeMaybeRPC(w, r, modulesPayloadFromEnv(env, s.Modules))
 }
 
 func (s Server) sessionDestroy(w http.ResponseWriter, r *http.Request) {
@@ -11016,7 +11042,54 @@ func (s Server) authenticateSecurityUser(login, password string) (security.User,
 			return user, true
 		}
 	}
+	if user, ok := s.authenticateRecordUser(login, password); ok {
+		return user, true
+	}
 	return security.User{}, false
+}
+
+func (s Server) authenticateRecordUser(login, password string) (security.User, bool) {
+	if s.Security == nil || s.Env == nil || !modelHasField(s.Env, "res.users", "password") {
+		return security.User{}, false
+	}
+	found, err := s.Env.Model("res.users").SearchWithOptions(domain.Cond("login", domain.Equal, login), record.SearchOptions{Limit: 1})
+	if err != nil || found.Len() == 0 {
+		return security.User{}, false
+	}
+	fields := availableModelFields(s.Env, "res.users", "id", "login", "password", "email", "name", "active", "company_id", "company_ids", "partner_id", "commercial_partner_id", "groups_id", "group_ids", "all_group_ids")
+	rows, err := found.Read(fields...)
+	if err != nil || len(rows) == 0 {
+		return security.User{}, false
+	}
+	row := rows[0]
+	storedPassword := stringValue(row["password"])
+	if storedPassword == "" || subtle.ConstantTimeCompare([]byte(storedPassword), []byte(password)) != 1 {
+		return security.User{}, false
+	}
+	if active, ok := row["active"].(bool); ok && !active {
+		return security.User{}, false
+	}
+	companyID := int64Value(row["company_id"])
+	companyIDs := int64Slice(row["company_ids"])
+	if len(companyIDs) == 0 && companyID != 0 {
+		companyIDs = []int64{companyID}
+	}
+	groupIDs := uniqueInt64Slice(append(append(int64Slice(row["groups_id"]), int64Slice(row["group_ids"])...), int64Slice(row["all_group_ids"])...))
+	user := security.User{
+		ID:                  int64Value(row["id"]),
+		Login:               firstTextHTTP(row["login"], login),
+		Password:            storedPassword,
+		Email:               stringValue(row["email"]),
+		Name:                firstTextHTTP(row["name"], row["login"], login),
+		Active:              true,
+		CompanyID:           companyID,
+		CompanyIDs:          companyIDs,
+		PartnerID:           int64Value(row["partner_id"]),
+		CommercialPartnerID: int64Value(row["commercial_partner_id"]),
+		GroupIDs:            groupIDs,
+	}
+	s.Security.Users[user.ID] = user
+	return user, true
 }
 
 func (s Server) envForSecurityUser(user security.User) *record.Env {
@@ -12000,6 +12073,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 	if result, handled, err := s.dispatchSequenceMethod(env, req); handled {
 		return result, err
 	}
+	if result, handled, err := s.dispatchModuleMethod(env, req); handled {
+		return result, err
+	}
 	if result, handled, err := s.dispatchAIModelMethod(env, req); handled {
 		return result, err
 	}
@@ -12391,6 +12467,53 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		return map[string]any{"value": values}, nil
 	default:
 		return nil, fmt.Errorf("unsupported method %s", req.Method)
+	}
+}
+
+func (s Server) dispatchModuleMethod(env *record.Env, req callKWRequest) (any, bool, error) {
+	if req.Model != "ir.module.module" {
+		return nil, false, nil
+	}
+	ids := positiveInt64Slice(int64Slice(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"])))
+	service := modulelifecycle.New(env, s.Modules)
+	var result modulelifecycle.Result
+	var err error
+	switch req.Method {
+	case "button_install":
+		result, err = service.ButtonInstall(ids)
+	case "button_immediate_install":
+		result, err = service.ButtonImmediateInstall(ids)
+	case "button_upgrade":
+		result, err = service.ButtonUpgrade(ids)
+	case "button_immediate_upgrade":
+		result, err = service.ButtonImmediateUpgrade(ids)
+	case "button_uninstall":
+		result, err = service.ButtonUninstall(ids)
+	case "button_immediate_uninstall":
+		result, err = service.ButtonImmediateUninstall(ids)
+	case "button_cancel_install", "button_install_cancel":
+		result, err = service.ButtonCancelInstall(ids)
+	case "button_cancel_uninstall", "button_uninstall_cancel":
+		result, err = service.ButtonCancelUninstall(ids)
+	case "button_cancel_upgrade", "button_upgrade_cancel":
+		result, err = service.ButtonCancelUpgrade(ids)
+	default:
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, true, err
+	}
+	return moduleLifecycleAction(result), true, nil
+}
+
+func moduleLifecycleAction(result modulelifecycle.Result) map[string]any {
+	return map[string]any{
+		"type": "ir.actions.client",
+		"tag":  "reload",
+		"params": map[string]any{
+			"operation": result.Operation,
+			"modules":   append([]string(nil), result.Modules...),
+		},
 	}
 }
 
@@ -19482,6 +19605,46 @@ func registryHash(ctx record.Context) string {
 }
 
 func modulesPayload(modules map[string]module.Manifest) map[string]any {
+	states := map[string]string{}
+	for name := range modules {
+		states[name] = "installed"
+	}
+	return modulesPayloadWithStates(modules, states)
+}
+
+func modulesPayloadFromEnv(env *record.Env, modules map[string]module.Manifest) map[string]any {
+	states := moduleStatesFromEnv(env)
+	return modulesPayloadWithStates(modules, states)
+}
+
+func moduleStatesFromEnv(env *record.Env) map[string]string {
+	if env == nil {
+		return map[string]string{}
+	}
+	found, err := env.Model("ir.module.module").Search(domain.And())
+	if err != nil {
+		return map[string]string{}
+	}
+	rows, err := found.Read("name", "state")
+	if err != nil {
+		return map[string]string{}
+	}
+	states := map[string]string{}
+	for _, row := range rows {
+		name := stringValue(row["name"])
+		if name == "" {
+			continue
+		}
+		state := stringValue(row["state"])
+		if state == "" {
+			state = "uninstalled"
+		}
+		states[name] = state
+	}
+	return states
+}
+
+func modulesPayloadWithStates(modules map[string]module.Manifest, states map[string]string) map[string]any {
 	if len(modules) == 0 {
 		return map[string]any{"installed_modules": []string{}, "modules": map[string]any{}}
 	}
@@ -19490,22 +19653,30 @@ func modulesPayload(modules map[string]module.Manifest) map[string]any {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	installedNames := make([]string, 0, len(names))
 	items := map[string]any{}
 	for _, name := range names {
 		manifest := modules[name]
+		state := states[name]
+		if state == "" {
+			state = "uninstalled"
+		}
+		if state == "installed" {
+			installedNames = append(installedNames, name)
+		}
 		items[name] = map[string]any{
 			"name":           manifest.Name,
 			"technical_name": manifest.TechnicalName,
 			"version":        manifest.Version,
 			"category":       manifest.Category,
-			"state":          "installed",
+			"state":          state,
 			"application":    manifest.Application,
 			"auto_install":   manifest.AutoInstall,
 			"installable":    manifest.Installable,
 			"depends":        append([]string(nil), manifest.Depends...),
 		}
 	}
-	return map[string]any{"installed_modules": names, "modules": items}
+	return map[string]any{"installed_modules": installedNames, "modules": items}
 }
 
 func stringContextValue(ctx record.Context, key string, fallback string) string {

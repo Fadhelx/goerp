@@ -43,6 +43,7 @@ import (
 	"gorp/internal/meta/menu"
 	"gorp/internal/meta/view"
 	"gorp/internal/model"
+	"gorp/internal/module"
 	"gorp/internal/notifications"
 	"gorp/internal/record"
 	"gorp/internal/security"
@@ -71,6 +72,330 @@ func TestWebRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"res_model":"res.partner"`) || !strings.Contains(rec.Body.String(), `"views"`) {
 		t.Fatalf("action response %d %s", rec.Code, rec.Body.String())
 	}
+}
+
+func TestModuleLifecycleCallKWMethodsUpdateStateAndSessionPayload(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	baseID := createHTTPModuleRow(t, env, "base", "installed")
+	mailID := createHTTPModuleRow(t, env, "mail", "uninstalled")
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	server := Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"base": {Name: "Base", TechnicalName: "base", Version: "19.0.1.0.0", Installable: true},
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Depends: []string{"base"}, Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Depends: []string{"mail"}, Installable: true},
+		},
+	}
+	handler := server.Handler()
+
+	body := postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_install","args":[[%d]]}`, crmID))
+	payload := decodeJSONMap(t, []byte(body))
+	if payload["type"] != "ir.actions.client" || payload["tag"] != "reload" {
+		t.Fatalf("install action = %+v", payload)
+	}
+	params := payload["params"].(map[string]any)
+	if params["operation"] != "immediate_install" || strings.Join(stringSlice(params["modules"]), ",") != "crm,mail" {
+		t.Fatalf("install params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, baseID, "installed")
+	assertHTTPModuleState(t, env, mailID, "installed")
+	assertHTTPModuleState(t, env, crmID, "installed")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/session/modules", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session modules status %d %s", rec.Code, rec.Body.String())
+	}
+	sessionPayload := decodeJSONMap(t, rec.Body.Bytes())
+	if strings.Join(stringSlice(sessionPayload["installed_modules"]), ",") != "base,crm,mail" {
+		t.Fatalf("installed modules = %+v", sessionPayload["installed_modules"])
+	}
+	modules := sessionPayload["modules"].(map[string]any)
+	if modules["crm"].(map[string]any)["state"] != "installed" {
+		t.Fatalf("crm payload = %+v", modules["crm"])
+	}
+}
+
+func TestModuleLifecycleQueuedInstallUpdatesDependenciesAndSessionPayload(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	createHTTPModuleRow(t, env, "base", "installed")
+	mailID := createHTTPModuleRow(t, env, "mail", "uninstalled")
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"base": {Name: "Base", TechnicalName: "base", Version: "19.0.1.0.0", Installable: true},
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Depends: []string{"base"}, Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Depends: []string{"mail"}, Installable: true},
+		},
+	}).Handler()
+
+	body := postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_install","args":[[%d]]}`, crmID))
+	payload := decodeJSONMap(t, []byte(body))
+	params := payload["params"].(map[string]any)
+	if params["operation"] != "install" || strings.Join(stringSlice(params["modules"]), ",") != "crm,mail" {
+		t.Fatalf("install params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, mailID, "to install")
+	assertHTTPModuleState(t, env, crmID, "to install")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/session/modules", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session modules status %d %s", rec.Code, rec.Body.String())
+	}
+	sessionPayload := decodeJSONMap(t, rec.Body.Bytes())
+	if strings.Join(stringSlice(sessionPayload["installed_modules"]), ",") != "base" {
+		t.Fatalf("installed modules = %+v", sessionPayload["installed_modules"])
+	}
+	modules := sessionPayload["modules"].(map[string]any)
+	if modules["crm"].(map[string]any)["state"] != "to install" || modules["mail"].(map[string]any)["state"] != "to install" {
+		t.Fatalf("queued module payload = %+v", modules)
+	}
+}
+
+func TestModuleLifecycleUpgradeAndCancelCallKWMethods(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	crmID := createHTTPModuleRow(t, env, "crm", "installed")
+	mailID := createHTTPModuleRow(t, env, "mail", "to remove")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Depends: []string{"mail"}, Installable: true},
+		},
+	}).Handler()
+
+	body := postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_upgrade","args":[[%d]]}`, crmID))
+	params := decodeJSONMap(t, []byte(body))["params"].(map[string]any)
+	if params["operation"] != "upgrade" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("upgrade params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, crmID, "to upgrade")
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_upgrade","args":[[%d]]}`, crmID))
+	params = decodeJSONMap(t, []byte(body))["params"].(map[string]any)
+	if params["operation"] != "immediate_upgrade" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("immediate upgrade params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, crmID, "installed")
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_upgrade","args":[[%d]]}`, crmID))
+	params = decodeJSONMap(t, []byte(body))["params"].(map[string]any)
+	if params["operation"] != "upgrade" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("second upgrade params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, crmID, "to upgrade")
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_upgrade_cancel","args":[[%d]]}`, crmID))
+	params = decodeJSONMap(t, []byte(body))["params"].(map[string]any)
+	if params["operation"] != "cancel_upgrade" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("cancel upgrade params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, crmID, "installed")
+
+	body = postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_cancel_uninstall","args":[[%d]]}`, mailID))
+	params = decodeJSONMap(t, []byte(body))["params"].(map[string]any)
+	if params["operation"] != "cancel_uninstall" || strings.Join(stringSlice(params["modules"]), ",") != "mail" {
+		t.Fatalf("cancel uninstall params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, mailID, "installed")
+}
+
+func TestModuleLifecycleCancelInstallAndJSONRPCEnvelope(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	crmID := createHTTPModuleRow(t, env, "crm", "to install")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":41,"params":{"model":"ir.module.module","method":"button_install_cancel","args":[[%d]]}}`, crmID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cancel install response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONMap(t, rec.Body.Bytes())
+	if payload["id"] != float64(41) {
+		t.Fatalf("jsonrpc envelope = %+v", payload)
+	}
+	result := payload["result"].(map[string]any)
+	params := result["params"].(map[string]any)
+	if params["operation"] != "cancel_install" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("cancel install result = %+v", result)
+	}
+	assertHTTPModuleState(t, env, crmID, "uninstalled")
+}
+
+func TestModuleLifecycleCallButtonPathUsesLifecycleDispatch(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	appID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"args":[[%d]]}`, appID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_button/ir.module.module/button_immediate_install", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("button response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONMap(t, rec.Body.Bytes())
+	if payload["type"] != "ir.actions.client" || payload["tag"] != "reload" {
+		t.Fatalf("button action = %+v", payload)
+	}
+	params := payload["params"].(map[string]any)
+	if params["operation"] != "immediate_install" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("button params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, appID, "installed")
+}
+
+func TestModuleLifecycleCallButtonBodyUsesLifecycleDispatch(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	appID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_install","args":[[%d]]}`, appID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_button", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("button response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONMap(t, rec.Body.Bytes())
+	params := payload["params"].(map[string]any)
+	if params["operation"] != "immediate_install" || strings.Join(stringSlice(params["modules"]), ",") != "crm" {
+		t.Fatalf("button params = %+v", params)
+	}
+	assertHTTPModuleState(t, env, appID, "installed")
+}
+
+func TestModuleLifecycleCallKWBlocksDependentUninstall(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	mailID := createHTTPModuleRow(t, env, "mail", "installed")
+	createHTTPModuleRow(t, env, "crm", "installed")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Depends: []string{"mail"}, Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_uninstall","args":[[%d]]}`, mailID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/ir.module.module/button_immediate_uninstall", body))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "required by installed module crm") {
+		t.Fatalf("uninstall response %d %s", rec.Code, rec.Body.String())
+	}
+	assertHTTPModuleState(t, env, mailID, "installed")
+}
+
+func TestModuleLifecycleCallKWBlocksBaseAndInactiveUninstall(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	baseID := createHTTPModuleRow(t, env, "base", "installed")
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"base": {Name: "Base", TechnicalName: "base", Version: "19.0.1.0.0", Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model":"ir.module.module","method":"button_uninstall","args":[[%d]]}`, baseID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "base cannot be uninstalled") {
+		t.Fatalf("base uninstall response %d %s", rec.Code, rec.Body.String())
+	}
+	assertHTTPModuleState(t, env, baseID, "installed")
+
+	rec = httptest.NewRecorder()
+	body = bytes.NewBufferString(fmt.Sprintf(`{"model":"ir.module.module","method":"button_uninstall","args":[[%d]]}`, crmID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "cannot run uninstall from state uninstalled") {
+		t.Fatalf("inactive uninstall response %d %s", rec.Code, rec.Body.String())
+	}
+	assertHTTPModuleState(t, env, crmID, "uninstalled")
+}
+
+func TestSessionModulesMarksMissingManifestRowsUninstalled(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	createHTTPModuleRow(t, env, "base", "installed")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"base": {Name: "Base", TechnicalName: "base", Version: "19.0.1.0.0", Installable: true},
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/session/modules", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session modules status %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONMap(t, rec.Body.Bytes())
+	if strings.Join(stringSlice(payload["installed_modules"]), ",") != "base" {
+		t.Fatalf("installed modules = %+v", payload["installed_modules"])
+	}
+	modules := payload["modules"].(map[string]any)
+	if modules["crm"].(map[string]any)["state"] != "uninstalled" {
+		t.Fatalf("crm payload = %+v", modules["crm"])
+	}
+}
+
+func moduleLifecycleHTTPEnv(t *testing.T) *record.Env {
+	t.Helper()
+	reg := record.NewRegistry()
+	for _, m := range internalbase.Models() {
+		if err := reg.Register(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
+}
+
+func createHTTPModuleRow(t *testing.T, env *record.Env, name string, state string) int64 {
+	t.Helper()
+	id, err := env.Model("ir.module.module").Create(map[string]any{"name": name, "state": state})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func assertHTTPModuleState(t *testing.T, env *record.Env, id int64, want string) {
+	t.Helper()
+	rows, err := env.Model("ir.module.module").Browse(id).Read("state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["state"] != want {
+		t.Fatalf("module %d state = %+v, want %s", id, rows, want)
+	}
+}
+
+func decodeJSONMap(t *testing.T, data []byte) map[string]any {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("decode json: %v: %s", err, string(data))
+	}
+	return payload
 }
 
 func TestReportsStaticDashboardRoute(t *testing.T) {
@@ -11455,6 +11780,7 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`function collectMenuSearchText(menu, parts, seen)`,
 		`function matchingActionMenus(payload, needle)`,
 		`function menuHasDirectAction(menu)`,
+		`function appsCatalogMenu(payload)`,
 		`function findActionMenu(names)`,
 		`function renderSettingsView(action)`,
 		`function currentSearchState(query)`,
@@ -11472,9 +11798,10 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`icon.dataset.iconToken = appIconToken(name);`,
 		`button.className = menuHasDirectAction(child) ? "o_menuitem" : "secondary o_menu_section";`,
 		`if (child.xmlid) button.dataset.menuXmlid = child.xmlid;`,
-		`appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {`,
+		`const catalogMenu = appsCatalogMenu(payload);`,
 		`function moduleDisplayName(name)`,
 		`const seenModules = new Set();`,
+		`callKW("ir.module.module", "button_immediate_install", {args: [[id]]})`,
 		`async function loadActionViews(action, model)`,
 		`callKW(model, "get_views"`,
 		`callKW(model, "web_search_read"`,
@@ -11537,6 +11864,9 @@ func TestWebAliasesAndAssets(t *testing.T) {
 	}
 	if strings.Contains(body, "o_favorites_menu") {
 		t.Fatalf("web client still uses plural favorites menu selector")
+	}
+	if strings.Contains(body, `callKW("ir.module.module", "write", {args: [[id], {state: "installed"}]})`) {
+		t.Fatalf("web client still writes module state directly")
 	}
 	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`, `<h1>GoERP</h1>`, `<h1>Gorp</h1>`} {
 		if strings.Contains(body, needle) {
@@ -11873,6 +12203,67 @@ func TestWebSessionAuthenticateIssuesCookieAndRevokesLogout(t *testing.T) {
 	}
 	if _, ok := engine.AuthenticateSession(cookies[0].Value); ok {
 		t.Fatal("session token remained valid after logout")
+	}
+}
+
+func TestWebSessionAuthenticateHydratesRecordUser(t *testing.T) {
+	server, ids := testViewGroupXMLIDServer(t)
+	companyID, err := server.Env.Model("res.company").Create(map[string]any{"name": "Auth Company"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	partnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Runtime User", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := server.Env.Model("res.users").Create(map[string]any{
+		"login":      "runtime-user@example.test",
+		"password":   "runtime-secret",
+		"email":      "runtime-user@example.test",
+		"name":       "Runtime User",
+		"active":     true,
+		"company_id": companyID,
+		"company_ids": []int64{
+			companyID,
+		},
+		"partner_id": partnerID,
+		"groups_id": []int64{
+			ids["base.group_user"],
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := security.NewEngine()
+	server.Security = engine
+	handler := server.Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":22,"params":{"db":"demo","login":"runtime-user@example.test","password":"runtime-secret"}}`)
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/session/authenticate", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticate response %d %s", rec.Code, rec.Body.String())
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != "session_id" || cookies[0].Value == "" {
+		t.Fatalf("session cookie = %+v", cookies)
+	}
+	hydrated := engine.Users[userID]
+	if hydrated.ID != userID || hydrated.Login != "runtime-user@example.test" || hydrated.CompanyID != companyID || hydrated.PartnerID != partnerID || !containsHTTPInt64(hydrated.GroupIDs, ids["base.group_user"]) {
+		t.Fatalf("hydrated user = %+v", hydrated)
+	}
+	payload := decodeJSON(t, rec.Body.Bytes())
+	result := payload["result"].(map[string]any)
+	if result["uid"] != float64(userID) {
+		t.Fatalf("authenticate result = %#v", result)
+	}
+
+	checkReq := httptest.NewRequest(http.MethodGet, "/web/session/check", nil)
+	checkReq.AddCookie(cookies[0])
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, checkReq)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), fmt.Sprintf(`"uid":%d`, userID)) {
+		t.Fatalf("session check response %d %s", rec.Code, rec.Body.String())
 	}
 }
 
