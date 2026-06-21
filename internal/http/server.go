@@ -4206,6 +4206,41 @@ const webClientShellHTML = `<!doctype html>
       color: var(--muted);
       font-size: 12px;
     }
+	.text-bg-success { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
+	.text-bg-info { color: #055160; background: #cff4fc; border-color: #b6effb; }
+	.text-bg-warning { color: #664d03; background: #fff3cd; border-color: #ffecb5; }
+	.text-bg-danger { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
+	.text-bg-primary { color: #084298; background: #cfe2ff; border-color: #b6d4fe; }
+	.text-bg-300, .text-bg-muted, .text-bg-secondary { color: #41464b; background: #e2e3e5; border-color: #d3d6d8; }
+	.o_field_many2one_avatar {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		min-width: 0;
+	}
+	.o_m2o_avatar {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		object-fit: cover;
+		background: #d8dadd;
+	}
+	.o_field_many2one_avatar_name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.o-mail-Chatter {
+		margin-top: 18px;
+		border-top: 1px solid var(--line);
+		padding-top: 12px;
+	}
+	.o-mail-Composer {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+		margin: 8px 0;
+	}
 	.menu-list {
       display: flex;
       flex-wrap: wrap;
@@ -4979,6 +5014,10 @@ const webClientShellHTML = `<!doctype html>
 		workbench.viewInfo = null;
 		workbench.fields = [];
 		workbench.fieldLabels = {};
+		workbench.fieldMeta = {};
+		workbench.listFieldAttrs = {};
+		workbench.listViewAttrs = {};
+		workbench.formFieldAttrs = {};
 		workbench.formFields = [];
 		workbench.openedRecord = null;
 		showRecordForm(false);
@@ -5115,6 +5154,10 @@ const webClientShellHTML = `<!doctype html>
       viewInfo: null,
       fields: [],
       fieldLabels: {},
+      fieldMeta: {},
+      listFieldAttrs: {},
+      listViewAttrs: {},
+      formFieldAttrs: {},
       formFields: []
     };
 
@@ -5193,15 +5236,44 @@ const webClientShellHTML = `<!doctype html>
     }
 
     function viewArchFields(arch) {
+      return viewArchFieldNodes(arch).map((node) => node.name);
+    }
+
+    function viewArchFieldNodes(arch) {
       const out = [];
       if (typeof arch !== "string" || !arch) return out;
       try {
         const doc = new DOMParser().parseFromString(arch, "text/xml");
         for (const node of doc.querySelectorAll("field[name]")) {
           const name = node.getAttribute("name");
-          if (name && !out.includes(name)) out.push(name);
+          if (!name || out.some((item) => item.name === name)) continue;
+          const attrs = {};
+          for (const attr of node.attributes) attrs[attr.name] = attr.value;
+          out.push({name, attrs});
         }
       } catch (_error) {}
+      return out;
+    }
+
+    function viewRootAttrs(arch, tagName) {
+      if (typeof arch !== "string" || !arch) return {};
+      try {
+        const doc = new DOMParser().parseFromString(arch, "text/xml");
+        const root = doc.documentElement;
+        if (!root || root.tagName.toLowerCase() !== tagName) return {};
+        const attrs = {};
+        for (const attr of root.attributes) attrs[attr.name] = attr.value;
+        return attrs;
+      } catch (_error) {
+        return {};
+      }
+    }
+
+    function fieldAttrMap(nodes) {
+      const out = {};
+      for (const node of nodes || []) {
+        if (node && node.name && !out[node.name]) out[node.name] = node.attrs || {};
+      }
       return out;
     }
 
@@ -5263,13 +5335,19 @@ const webClientShellHTML = `<!doctype html>
         });
       const listView = (((viewInfo || {}).views || {}).list) || {};
       const formView = (((viewInfo || {}).views || {}).form) || {};
-      const listFields = viewArchFields(listView.arch).filter((field) => field !== "id");
-      const formFields = viewArchFields(formView.arch).filter((field) => field !== "id");
+      const listNodes = viewArchFieldNodes(listView.arch);
+      const formNodes = viewArchFieldNodes(formView.arch);
+      const listFields = listNodes.map((node) => node.name).filter((field) => field !== "id");
+      const formFields = formNodes.map((node) => node.name).filter((field) => field !== "id");
       const fallback = (defaultFields[model] || "id,display_name,name").split(",").map((field) => field.trim()).filter(Boolean);
       workbench.viewInfo = viewInfo || {};
       workbench.fields = (listFields.length ? listFields : fallback).filter((field) => field !== "id");
       workbench.formFields = (formFields.length ? formFields : workbench.fields).filter((field) => field !== "id");
       workbench.fieldLabels = viewFieldLabels(model, viewInfo);
+      workbench.fieldMeta = (((viewInfo || {}).models || {})[model] || {}).fields || {};
+      workbench.listFieldAttrs = fieldAttrMap(listNodes);
+      workbench.listViewAttrs = viewRootAttrs(listView.arch, "list");
+      workbench.formFieldAttrs = fieldAttrMap(formNodes);
       fieldsInput.value = ["id", ...workbench.fields].filter((value, index, list) => list.indexOf(value) === index).join(",");
       document.getElementById("recordFields").value = ["id", ...workbench.formFields].filter((value, index, list) => list.indexOf(value) === index).join(",");
     }
@@ -5611,6 +5689,141 @@ const webClientShellHTML = `<!doctype html>
       await loadInstallApps();
     }
 
+    function fieldMeta(field) {
+      return workbench.fieldMeta[field] || {};
+    }
+
+    function fieldType(field) {
+      return fieldMeta(field).type || "";
+    }
+
+    function fieldRelation(field) {
+      return fieldMeta(field).relation || "";
+    }
+
+    function many2OneDisplay(value) {
+      if (Array.isArray(value)) return {id: value[0], name: String(value[1] || value[0] || "")};
+      if (value && typeof value === "object") return {id: value.id, name: String(value.display_name || value.name || value.id || "")};
+      return {id: typeof value === "number" ? value : null, name: value === null || value === undefined || value === false ? "" : String(value)};
+    }
+
+    function fieldDisplayValue(field, value) {
+      if (fieldType(field) === "many2one" || fieldType(field) === "reference") return many2OneDisplay(value).name;
+      if (fieldType(field) === "selection" && Array.isArray(fieldMeta(field).selection)) {
+        const key = String(value || "");
+        for (const option of fieldMeta(field).selection) {
+          if (Array.isArray(option) && String(option[0]) === key) return String(option[1] || option[0]);
+          if (option && typeof option === "object" && String(option.value) === key) return String(option.label || option.string || option.value);
+        }
+      }
+      if (Array.isArray(value)) return value.map((item) => fieldDisplayValue(field, item)).filter(Boolean).join(", ");
+      if (value === null || value === undefined || value === false) return "";
+      if (typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    }
+
+    function decorationTruthy(expression, row) {
+      const source = String(expression || "").trim();
+      if (!source) return false;
+      if (source === "1" || source === "True" || source === "true") return true;
+      if (source === "0" || source === "False" || source === "false") return false;
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(source)) return Boolean(row[source]);
+      let match = source.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*={1,2}\s*['"]([^'"]+)['"]$/);
+      if (match) return String(row[match[1]] || "") === match[2];
+      match = source.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*!=\s*['"]([^'"]+)['"]$/);
+      if (match) return String(row[match[1]] || "") !== match[2];
+      match = source.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+in\s+\(([^)]+)\)$/);
+      if (match) {
+        const values = match[2].split(",").map((item) => item.trim().replace(/^['"]|['"]$/g, ""));
+        return values.includes(String(row[match[1]] || ""));
+      }
+      return false;
+    }
+
+    function activeDecoration(attrs, row) {
+      for (const name of ["danger", "warning", "success", "info", "primary", "muted"]) {
+        if (decorationTruthy(attrs && attrs["decoration-" + name], row)) return name;
+      }
+      return "";
+    }
+
+    function rowDecorationClass(row) {
+      const classes = ["o_data_row"];
+      for (const name of ["danger", "warning", "success", "info", "primary", "muted"]) {
+        if (!decorationTruthy(workbench.listViewAttrs && workbench.listViewAttrs["decoration-" + name], row)) continue;
+        classes.push("text-bg-" + name);
+        classes.push("o_list_record_" + name);
+      }
+      if (decorationTruthy(workbench.listViewAttrs && workbench.listViewAttrs["decoration-bf"], row)) classes.push("fw-bold");
+      if (decorationTruthy(workbench.listViewAttrs && workbench.listViewAttrs["decoration-it"], row)) classes.push("fst-italic");
+      return classes.join(" ");
+    }
+
+    function renderFieldValue(field, value, row, attrs) {
+      const widget = attrs && attrs.widget;
+      if (widget === "many2one_avatar_employee" && fieldType(field) === "many2one") {
+        const data = many2OneDisplay(value);
+        const root = document.createElement("span");
+        root.className = "o_field_widget o_field_many2one_avatar";
+        root.dataset.field = field;
+        root.dataset.relation = fieldRelation(field) || "hr.employee";
+        if (data.id) {
+          root.dataset.resId = String(data.id);
+          const image = document.createElement("img");
+          image.className = "o_avatar o_m2o_avatar";
+          image.src = "/web/image/" + root.dataset.relation + "/" + encodeURIComponent(String(data.id)) + "/avatar_128";
+          image.alt = data.name;
+          root.append(image);
+        }
+        const label = document.createElement("span");
+        label.className = "o_field_many2one_avatar_name";
+        label.textContent = data.name;
+        root.append(label);
+        return root;
+      }
+      if (widget === "badge" || widget === "selection_badge") {
+        const badge = document.createElement("span");
+        const decoration = activeDecoration(attrs || {}, row || {});
+        badge.className = "badge rounded-pill " + (decoration && decoration !== "muted" ? "text-bg-" + decoration : "text-bg-300");
+        badge.dataset.field = field;
+        badge.dataset.widget = widget;
+        if (decoration) badge.dataset.decoration = decoration;
+        badge.textContent = fieldDisplayValue(field, value);
+        return badge;
+      }
+      const out = document.createElement("span");
+      out.textContent = fieldDisplayValue(field, value);
+      return out;
+    }
+
+    function viewHasChatter() {
+      const formArch = (((workbench.viewInfo || {}).views || {}).form || {}).arch || "";
+      return /<chatter(?:\s|\/|>)/.test(formArch);
+    }
+
+    function renderChatter(model, id) {
+      const chatter = document.createElement("aside");
+      chatter.className = "o-mail-ChatterContainer o-mail-Form-chatter o-mail-Chatter";
+      chatter.dataset.threadModel = model;
+      chatter.dataset.threadId = String(id || "");
+      const header = document.createElement("div");
+      header.textContent = "Chatter";
+      const composer = document.createElement("div");
+      composer.className = "o-mail-Composer";
+      for (const label of ["Send message", "Log note", "Activities"]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary";
+        button.textContent = label;
+        composer.append(button);
+      }
+      const thread = document.createElement("div");
+      thread.className = "o-mail-Thread";
+      thread.dataset.chatterThread = "true";
+      chatter.append(header, composer, thread);
+      return chatter;
+    }
+
     function renderRows(rows, fields) {
       const host = document.getElementById("rows");
       host.replaceChildren();
@@ -5635,7 +5848,7 @@ const webClientShellHTML = `<!doctype html>
       const tbody = document.createElement("tbody");
       for (const row of rows) {
         const tr = document.createElement("tr");
-        tr.className = "o_data_row";
+        tr.className = rowDecorationClass(row);
         tr.dataset.id = row.id || "";
         if (row.id) {
           tr.addEventListener("click", () => openRecord(modelSelect.value, row.id));
@@ -5643,8 +5856,8 @@ const webClientShellHTML = `<!doctype html>
         for (const field of fields) {
           if (field === "id") continue;
           const td = document.createElement("td");
-          const value = row[field];
-          td.textContent = value === null || value === undefined ? "" : (typeof value === "object" ? JSON.stringify(value) : String(value));
+          td.dataset.field = field;
+          td.append(renderFieldValue(field, row[field], row, workbench.listFieldAttrs[field] || {}));
           tr.append(td);
         }
         tbody.append(tr);
@@ -5665,8 +5878,7 @@ const webClientShellHTML = `<!doctype html>
           label.textContent = fieldLabel(field);
           const value = document.createElement("span");
           value.className = "o_mobile_record_value";
-          const raw = row[field];
-          value.textContent = raw === null || raw === undefined ? "" : (typeof raw === "object" ? JSON.stringify(raw) : String(raw));
+          value.append(renderFieldValue(field, row[field], row, workbench.listFieldAttrs[field] || {}));
           line.append(label, value);
           card.append(line);
         }
@@ -5706,14 +5918,20 @@ const webClientShellHTML = `<!doctype html>
         for (const field of formFields) {
           const label = document.createElement("label");
           label.textContent = fieldLabel(field);
-          const input = document.createElement("input");
-          input.dataset.field = field;
           const value = row[field];
-          input.value = value === null || value === undefined ? "" : (typeof value === "object" ? JSON.stringify(value) : String(value));
-          if (field === "id" || Array.isArray(value) || typeof value === "object") input.readOnly = true;
-          label.append(input);
+          const attrs = workbench.formFieldAttrs[field] || {};
+          if (attrs.widget === "many2one_avatar_employee" || attrs.widget === "badge" || attrs.widget === "selection_badge") {
+            label.append(renderFieldValue(field, value, row, attrs));
+          } else {
+            const input = document.createElement("input");
+            input.dataset.field = field;
+            input.value = fieldDisplayValue(field, value);
+            if (field === "id" || Array.isArray(value) || typeof value === "object") input.readOnly = true;
+            label.append(input);
+          }
           form.append(label);
         }
+        if (viewHasChatter()) form.append(renderChatter(model, id));
         document.getElementById("recordRaw").textContent = pretty(row);
       } catch (error) {
         if (await ensureSession(error)) return openRecord(model, id);

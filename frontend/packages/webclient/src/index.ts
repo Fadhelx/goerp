@@ -1568,6 +1568,7 @@ function renderListView(
   options: RenderWindowActionOptions = {}
 ): HTMLElement {
   const arch = viewDescription?.arch ?? "";
+  const listAttrs = viewRootAttrs(arch, "list", "tree");
   const showApproveAll = listShowsActionApproveAll(arch);
   const activeFieldNames = new Set(parseViewFieldNodes(arch).map((node) => node.name));
   const showUpdateStatus = Boolean(model && user.isSystem && activeFieldNames.has("state"));
@@ -1580,7 +1581,8 @@ function renderListView(
   if (model) shell.dataset.model = model;
   const table = document.createElement("table");
   table.className = "gorp-list-view";
-  const names = viewFieldNames(arch, fields, records[0] ?? {});
+  const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {});
+  const names = fieldNodes.map((node) => node.name);
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
   if (showToolbar) {
@@ -1588,15 +1590,16 @@ function renderListView(
     selectHead.textContent = "";
     headerRow.append(selectHead);
   }
-  for (const name of names) {
+  for (const node of fieldNodes) {
     const th = document.createElement("th");
-    th.textContent = fieldLabel(fields, name);
+    th.textContent = fieldLabel(fields, node.name);
     headerRow.append(th);
   }
   thead.append(headerRow);
   const tbody = document.createElement("tbody");
   for (const record of records) {
     const row = document.createElement("tr");
+    row.className = listDecorationClassName(listAttrs, record);
     if (showToolbar) {
       const selectCell = document.createElement("td");
       const checkbox = document.createElement("input");
@@ -1616,9 +1619,10 @@ function renderListView(
       selectCell.append(checkbox);
       row.append(selectCell);
     }
-    for (const name of names) {
+    for (const node of fieldNodes) {
       const cell = document.createElement("td");
-      cell.textContent = formatCellValue(record[name]);
+      cell.dataset.field = node.name;
+      cell.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
       row.append(cell);
     }
     tbody.append(row);
@@ -1644,6 +1648,15 @@ function renderListView(
     return shell;
   }
   return table;
+}
+
+function listViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {
+  const nodes = parseViewFieldNodes(arch).filter((node) => !fieldInvisible(node, evalContext));
+  if (nodes.length) return nodes;
+  return Object.keys(fields)
+    .filter((name) => name !== "id" && name !== "display_name")
+    .slice(0, 6)
+    .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
 }
 
 function renderActionMenus(params: {
@@ -3175,18 +3188,162 @@ function renderFormView(
     }
     const label = document.createElement("label");
     label.className = "gorp-form-field";
+    label.dataset.field = name;
     const caption = document.createElement("span");
     caption.textContent = fieldLabel(fields, name);
     const required = formFieldRequired(node, fields[name], recordValues);
     if (required) label.dataset.required = "true";
     const value = required && formFieldEditable(node, fields[name], recordValues)
       ? renderEditableFormField(node, fields[name], recordValues, form, options)
-      : document.createElement("output");
-    if (value.tagName.toLowerCase() === "output") value.textContent = formatCellValue(recordValues[name]);
+      : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues);
     label.append(caption, value);
     form.append(label);
   }
+  if (viewHasChatter(arch)) {
+    form.append(renderChatterContainer(model, recordID));
+  }
   return form;
+}
+
+const decorationOrder = ["danger", "warning", "success", "info", "primary", "muted", "bf", "it"] as const;
+
+function renderReadonlyFieldValue(
+  node: ViewFieldNode,
+  description: unknown,
+  value: unknown,
+  evalContext: Record<string, unknown>
+): HTMLElement {
+  if (node.attrs.widget === "many2one_avatar_employee" && fieldTypeValue(description) === "many2one") {
+    return renderMany2OneAvatarValue(node.name, fieldRelationValue(description) || "hr.employee", value);
+  }
+  if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
+    return renderBadgeValue(node, description, value, evalContext);
+  }
+  const output = document.createElement("output");
+  output.textContent = fieldDisplayText(description, value);
+  return output;
+}
+
+function renderMany2OneAvatarValue(fieldName: string, relation: string, value: unknown): HTMLElement {
+  const data = many2OneDisplayData(value);
+  const root = document.createElement("span");
+  root.className = "gorp-many2one-avatar o_field_widget o_field_many2one_avatar";
+  root.dataset.field = fieldName;
+  root.dataset.relation = relation;
+  if (data.id !== undefined) {
+    root.dataset.resId = String(data.id);
+    const image = document.createElement("img");
+    image.className = "gorp-many2one-avatar-img o_avatar o_m2o_avatar rounded-circle";
+    image.src = `/web/image/${relation}/${data.id}/avatar_128`;
+    image.alt = data.displayName;
+    root.append(image);
+  }
+  const label = document.createElement("span");
+  label.className = "gorp-many2one-avatar-name";
+  label.textContent = data.displayName;
+  root.append(label);
+  return root;
+}
+
+function renderBadgeValue(
+  node: ViewFieldNode,
+  description: unknown,
+  value: unknown,
+  evalContext: Record<string, unknown>
+): HTMLElement {
+  const badge = document.createElement("span");
+  const decoration = activeDecoration(node.attrs, evalContext);
+  badge.className = ["gorp-badge", "badge", "rounded-pill", badgeDecorationClass(decoration)].join(" ");
+  badge.dataset.field = node.name;
+  badge.dataset.widget = node.attrs.widget || "badge";
+  if (decoration) badge.dataset.decoration = decoration;
+  badge.textContent = fieldDisplayText(description, value);
+  return badge;
+}
+
+function activeDecoration(attrs: Record<string, string>, evalContext: Record<string, unknown>): string {
+  for (const name of decorationOrder) {
+    const expression = attrs[`decoration-${name}`];
+    if (!expression) continue;
+    const evaluated = safeEvaluateBooleanAttr(expression, evalContext);
+    if (evaluated === true || (evaluated === undefined && pythonTruthy(safeEvaluateAttr(expression, evalContext)))) {
+      return name === "bf" || name === "it" ? "" : name;
+    }
+  }
+  return "";
+}
+
+function badgeDecorationClass(decoration: string): string {
+  return decoration && decoration !== "muted" ? `text-bg-${decoration}` : "text-bg-300";
+}
+
+function listDecorationClassName(attrs: Record<string, string>, evalContext: Record<string, unknown>): string {
+  const classes = ["gorp-list-row"];
+  for (const name of decorationOrder) {
+    const expression = attrs[`decoration-${name}`];
+    if (!expression) continue;
+    const evaluated = safeEvaluateBooleanAttr(expression, evalContext);
+    const active = evaluated === true || (evaluated === undefined && pythonTruthy(safeEvaluateAttr(expression, evalContext)));
+    if (!active) continue;
+    if (name === "bf") classes.push("fw-bold");
+    else if (name === "it") classes.push("fst-italic");
+    else classes.push(`text-bg-${name}`, `o_list_record_${name}`);
+  }
+  return classes.join(" ");
+}
+
+function fieldDisplayText(description: unknown, value: unknown): string {
+  const fieldType = fieldTypeValue(description);
+  if (fieldType === "selection") {
+    const key = String(value ?? "");
+    const found = selectionOptions(description).find(([candidate]) => candidate === key);
+    if (found) return found[1];
+  }
+  if (fieldType === "many2one" || fieldType === "reference") {
+    return many2OneDisplayData(value).displayName;
+  }
+  return formatCellValue(value);
+}
+
+function many2OneDisplayData(value: unknown): { id?: number; displayName: string } {
+  if (Array.isArray(value)) {
+    const id = numberRecordID(value[0]);
+    return { id, displayName: String(value[1] ?? id ?? "") };
+  }
+  if (isRecord(value)) {
+    const id = numberRecordID(value.id);
+    return { id, displayName: String(value.display_name ?? value.name ?? id ?? "") };
+  }
+  const id = numberRecordID(value);
+  return { id, displayName: value === null || value === undefined || value === false ? "" : String(value) };
+}
+
+function viewHasChatter(arch: string): boolean {
+  return /<chatter(?:\s|\/|>)/.test(arch);
+}
+
+function renderChatterContainer(model: string, recordID: number | undefined): HTMLElement {
+  const chatter = document.createElement("aside");
+  chatter.className = "gorp-chatter o-mail-ChatterContainer o-mail-Form-chatter o-mail-Chatter";
+  chatter.dataset.threadModel = model;
+  if (recordID !== undefined) chatter.dataset.threadId = String(recordID);
+  const header = document.createElement("div");
+  header.className = "gorp-chatter-header";
+  header.textContent = "Chatter";
+  const composer = document.createElement("div");
+  composer.className = "gorp-chatter-composer o-mail-Composer";
+  for (const label of ["Send message", "Log note", "Activities"]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "gorp-chatter-tab";
+    button.textContent = label;
+    composer.append(button);
+  }
+  const thread = document.createElement("div");
+  thread.className = "gorp-chatter-thread o-mail-Thread";
+  thread.dataset.chatterThread = "true";
+  chatter.append(header, composer, thread);
+  return chatter;
 }
 
 function renderFormWorkflowActionMenu(
@@ -3375,7 +3532,7 @@ function renderStatusbarField(
   const items = selectionOptions(description)
     .filter(([value]) => statusbarItemVisible(value, currentValue, visibleSelection, workflowStates));
   const root = document.createElement("div");
-  root.className = "gorp-statusbar";
+  root.className = "gorp-statusbar o_statusbar_status";
   root.dataset.field = node.name;
   root.dataset.widget = node.attrs.widget || "statusbar";
   root.setAttribute("role", "radiogroup");
@@ -3384,7 +3541,7 @@ function renderStatusbarField(
   for (const [value, label] of items) {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = ["gorp-statusbar-item", value === currentValue ? "is-selected" : ""].filter(Boolean).join(" ");
+    item.className = ["gorp-statusbar-item", "btn", "btn-secondary", "o_arrow_button", value === currentValue ? "is-selected o_arrow_button_current" : ""].filter(Boolean).join(" ");
     item.dataset.value = value;
     item.dataset.selected = value === currentValue ? "true" : "false";
     item.setAttribute("role", "radio");
@@ -3404,7 +3561,7 @@ function renderStatusbarField(
         item.dataset.durationText = durationText;
         item.title = durationText;
         const durationNode = document.createElement("small");
-        durationNode.className = "gorp-statusbar-duration";
+        durationNode.className = "gorp-statusbar-duration ms-2 text-muted small";
         durationNode.textContent = durationText;
         item.append(durationNode);
       }
@@ -4156,6 +4313,27 @@ function parseViewButtonNodes(arch: string): ViewButtonNode[] {
     }
   }
   return buttonNodesFromXMLText(arch);
+}
+
+function viewRootAttrs(arch: string, ...tags: string[]): Record<string, string> {
+  if (!arch) return {};
+  const tagSet = new Set(tags.map((tag) => tag.toLowerCase()));
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      const root = doc.documentElement;
+      if (root && tagSet.has(root.tagName.toLowerCase())) return elementAttributes(root);
+    } catch {
+      return viewRootAttrsFromXMLText(arch, tagSet);
+    }
+  }
+  return viewRootAttrsFromXMLText(arch, tagSet);
+}
+
+function viewRootAttrsFromXMLText(arch: string, tags: ReadonlySet<string>): Record<string, string> {
+  const match = arch.match(/<([\w:.-]+)(?:\s+[^<>]*)?>/);
+  if (!match || !tags.has(match[1].toLowerCase())) return {};
+  return xmlAttributes(match[0]);
 }
 
 function fieldNodesFromElement(element: Element): ViewFieldNode[] {

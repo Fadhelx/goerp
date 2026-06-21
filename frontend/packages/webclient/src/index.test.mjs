@@ -735,7 +735,80 @@ assert.equal(renderedWindow.dataset.model, "res.partner");
 assert.equal(renderedWindow.dataset.view, "list");
 assert.equal(renderedWindow.children[1].className, "gorp-list-view");
 assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
-assert.equal(renderedWindow.children[1].children[1].children[0].children[0].textContent, "Azure Interior");
+assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+
+const delegationWidgetWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Delegation" },
+  activeView: "list",
+  resModel: "delegation",
+  viewDescriptions: {
+    fields: {
+      employee_id: { type: "many2one", relation: "hr.employee", string: "Employee" },
+      state: { type: "selection", string: "Status", selection: [["draft", "Draft"], ["approved", "Approved"], ["cancel", "Cancelled"]] },
+      waiting_approval: { type: "boolean", string: "Waiting" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list decoration-danger="state == 'cancel'"><field name="employee_id" widget="many2one_avatar_employee"/><field name="state" widget="badge" decoration-success="state == 'approved'" decoration-warning="waiting_approval"/><field name="waiting_approval" column_invisible="1"/></list>`,
+        id: 91
+      }
+    }
+  },
+  records: [
+    { id: 5, employee_id: [7, "Mitchell Admin"], state: "approved", waiting_approval: false },
+    { id: 6, employee_id: [8, "Marc Demo"], state: "draft", waiting_approval: true },
+    { id: 7, employee_id: [9, "Cancelled User"], state: "cancel", waiting_approval: false }
+  ],
+  length: 3
+});
+assert.deepEqual(findAll(delegationWidgetWindow, (node) => node.tag === "th").map((node) => node.textContent), ["Employee", "Status"]);
+const delegationAvatar = findAll(delegationWidgetWindow, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0];
+assert.equal(delegationAvatar.dataset.relation, "hr.employee");
+assert.equal(delegationAvatar.dataset.resId, "7");
+assert.equal(findAll(delegationAvatar, (node) => node.tag === "img")[0].src, "/web/image/hr.employee/7/avatar_128");
+const delegationBadges = findAll(delegationWidgetWindow, (node) => String(node.className ?? "").includes("gorp-badge"));
+const delegationBadge = delegationBadges[0];
+assert.equal(delegationBadge.textContent, "Approved");
+assert.equal(delegationBadge.dataset.decoration, "success");
+assert.ok(String(delegationBadge.className).includes("text-bg-success"));
+assert.equal(delegationBadges[1].textContent, "Draft");
+assert.equal(delegationBadges[1].dataset.decoration, "warning");
+assert.ok(String(delegationBadges[1].className).includes("text-bg-warning"));
+const decoratedRows = findAll(delegationWidgetWindow, (node) => String(node.className ?? "").includes("o_list_record_danger"));
+assert.equal(decoratedRows.length, 1);
+assert.equal(decoratedRows[0].dataset.field, undefined);
+
+const delegationFormWidgetWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Delegation" },
+  activeView: "form",
+  resModel: "delegation",
+  viewDescriptions: {
+    fields: {
+      employee_id: { type: "many2one", relation: "hr.employee", string: "Employee" },
+      name: { type: "char", string: "Name" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="employee_id" widget="many2one_avatar_employee"/><field name="name"/></sheet><chatter/></form>`,
+        id: 92
+      }
+    }
+  },
+  records: [{ id: 6, employee_id: [8, "Marc Demo"], name: "DG0001" }],
+  length: 1
+});
+const delegationForm = delegationFormWidgetWindow.children[1];
+assert.equal(findAll(delegationForm, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0].dataset.resId, "8");
+const delegationChatter = findAll(delegationForm, (node) => String(node.className ?? "").includes("gorp-chatter"))[0];
+assert.equal(delegationChatter.dataset.threadModel, "delegation");
+assert.equal(delegationChatter.dataset.threadId, "6");
+assert.ok(String(delegationChatter.className).includes("o-mail-ChatterContainer"));
+assert.ok(String(delegationChatter.className).includes("o-mail-Form-chatter"));
+assert.ok(String(delegationChatter.className).includes("o-mail-Chatter"));
 
 const invalidDirectWindowRequests = [];
 const invalidDirectWindowServices = createWebClientServices({
@@ -2323,14 +2396,16 @@ const statusbarWindow = renderWindowAction({
 });
 const statusbarForm = statusbarWindow.children[1];
 statusbarForm.addEventListener("workflow:statusbar-update", (event) => { statusbarUpdateEvent = event.detail; });
-const statusbar = findAll(statusbarForm, (node) => node.className === "gorp-statusbar")[0];
+const statusbar = findAll(statusbarForm, (node) => String(node.className ?? "").includes("gorp-statusbar"))[0];
 assert.equal(statusbar.dataset.field, "state");
 assert.equal(statusbar.dataset.widget, "statusbar_state_duration");
+assert.ok(String(statusbar.className).includes("o_statusbar_status"));
 const statusbarItems = findAll(statusbar, (node) => String(node.className ?? "").includes("gorp-statusbar-item"));
 assert.deepEqual(statusbarItems.map((item) => item.dataset.value), ["draft", "pending", "approved"]);
 assert.deepEqual(statusbarItems.map((item) => item.textContent), ["Draft", "Pending", "Approved"]);
 assert.deepEqual(statusbarItems.map((item) => item.dataset.selected), ["false", "true", "false"]);
 assert.deepEqual(statusbarItems.map((item) => item.disabled), [false, true, false]);
+assert.ok(String(statusbarItems[1].className).includes("o_arrow_button_current"));
 assert.equal(statusbarItems[0].dataset.durationText, "1:01:01");
 assert.equal(statusbarItems[1].dataset.durationText, "1:00");
 assert.equal(statusbarItems[2].dataset.durationText, undefined);
@@ -2371,7 +2446,7 @@ const nonStateStatusbarWindow = renderWindowAction({
 }, {
   values: { id: 74, phase: "doing", workflow_states: ["todo", "doing"] }
 });
-const nonStateStatusbar = findAll(nonStateStatusbarWindow, (node) => node.className === "gorp-statusbar")[0];
+const nonStateStatusbar = findAll(nonStateStatusbarWindow, (node) => String(node.className ?? "").includes("gorp-statusbar"))[0];
 const nonStateStatusbarItems = findAll(nonStateStatusbar, (node) => String(node.className ?? "").includes("gorp-statusbar-item"));
 assert.deepEqual(nonStateStatusbarItems.map((item) => item.dataset.value), ["doing"]);
 const disabledStatusbarWindow = renderWindowAction({
