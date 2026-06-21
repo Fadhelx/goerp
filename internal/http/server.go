@@ -12474,6 +12474,9 @@ func (s Server) dispatchModuleMethod(env *record.Env, req callKWRequest) (any, b
 	if req.Model != "ir.module.module" {
 		return nil, false, nil
 	}
+	if env.Context().UserID != 1 && !sessionHasXMLIDGroup(env, "base.group_system") {
+		return nil, true, fmt.Errorf("System User Only")
+	}
 	ids := positiveInt64Slice(int64Slice(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"])))
 	service := modulelifecycle.New(env, s.Modules)
 	var result modulelifecycle.Result

@@ -193,6 +193,26 @@ export const scenarios = [
     }
   },
   {
+    name: "default-mobile-server-actions-flow",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, mobileViewport());
+      const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_card", 1, "default TS mobile Server Actions cards");
+      await clickFirst(page, ".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_open");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "default TS mobile form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "default TS mobile Server Actions form");
+      const breadcrumbCount = await waitForCount(page, ".o_web_client .o_action_manager .o_control_panel_breadcrumbs", 1, "default TS mobile breadcrumbs");
+      const sheetCount = await waitForCount(page, ".o_web_client .o_action_manager .o_form_sheet", 1, "default TS mobile form sheet");
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
+      })()`, "default TS mobile form hash");
+      const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
+      if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
+      return { card_count: cardCount, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, hash, horizontal_overflow_px: overflow };
+    }
+  },
+  {
     name: "technical-list-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -357,6 +377,44 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
       const restoredState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module restored installed state");
       return { module: "ai", catalog_count: catalogCount, before_state: beforeState, after_install_state: afterInstallState, after_upgrade_state: afterUpgradeState, after_uninstall_state: afterUninstallState, restored_state: restoredState };
+    }
+  },
+  {
+    name: "default-apps-lifecycle-cancel-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&apps_cancel_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "apps cancel setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const targetRows = await webCallKW(page, config, "ir.module.module", "search_read", {
+        args: [[["name", "=", "ai"]]],
+        kwargs: { fields: ["id", "name", "state"], limit: 1 }
+      });
+      const targetID = Number(targetRows?.[0]?.id || 0);
+      if (!targetID) throw new Error("ai module row not found for Apps cancel smoke");
+
+      await webCallKW(page, config, "ir.module.module", "write", { args: [[targetID], { state: "uninstalled" }] });
+      await webCallKW(page, config, "ir.module.module", "button_install", { args: [[targetID]] });
+      await openDefaultAppsCatalogForModule(page, config, "ai", "apps_cancel_install");
+      const toInstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "to install" ? "to install" : ""`, "AI module to install state");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_cancel_button[data-module-action='button_cancel_install']");
+      const afterCancelInstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module canceled install state");
+
+      await webCallKW(page, config, "ir.module.module", "write", { args: [[targetID], { state: "installed" }] });
+      await webCallKW(page, config, "ir.module.module", "button_upgrade", { args: [[targetID]] });
+      await openDefaultAppsCatalogForModule(page, config, "ai", "apps_cancel_upgrade");
+      const toUpgradeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "to upgrade" ? "to upgrade" : ""`, "AI module to upgrade state");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_cancel_button[data-module-action='button_cancel_upgrade']");
+      const afterCancelUpgradeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module canceled upgrade state");
+
+      await webCallKW(page, config, "ir.module.module", "write", { args: [[targetID], { state: "installed" }] });
+      await webCallKW(page, config, "ir.module.module", "button_uninstall", { args: [[targetID]] });
+      await openDefaultAppsCatalogForModule(page, config, "ai", "apps_cancel_uninstall");
+      const toRemoveState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "to remove" ? "to remove" : ""`, "AI module to remove state");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_cancel_button[data-module-action='button_cancel_uninstall']");
+      const afterCancelUninstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module canceled uninstall state");
+      return { module: "ai", to_install_state: toInstallState, after_cancel_install_state: afterCancelInstallState, to_upgrade_state: toUpgradeState, after_cancel_upgrade_state: afterCancelUpgradeState, to_remove_state: toRemoveState, after_cancel_uninstall_state: afterCancelUninstallState };
     }
   }
 ];
@@ -645,6 +703,18 @@ async function openDefaultServerActionsList(page, config, viewport) {
   const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
   const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS Server Actions rows");
   return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount };
+}
+
+async function openDefaultAppsCatalogForModule(page, config, moduleName, marker) {
+  await setViewport(page, desktopViewport());
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&${marker}=1`) });
+  await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Apps catalog TS webclient ready");
+  await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "install");
+  await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Apps", ".o_app_name");
+  await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Apps catalog action ready");
+  await waitForCount(page, ".o_web_client .gorp-apps-catalog", 1, "TS Apps catalog");
+  await setInput(page, ".o_web_client .gorp-apps-catalog .o_searchview_input", moduleName);
+  await waitForCount(page, `.o_web_client .gorp-apps-catalog-card[data-module-name='${moduleName}']`, 1, `${moduleName} module card`);
 }
 
 async function openWeb(page, config, viewport) {

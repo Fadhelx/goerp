@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-21T17:29:34.325Z",
+  "generated_at": "2026-06-21T17:32:57.405Z",
   "base_url": "http://127.0.0.1:8069/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 281
+      "duration_ms": 275
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,7 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 423
+      "duration_ms": 422
     },
     {
       "name": "default-webclient-takeover",
@@ -51,7 +51,7 @@
         "search_count": 1,
         "action_count": 1
       },
-      "duration_ms": 254
+      "duration_ms": 246
     },
     {
       "name": "default-webclient-action-desktop",
@@ -76,7 +76,7 @@
         "save_disabled": true,
         "discard_disabled": true
       },
-      "duration_ms": 427
+      "duration_ms": 418
     },
     {
       "name": "default-technical-search-desktop",
@@ -95,7 +95,7 @@
         "window_count": 1,
         "row_count": 20
       },
-      "duration_ms": 441
+      "duration_ms": 425
     },
     {
       "name": "default-technical-form-desktop",
@@ -113,7 +113,7 @@
         "form_count": 1,
         "field_count": 6
       },
-      "duration_ms": 557
+      "duration_ms": 522
     },
     {
       "name": "default-search-menu-desktop",
@@ -130,7 +130,7 @@
         "group_by_items": 4,
         "favorite_items": 1
       },
-      "duration_ms": 603
+      "duration_ms": 511
     },
     {
       "name": "default-search-filter-click-desktop",
@@ -147,7 +147,7 @@
         "selected_filter_count": 1,
         "row_count": 19
       },
-      "duration_ms": 641
+      "duration_ms": 668
     },
     {
       "name": "default-view-switch-desktop",
@@ -182,7 +182,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 673
+      "duration_ms": 633
     },
     {
       "name": "default-webclient-mobile",
@@ -193,13 +193,33 @@
         "mobile": true
       },
       "screenshot": "default-webclient-mobile.png",
-      "sha256": "04fafc07124d54fb5c00c0ed613d375bba01ae18e75ba6b82e075676e930cfda",
+      "sha256": "bdc3e2edc2c0a51eb1113fcefda798df74c6e9da56f3f9d681f588f00bd0eb3b",
       "assertions": {
         "app_count": 4,
         "mobile_toggle_count": 1,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 441
+      "duration_ms": 423
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "bf985fda76a8ff3e081039e6b2ab42d1ac25281b984b2c9962554d8d08e6def2",
+      "assertions": {
+        "card_count": 20,
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 557
     },
     {
       "name": "technical-list-desktop",
@@ -215,7 +235,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 441
+      "duration_ms": 437
     },
     {
       "name": "hash-route-desktop",
@@ -232,7 +252,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 659
+      "duration_ms": 650
     },
     {
       "name": "technical-form-desktop",
@@ -252,7 +272,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 474
+      "duration_ms": 487
     },
     {
       "name": "search-menu-desktop",
@@ -269,7 +289,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 436
+      "duration_ms": 446
     },
     {
       "name": "launcher-mobile",
@@ -286,7 +306,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 247
+      "duration_ms": 237
     },
     {
       "name": "technical-list-mobile",
@@ -297,12 +317,12 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "a0d97c35d563f0f748924725d65f31391e2434f73c5519ac6ced92adf27ba1dc",
+      "sha256": "a0d0d685bfea363cfcf65eaf3f6d5505f202cf0eda468eebd15f286e89cd3dcf",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 418
+      "duration_ms": 429
     },
     {
       "name": "technical-form-mobile",
@@ -323,7 +343,7 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 465
+      "duration_ms": 555
     },
     {
       "name": "normal-user-launcher-desktop",
@@ -334,16 +354,16 @@
         "mobile": false
       },
       "screenshot": "normal-user-launcher-desktop.png",
-      "sha256": "327bfcf89240acdafe70aa0034524608800a18594ad6e1ff310608c9bc7d2cc1",
+      "sha256": "919987ca84817d4b0de9483b0e805e55d6d33a9784f9356d0d955482c6639138",
       "assertions": {
-        "uid": 8,
+        "uid": 6,
         "app_count": 1,
         "menu_count": 5,
         "title": "Approval Buttons",
         "model": "approval.buttons",
         "window_count": 1
       },
-      "duration_ms": 756
+      "duration_ms": 606
     },
     {
       "name": "default-apps-install-desktop",
@@ -364,8 +384,29 @@
         "after_uninstall_state": "uninstalled",
         "restored_state": "installed"
       },
-      "duration_ms": 964
+      "duration_ms": 995
+    },
+    {
+      "name": "default-apps-lifecycle-cancel-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-lifecycle-cancel-desktop.png",
+      "sha256": "4e77b9ff4bc4c98b149b5c8d3a0505842bf4b6bdc11fb6360b10037fadda0f8f",
+      "assertions": {
+        "module": "ai",
+        "to_install_state": "to install",
+        "after_cancel_install_state": "uninstalled",
+        "to_upgrade_state": "to upgrade",
+        "after_cancel_upgrade_state": "installed",
+        "to_remove_state": "to remove",
+        "after_cancel_uninstall_state": "installed"
+      },
+      "duration_ms": 1796
     }
   ],
-  "duration_ms": 10444
+  "duration_ms": 12589
 }

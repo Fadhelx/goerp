@@ -56,6 +56,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-view-switch-desktop",
     "default-hash-route-desktop",
     "default-webclient-mobile",
+    "default-mobile-server-actions-flow",
     "technical-list-desktop",
     "hash-route-desktop",
     "technical-form-desktop",
@@ -64,7 +65,8 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "technical-list-mobile",
     "technical-form-mobile",
     "normal-user-launcher-desktop",
-    "default-apps-install-desktop"
+    "default-apps-install-desktop",
+    "default-apps-lifecycle-cancel-desktop"
   ]);
 });
 

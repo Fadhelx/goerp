@@ -48,15 +48,19 @@ Existing Odoo screenshots were used as visual reference:
 - Normal internal users created in `res.users` can authenticate without restarting the server, and their hydrated security context carries company, partner, and group metadata.
 - The app launcher no longer exposes the Apps catalog unless the authenticated menu payload includes an accessible Apps menu.
 - Normal-user visual smoke now proves Approvals is visible while Apps, Delegation, Settings, and Technical are hidden.
-- The default TypeScript `/web` Apps catalog now renders an Odoo-shaped module catalog from `/web/session/modules`, preserves the active catalog search across lifecycle actions, and covers install, upgrade, uninstall, and restore smoke for the `ai` module.
+- The default TypeScript `/web` Apps catalog now renders an Odoo-shaped module catalog from `/web/session/modules`, preserves the active catalog search across lifecycle actions, and covers install, upgrade, uninstall, cancel install, cancel upgrade, cancel uninstall, and restore smoke for the `ai` module.
+- Direct `ir.module.module` lifecycle RPC calls now require admin/system-user context.
+- Default mobile `/web` smoke now opens Server Actions, renders mobile list cards, opens a form, verifies breadcrumbs/form sheet visibility, checks hash routing, and proves no horizontal overflow.
 
 ## Evidence
 
 Local app:
 - URL: `http://127.0.0.1:8069/web`
-- Visual smoke: 20/20 passed.
+- Visual smoke: 22/22 passed.
 - Manifest: `reports/uiux/ui_parity_master_20260621_live/manifest.json`
 - Apps lifecycle manifest: `reports/uiux/ui_parity_master_20260621_live_apps_lifecycle/manifest.json`
+- Apps cancel-state manifest: `reports/uiux/ui_parity_master_20260621_live_apps_cancel/manifest.json`
+- Mobile flow manifest: `reports/uiux/ui_parity_master_20260621_live_mobile_flow/manifest.json`
 
 Key screenshots:
 - `reports/uiux/ui_parity_master_20260621_live/default-webclient-takeover.png`
@@ -64,8 +68,10 @@ Key screenshots:
 - `reports/uiux/ui_parity_master_20260621_live/default-technical-search-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-technical-form-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-webclient-mobile.png`
+- `reports/uiux/ui_parity_master_20260621_live/default-mobile-server-actions-flow.png`
 - `reports/uiux/ui_parity_master_20260621_live/normal-user-launcher-desktop.png`
 - `reports/uiux/ui_parity_master_20260621_live/default-apps-install-desktop.png`
+- `reports/uiux/ui_parity_master_20260621_live/default-apps-lifecycle-cancel-desktop.png`
 
 Renderer worker evidence:
 - `reports/verification/renderer_dialog_control_panel_20260621/manifest.json`
@@ -80,7 +86,7 @@ P0:
 - Form renderer lacks full arch layout support: groups, notebooks, smart buttons, relation widgets, onchange, x2many editors, modifiers, and dirty guards.
 
 P1:
-- Apps install flow has bounded method-backed install, upgrade, uninstall, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and cancel flows.
+- Apps install flow has bounded method-backed install, upgrade, uninstall, cancel-state, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and confirmation/wizard behavior.
 - Dialogs need footer action mapping, stacked inactive state, confirmation dialogs, backdrop policy, draggable desktop, and mobile fullscreen/bottom-sheet behavior.
 - Systray is mostly static: user/company/debug/mail/activity dropdowns are not behaviorally complete.
 - Kanban needs grouped columns, quick create, drag/drop, folded groups, progress bars, and load-more.
@@ -89,7 +95,7 @@ P1:
 P2:
 - Pivot, graph, calendar, activity, cohort, gantt, and dashboard views are not implemented.
 - OWL compatibility exports are still shallow for many field widgets/services.
-- Visual regression suite still needs systray dropdown, dialog, cancel-state Apps lifecycle, and mobile action-flow scenarios.
+- Visual regression suite still needs systray dropdown, dialog, and mobile search-panel scenarios.
 
 ## Bounded Implementation Tasks
 
@@ -97,7 +103,7 @@ P2:
 2. Implement search autocomplete, custom filters/groups, and saved filter persistence.
 3. Implement list grouping/sorting/optional-columns/select-all.
 4. Implement form notebooks/groups/smart-buttons/x2many/onchange/dirty guards.
-5. Expand Apps catalog to cancel-state flows, categories, filters, and module detail behavior.
+5. Expand Apps catalog to categories, filters, module detail behavior, and confirmation/wizard flows.
 6. Implement systray dropdown services for user/company/debug/mail/activity.
 7. Implement kanban grouped columns and quick-create.
 8. Add production smoke after every deploy for `/web`, Settings, Server Actions, view switch, search filter, normal user, and mobile.

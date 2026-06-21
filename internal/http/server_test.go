@@ -117,6 +117,24 @@ func TestModuleLifecycleCallKWMethodsUpdateStateAndSessionPayload(t *testing.T) 
 	}
 }
 
+func TestModuleLifecycleCallKWRequiresSystemUser(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	server := Server{
+		Env: env.WithContext(record.Context{UserID: 20, CompanyID: 1, CompanyIDs: []int64{1}}),
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_install","args":[[%d]]}`, crmID))
+	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "System User Only") {
+		t.Fatalf("non-system lifecycle status %d %s", rec.Code, rec.Body.String())
+	}
+	assertHTTPModuleState(t, env, crmID, "uninstalled")
+}
+
 func TestModuleLifecycleQueuedInstallUpdatesDependenciesAndSessionPayload(t *testing.T) {
 	env := moduleLifecycleHTTPEnv(t)
 	createHTTPModuleRow(t, env, "base", "installed")
