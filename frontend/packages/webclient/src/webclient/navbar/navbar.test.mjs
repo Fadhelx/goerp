@@ -136,7 +136,7 @@ const liveNavbar = renderNavbar({
     },
     companies: [
       { id: 1, name: "Alpha" },
-      { id: 2, name: "Beta", current: true }
+      { id: 2, name: "Beta", current: true, active: true }
     ],
     currentCompanyId: 2,
     displaySwitchCompanyMenu: true
@@ -153,6 +153,35 @@ assert.equal(findAll(liveNavbar, (node) => String(node.className).includes("o-sy
 assert.equal(findAll(liveNavbar, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "3").length, 1);
 assert.equal(findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Partners").length, 1);
 assert.equal(findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Beta" && String(node.className).includes("active")).length, 1);
+const companyMenu = findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_menu_dropdown"))[0];
+assert.equal(companyMenu.dataset.systrayDropdown, "company");
+const companyItems = findAll(liveNavbar, (node) => String(node.className).split(/\s+/).includes("o_switch_company_item") && node.dataset?.companyId);
+assert.deepEqual(companyItems.map((node) => node.dataset.companyId), ["1", "2"]);
+const alphaCompany = companyItems[0];
+const betaCompany = companyItems[1];
+assert.equal(betaCompany.attributes["aria-checked"], "true");
+assert.equal(betaCompany.attributes["aria-pressed"], "true");
+assert.equal(alphaCompany.attributes["aria-checked"], "false");
+assert.equal(alphaCompany.attributes["aria-pressed"], "false");
+assert.equal(findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_menu_buttons")).length, 1);
+alphaCompany.listeners.click[0]();
+assert.equal(alphaCompany.attributes["aria-checked"], "true");
+assert.equal(betaCompany.attributes["aria-checked"], "true");
+assert.equal(systrayActions.length, 0);
+const resetCompany = findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_reset"))[0];
+resetCompany.listeners.click[0]();
+assert.equal(alphaCompany.attributes["aria-checked"], "false");
+assert.equal(betaCompany.attributes["aria-checked"], "true");
+alphaCompany.listeners.click[0]();
+const confirmCompany = findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_confirm"))[0];
+confirmCompany.listeners.click[0]();
+assert.deepEqual(systrayActions.at(-1), { type: "switch-company", companyId: 2, companyIds: [2, 1] });
+const logIntoBeta = findAll(betaCompany, (node) => String(node.className).includes("log_into"))[0];
+logIntoBeta.listeners.click[0]({ stopPropagation() {} });
+assert.deepEqual(systrayActions.at(-1), { type: "switch-company", companyId: 2, companyIds: [2, 1] });
+const logIntoAlpha = findAll(alphaCompany, (node) => String(node.className).includes("log_into"))[0];
+logIntoAlpha.listeners.click[0]({ stopPropagation() {} });
+assert.deepEqual(systrayActions.at(-1), { type: "switch-company", companyId: 1, companyIds: [1, 2] });
 const starredItem = findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Starred")[0];
 starredItem.listeners.click[0]();
 assert.deepEqual(systrayActions.at(-1), { type: "open-mailbox", mailbox: "starred" });
@@ -160,3 +189,21 @@ const activityItem = findAll(liveNavbar, (node) => node.dataset?.systrayItem ===
 activityItem.listeners.click[0]();
 assert.equal(systrayActions.at(-1).type, "open-activities");
 assert.equal(systrayActions.at(-1).model, "res.partner");
+
+const searchableNavbar = renderNavbar({
+  systray: {
+    companies: Array.from({ length: 10 }, (_, index) => ({
+      id: index + 1,
+      name: `Company ${index + 1}`,
+      current: index === 0
+    })),
+    currentCompanyId: 1,
+    displaySwitchCompanyMenu: true
+  }
+});
+const companySearch = findAll(searchableNavbar, (node) => node.tag === "input" && node.attributes?.role === "searchbox")[0];
+assert.ok(companySearch);
+companySearch.value = "company10";
+companySearch.listeners.input[0]();
+const searchableCompanies = findAll(searchableNavbar, (node) => String(node.className).split(/\s+/).includes("o_switch_company_item") && node.dataset?.companyId);
+assert.deepEqual(searchableCompanies.filter((node) => node.hidden === false).map((node) => node.dataset.companyId), ["10"]);

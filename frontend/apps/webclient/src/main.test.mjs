@@ -2,7 +2,20 @@ import assert from "node:assert/strict";
 
 const events = {};
 const fetches = [];
-let sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };
+let sessionResponse = {
+  uid: 7,
+  name: "Admin",
+  company_name: "My Company",
+  display_switch_company_menu: true,
+  user_companies: {
+    current_company: 2,
+    allowed_companies: {
+      1: { id: 1, name: "Alpha" },
+      2: { id: 2, name: "Beta" }
+    }
+  },
+  user_context: { allowed_company_ids: [2, 1] }
+};
 
 globalThis.location = { search: "", hash: "" };
 globalThis.matchMedia = () => ({ matches: false });
@@ -80,6 +93,7 @@ globalThis.CustomEvent = class TestCustomEvent {
     this.type = type;
     this.detail = options.detail;
   }
+  stopPropagation() {}
 };
 globalThis.addEventListener = (type, listener) => {
   events[type] = [...(events[type] ?? []), listener];
@@ -96,6 +110,9 @@ globalThis.fetch = async (route, options = {}) => {
   if (route === "/web/session/authenticate") {
     sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };
     return { ok: true, status: 200, async json() { return sessionResponse; } };
+  }
+  if (route === "/web/session/switch_company") {
+    return { ok: true, status: 200, async json() { return { ok: true }; } };
   }
   if (route === "/mail/data") {
     return { ok: true, status: 200, async json() { return {
@@ -240,6 +257,14 @@ assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/mail/data", "POST"],
   ["/web/webclient/load_menus", "GET"]
 ]);
+
+const logIntoAlpha = findAll(shell, (node) => String(node.className).includes("log_into") && node.dataset?.companyId === "1")[0];
+logIntoAlpha.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const switchFetch = fetches.find((item) => item.route === "/web/session/switch_company");
+assert.equal(switchFetch.options.method, "POST");
+assert.deepEqual(JSON.parse(switchFetch.options.body), { company_id: 1, company_ids: [1, 2] });
+assert.equal(globalThis.location.href, "/web");
 
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));

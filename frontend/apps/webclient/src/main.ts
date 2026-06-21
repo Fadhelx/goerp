@@ -291,10 +291,27 @@ async function handleSystrayAction(
       renderSystrayAction(outlet, "New Message", ["Compose", "Recipients", "Message"]);
       return;
     case "switch-company":
-      renderSystrayAction(outlet, "Companies", ["Switch company", "Confirm", "Reset"]);
+      if (action.companyId !== undefined && action.companyId !== null) {
+        await switchCompanyAction(action);
+      } else {
+        renderSystrayAction(outlet, "Companies", ["Switch company", "Confirm", "Reset"]);
+      }
       return;
     default:
       renderSystrayAction(outlet, "Systray", [action.type]);
+  }
+}
+
+async function switchCompanyAction(action: NavbarSystrayAction): Promise<void> {
+  const payload: Record<string, unknown> = { company_id: action.companyId };
+  if (Array.isArray(action.companyIds) && action.companyIds.length > 0) {
+    payload.company_ids = action.companyIds;
+  }
+  await fetchJSON("/web/session/switch_company", payload);
+  if (typeof globalThis.location.reload === "function") {
+    globalThis.location.reload();
+  } else {
+    globalThis.location.href = "/web";
   }
 }
 

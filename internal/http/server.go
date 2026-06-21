@@ -89,6 +89,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/web/session/get_session_info", s.sessionInfo)
 	mux.HandleFunc("/web/session/authenticate", s.authenticate)
 	mux.HandleFunc("/web/session/check", s.sessionCheck)
+	mux.HandleFunc("/web/session/switch_company", s.switchCompany)
 	mux.HandleFunc("/web/session/modules", s.sessionModules)
 	mux.HandleFunc("/web/session/destroy", s.sessionDestroy)
 	mux.HandleFunc("/web/session/logout", s.logout)
@@ -8772,6 +8773,72 @@ func (s Server) sessionCheck(w http.ResponseWriter, r *http.Request) {
 	s.writeMaybeRPC(w, r, map[string]any{"uid": env.Context().UserID, "ok": true})
 }
 
+func (s Server) switchCompany(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		CompanyID         any `json:"company_id"`
+		CompanyIDs        any `json:"company_ids"`
+		AllowedCompanyIDs any `json:"allowed_company_ids"`
+	}
+	envelope, err := decodeRPCParams(r, &req)
+	if err != nil {
+		writeRPCError(w, nil, http.StatusBadRequest, err)
+		return
+	}
+	companyID := int64Value(req.CompanyID)
+	if companyID == 0 {
+		writeRPCError(w, envelope, http.StatusBadRequest, errors.New("company_id is required"))
+		return
+	}
+	requestedCompanyIDs := uniqueInt64Slice(int64Slice(firstNonNil(req.CompanyIDs, req.AllowedCompanyIDs)))
+	if s.Security == nil {
+		env := s.effectiveEnv(r)
+		allowed := companyIDs(env.Context())
+		if len(allowed) == 0 && env.Context().CompanyID != 0 {
+			allowed = []int64{env.Context().CompanyID}
+		}
+		companyIDs, err := validatedSwitchCompanyIDs(allowed, companyID, requestedCompanyIDs)
+		if err != nil {
+			writeRPCError(w, envelope, http.StatusForbidden, err)
+			return
+		}
+		setCompanyIDsCookie(w, companyIDs)
+		writeRPCOrJSON(w, envelope, s.sessionPayloadForEnv(envWithCompanyContext(env, companyID, companyIDs)))
+		return
+	}
+	sessionID := cookieSessionID(r)
+	if sessionID == "" {
+		writeRPCError(w, envelope, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	userID, ok := s.Security.AuthenticateSession(sessionID)
+	if !ok {
+		writeRPCError(w, envelope, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	user, ok := s.Security.Users[userID]
+	if !ok || !user.Active {
+		writeRPCError(w, envelope, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	allowed := allowedCompanyIDsForUser(user)
+	companyIDs, err := validatedSwitchCompanyIDs(allowed, companyID, requestedCompanyIDs)
+	if err != nil {
+		writeRPCError(w, envelope, http.StatusForbidden, err)
+		return
+	}
+	if !s.Security.SetSessionCompanies(sessionID, companyID, companyIDs) {
+		writeRPCError(w, envelope, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	setCompanyIDsCookie(w, companyIDs)
+	writeRPCOrJSON(w, envelope, s.sessionPayloadForEnv(envWithCompanyContext(s.envForSecurityUser(user), companyID, companyIDs)))
+}
+
 func (s Server) sessionModules(w http.ResponseWriter, r *http.Request) {
 	env := s.Env
 	if s.Security != nil {
@@ -11075,7 +11142,16 @@ func absHTTP(value int64) int64 {
 }
 
 func (s Server) effectiveEnv(r *http.Request) *record.Env {
-	return s.impersonatedEnv(s.Env, s.impersonationSessionID(r))
+	env := s.Env
+	if env != nil {
+		if cookieIDs := cookieCompanyIDs(r); len(cookieIDs) > 0 {
+			allowed := companyIDs(env.Context())
+			if selected, err := validatedSwitchCompanyIDs(allowed, cookieIDs[0], cookieIDs); err == nil {
+				env = envWithCompanyContext(env, cookieIDs[0], selected)
+			}
+		}
+	}
+	return s.impersonatedEnv(env, s.impersonationSessionID(r))
 }
 
 func (s Server) impersonationSessionID(r *http.Request) string {
@@ -11132,7 +11208,18 @@ func (s Server) authenticatedRequestEnv(r *http.Request) (*record.Env, bool) {
 	if !ok || !user.Active {
 		return nil, false
 	}
-	return s.impersonatedEnv(s.envForSecurityUser(user), sessionID), true
+	env := s.envForSecurityUser(user)
+	allowed := allowedCompanyIDsForUser(user)
+	if cookieIDs := cookieCompanyIDs(r); len(cookieIDs) > 0 {
+		if selected, err := validatedSwitchCompanyIDs(allowed, cookieIDs[0], cookieIDs); err == nil {
+			env = envWithCompanyContext(env, cookieIDs[0], selected)
+			return s.impersonatedEnv(env, sessionID), true
+		}
+	}
+	if companyID, companyIDs, ok := s.Security.SessionCompanies(sessionID); ok {
+		env = envWithCompanyContext(env, companyID, companyIDs)
+	}
+	return s.impersonatedEnv(env, sessionID), true
 }
 
 func (s Server) publicRequestEnv(r *http.Request) *record.Env {
@@ -11235,6 +11322,7 @@ func (s Server) envForSecurityUser(user security.User) *record.Env {
 	}
 	ctx.Values = cloneContextValues(ctx.Values)
 	ctx.Values["uid"] = user.ID
+	ctx.Values["all_allowed_company_ids"] = allowedCompanyIDsForUser(user)
 	if user.Login != "" {
 		ctx.Values["login"] = user.Login
 	}
@@ -11316,6 +11404,55 @@ func (s Server) revokeWebSession(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "cids",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func envWithCompanyContext(env *record.Env, companyID int64, companyIDs []int64) *record.Env {
+	if env == nil {
+		return nil
+	}
+	ctx := env.Context()
+	if companyID != 0 {
+		ctx.CompanyID = companyID
+	}
+	if len(companyIDs) > 0 {
+		ctx.CompanyIDs = append([]int64(nil), companyIDs...)
+	}
+	ctx.Values = cloneContextValues(ctx.Values)
+	ctx.Values["allowed_company_ids"] = append([]int64(nil), ctx.CompanyIDs...)
+	ctx.Values["company_id"] = ctx.CompanyID
+	return env.WithContext(ctx)
+}
+
+func allowedCompanyIDsForUser(user security.User) []int64 {
+	ids := append([]int64{user.CompanyID}, user.CompanyIDs...)
+	return uniqueInt64Slice(ids)
+}
+
+func validatedSwitchCompanyIDs(allowed []int64, companyID int64, requested []int64) ([]int64, error) {
+	allowed = uniqueInt64Slice(allowed)
+	if !containsHTTPInt64(allowed, companyID) {
+		return nil, fmt.Errorf("company %d is not allowed", companyID)
+	}
+	selected := uniqueInt64Slice(requested)
+	if len(selected) == 0 {
+		selected = append([]int64(nil), allowed...)
+	}
+	for _, id := range selected {
+		if !containsHTTPInt64(allowed, id) {
+			return nil, fmt.Errorf("company %d is not allowed", id)
+		}
+	}
+	if !containsHTTPInt64(selected, companyID) {
+		selected = append([]int64{companyID}, selected...)
+	}
+	return orderedCompanyIDs(companyID, selected), nil
 }
 
 func newSessionToken() (string, error) {
@@ -18933,6 +19070,10 @@ func sessionInfoPayload(env *record.Env) map[string]any {
 	lang := stringContextValue(ctx, "lang", "en_US")
 	tz := stringContextValue(ctx, "tz", "UTC")
 	companyIDs := companyIDs(ctx)
+	allowedCompanyIDs := uniqueInt64Slice(int64Slice(ctx.Values["all_allowed_company_ids"]))
+	if len(allowedCompanyIDs) == 0 {
+		allowedCompanyIDs = append([]int64(nil), companyIDs...)
+	}
 	companyID := ctx.CompanyID
 	if companyID == 0 && len(companyIDs) > 0 {
 		companyID = companyIDs[0]
@@ -19002,11 +19143,11 @@ func sessionInfoPayload(env *record.Env) map[string]any {
 	if isInternal {
 		payload["user_companies"] = map[string]any{
 			"current_company":               companyID,
-			"allowed_companies":             sessionCompanyPayload(env, companyIDs),
-			"disallowed_ancestor_companies": sessionDisallowedAncestorCompanyPayload(env, companyIDs),
+			"allowed_companies":             sessionCompanyPayload(env, allowedCompanyIDs),
+			"disallowed_ancestor_companies": sessionDisallowedAncestorCompanyPayload(env, allowedCompanyIDs),
 		}
 		payload["show_effect"] = true
-		payload["display_switch_company_menu"] = len(companyIDs) > 1
+		payload["display_switch_company_menu"] = len(allowedCompanyIDs) > 1
 	}
 	if warning := sessionEnterpriseWarning(env, isInternal, payload["is_system"] == true); warning != false {
 		payload["warning"] = warning
@@ -19687,12 +19828,38 @@ func int64ListPayload(values []int64) []int64 {
 }
 
 func companyIDs(ctx record.Context) []int64 {
-	ids := append([]int64(nil), ctx.CompanyIDs...)
-	if len(ids) == 0 && ctx.CompanyID != 0 {
+	ids := uniqueInt64Slice(ctx.CompanyIDs)
+	if ctx.CompanyID != 0 && !containsHTTPInt64(ids, ctx.CompanyID) {
 		ids = append(ids, ctx.CompanyID)
 	}
+	return orderedCompanyIDs(ctx.CompanyID, ids)
+}
+
+func orderedCompanyIDs(activeID int64, ids []int64) []int64 {
+	ids = uniqueInt64Slice(ids)
+	if len(ids) == 0 {
+		if activeID != 0 {
+			return []int64{activeID}
+		}
+		return []int64{}
+	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	return ids
+	if activeID == 0 {
+		return ids
+	}
+	out := make([]int64, 0, len(ids))
+	if containsHTTPInt64(ids, activeID) {
+		out = append(out, activeID)
+	}
+	for _, id := range ids {
+		if id != activeID {
+			out = append(out, id)
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, activeID)
+	}
+	return out
 }
 
 func companyPayload(ids []int64) map[string]any {
@@ -19881,6 +20048,58 @@ func cookieSessionID(r *http.Request) string {
 		}
 	}
 	return ""
+}
+
+func cookieCompanyIDs(r *http.Request) []int64 {
+	if r == nil {
+		return nil
+	}
+	cookie, err := r.Cookie("cids")
+	if err != nil {
+		return nil
+	}
+	return parseCompanyIDsCookie(cookie.Value)
+}
+
+func parseCompanyIDsCookie(value string) []int64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, "-")
+	ids := make([]int64, 0, len(parts))
+	seen := map[int64]bool{}
+	for _, part := range parts {
+		id, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64)
+		if err != nil || id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func setCompanyIDsCookie(w http.ResponseWriter, ids []int64) {
+	value := companyIDsCookieValue(ids)
+	if value == "" {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "cids",
+		Value:    value,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func companyIDsCookieValue(ids []int64) string {
+	ids = uniqueInt64Slice(ids)
+	parts := make([]string, 0, len(ids))
+	for _, id := range ids {
+		parts = append(parts, strconv.FormatInt(id, 10))
+	}
+	return strings.Join(parts, "-")
 }
 
 func parseLoginAsTargetID(path string) (int64, error) {

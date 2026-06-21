@@ -56,6 +56,29 @@ func TestTokens(t *testing.T) {
 	}
 }
 
+func TestSessionCompanyContext(t *testing.T) {
+	engine := NewEngine()
+	engine.SetNow(func() time.Time { return time.Unix(100, 0) })
+	engine.IssueSession(10, "raw-session", time.Unix(200, 0))
+	if _, _, ok := engine.SessionCompanies("raw-session"); ok {
+		t.Fatal("empty session company context returned")
+	}
+	if !engine.SetSessionCompanies("raw-session", 3, []int64{2, 3, 3, 0}) {
+		t.Fatal("session company context not stored")
+	}
+	companyID, companyIDs, ok := engine.SessionCompanies("raw-session")
+	if !ok || companyID != 3 || len(companyIDs) != 2 || companyIDs[0] != 2 || companyIDs[1] != 3 {
+		t.Fatalf("session companies = %d %+v %v", companyID, companyIDs, ok)
+	}
+	engine.RevokeSession("raw-session")
+	if engine.SetSessionCompanies("raw-session", 2, []int64{2}) {
+		t.Fatal("revoked session accepted company context")
+	}
+	if _, _, ok := engine.SessionCompanies("raw-session"); ok {
+		t.Fatal("revoked session returned company context")
+	}
+}
+
 func TestACL(t *testing.T) {
 	engine := testEngine()
 	ctx := record.Context{UserID: 10}

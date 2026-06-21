@@ -92,7 +92,7 @@ P0:
 P1:
 - Apps install flow has bounded method-backed install, upgrade, uninstall, cancel-state, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and confirmation/wizard behavior.
 - Dialogs need footer action mapping, stacked inactive state, confirmation dialogs, backdrop policy, draggable desktop, and mobile fullscreen/bottom-sheet behavior.
-- Systray now uses real Store counters and activity groups; remaining work is full Discuss inbox/channels UI, activity edit/mark-done popovers, persistent company switching, and mobile burger relocation.
+- Systray now uses real Store counters and activity groups, plus persistent Odoo-style company switching with `cids`, active/current state, Confirm/Reset, and log-into actions. Remaining work is full Discuss inbox/channels UI, activity edit/mark-done popovers, select-all/ancestor-disabled company tree polish, and mobile burger relocation.
 - Kanban needs grouped columns, quick create, drag/drop, folded groups, progress bars, and load-more.
 - Mobile shell is usable without overflow, but still desktop-shaped.
 
@@ -108,7 +108,7 @@ P2:
 3. Implement list grouping/sorting/optional-columns/select-all.
 4. Implement form notebooks/groups/smart-buttons/x2many/onchange/dirty guards.
 5. Expand Apps catalog to categories, filters, module detail behavior, and confirmation/wizard flows.
-6. Expand systray from live Store counters/actions into full Discuss, activity popover, company switch, and mobile behavior.
+6. Expand systray from live Store counters/actions and persistent company switching into full Discuss, activity popover, select-all/company-tree polish, and mobile behavior.
 7. Implement kanban grouped columns and quick-create.
 8. Add production smoke after every deploy for `/web`, Settings, Server Actions, view switch, search filter, normal user, and mobile.
 

@@ -132,6 +132,8 @@ type Token struct {
 	RevokedAt  time.Time
 	Scopes     []string
 	Name       string
+	CompanyID  int64
+	CompanyIDs []int64
 }
 
 func NewEngine() *Engine {
@@ -919,6 +921,44 @@ func (e *Engine) RevokeSession(rawToken string) {
 	token.RevokedAt = e.now()
 	e.Sessions[hash] = token
 	e.Log(AuditEvent{ActorID: token.UserID, Action: "session_revoke"})
+}
+
+func (e *Engine) SetSessionCompanies(rawToken string, companyID int64, companyIDs []int64) bool {
+	hash := tokenHash(rawToken)
+	token, ok := e.Sessions[hash]
+	if !ok || token.RevokedAt.After(time.Time{}) || !token.ExpiresAt.After(e.now()) {
+		return false
+	}
+	token.CompanyID = companyID
+	token.CompanyIDs = uniqueSessionCompanyIDs(companyIDs)
+	e.Sessions[hash] = token
+	e.Log(AuditEvent{ActorID: token.UserID, Action: "session_switch_company", Details: map[string]string{"company_id": strconv.FormatInt(companyID, 10)}})
+	return true
+}
+
+func (e *Engine) SessionCompanies(rawToken string) (int64, []int64, bool) {
+	hash := tokenHash(rawToken)
+	token, ok := e.Sessions[hash]
+	if !ok || token.RevokedAt.After(time.Time{}) || !token.ExpiresAt.After(e.now()) {
+		return 0, nil, false
+	}
+	if token.CompanyID == 0 && len(token.CompanyIDs) == 0 {
+		return 0, nil, false
+	}
+	return token.CompanyID, append([]int64(nil), token.CompanyIDs...), true
+}
+
+func uniqueSessionCompanyIDs(ids []int64) []int64 {
+	out := make([]int64, 0, len(ids))
+	seen := map[int64]bool{}
+	for _, id := range ids {
+		if id == 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }
 
 func (e *Engine) IssueAPIToken(userID int64, name, rawToken string, scopes []string, expiresAt time.Time) {

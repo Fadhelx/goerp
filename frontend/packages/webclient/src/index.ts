@@ -1704,6 +1704,7 @@ function sessionCompanies(sessionInfo: Record<string, unknown> | undefined): Nav
   const userCompanies = isRecord(sessionInfo?.user_companies) ? sessionInfo.user_companies : undefined;
   const allowed = isRecord(userCompanies?.allowed_companies) ? userCompanies.allowed_companies : undefined;
   const current = sessionCurrentCompanyId(sessionInfo);
+  const active = sessionActiveCompanyIds(sessionInfo);
   if (!allowed) return [];
   return Object.values(allowed)
     .filter(isRecord)
@@ -1713,11 +1714,18 @@ function sessionCompanies(sessionInfo: Record<string, unknown> | undefined): Nav
       return {
         id,
         name: firstText(company.name, `Company ${id}`) ?? `Company ${id}`,
-        current: current !== undefined && String(id) === String(current)
+        current: current !== undefined && String(id) === String(current),
+        active: active.has(String(id))
       };
     })
     .filter((company): company is NavbarSystrayCompany => company !== undefined)
     .sort((left, right) => String(left.name).localeCompare(String(right.name)));
+}
+
+function sessionActiveCompanyIds(sessionInfo: Record<string, unknown> | undefined): Set<string> {
+  const context = isRecord(sessionInfo?.user_context) ? sessionInfo.user_context : undefined;
+  const ids = Array.isArray(context?.allowed_company_ids) ? context.allowed_company_ids : [];
+  return new Set(ids.map((id) => String(id)));
 }
 
 export function renderWindowAction(result: WindowActionResult, options: RenderWindowActionOptions = {}): HTMLElement {

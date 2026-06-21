@@ -30,6 +30,7 @@ export interface NavbarSystrayCompany {
   id: number | string;
   name: string;
   current?: boolean;
+  active?: boolean;
 }
 
 export interface NavbarSystrayState {
@@ -143,7 +144,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   systray.setAttribute("aria-label", "Systray");
   if (options.debug) appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
   for (const item of defaultSystrayItems(options.systray?.store)) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label], options.onSystrayAction));
-  appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderSystrayMenu("company", companyMenuItems(options.systray, options.companyName ?? "My Company"), options.onSystrayAction));
+  appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderCompanySwitcherMenu(options.systray, options.companyName ?? "My Company", options.onSystrayAction));
   appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
 
   header.append(brand, mobileMenu, nav, systray);
@@ -322,6 +323,232 @@ function renderCompanySwitcher(companyName: string): HTMLElement {
   return button;
 }
 
+function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fallbackName: string, onAction?: (action: NavbarSystrayAction) => void): HTMLElement {
+  const companies = systray?.companies ?? [];
+  if (!companies.length) return renderFallbackCompanyMenu(fallbackName, onAction);
+
+  const menu = document.createElement("div");
+  menu.className = "dropdown-menu o-dropdown-menu o_switch_company_menu_dropdown";
+  menu.dataset.systrayDropdown = "company";
+  menu.hidden = true;
+  menu.setAttribute("role", "menu");
+
+  const initialPrimaryKey = currentCompanyKey(systray, companies);
+  const initialSelectedKeys = selectedCompanyKeys(companies, initialPrimaryKey);
+  let primaryKey = initialPrimaryKey;
+  let selectedKeys = new Set(initialSelectedKeys);
+  const rows: CompanySwitcherRow[] = [];
+  const confirm = document.createElement("button") as HTMLButtonElement;
+  const reset = document.createElement("button") as HTMLButtonElement;
+
+  const updateSelection = () => {
+    for (const row of rows) {
+      const key = String(row.company.id);
+      const selected = selectedKeys.has(key);
+      const primary = key === primaryKey;
+      row.item.className = selected ? "dropdown-item o_switch_company_item active" : "dropdown-item o_switch_company_item";
+      row.item.setAttribute("aria-checked", selected ? "true" : "false");
+      row.item.setAttribute("aria-pressed", primary ? "true" : "false");
+      row.logInto.setAttribute("aria-pressed", primary ? "true" : "false");
+    }
+    confirm.disabled = selectedKeys.size === 0;
+    reset.disabled = primaryKey === initialPrimaryKey && sameKeySet(selectedKeys, initialSelectedKeys);
+  };
+  const toggleCompany = (companyId: number | string) => {
+    const key = String(companyId);
+    if (selectedKeys.has(key)) {
+      selectedKeys.delete(key);
+    } else {
+      selectedKeys.add(key);
+    }
+    if (!selectedKeys.has(primaryKey)) {
+      primaryKey = selectedKeys.values().next().value ?? initialPrimaryKey;
+    }
+    updateSelection();
+  };
+  const actionForCompany = (company: NavbarSystrayCompany): NavbarSystrayAction => ({
+    type: "switch-company",
+    companyId: company.id,
+    companyIds: orderedCompanyIDs(company.id, selectedCompanyIDs(companies, selectedKeys))
+  });
+  const confirmAction = (): NavbarSystrayAction | undefined => {
+    const primary = selectedCompany(companies, primaryKey) ?? selectedCompany(companies, selectedKeys.values().next().value ?? "");
+    if (!primary) return undefined;
+    return {
+      type: "switch-company",
+      companyId: primary.id,
+      companyIds: orderedCompanyIDs(primary.id, selectedCompanyIDs(companies, selectedKeys))
+    };
+  };
+
+  if (companies.length > 9) {
+    const search = document.createElement("input") as HTMLInputElement;
+    search.type = "search";
+    search.className = "o_switch_company_search";
+    search.setAttribute("role", "searchbox");
+    search.setAttribute("aria-label", "Search companies");
+    search.addEventListener("input", () => {
+      const query = normalizeCompanySearch(search.value);
+      for (const row of rows) {
+        row.item.hidden = query.length > 0 && !normalizeCompanySearch(row.company.name).includes(query);
+      }
+    });
+    menu.append(search);
+  }
+
+  const list = document.createElement("div");
+  list.className = "o_switch_company_menu_companies";
+  for (const company of companies) {
+    const item = document.createElement("div");
+    item.className = "dropdown-item o_switch_company_item";
+    item.dataset.companyId = String(company.id);
+    item.dataset.systrayItem = company.name;
+    item.setAttribute("role", "menuitemcheckbox");
+    item.setAttribute("tabindex", "0");
+    item.addEventListener("click", () => toggleCompany(company.id));
+    item.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      toggleCompany(company.id);
+    });
+
+    const name = document.createElement("span");
+    name.className = "o_switch_company_item_name";
+    name.textContent = company.name;
+
+    const logInto = document.createElement("button");
+    logInto.type = "button";
+    logInto.className = "log_into";
+    logInto.dataset.companyId = String(company.id);
+    logInto.dataset.systrayAction = "switch-company";
+    logInto.textContent = "Log into";
+    logInto.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!selectedKeys.has(String(company.id))) selectedKeys.add(String(company.id));
+      onAction?.(actionForCompany(company));
+    });
+
+    item.append(name, logInto);
+    rows.push({ company, item, logInto });
+    list.append(item);
+  }
+  menu.append(list);
+
+  const buttons = document.createElement("div");
+  buttons.className = "o_switch_company_menu_buttons";
+  confirm.type = "button";
+  confirm.className = "btn btn-primary o_switch_company_confirm";
+  confirm.dataset.systrayAction = "switch-company";
+  confirm.textContent = "Confirm";
+  confirm.addEventListener("click", () => {
+    const action = confirmAction();
+    if (action) onAction?.(action);
+  });
+  reset.type = "button";
+  reset.className = "btn btn-secondary o_switch_company_reset";
+  reset.textContent = "Reset";
+  reset.addEventListener("click", () => {
+    primaryKey = initialPrimaryKey;
+    selectedKeys = new Set(initialSelectedKeys);
+    updateSelection();
+  });
+  buttons.append(confirm, reset);
+  menu.append(buttons);
+
+  updateSelection();
+  return menu;
+}
+
+interface CompanySwitcherRow {
+  company: NavbarSystrayCompany;
+  item: HTMLElement;
+  logInto: HTMLButtonElement;
+}
+
+function renderFallbackCompanyMenu(fallbackName: string, onAction?: (action: NavbarSystrayAction) => void): HTMLElement {
+  const menu = document.createElement("div");
+  menu.className = "dropdown-menu o-dropdown-menu o_switch_company_menu_dropdown";
+  menu.dataset.systrayDropdown = "company";
+  menu.hidden = true;
+  menu.setAttribute("role", "menu");
+
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "dropdown-item o_switch_company_item active";
+  item.dataset.systrayItem = fallbackName;
+  item.setAttribute("role", "menuitemcheckbox");
+  item.setAttribute("aria-checked", "true");
+  item.setAttribute("aria-pressed", "true");
+  item.addEventListener("click", () => onAction?.({ type: "switch-company" }));
+  const label = document.createElement("span");
+  label.className = "o_switch_company_item_name";
+  label.textContent = fallbackName;
+  item.append(label);
+
+  const buttons = document.createElement("div");
+  buttons.className = "o_switch_company_menu_buttons";
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "btn btn-primary o_switch_company_confirm";
+  confirm.dataset.systrayAction = "switch-company";
+  confirm.textContent = "Confirm";
+  confirm.addEventListener("click", () => onAction?.({ type: "switch-company" }));
+  buttons.append(confirm);
+
+  menu.append(item, buttons);
+  return menu;
+}
+
+function currentCompanyKey(systray: NavbarSystrayState | undefined, companies: readonly NavbarSystrayCompany[]): string {
+  const explicit = systray?.currentCompanyId;
+  if (explicit !== undefined && explicit !== null) return String(explicit);
+  const current = companies.find((company) => company.current);
+  return current ? String(current.id) : "";
+}
+
+function selectedCompany(companies: readonly NavbarSystrayCompany[], selectedKey: string): NavbarSystrayCompany | undefined {
+  return companies.find((company) => String(company.id) === selectedKey);
+}
+
+function selectedCompanyKeys(companies: readonly NavbarSystrayCompany[], primaryKey: string): Set<string> {
+  const keys = new Set(companies.filter((company) => company.active || company.current).map((company) => String(company.id)));
+  if (!keys.size && primaryKey) keys.add(primaryKey);
+  return keys;
+}
+
+function selectedCompanyIDs(companies: readonly NavbarSystrayCompany[], keys: Set<string>): Array<number | string> {
+  return companies.filter((company) => keys.has(String(company.id))).map((company) => company.id);
+}
+
+function orderedCompanyIDs(primary: number | string, ids: Array<number | string>): Array<number | string> {
+  const primaryKey = String(primary);
+  const out: Array<number | string> = [];
+  const seen = new Set<string>();
+  const push = (id: number | string) => {
+    const key = String(id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(id);
+  };
+  push(primary);
+  for (const id of ids) {
+    if (String(id) !== primaryKey) push(id);
+  }
+  return out;
+}
+
+function sameKeySet(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false;
+  for (const key of left) {
+    if (!right.has(key)) return false;
+  }
+  return true;
+}
+
+function normalizeCompanySearch(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, "");
+}
+
 function renderDebugItem(): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
@@ -363,26 +590,6 @@ function debugMenuItems(): SystrayMenuEntry[] {
     { label: "Become Superuser", action: { type: "become-superuser" } },
     { label: "Leave Debug Mode", action: { type: "leave-debug-mode" } }
   ];
-}
-
-function companyMenuItems(systray: NavbarSystrayState | undefined, fallbackName: string): SystrayMenuEntry[] {
-  const companies = systray?.companies ?? [];
-  if (!companies.length) {
-    return [
-      { label: fallbackName, active: true, action: { type: "switch-company" } },
-      { label: "Switch Company", action: { type: "switch-company" } }
-    ];
-  }
-  const currentKey = systray?.currentCompanyId === undefined || systray?.currentCompanyId === null ? "" : String(systray.currentCompanyId);
-  const items = companies.map((company): SystrayMenuEntry => ({
-    label: company.name,
-    active: company.current || (!!currentKey && String(company.id) === currentKey),
-    action: { type: "switch-company", companyId: company.id }
-  }));
-  if (systray?.displaySwitchCompanyMenu !== false && companies.length > 1) {
-    items.push({ label: "Switch Company", action: { type: "switch-company" } });
-  }
-  return items;
 }
 
 function activityMenuItems(groups: unknown[]): SystrayMenuEntry[] {

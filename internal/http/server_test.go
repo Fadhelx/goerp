@@ -12228,6 +12228,7 @@ func TestWebSessionAuthenticateIssuesCookieAndRevokesLogout(t *testing.T) {
 
 	logoutReq := httptest.NewRequest(http.MethodPost, "/web/session/logout", bytes.NewBufferString(`{}`))
 	logoutReq.AddCookie(cookies[0])
+	logoutReq.AddCookie(&http.Cookie{Name: "cids", Value: "3-2"})
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, logoutReq)
 	if rec.Code != http.StatusOK {
@@ -12235,6 +12236,143 @@ func TestWebSessionAuthenticateIssuesCookieAndRevokesLogout(t *testing.T) {
 	}
 	if _, ok := engine.AuthenticateSession(cookies[0].Value); ok {
 		t.Fatal("session token remained valid after logout")
+	}
+	clearedCookies := map[string]bool{}
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.MaxAge < 0 {
+			clearedCookies[cookie.Name] = true
+		}
+	}
+	if !clearedCookies["session_id"] || !clearedCookies["cids"] {
+		t.Fatalf("logout cleared cookies = %+v", rec.Result().Cookies())
+	}
+}
+
+func TestWebSessionSwitchCompanyPersistsSessionContext(t *testing.T) {
+	server, ids := testViewGroupXMLIDServer(t)
+	engine := security.NewEngine()
+	engine.Users[9] = security.User{
+		ID:         9,
+		Login:      "demo",
+		Password:   "secret",
+		Active:     true,
+		CompanyID:  2,
+		CompanyIDs: []int64{2, 3},
+		GroupIDs:   []int64{ids["base.group_user"]},
+	}
+	engine.IssueSession(9, "sid", time.Now().Add(time.Hour))
+	server.Security = engine
+	handler := server.Handler()
+
+	unauthorizedReq := httptest.NewRequest(http.MethodPost, "/web/session/switch_company", bytes.NewBufferString(`{"company_id":3}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, unauthorizedReq)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated switch response %d %s", rec.Code, rec.Body.String())
+	}
+
+	badCookieReq := httptest.NewRequest(http.MethodGet, "/web/session/get_session_info", nil)
+	badCookieReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	badCookieReq.AddCookie(&http.Cookie{Name: "cids", Value: "4-2"})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, badCookieReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("bad cookie session_info response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSON(t, rec.Body.Bytes())
+	companies := payload["user_companies"].(map[string]any)
+	if int64Value(companies["current_company"]) != 2 {
+		t.Fatalf("bad cids cookie changed company = %#v", companies)
+	}
+
+	switchReq := httptest.NewRequest(http.MethodPost, "/web/session/switch_company", bytes.NewBufferString(`{"company_id":3}`))
+	switchReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, switchReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("switch_company response %d %s", rec.Code, rec.Body.String())
+	}
+	var cids string
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == "cids" {
+			cids = cookie.Value
+		}
+	}
+	if cids != "3-2" {
+		t.Fatalf("switch cids cookie = %q cookies=%+v", cids, rec.Result().Cookies())
+	}
+	payload = decodeJSON(t, rec.Body.Bytes())
+	companies = payload["user_companies"].(map[string]any)
+	if int64Value(companies["current_company"]) != 3 {
+		t.Fatalf("switch companies = %#v", companies)
+	}
+	context := payload["user_context"].(map[string]any)
+	if !reflect.DeepEqual(int64Slice(context["allowed_company_ids"]), []int64{3, 2}) {
+		t.Fatalf("switch context = %#v", context)
+	}
+	if engine.Users[9].CompanyID != 2 {
+		t.Fatalf("switch mutated user company = %+v", engine.Users[9])
+	}
+
+	infoReq := httptest.NewRequest(http.MethodGet, "/web/session/get_session_info", nil)
+	infoReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	infoReq.AddCookie(&http.Cookie{Name: "cids", Value: cids})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, infoReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session_info response %d %s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSON(t, rec.Body.Bytes())
+	companies = payload["user_companies"].(map[string]any)
+	if int64Value(companies["current_company"]) != 3 {
+		t.Fatalf("persisted companies = %#v", companies)
+	}
+	context = payload["user_context"].(map[string]any)
+	if !reflect.DeepEqual(int64Slice(context["allowed_company_ids"]), []int64{3, 2}) {
+		t.Fatalf("persisted context = %#v", context)
+	}
+
+	subsetReq := httptest.NewRequest(http.MethodPost, "/web/session/switch_company", bytes.NewBufferString(`{"company_id":3,"company_ids":[3]}`))
+	subsetReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, subsetReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("subset switch_company response %d %s", rec.Code, rec.Body.String())
+	}
+	cids = ""
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == "cids" {
+			cids = cookie.Value
+		}
+	}
+	if cids != "3" {
+		t.Fatalf("subset cids cookie = %q cookies=%+v", cids, rec.Result().Cookies())
+	}
+	payload = decodeJSON(t, rec.Body.Bytes())
+	context = payload["user_context"].(map[string]any)
+	if !reflect.DeepEqual(int64Slice(context["allowed_company_ids"]), []int64{3}) {
+		t.Fatalf("subset context = %#v", context)
+	}
+	companies = payload["user_companies"].(map[string]any)
+	allowed := companies["allowed_companies"].(map[string]any)
+	if allowed["2"] == nil || allowed["3"] == nil {
+		t.Fatalf("subset accessible companies = %#v", companies)
+	}
+
+	forbiddenReq := httptest.NewRequest(http.MethodPost, "/web/session/switch_company", bytes.NewBufferString(`{"company_id":4}`))
+	forbiddenReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, forbiddenReq)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("forbidden switch response %d %s", rec.Code, rec.Body.String())
+	}
+
+	forbiddenIDsReq := httptest.NewRequest(http.MethodPost, "/web/session/switch_company", bytes.NewBufferString(`{"company_id":2,"company_ids":[2,4]}`))
+	forbiddenIDsReq.AddCookie(&http.Cookie{Name: "session_id", Value: "sid"})
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, forbiddenIDsReq)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("forbidden company_ids switch response %d %s", rec.Code, rec.Body.String())
 	}
 }
 
