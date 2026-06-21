@@ -513,10 +513,29 @@ async function launchChrome(config) {
     path: chromePath,
     wsURL,
     async close() {
-      if (child.exitCode === null) child.kill("SIGTERM");
-      if (!config.keepBrowser) await rm(profileDir, { recursive: true, force: true });
+      if (child.exitCode === null) {
+        child.kill("SIGTERM");
+        await Promise.race([
+          new Promise((resolveExit) => child.once("exit", resolveExit)),
+          delay(1000)
+        ]);
+        if (child.exitCode === null) child.kill("SIGKILL");
+      }
+      if (!config.keepBrowser) await removeProfileDir(profileDir);
     }
   };
+}
+
+async function removeProfileDir(profileDir) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await rm(profileDir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (attempt === 4) throw error;
+      await delay(100 * (attempt + 1));
+    }
+  }
 }
 
 function findChrome() {
