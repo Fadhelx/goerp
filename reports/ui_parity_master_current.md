@@ -48,6 +48,8 @@ Current slices fixed the highest visible form-header issue, added Odoo-style has
 - `internal/runtime/bootstrap.go`
 - `frontend/apps/webclient/src/main.ts`
 - `frontend/apps/webclient/src/main.test.mjs`
+- `frontend/packages/webclient/src/index.ts`
+- `frontend/packages/webclient/src/index.test.mjs`
 - `frontend/packages/webclient/src/control_panel/control_panel.ts`
 - `frontend/packages/webclient/src/control_panel/control_panel.test.mjs`
 - `frontend/packages/webclient/src/router/action_router.ts`
@@ -75,7 +77,7 @@ Current slices fixed the highest visible form-header issue, added Odoo-style has
 ## Local Evidence
 
 GoERP local:
-- URL: `http://127.0.0.1:8073/web`
+- URL: `http://127.0.0.1:8069/web`
 - Visual smoke: 11/11 passed.
 - Manifest: `reports/web_visual_smoke/manifest.json`
 
@@ -109,11 +111,11 @@ Smoke assertions:
 
 - `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember)$'`
 - `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember|WebRoutes|WebclientLoadMenusOdooShape|ActionLoadOdooShapeAndJSONRPC|ActionLoadNormalizesWindowDomainContextForWebShell|CallKWGetViewsOdooShape)$'`
-- `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/services/action_stack.test.mjs packages/webclient/src/router/action_router.test.mjs packages/webclient/src/webclient/shell.test.mjs packages/webclient/src/search/search_model.test.mjs packages/webclient/src/control_panel/control_panel.test.mjs packages/webclient/src/index.test.mjs`
+- `pnpm -C frontend test packages/webclient/src/index.test.mjs packages/webclient/src/settings/settings_renderer.test.mjs packages/webclient/src/services/action_stack.test.mjs packages/webclient/src/router/action_router.test.mjs apps/webclient/src/main.test.mjs`
 - `pnpm -C frontend build`
 - `node --test tools/web_visual_smoke/run.test.mjs`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/web_visual_smoke_local --timeout-ms=60000`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=reports/web_visual_smoke --timeout-ms=60000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8069 --out=tmp/verification/settings_renderer_local --scenario=default-webclient-action-desktop --timeout-ms=30000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8069 --out=reports/web_visual_smoke --timeout-ms=30000`
 - `make ci`
 
 ## P0 Mismatches
