@@ -4597,6 +4597,9 @@ func TestBootstrapOIDelegationWebViewsAndActionMetadata(t *testing.T) {
 			t.Fatalf("delegation form arch missing %s: %s", want, formArch)
 		}
 	}
+	if !strings.Contains(formArch, `domain="[(&#39;user_id.active&#39;,&#39;=&#39;, True)]"`) || strings.Contains(formArch, `readonly="1"></field><field name="user_id"`) {
+		t.Fatalf("system delegation form employee field pruning = %s", formArch)
+	}
 	for _, want := range []string{
 		`filter string="Active" name="active" domain="[('state','=','confirmed'), ('date_from','&gt;=', current_date), ('date_to','&lt;=', current_date)]"`,
 		`filter string="Draft" name="draft" domain="[('state','=','draft')]"`,
@@ -4612,6 +4615,30 @@ func TestBootstrapOIDelegationWebViewsAndActionMetadata(t *testing.T) {
 	linesField := runtimeMapValue(fields["lines"])
 	if linesField["relation"] != oi_delegation.ModelDelegationLine {
 		t.Fatalf("delegation lines field = %+v", linesField)
+	}
+
+	baseCookie, _ := runtimeBaseUserSessionCookie(t, app)
+	req := httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", bytes.NewBufferString(`{"model":"delegation","method":"get_views","kwargs":{"views":[[false,"form"]],"options":{}}}`))
+	req.AddCookie(baseCookie)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "access denied") {
+		t.Fatalf("base user delegation get_views response %d %s", rec.Code, rec.Body.String())
+	}
+
+	employeeGroupID := app.ExternalIDs["oi_delegation.delegation_employee"].ResID
+	if employeeGroupID == 0 {
+		t.Fatalf("missing delegation employee group external id")
+	}
+	employeeCookie, _ := runtimeUserSessionCookieWithGroups(t, app, "delegation-employee", []int64{app.ExternalIDs["base.group_user"].ResID, employeeGroupID})
+	employeeViews := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"delegation","method":"get_views","kwargs":{"views":[[false,"form"]],"options":{}}}`, employeeCookie)
+	employeeFormArch := stringValue(runtimeMapValue(runtimeMapValue(employeeViews["views"])["form"])["arch"])
+	if strings.Contains(employeeFormArch, `user_id.active`) || !strings.Contains(employeeFormArch, `field name="employee_id" widget="many2one_avatar_employee" readonly="1"`) {
+		t.Fatalf("delegation employee form pruning = %s", employeeFormArch)
+	}
+	employeeMenuBody := getBodyWithCookie(t, handler, "/web/webclient/load_menus", employeeCookie)
+	if !strings.Contains(employeeMenuBody, "Delegation") || !strings.Contains(employeeMenuBody, "Requests") {
+		t.Fatalf("delegation employee menus missing delegation entries: %s", employeeMenuBody)
 	}
 
 	viewLoadBody := getBodyWithCookie(t, handler, "/web/view/load?model=delegation", sessionCookie)
@@ -4632,8 +4659,11 @@ func TestBootstrapWebNormalUserCanOpenRecordsListAndForm(t *testing.T) {
 	}
 
 	body := getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
-	if !strings.Contains(body, "Approvals") || !strings.Contains(body, "Delegation") {
-		t.Fatalf("normal user menus missing app roots: %s", body)
+	if !strings.Contains(body, "Approvals") {
+		t.Fatalf("normal user menus missing approvals root: %s", body)
+	}
+	if strings.Contains(body, "Delegation") {
+		t.Fatalf("normal user menus leaked delegation root: %s", body)
 	}
 	if strings.Contains(body, "Technical") || strings.Contains(body, "Settings") {
 		t.Fatalf("normal user menus leaked technical menus: %s", body)
@@ -5535,32 +5565,43 @@ func runtimeBaseUserSessionCookie(t *testing.T, app *App) (*http.Cookie, int64) 
 	if groupID == 0 {
 		t.Fatalf("missing base.group_user external id")
 	}
+	return runtimeUserSessionCookieWithGroups(t, app, "normal-user", []int64{groupID})
+}
+
+func runtimeUserSessionCookieWithGroups(t *testing.T, app *App, login string, groupIDs []int64) (*http.Cookie, int64) {
+	t.Helper()
+	if app.Security == nil {
+		t.Fatal("missing security engine")
+	}
 	ctx := app.Env.Context()
 	companyIDs := append([]int64(nil), ctx.CompanyIDs...)
 	if len(companyIDs) == 0 && ctx.CompanyID != 0 {
 		companyIDs = []int64{ctx.CompanyID}
 	}
+	if login == "" {
+		login = "runtime-user"
+	}
 	userID, err := app.Env.Model("res.users").Create(map[string]any{
-		"login":       "normal-user",
-		"name":        "Normal User",
+		"login":       login,
+		"name":        login,
 		"active":      true,
 		"company_id":  ctx.CompanyID,
 		"company_ids": companyIDs,
-		"groups_id":   []int64{groupID},
+		"groups_id":   append([]int64(nil), groupIDs...),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	app.Security.Users[userID] = security.User{
 		ID:         userID,
-		Login:      "normal-user",
-		Name:       "Normal User",
+		Login:      login,
+		Name:       login,
 		Active:     true,
 		CompanyID:  ctx.CompanyID,
 		CompanyIDs: companyIDs,
-		GroupIDs:   []int64{groupID},
+		GroupIDs:   append([]int64(nil), groupIDs...),
 	}
-	token := "normal-session-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	token := login + "-session-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	app.Security.IssueSession(userID, token, time.Now().Add(time.Hour))
 	return &http.Cookie{Name: "session_id", Value: token}, userID
 }

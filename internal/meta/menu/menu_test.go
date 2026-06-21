@@ -25,3 +25,16 @@ func TestTreeFilteredAppliesPredicate(t *testing.T) {
 		t.Fatalf("tree = %+v", tree)
 	}
 }
+
+func TestTreeFilteredPrunesEmptyActionlessParents(t *testing.T) {
+	reg := NewRegistry()
+	root := reg.Add(Menu{Name: "Delegation", Sequence: 10})
+	reg.Add(Menu{Name: "Requests", ParentID: root, Groups: []int64{1}, ActionID: 20})
+	reg.Add(Menu{Name: "Approvals", Sequence: 20, Groups: []int64{1}, ActionID: 10})
+	tree := reg.TreeFiltered(map[int64]bool{1: true}, func(item Menu) bool {
+		return item.ActionID != 20
+	})
+	if len(tree) != 1 || tree[0].Menu.Name != "Approvals" {
+		t.Fatalf("tree = %+v", tree)
+	}
+}

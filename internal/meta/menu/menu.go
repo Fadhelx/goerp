@@ -76,8 +76,11 @@ func (r *Registry) Tree(groupIDs map[int64]bool) []Node {
 func (r *Registry) TreeFiltered(groupIDs map[int64]bool, include func(Menu) bool) []Node {
 	var roots []Node
 	for _, menu := range r.menus {
-		if menu.ParentID == 0 && allowed(menu.Groups, groupIDs) && included(menu, include) {
-			roots = append(roots, r.nodeFiltered(menu, groupIDs, include))
+		if menu.ParentID != 0 || !allowed(menu.Groups, groupIDs) {
+			continue
+		}
+		if node, ok := r.nodeFiltered(menu, groupIDs, include); ok {
+			roots = append(roots, node)
 		}
 	}
 	sortNodes(roots)
@@ -85,22 +88,44 @@ func (r *Registry) TreeFiltered(groupIDs map[int64]bool, include func(Menu) bool
 }
 
 func (r *Registry) node(menu Menu, groupIDs map[int64]bool) Node {
-	return r.nodeFiltered(menu, groupIDs, nil)
+	node, _ := r.nodeFiltered(menu, groupIDs, nil)
+	return node
 }
 
-func (r *Registry) nodeFiltered(menu Menu, groupIDs map[int64]bool, include func(Menu) bool) Node {
+func (r *Registry) nodeFiltered(menu Menu, groupIDs map[int64]bool, include func(Menu) bool) (Node, bool) {
 	var children []Node
+	hadChildren := false
 	for _, child := range r.menus {
-		if child.ParentID == menu.ID && allowed(child.Groups, groupIDs) && included(child, include) {
-			children = append(children, r.nodeFiltered(child, groupIDs, include))
+		if child.ParentID != menu.ID {
+			continue
+		}
+		hadChildren = true
+		if !allowed(child.Groups, groupIDs) {
+			continue
+		}
+		if node, ok := r.nodeFiltered(child, groupIDs, include); ok {
+			children = append(children, node)
 		}
 	}
 	sortNodes(children)
-	return Node{Menu: menu, Children: children}
+	if include != nil {
+		selfIncluded := included(menu, include)
+		if !selfIncluded && len(children) == 0 {
+			return Node{}, false
+		}
+		if selfIncluded && !hasAction(menu) && hadChildren && len(children) == 0 {
+			return Node{}, false
+		}
+	}
+	return Node{Menu: menu, Children: children}, true
 }
 
 func included(menu Menu, include func(Menu) bool) bool {
 	return include == nil || include(menu)
+}
+
+func hasAction(menu Menu) bool {
+	return menu.ActionID != 0 || menu.Action != ""
 }
 
 func allowed(required []int64, groups map[int64]bool) bool {
