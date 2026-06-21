@@ -63,7 +63,8 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "launcher-mobile",
     "technical-list-mobile",
     "technical-form-mobile",
-    "normal-user-launcher-desktop"
+    "normal-user-launcher-desktop",
+    "default-apps-install-desktop"
   ]);
 });
 

@@ -322,6 +322,35 @@ export const scenarios = [
       const model = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager .gorp-window-action")?.dataset.model || ""`);
       return { uid: normalUser.uid, app_count: appLabels.length, menu_count: menuLabels.length, title, model, window_count: windowCount };
     }
+  },
+  {
+    name: "default-apps-install-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&apps_install_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "apps install setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const targetRows = await webCallKW(page, config, "ir.module.module", "search_read", {
+        args: [[["name", "=", "ai"]]],
+        kwargs: { fields: ["id", "name", "state"], limit: 1 }
+      });
+      const targetID = Number(targetRows?.[0]?.id || 0);
+      if (!targetID) throw new Error("ai module row not found for Apps install smoke");
+      await webCallKW(page, config, "ir.module.module", "write", { args: [[targetID], { state: "uninstalled" }] });
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&apps_install=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Apps install TS webclient ready");
+      await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "install");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Apps", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Apps catalog action ready");
+      const catalogCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog", 1, "TS Apps catalog");
+      await setInput(page, ".o_web_client .gorp-apps-catalog .o_searchview_input", "ai");
+      const beforeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled state");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
+      const afterState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module installed state");
+      const buttonLabel = await textContent(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
+      return { module: "ai", catalog_count: catalogCount, before_state: beforeState, after_state: afterState, button_label: buttonLabel };
+    }
   }
 ];
 

@@ -181,6 +181,35 @@ assert.equal(globalThis.document.documentElement.dataset.tsWebclient, "ready");
 assert.equal(detail.session.uid, 7);
 assert.deepEqual(detail.menus.all_menu_ids, [1, 2]);
 assert.equal(typeof mod.bootstrapGoERPWebClient, "function");
+assert.equal(typeof mod.renderAppsCatalogView, "function");
+const moduleActions = [];
+const catalog = mod.renderAppsCatalogView({
+  modules: {
+    crm: { name: "CRM", technical_name: "crm", state: "uninstalled", installable: true },
+    calendar: { name: "Calendar", technical_name: "calendar", state: "to upgrade", installable: true },
+    mail: { name: "Mail", technical_name: "mail", state: "installed", installable: true },
+    project: { name: "Project", technical_name: "project", state: "to remove", installable: true }
+  }
+}, {
+  onModuleAction: (technicalName, method) => moduleActions.push({ technicalName, method })
+});
+assert.equal(findAll(catalog, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
+const crmInstall = findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_install" && node.disabled === false)[0];
+crmInstall.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(moduleActions, [{ technicalName: "crm", method: "button_immediate_install" }]);
+assert.equal(crmInstall.textContent, "Installing");
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_upgrade" && node.disabled === false).length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_uninstall" && node.disabled === false).length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_cancel_upgrade" && node.disabled === false).length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_cancel_uninstall" && node.disabled === false).length, 1);
+const catalogSearch = findAll(catalog, (node) => String(node.className).includes("o_searchview_input"))[0];
+catalogSearch.value = "crm";
+catalogSearch.dispatchEvent(new CustomEvent("input"));
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 0);
 let shell = globalThis.document.body.children[0].children[0];
 assert.match(shell.className, /o_web_client/);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);

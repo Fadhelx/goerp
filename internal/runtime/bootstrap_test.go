@@ -126,6 +126,24 @@ func TestBootstrapOIInstallsRuntimeModules(t *testing.T) {
 			t.Fatalf("missing ir.module.module row %s in %+v", name, rows)
 		}
 	}
+	dependencies, err := app.Env.Model("ir.module.module.dependency").Search(domain.And())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencyRows, err := dependencies.Read("name", "module_id", "auto_install_required")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasPersistedDependency := false
+	for _, row := range dependencyRows {
+		if row["name"] == "base" && int64Value(row["module_id"]) != 0 {
+			hasPersistedDependency = true
+			break
+		}
+	}
+	if !hasPersistedDependency {
+		t.Fatalf("missing persisted module dependency rows: %+v", dependencyRows)
+	}
 	departmentMeta, ok := app.Env.ModelMetadata("hr.department")
 	if !ok || departmentMeta.Fields["parent_id"].Relation != "hr.department" || departmentMeta.Fields["member_ids"].RelationField != "department_id" {
 		t.Fatalf("hr.department metadata = %+v", departmentMeta)
@@ -5482,6 +5500,77 @@ func TestAssetsFromSourcesPrefixesManifestStaticOperationTargets(t *testing.T) {
 	want := []string{"oi_workflow/static/src/js/before.js", "oi_workflow/static/src/js/base.js"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("bundle = %+v", got)
+	}
+}
+
+func TestCreateInstalledModuleRowsSyncsDependencies(t *testing.T) {
+	env, err := oiEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifests := []module.Manifest{
+		{Name: "Base", TechnicalName: "base", Version: "19.0", Installable: true},
+		{Name: "Mail", TechnicalName: "mail", Version: "19.0", Depends: []string{"base"}, Installable: true},
+		{Name: "Auto CRM", TechnicalName: "auto_crm", Version: "19.0", Depends: []string{"mail", "crm"}, AutoInstall: true, AutoInstallDepends: []string{"crm"}, Installable: true},
+	}
+	if err := createInstalledModuleRows(env, manifests); err != nil {
+		t.Fatal(err)
+	}
+	idsByName := runtimeModuleIDsByName(t, env)
+	assertRuntimeDependency(t, env, idsByName["mail"], "base", false)
+	assertRuntimeDependency(t, env, idsByName["auto_crm"], "mail", false)
+	assertRuntimeDependency(t, env, idsByName["auto_crm"], "crm", true)
+
+	if err := createInstalledModuleRows(env, manifests); err != nil {
+		t.Fatal(err)
+	}
+	found, err := env.Model("ir.module.module.dependency").Search(domain.And(
+		domain.Cond("module_id", domain.Equal, idsByName["auto_crm"]),
+		domain.Cond("name", domain.Equal, "crm"),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Len() != 1 {
+		t.Fatalf("duplicate dependency rows = %d", found.Len())
+	}
+}
+
+func runtimeModuleIDsByName(t *testing.T, env *record.Env) map[string]int64 {
+	t.Helper()
+	found, err := env.Model("ir.module.module").Search(domain.And())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("id", "name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]int64{}
+	for _, row := range rows {
+		out[stringValue(row["name"])] = int64Value(row["id"])
+	}
+	return out
+}
+
+func assertRuntimeDependency(t *testing.T, env *record.Env, moduleID int64, name string, autoInstallRequired bool) {
+	t.Helper()
+	found, err := env.Model("ir.module.module.dependency").Search(domain.And(
+		domain.Cond("module_id", domain.Equal, moduleID),
+		domain.Cond("name", domain.Equal, name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("auto_install_required")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("dependency %d/%s rows = %+v", moduleID, name, rows)
+	}
+	if rows[0]["auto_install_required"] != autoInstallRequired {
+		t.Fatalf("dependency %d/%s auto_install_required = %+v, want %v", moduleID, name, rows[0]["auto_install_required"], autoInstallRequired)
 	}
 }
 

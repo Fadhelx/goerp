@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-06-21T17:10:14.578Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-apps-install-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-install-desktop.png",
+      "sha256": "671ac6d12b7fd5d8d5a6dac9f7e63086dfb66bd7f8c32d47c74e380903106640",
+      "assertions": {
+        "module": "ai",
+        "catalog_count": 1,
+        "before_state": "uninstalled",
+        "after_state": "installed",
+        "button_label": "Installed"
+      },
+      "duration_ms": 972
+    }
+  ],
+  "duration_ms": 1179
+}

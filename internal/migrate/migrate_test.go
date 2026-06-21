@@ -442,6 +442,27 @@ func TestBaseSecurityAnchorMigrationsExposeOdooFields(t *testing.T) {
 	}
 }
 
+func TestModuleDependencyMigrationsExposeAutoInstallRequired(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	if !strings.Contains(sqlByName["base_source_acl_anchor_models"], "ir_module_module_dependency") {
+		t.Fatalf("module dependency table missing from base anchor: %s", sqlByName["base_source_acl_anchor_models"])
+	}
+	if !strings.Contains(sqlByName["base_source_acl_anchor_models"], "auto_install_required") ||
+		!strings.Contains(sqlByName["ir_module_dependency_auto_install_required"], "auto_install_required") {
+		t.Fatalf("module dependency auto_install_required missing: create=%s alter=%s", sqlByName["base_source_acl_anchor_models"], sqlByName["ir_module_dependency_auto_install_required"])
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0001_base.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "auto_install_required BOOLEAN NOT NULL DEFAULT false") {
+		t.Fatalf("static base SQL missing module dependency auto_install_required")
+	}
+}
+
 func TestSecurityMigrationsExposeOdooFields(t *testing.T) {
 	sqlByName := map[string]string{}
 	for _, migration := range BaseMigrations {
