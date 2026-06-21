@@ -272,6 +272,58 @@ func TestDelegatedRecordRuleDomainsUseDelegatorContextAndNarrowing(t *testing.T)
 	}
 }
 
+func TestDelegatedRecordRuleDomainsUseCompanyIntersectionForDomainVariables(t *testing.T) {
+	now := time.Date(2026, 6, 16, 9, 0, 0, 0, time.UTC)
+	engine := NewEngine()
+	engine.SetNow(func() time.Time { return now })
+	engine.Groups[1] = Group{ID: 1, Name: "Employee"}
+	engine.Groups[2] = Group{ID: 2, Name: "Approver"}
+	engine.Users[10] = User{ID: 10, Login: "delegator", Active: true, CompanyID: 2, CompanyIDs: []int64{1, 2}, GroupIDs: []int64{2}}
+	engine.Users[20] = User{ID: 20, Login: "delegate", Active: true, CompanyID: 1, CompanyIDs: []int64{1}, GroupIDs: []int64{1}}
+	engine.Rules = []Rule{
+		{Model: "approval.request", GroupIDs: []int64{2}, Active: true, PermRead: true, Domain: domain.And(
+			domain.Cond("owner_id", domain.Equal, "user.id"),
+			domain.Cond("approval_company_id", domain.In, "company_ids"),
+		)},
+	}
+	svc := delegation.NewService(delegation.WithNow(func() time.Time { return now }))
+	svc.SetGroupConfig(delegation.GroupConfig{GroupID: 2, Name: "Approver", AllowDelegation: true})
+	engine.SetDelegationProvider(svc)
+	req, err := svc.CreateRequest(delegation.RequestInput{
+		DateFrom:        now,
+		DateTo:          now.AddDate(0, 0, 1),
+		DelegatorUserID: 10,
+		Lines:           []delegation.LineInput{{GroupID: 2, DelegateUserID: 20}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Confirm(req.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := engine.AllowedByRecordRules(20, "approval.request", record.OpRead, map[string]any{"owner_id": int64(10), "approval_company_id": int64(1)})
+	if err != nil || !ok {
+		t.Fatalf("record inside company intersection denied: %v %v", ok, err)
+	}
+	ok, err = engine.AllowedByRecordRules(20, "approval.request", record.OpRead, map[string]any{"owner_id": int64(10), "approval_company_id": int64(2)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("record outside delegate/delegator company intersection allowed")
+	}
+
+	engine.Users[20] = User{ID: 20, Login: "delegate", Active: true, CompanyID: 3, CompanyIDs: []int64{3}, GroupIDs: []int64{1}}
+	ok, err = engine.AllowedByRecordRules(20, "approval.request", record.OpRead, map[string]any{"owner_id": int64(10), "approval_company_id": int64(2)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("delegated rule allowed despite empty company intersection")
+	}
+}
+
 func TestDelegatedRecordRuleDepartmentsUseSourceFieldOrderAndHierarchy(t *testing.T) {
 	now := time.Date(2026, 6, 16, 9, 0, 0, 0, time.UTC)
 	engine := NewEngine()

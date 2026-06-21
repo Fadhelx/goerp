@@ -352,13 +352,17 @@ func (e *Engine) evalDelegatedDomain(delegate User, modelName string, delegatorI
 	if !ok || !delegator.Active {
 		return false, nil
 	}
-	if !rowCompanyInBothUsers(row, delegate, delegator) {
+	domainUser, ok := delegatedDomainUser(delegate, delegator)
+	if !ok {
+		return false, nil
+	}
+	if !rowCompanyInBothUsers(row, delegate, domainUser) {
 		return false, nil
 	}
 	if !e.rowDepartmentAllowed(modelName, row, departmentIDs) {
 		return false, nil
 	}
-	return e.evalDomain(modelName, row, delegator, node)
+	return e.evalDomain(modelName, row, domainUser, node)
 }
 
 func EvalDomain(row map[string]any, user User, node domain.Node) (bool, error) {
@@ -1014,6 +1018,51 @@ func rowCompanyInBothUsers(row map[string]any, delegate User, delegator User) bo
 		return false
 	}
 	return true
+}
+
+func delegatedDomainUser(delegate User, delegator User) (User, bool) {
+	delegateCompanies := userCompanyIDs(delegate)
+	delegatorCompanies := userCompanyIDs(delegator)
+	if len(delegateCompanies) == 0 && len(delegatorCompanies) == 0 {
+		return delegator, true
+	}
+	allowedCompanies := intersectIDs(delegateCompanies, delegatorCompanies)
+	if len(allowedCompanies) == 0 {
+		return User{}, false
+	}
+	scoped := delegator
+	scoped.CompanyIDs = allowedCompanies
+	switch {
+	case containsID(allowedCompanies, delegate.CompanyID):
+		scoped.CompanyID = delegate.CompanyID
+	case containsID(allowedCompanies, delegator.CompanyID):
+		scoped.CompanyID = delegator.CompanyID
+	default:
+		scoped.CompanyID = allowedCompanies[0]
+	}
+	return scoped, true
+}
+
+func intersectIDs(left []int64, right []int64) []int64 {
+	if len(left) == 0 || len(right) == 0 {
+		return nil
+	}
+	rightSet := map[int64]bool{}
+	for _, id := range right {
+		if id != 0 {
+			rightSet[id] = true
+		}
+	}
+	seen := map[int64]bool{}
+	var out []int64
+	for _, id := range left {
+		if id == 0 || !rightSet[id] || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }
 
 func (e *Engine) rowDepartmentAllowed(modelName string, row map[string]any, departmentIDs []int64) bool {
