@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-21T15:10:00.252Z",
+  "generated_at": "2026-06-21T15:48:02.009Z",
   "base_url": "http://127.0.0.1:8073/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 275
+      "duration_ms": 282
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,7 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 432
+      "duration_ms": 431
     },
     {
       "name": "default-webclient-takeover",
@@ -62,7 +62,7 @@
         "mobile": false
       },
       "screenshot": "default-webclient-action-desktop.png",
-      "sha256": "84dce54792ce2cb2d0e113789374fb43cc9cf6f40a30cbe2accc1d7b0c98ecec",
+      "sha256": "7cf11c24f91d19017765863b93586caa47ac05a84e207b114138fd514306cce1",
       "assertions": {
         "title": "Settings",
         "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
@@ -76,7 +76,7 @@
         "save_disabled": true,
         "discard_disabled": true
       },
-      "duration_ms": 403
+      "duration_ms": 395
     },
     {
       "name": "default-technical-search-desktop",
@@ -87,7 +87,7 @@
         "mobile": false
       },
       "screenshot": "default-technical-search-desktop.png",
-      "sha256": "ec7d4b6ac5a7d685c1778710993cc851744a2dc2414cb7450f19a9c38fbb258d",
+      "sha256": "c18d118f75f82c7dc03f1c31d3a1e20876847819aa8b11c39c9bf4b6965d4769",
       "assertions": {
         "title": "Server Actions",
         "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
@@ -95,7 +95,59 @@
         "window_count": 1,
         "row_count": 20
       },
-      "duration_ms": 416
+      "duration_ms": 411
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "f7ce41481fcfc2e335379e071e2d7dcca86479f731fac221b93e369ed293a07f",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "form_count": 1,
+        "field_count": 6
+      },
+      "duration_ms": 554
+    },
+    {
+      "name": "default-search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-menu-desktop.png",
+      "sha256": "031f23f77b97dc6085e25028bbde518664e13eab9461c684f04eabaa34c94cbf",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 1
+      },
+      "duration_ms": 557
+    },
+    {
+      "name": "default-hash-route-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-hash-route-desktop.png",
+      "sha256": "c18d118f75f82c7dc03f1c31d3a1e20876847819aa8b11c39c9bf4b6965d4769",
+      "assertions": {
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 702
     },
     {
       "name": "default-webclient-mobile",
@@ -106,13 +158,13 @@
         "mobile": true
       },
       "screenshot": "default-webclient-mobile.png",
-      "sha256": "ef0c49c4d667ee5a56721f4df6ff9ad6cf15aff923dd41e0d549687d2bb48f52",
+      "sha256": "6fce9bcf43723eaafc8e2b338e1777ec9882643047afc8c0e42f7a423066a2d9",
       "assertions": {
         "app_count": 4,
         "mobile_toggle_count": 1,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 425
+      "duration_ms": 416
     },
     {
       "name": "technical-list-desktop",
@@ -128,7 +180,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 524
+      "duration_ms": 433
     },
     {
       "name": "hash-route-desktop",
@@ -145,7 +197,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 679
+      "duration_ms": 643
     },
     {
       "name": "technical-form-desktop",
@@ -182,7 +234,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 438
+      "duration_ms": 444
     },
     {
       "name": "launcher-mobile",
@@ -199,7 +251,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 244
+      "duration_ms": 242
     },
     {
       "name": "technical-list-mobile",
@@ -210,12 +262,12 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "a0d0d685bfea363cfcf65eaf3f6d5505f202cf0eda468eebd15f286e89cd3dcf",
+      "sha256": "a0d97c35d563f0f748924725d65f31391e2434f73c5519ac6ced92adf27ba1dc",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 419
+      "duration_ms": 427
     },
     {
       "name": "technical-form-mobile",
@@ -236,8 +288,8 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 590
+      "duration_ms": 478
     }
   ],
-  "duration_ms": 5785
+  "duration_ms": 7381
 }

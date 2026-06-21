@@ -1,6 +1,7 @@
 import {
   createWebClient,
   makeEnv,
+  parseRouteState,
   renderWindowAction,
   renderWindowActionDialog,
   routeStateFromAction,
@@ -11,10 +12,19 @@ import {
   type ActionServiceOptions,
   type RPCRequest,
   type SessionService,
+  type WebClientRouteState,
   type WebClientServices,
   type WindowActionResult
 } from "../../../packages/webclient/src/index.js";
-import type { HomeMenuApp } from "../../../packages/webclient/src/home_menu/app_metadata.js";
+import {
+  appIconToken,
+  appInitials,
+  cleanAppName,
+  homeMenuEntry,
+  type HomeMenuApp,
+  type HomeMenuEntry,
+  type HomeMenuPayload
+} from "../../../packages/webclient/src/home_menu/app_metadata.js";
 import { enterpriseLikeTheme } from "../../../themes/enterprise-like/src/theme.js";
 
 export interface GoERPWebClientBootstrapResult {
@@ -40,7 +50,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
   const menus = await fetchJSON<Record<string, unknown>>("/web/webclient/load_menus");
   if (shouldTakeOverDOM()) {
     const target = ensureRoot();
-    target.replaceChildren(createWebClient({
+    const shell = createWebClient({
       env: { debug: Boolean(env.debug), isSmall },
       theme: enterpriseLikeTheme,
       session,
@@ -48,13 +58,130 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
       onOpenApp: (app, outlet) => {
         void openMenuApp(env, app, outlet).catch((error) => renderActionError(outlet, error));
       }
-    }).render());
+    }).render();
+    target.replaceChildren(shell);
+    await restoreActionFromHash(env, menus as HomeMenuPayload, shell);
   }
   globalThis.document.documentElement.dataset.tsWebclient = "ready";
   globalThis.dispatchEvent(new CustomEvent("goerp:webclient-ready", {
     detail: { session, menus }
   }));
   return { session, menus };
+}
+
+async function restoreActionFromHash(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: HTMLElement
+): Promise<boolean> {
+  const route = parseRouteState(globalThis.location?.hash ?? "");
+  const actionID = routeActionID(route);
+  if (actionID === undefined) return false;
+  const outlet = findDescendantByClass(shell, "o_action_manager");
+  if (!outlet) return false;
+  const app = routeMenuApp(menus, route.menu_id);
+  const context = routeActionContext(route);
+  const actionHost = createActionHost(env, outlet, app);
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading(app?.name ?? "Action"));
+  try {
+    const action = await actionHost.loadAction(actionID, context);
+    await actionHost.doAction(actionWithRouteState(action, route), {
+      additionalContext: context,
+      stackPosition: "clear"
+    });
+    return true;
+  } catch (error) {
+    renderActionError(outlet, error);
+    return false;
+  }
+}
+
+function routeActionID(route: WebClientRouteState): number | string | undefined {
+  return routeID(route.action);
+}
+
+function routeActionContext(route: WebClientRouteState): Record<string, unknown> {
+  const context: Record<string, unknown> = {};
+  const menuID = routeID(route.menu_id);
+  const activeID = routeID(route.active_id ?? route.id);
+  if (menuID !== undefined) context.menu_id = menuID;
+  if (activeID !== undefined) context.active_id = activeID;
+  if (Array.isArray(route.active_ids)) context.active_ids = [...route.active_ids];
+  return context;
+}
+
+function actionWithRouteState(action: Record<string, unknown>, route: WebClientRouteState): Record<string, unknown> {
+  const next = { ...action };
+  const model = typeof route.model === "string" && route.model.trim() ? route.model.trim() : "";
+  const viewType = typeof route.view_type === "string" && route.view_type.trim() ? route.view_type.trim() : "";
+  const recordID = routeID(route.id);
+  const menuID = routeID(route.menu_id);
+  if (model && !next.res_model) next.res_model = model;
+  if (recordID !== undefined) next.res_id = recordID;
+  if (menuID !== undefined) next.menu_id = menuID;
+  if (viewType) {
+    next.view_type = viewType;
+    next.view_mode = viewType;
+    next.views = actionViewsWithFirstType(action, viewType);
+  }
+  return next;
+}
+
+function actionViewsWithFirstType(action: Record<string, unknown>, viewType: string): Array<[number | false, string]> {
+  const views = actionViewRefs(action);
+  const target = views.find((view) => view[1] === viewType) ?? [false, viewType] as [false, string];
+  return [target, ...views.filter((view) => view[1] !== viewType)];
+}
+
+function actionViewRefs(action: Record<string, unknown>): Array<[number | false, string]> {
+  if (Array.isArray(action.views)) {
+    const views: Array<[number | false, string]> = [];
+    for (const view of action.views) {
+      if (!Array.isArray(view) || typeof view[1] !== "string" || !view[1].trim()) continue;
+      views.push([typeof view[0] === "number" && view[0] > 0 ? view[0] : false, view[1].trim()]);
+    }
+    if (views.length) return views;
+  }
+  const viewMode = typeof action.view_mode === "string" && action.view_mode.trim() ? action.view_mode : "list,form";
+  return viewMode
+    .split(",")
+    .map((view) => view.trim())
+    .filter(Boolean)
+    .map((view): [false, string] => [false, view]);
+}
+
+function routeMenuApp(menus: HomeMenuPayload, menuID: unknown): HomeMenuApp | undefined {
+  const id = routeID(menuID);
+  if (id === undefined) return undefined;
+  const menu = homeMenuEntry(menus, id);
+  if (!menu) return undefined;
+  const name = cleanAppName(menu.name);
+  return {
+    id,
+    key: String(id),
+    name,
+    initials: appInitials(name),
+    iconToken: appIconToken(name),
+    sequence: 0,
+    searchText: name.toLowerCase(),
+    menu: menu as HomeMenuEntry
+  };
+}
+
+function routeID(value: unknown): number | string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return undefined;
+}
+
+function findDescendantByClass(root: HTMLElement, className: string): HTMLElement | null {
+  if (String(root.className).split(/\s+/).includes(className)) return root;
+  for (const child of Array.from(root.children)) {
+    const found = findDescendantByClass(child as HTMLElement, className);
+    if (found) return found;
+  }
+  return null;
 }
 
 async function rpcTransport(request: RPCRequest): Promise<unknown> {

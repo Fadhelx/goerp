@@ -12,6 +12,12 @@
             <field name="type">form</field>
             <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="model_name"/&gt;&lt;field name="state"/&gt;&lt;field name="active"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
+        <record id="view_ir_actions_server_search" model="ir.ui.view">
+            <field name="name">ir.actions.server.search</field>
+            <field name="model">ir.actions.server</field>
+            <field name="type">search</field>
+            <field name="arch">&lt;search string="Server Actions"&gt;&lt;field name="name" string="Server Action"/&gt;&lt;field name="model_id"/&gt;&lt;field name="binding_model_id"/&gt;&lt;field name="state"/&gt;&lt;field name="code"/&gt;&lt;separator/&gt;&lt;filter string="Active" name="active" domain="[('active','=',True)]"/&gt;&lt;filter string="Code" name="code" domain="[('state','=','code')]"/&gt;&lt;group expand="0" string="Group By"&gt;&lt;filter string="Model" name="group_model" context="{'group_by':'model_id'}"/&gt;&lt;filter string="Binding Model" name="group_binding_model" context="{'group_by':'binding_model_id'}"/&gt;&lt;filter string="State" name="group_state" context="{'group_by':'state'}"/&gt;&lt;/group&gt;&lt;/search&gt;</field>
+        </record>
 
         <record id="view_ir_cron_list" model="ir.ui.view">
             <field name="name">ir.cron.list</field>

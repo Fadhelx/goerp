@@ -173,8 +173,18 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   dropdown.type = "button";
   dropdown.className = "o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0";
   dropdown.setAttribute("aria-label", "Search options");
+  dropdown.setAttribute("aria-expanded", "false");
   const menu = document.createElement("div");
-  menu.className = "o_search_bar_menu o-dropdown--menu dropdown-menu";
+  const menuClassName = "o_search_options o_search_bar_menu o-dropdown--menu dropdown-menu";
+  menu.className = menuClassName;
+  menu.hidden = true;
+  let menuOpen = false;
+  dropdown.addEventListener("click", () => {
+    menuOpen = !menuOpen;
+    dropdown.setAttribute("aria-expanded", menuOpen ? "true" : "false");
+    menu.hidden = !menuOpen;
+    menu.className = menuOpen ? `${menuClassName} show` : menuClassName;
+  });
   menu.append(
     renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter, { customFilter: callbacks.onAddCustomFilter }),
     renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy, { customGroup: callbacks.onAddCustomGroup }),

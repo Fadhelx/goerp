@@ -4,7 +4,7 @@ const events = {};
 const fetches = [];
 let sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };
 
-globalThis.location = { search: "" };
+globalThis.location = { search: "", hash: "" };
 globalThis.matchMedia = () => ({ matches: false });
 globalThis.document = {
   documentElement: { dataset: {} },
@@ -143,6 +143,9 @@ globalThis.fetch = async (route, options = {}) => {
   if (route === "/web/dataset/call_kw/x.parent/default_get") {
     return { ok: true, status: 200, async json() { return { id: 11, name: "Parent" }; } };
   }
+  if (route === "/web/dataset/call_kw/x.parent/web_read") {
+    return { ok: true, status: 200, async json() { return [{ id: 11, name: "Restored Parent" }]; } };
+  }
   if (route === "/web/dataset/call_kw/partner.wizard/get_views") {
     return { ok: true, status: 200, async json() { return {
       fields: { name: { type: "char", string: "Name" } },
@@ -209,8 +212,23 @@ assert.equal(actionManager.dataset.tsDialogStatus, "closed");
 assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
 
 fetches.length = 0;
+sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };
+globalThis.location.search = "";
+globalThis.location.hash = "#action=3&model=x.parent&view_type=form&id=11&menu_id=1";
+globalThis.document.body.children = [];
+await mod.bootstrapGoERPWebClient();
+shell = globalThis.document.body.children[0].children[0];
+const restoredActionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+assert.equal(restoredActionManager.dataset.tsActionStatus, "ready");
+assert.equal(findAll(restoredActionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "x.parent" && node.dataset?.view === "form").length, 1);
+const restoredActionLoad = fetches.find((item) => item.route === "/web/action/load");
+assert.deepEqual(JSON.parse(restoredActionLoad.options.body).context, { menu_id: 1, active_id: 11 });
+assert.equal(fetches.some((item) => item.route === "/web/dataset/call_kw/x.parent/web_read"), true);
+
+fetches.length = 0;
 sessionResponse = { uid: 0, name: "User 0", company_name: "My Company", quick_login: true };
 globalThis.location.search = "?legacy_webclient=1";
+globalThis.location.hash = "";
 globalThis.document.body.children = [];
 await mod.bootstrapGoERPWebClient();
 assert.equal(globalThis.document.body.children.length, 0);

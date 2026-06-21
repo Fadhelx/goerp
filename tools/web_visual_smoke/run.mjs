@@ -119,6 +119,24 @@ export const scenarios = [
     }
   },
   {
+    name: "default-hash-route-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
+      })()`, "TS action route hash");
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}${hash}`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "default TS hash document ready");
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "default TS hash webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "default TS hash action ready");
+      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 1, "default TS restored rows");
+      const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      return { hash, title, row_count: rowCount };
+    }
+  },
+  {
     name: "default-webclient-mobile",
     viewport: { width: 390, height: 844, mobile: true },
     run: async (page, config) => {

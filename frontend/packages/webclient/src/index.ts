@@ -4957,7 +4957,7 @@ function normalizeActionViews(action: Record<string, unknown>): ViewRef[] {
     const id = typeof rawView[0] === "number" && rawView[0] > 0 ? rawView[0] : false;
     views.push([id, type]);
   }
-  if (views.length) return views;
+  if (views.length) return ensureSearchActionView(action, views);
   const viewMode = typeof action.view_mode === "string" && action.view_mode.trim() ? action.view_mode : "list,form";
   const modes = viewMode
     .split(",")
@@ -4967,13 +4967,22 @@ function normalizeActionViews(action: Record<string, unknown>): ViewRef[] {
   if (modes.length > 1 && viewID !== false) {
     throw new Error(`Non-db action dictionaries should provide either multiple view modes or a single view mode and an optional view id: got view modes ${modes.join(", ")} and view id ${viewID}`);
   }
-  return modes.map((type) => [modes.length === 1 ? viewID : false, type]);
+  return ensureSearchActionView(action, modes.map((type) => [modes.length === 1 ? viewID : false, type]));
 }
 
 function actionViewID(value: unknown): number | false {
   if (typeof value === "number" && value > 0) return value;
   if (Array.isArray(value) && typeof value[0] === "number" && value[0] > 0) return value[0];
   return false;
+}
+
+function actionSearchViewID(action: Record<string, unknown>): number | false {
+  return actionViewID(action.search_view_id);
+}
+
+function ensureSearchActionView(action: Record<string, unknown>, views: ViewRef[]): ViewRef[] {
+  if (views.some((view) => view[1] === "search")) return views;
+  return [...views, [actionSearchViewID(action), "search"]];
 }
 
 function firstRenderableView(views: readonly ViewRef[]): string {
@@ -5041,11 +5050,13 @@ function buildWindowActionSearch(
   });
   const state = model.state;
   const activeFacetIDs = new Set(state.facets.map((facet) => facet.id));
+  const filters = searchMenuItems(parsed.filters, activeFacetIDs);
+  const groupBys = searchMenuItems(parsed.groupBys, activeFacetIDs);
   return {
     parsed,
     state,
-    filters: searchMenuItems(parsed.filters, activeFacetIDs),
-    groupBys: searchMenuItems(parsed.groupBys, activeFacetIDs),
+    filters: filters.length ? filters : fallbackFilterMenuItems(viewDescriptions.fields),
+    groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields),
     favorites: searchMenuItems(parsed.favorites, activeFacetIDs)
   };
 }
@@ -5056,6 +5067,56 @@ function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: Rea
     label: item.label,
     active: activeFacetIDs.has(parsedSearchItemFacet(item).id)
   }));
+}
+
+function fallbackFilterMenuItems(fields: Record<string, unknown>): ActionControlPanelMenuItem[] {
+  const items: ActionControlPanelMenuItem[] = [];
+  if (fields.active) {
+    items.push(
+      { id: "filter-active", label: "Active" },
+      { id: "filter-archived", label: "Archived" }
+    );
+  }
+  if (fields.state) {
+    const codeLabel = selectionOptions(fields.state).find(([value]) => value === "code")?.[1];
+    items.push({ id: "filter-code", label: codeLabel || fieldLabel(fields, "state") });
+  }
+  return dedupeMenuItems(items);
+}
+
+function fallbackGroupByMenuItems(fields: Record<string, unknown>): ActionControlPanelMenuItem[] {
+  const preferred: Array<[string, string]> = [
+    ["model_id", "group-by-group_model"],
+    ["binding_model_id", "group-by-binding_model"],
+    ["state", "group-by-state"],
+    ["create_uid", "group-by-create_uid"],
+    ["write_uid", "group-by-write_uid"],
+    ["user_id", "group-by-user_id"]
+  ];
+  const items: ActionControlPanelMenuItem[] = [];
+  for (const [name, id] of preferred) {
+    if (fields[name]) items.push({ id, label: fieldLabel(fields, name) });
+  }
+  if (!items.length) {
+    for (const [name, description] of Object.entries(fields)) {
+      if (name === "id" || name === "display_name") continue;
+      if (!["many2one", "selection", "boolean"].includes(fieldTypeValue(description))) continue;
+      items.push({ id: `group-by-${name}`, label: fieldLabel(fields, name) });
+      if (items.length >= 3) break;
+    }
+  }
+  return dedupeMenuItems(items);
+}
+
+function dedupeMenuItems(items: readonly ActionControlPanelMenuItem[]): ActionControlPanelMenuItem[] {
+  const seen = new Set<string>();
+  const out: ActionControlPanelMenuItem[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
 }
 
 function readSpecification(arch: string, viewDescriptions: ViewDescriptions, evalContext: Record<string, unknown>): ReadSpecification {

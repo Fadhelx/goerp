@@ -120,6 +120,7 @@ func TestManifestDataFilesLoad(t *testing.T) {
 		"base.action_currency_form",
 		"base.view_ir_actions_server_list",
 		"base.view_ir_actions_server_form",
+		"base.view_ir_actions_server_search",
 		"base.view_ir_cron_list",
 		"base.view_ir_cron_form",
 		"base.view_base_automation_list",
@@ -293,6 +294,35 @@ func TestManifestDataFilesLoad(t *testing.T) {
 		composeActionRows[0]["view_id"] != ids["mail.email_compose_message_wizard_form"].ResID ||
 		composeActionRows[0]["target"] != "new" {
 		t.Fatalf("compose action = %+v", composeActionRows[0])
+	}
+	serverActionSearchRows, err := env.Model("ir.ui.view").Browse(ids["base.view_ir_actions_server_search"].ResID).Read("name", "model", "type", "arch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverActionSearchArch := serverActionSearchRows[0]["arch"].(string)
+	for _, want := range []string{
+		`filter string="Active" name="active" domain="[('active','=',True)]"`,
+		`filter string="Code" name="code" domain="[('state','=','code')]"`,
+		`filter string="Model" name="group_model" context="{'group_by':'model_id'}"`,
+		`filter string="Binding Model" name="group_binding_model" context="{'group_by':'binding_model_id'}"`,
+	} {
+		if !strings.Contains(serverActionSearchArch, want) {
+			t.Fatalf("server action search arch missing %s: %s", want, serverActionSearchArch)
+		}
+	}
+	if serverActionSearchRows[0]["name"] != "ir.actions.server.search" ||
+		serverActionSearchRows[0]["model"] != "ir.actions.server" ||
+		serverActionSearchRows[0]["type"] != "search" {
+		t.Fatalf("server action search view = %+v", serverActionSearchRows[0])
+	}
+	serverActionRows, err := env.Model("ir.actions.act_window").Browse(ids["base.action_ir_actions_server"].ResID).Read("res_model", "view_mode", "search_view_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if serverActionRows[0]["res_model"] != "ir.actions.server" ||
+		serverActionRows[0]["view_mode"] != "list,form" ||
+		serverActionRows[0]["search_view_id"] != ids["base.view_ir_actions_server_search"].ResID {
+		t.Fatalf("server action window action = %+v", serverActionRows[0])
 	}
 
 	engine := security.NewEngine()

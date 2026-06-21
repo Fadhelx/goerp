@@ -858,6 +858,58 @@ assert.equal(createActionCalls[0].action.view_mode, "form");
 assert.equal("res_id" in createActionCalls[0].action, false);
 assert.deepEqual(createActionCalls[0].options, { additionalContext: { active_id: 42 }, replaceLastAction: true });
 
+const implicitSearchRequests = [];
+const implicitSearchServices = createWebClientServices({
+  transport(request) {
+    implicitSearchRequests.push(request);
+    if (request.route === "/web/action/load") {
+      return Promise.resolve({
+        id: 11,
+        type: "ir.actions.act_window",
+        name: "Server Actions",
+        res_model: "ir.actions.server",
+        views: [[21, "list"], [22, "form"]],
+        search_view_id: [23, "Server Actions Search"],
+        view_mode: "list,form",
+        target: "current"
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/ir.actions.server/get_views") {
+      return Promise.resolve({
+        views: {
+          list: { arch: "<list><field name=\"name\"/></list>", id: 21 },
+          form: { arch: "<form/>", id: 22 },
+          search: {
+            arch: "<search/>",
+            id: 23,
+            filters: []
+          }
+        },
+        models: {
+          "ir.actions.server": {
+            fields: {
+              name: { type: "char", string: "Name" },
+              active: { type: "boolean", string: "Active" },
+              model_id: { type: "many2one", relation: "ir.model", string: "Model" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/ir.actions.server/web_search_read") {
+      return Promise.resolve({ length: 1, records: [{ id: 3, name: "Update Records" }] });
+    }
+    return Promise.resolve({});
+  }
+});
+const implicitSearchResult = await implicitSearchServices.action.doAction(11);
+const implicitGetViews = implicitSearchRequests.find((request) => request.route === "/web/dataset/call_kw/ir.actions.server/get_views");
+assert.deepEqual(implicitGetViews.params.kwargs.views, [[21, "list"], [22, "form"], [23, "search"]]);
+assert.equal(implicitGetViews.params.kwargs.options.load_filters, true);
+assert.equal(implicitSearchResult.activeView, "list");
+assert.deepEqual(implicitSearchResult.search.filters.map((item) => item.id), ["filter-active", "filter-archived"]);
+assert.deepEqual(implicitSearchResult.search.groupBys.map((item) => item.id), ["group-by-group_model"]);
+
 const settingsSaveCalls = [];
 const settingsEvents = [];
 const settingsWindow = renderWindowAction({
@@ -3050,7 +3102,7 @@ assert.equal(selectedWorkflowResult.resModel, "purchase.order");
 assert.equal(selectedWorkflowResult.viewDescriptions.views.form.id, 55);
 assert.deepEqual(selectedWorkflowResult.action.context, { approval_auto_submit: true, default_company_id: 3 });
 assert.equal(workflowSelectionRequests[0].route, "/web/dataset/call_kw/purchase.order/get_views");
-assert.deepEqual(workflowSelectionRequests[0].params.kwargs.views, [[55, "form"]]);
+assert.deepEqual(workflowSelectionRequests[0].params.kwargs.views, [[55, "form"], [false, "search"]]);
 assert.deepEqual(workflowSelectionRequests[0].params.kwargs.context, {});
 
 const workflowOpenRequests = [];
