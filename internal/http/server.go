@@ -858,10 +858,15 @@ func (s Server) mailThreadMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := internalmail.FetchThreadMessages(env, internalmail.ThreadMessagesRequest{
-		Model:  req.ThreadModel,
-		ResID:  req.ThreadID,
-		Limit:  intValue(req.FetchParams["limit"]),
-		Offset: intValue(req.FetchParams["offset"]),
+		Model:          req.ThreadModel,
+		ResID:          req.ThreadID,
+		Limit:          intValue(req.FetchParams["limit"]),
+		Offset:         intValue(req.FetchParams["offset"]),
+		Before:         int64Value(req.FetchParams["before"]),
+		After:          int64Value(req.FetchParams["after"]),
+		Around:         int64Value(req.FetchParams["around"]),
+		SearchTerm:     stringValue(req.FetchParams["search_term"]),
+		IsNotification: boolPointerValue(req.FetchParams["is_notification"]),
 	})
 	if err != nil {
 		writeRPCError(w, envelope, http.StatusForbidden, err)

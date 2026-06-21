@@ -426,7 +426,37 @@ func FetchThreadMessages(env *record.Env, req ThreadMessagesRequest) (map[string
 	for _, row := range rows {
 		ids = append(ids, int64FromAny(row["id"]))
 	}
-	data := map[string]any{"mail.message": rows}
+	if !req.PortalOnly {
+		markMessageNotificationsRead(messageSystemEnv(env), ids, currentUserPartnerID(env, env.Context().UserID))
+	}
+	data := map[string]any{}
+	if req.PortalOnly {
+		data["mail.message"] = rows
+	} else {
+		partnerID := starredPartnerID(env)
+		partnerIDs, guestIDs, reactionRows := messageReactionStoreGroups(messageSystemEnv(env), ids, "")
+		authorPartnerIDs, authorGuestIDs := messageActorIDs(rows)
+		partnerIDs = uniqueIDs(append(partnerIDs, authorPartnerIDs...))
+		guestIDs = uniqueIDs(append(guestIDs, authorGuestIDs...))
+		data["mail.message"] = mailboxMessageRows(rows, partnerID, messageReactionGroupsByMessage(reactionRows))
+		data["MessageReactions"] = reactionRows
+		data["mail.thread"] = messageThreadStoreRows(messageSystemEnv(env), req.Model, req.ResID)
+		if partnerRows := actorRows(messageSystemEnv(env), "res.partner", partnerIDs); len(partnerRows) > 0 {
+			data["res.partner"] = partnerRows
+		}
+		if guestRows := actorRows(messageSystemEnv(env), "mail.guest", guestIDs); len(guestRows) > 0 {
+			data["mail.guest"] = guestRows
+		}
+		if attachmentRows := messageAttachmentStoreRows(messageSystemEnv(env), rows); len(attachmentRows) > 0 {
+			data["ir.attachment"] = attachmentRows
+		}
+		if subtypeRows := messageSubtypeStoreRows(messageSystemEnv(env), rows); len(subtypeRows) > 0 {
+			data["mail.message.subtype"] = subtypeRows
+		}
+		if notificationRows := messageNotificationStoreRows(messageSystemEnv(env), ids); len(notificationRows) > 0 {
+			data["mail.notification"] = notificationRows
+		}
+	}
 	if trackingRows == nil {
 		trackingRows = []map[string]any{}
 	}
@@ -441,6 +471,152 @@ func FetchThreadMessages(env *record.Env, req ThreadMessagesRequest) (map[string
 	return result, nil
 }
 
+func markMessageNotificationsRead(env *record.Env, messageIDs []int64, partnerID int64) {
+	messageIDs = uniqueIDs(messageIDs)
+	if env == nil || partnerID == 0 || len(messageIDs) == 0 {
+		return
+	}
+	found, err := env.Model("mail.notification").Search(domain.And(
+		domain.Cond("mail_message_id", "in", messageIDs),
+		domain.Cond("res_partner_id", "=", partnerID),
+		domain.Cond("is_read", "=", false),
+	))
+	if err != nil || found.Len() == 0 {
+		return
+	}
+	_ = found.Write(map[string]any{"is_read": true, "read_date": time.Now().UTC()})
+}
+
+func messageReactionGroupsByMessage(groups []map[string]any) map[int64][]map[string]any {
+	out := map[int64][]map[string]any{}
+	for _, group := range groups {
+		messageID := int64FromAny(group["message"])
+		if messageID == 0 {
+			continue
+		}
+		out[messageID] = append(out[messageID], group)
+	}
+	return out
+}
+
+func messageActorIDs(rows []map[string]any) ([]int64, []int64) {
+	partnerIDs := make([]int64, 0, len(rows))
+	guestIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if id := int64FromAny(row["author_id"]); id != 0 {
+			partnerIDs = append(partnerIDs, id)
+		}
+		if id := int64FromAny(row["author_guest_id"]); id != 0 {
+			guestIDs = append(guestIDs, id)
+		}
+	}
+	return uniqueIDs(partnerIDs), uniqueIDs(guestIDs)
+}
+
+func messageThreadStoreRows(env *record.Env, modelName string, resID int64) []map[string]any {
+	displayName := fmt.Sprintf("%s,%d", modelName, resID)
+	if env != nil {
+		if pairs, err := env.Model(modelName).Browse(resID).NameGet(); err == nil && len(pairs) > 0 {
+			displayName = stringAny(pairs[0][1])
+		}
+	}
+	return []map[string]any{{
+		"display_name":    displayName,
+		"has_mail_thread": true,
+		"id":              resID,
+		"model":           modelName,
+	}}
+}
+
+func messageAttachmentStoreRows(env *record.Env, rows []map[string]any) []map[string]any {
+	ids := make([]int64, 0)
+	for _, row := range rows {
+		ids = append(ids, int64s(row["attachment_ids"])...)
+	}
+	ids = uniqueIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	attachmentRows, err := env.Model("ir.attachment").Browse(ids...).Read("name", "res_model", "res_id", "mimetype", "checksum", "has_thumbnail")
+	if err != nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(attachmentRows))
+	for _, row := range attachmentRows {
+		out = append(out, map[string]any{
+			"checksum":      stringAny(row["checksum"]),
+			"filename":      stringAny(row["name"]),
+			"has_thumbnail": boolAny(row["has_thumbnail"]),
+			"id":            int64FromAny(row["id"]),
+			"mimetype":      stringAny(row["mimetype"]),
+			"name":          stringAny(row["name"]),
+			"res_id":        int64FromAny(row["res_id"]),
+			"res_model":     stringAny(row["res_model"]),
+		})
+	}
+	return out
+}
+
+func messageSubtypeStoreRows(env *record.Env, rows []map[string]any) []map[string]any {
+	ids := make([]int64, 0)
+	for _, row := range rows {
+		if id := int64FromAny(row["subtype_id"]); id != 0 {
+			ids = append(ids, id)
+		}
+	}
+	ids = uniqueIDs(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	subtypeRows, err := env.Model("mail.message.subtype").Browse(ids...).Read("name", "description", "internal")
+	if err != nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(subtypeRows))
+	for _, row := range subtypeRows {
+		out = append(out, map[string]any{
+			"description": stringAny(row["description"]),
+			"id":          int64FromAny(row["id"]),
+			"internal":    boolAny(row["internal"]),
+			"name":        stringAny(row["name"]),
+		})
+	}
+	return out
+}
+
+func messageNotificationStoreRows(env *record.Env, messageIDs []int64) []map[string]any {
+	messageIDs = uniqueIDs(messageIDs)
+	if len(messageIDs) == 0 {
+		return nil
+	}
+	found, err := env.Model("mail.notification").Search(domain.Cond("mail_message_id", "in", messageIDs))
+	if err != nil {
+		return nil
+	}
+	rows, err := found.Read("mail_message_id", "mail_mail_id", "res_partner_id", "mail_email_address", "notification_type", "notification_status", "failure_type", "failure_reason", "is_read", "read_date", "author_id")
+	if err != nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, map[string]any{
+			"author_id":           int64FromAny(row["author_id"]),
+			"failure_reason":      stringAny(row["failure_reason"]),
+			"failure_type":        stringAny(row["failure_type"]),
+			"id":                  int64FromAny(row["id"]),
+			"is_read":             boolAny(row["is_read"]),
+			"mail_email_address":  stringAny(row["mail_email_address"]),
+			"mail_mail_id":        int64FromAny(row["mail_mail_id"]),
+			"mail_message_id":     int64FromAny(row["mail_message_id"]),
+			"notification_status": stringAny(row["notification_status"]),
+			"notification_type":   stringAny(row["notification_type"]),
+			"read_date":           row["read_date"],
+			"res_partner_id":      int64FromAny(row["res_partner_id"]),
+		})
+	}
+	return out
+}
+
 func filterThreadMessageRows(env *record.Env, rows []map[string]any, req ThreadMessagesRequest) []map[string]any {
 	sort.Slice(rows, func(i, j int) bool {
 		return int64FromAny(rows[i]["id"]) > int64FromAny(rows[j]["id"])
@@ -450,11 +626,16 @@ func filterThreadMessageRows(env *record.Env, rows []map[string]any, req ThreadM
 		commentSubtypeID = resolveSubtypeXMLID(env, "mail.mt_comment")
 	}
 	searchTerm := strings.ToLower(strings.TrimSpace(req.SearchTerm))
-	searchIndex := threadMessageSearchIndex(env, rows, searchTerm)
+	includeTrackingSearch := req.IsNotification == nil || *req.IsNotification
+	searchIndex := threadMessageSearchIndex(env, rows, searchTerm, includeTrackingSearch)
 	out := rows[:0]
 	for _, row := range rows {
+		messageType := stringAny(row["message_type"])
+		if messageType == "user_notification" {
+			continue
+		}
 		if req.IsNotification != nil {
-			isNotification := stringAny(row["message_type"]) == "notification"
+			isNotification := messageType == "notification"
 			if isNotification != *req.IsNotification {
 				continue
 			}
@@ -476,14 +657,17 @@ func filterThreadMessageRows(env *record.Env, rows []map[string]any, req ThreadM
 	return out
 }
 
-func threadMessageSearchIndex(env *record.Env, rows []map[string]any, searchTerm string) map[int64]string {
+func threadMessageSearchIndex(env *record.Env, rows []map[string]any, searchTerm string, includeTracking bool) map[int64]string {
 	out := map[int64]string{}
 	if searchTerm == "" {
 		return out
 	}
 	attachmentNames := messageAttachmentNames(env, rows)
 	subtypeText := messageSubtypeText(env, rows)
-	trackingText := messageTrackingText(env, rows)
+	trackingText := map[int64]string{}
+	if includeTracking {
+		trackingText = messageTrackingText(env, rows)
+	}
 	for _, row := range rows {
 		messageID := int64FromAny(row["id"])
 		parts := []string{

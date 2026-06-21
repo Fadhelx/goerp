@@ -185,7 +185,7 @@ func FetchStarredMessages(env *record.Env, req ThreadMessagesRequest) (map[strin
 	}
 	partnerIDs, guestIDs, reactionRows := messageReactionStoreGroups(messageSystemEnv(env), messageIDs, "")
 	data := map[string]any{
-		"mail.message":        mailboxMessageRows(rows, partnerID),
+		"mail.message":        mailboxMessageRows(rows, partnerID, messageReactionGroupsByMessage(reactionRows)),
 		"mail.tracking.value": trackingRows,
 		"MessageReactions":    reactionRows,
 	}
@@ -478,7 +478,7 @@ func messageReactionStoreGroups(env *record.Env, messageIDs []int64, content str
 	return setIDs(partnerSet), setIDs(guestSet), groups
 }
 
-func mailboxMessageRows(rows []map[string]any, partnerID int64) []map[string]any {
+func mailboxMessageRows(rows []map[string]any, partnerID int64, reactionGroups map[int64][]map[string]any) []map[string]any {
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		item := make(map[string]any, len(row)+2)
@@ -487,7 +487,15 @@ func mailboxMessageRows(rows []map[string]any, partnerID int64) []map[string]any
 		}
 		item["body"] = []any{"markup", stringAny(row["body"])}
 		item["starred"] = containsInt64(int64SliceFromAny(row["starred_partner_ids"]), partnerID)
-		if item["reactions"] == nil {
+		item["thread"] = map[string]any{
+			"has_mail_thread": true,
+			"id":              int64FromAny(row["res_id"]),
+			"model":           stringAny(row["model"]),
+		}
+		item["default_subject"] = stringAny(row["subject"])
+		if groups := reactionGroups[int64FromAny(row["id"])]; len(groups) > 0 {
+			item["reactions"] = groups
+		} else if item["reactions"] == nil {
 			item["reactions"] = []any{}
 		}
 		out = append(out, item)

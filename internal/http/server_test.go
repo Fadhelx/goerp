@@ -2805,6 +2805,178 @@ func TestMailRoutesPostFetchAndPartnerFromEmail(t *testing.T) {
 	}
 }
 
+func TestMailThreadMessagesRouteFetchParamsAndStoreData(t *testing.T) {
+	server := testMailThreadServer(t)
+	threadID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Thread", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Author", "email": "author@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reactorID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Reactor", "email": "reactor@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guestID, err := server.Env.Model("mail.guest").Create(map[string]any{"name": "Visitor", "email": "visitor@example.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	attachmentID, err := server.Env.Model("ir.attachment").Create(map[string]any{"name": "thread-note.pdf", "res_model": "res.partner", "res_id": threadID, "type": "binary", "datas": "ZGF0YQ==", "mimetype": "application/pdf", "checksum": "abc123", "has_thumbnail": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Comment", "description": "Discussions", "default": true, "internal": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alphaID, err := server.Env.Model("mail.message").Create(map[string]any{"body": "<p>Alpha</p>", "message_type": "comment", "model": "res.partner", "res_id": threadID, "author_id": authorID, "subtype_id": commentSubtypeID, "body_is_html": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("mail.tracking.value").Create(map[string]any{"field_name": "name", "field_desc": "Name", "field_type": "char", "old_value_char": "before", "new_value_char": "TrackingOnlyNeedle", "mail_message_id": alphaID}); err != nil {
+		t.Fatal(err)
+	}
+	betaID, err := server.Env.Model("mail.message").Create(map[string]any{"body": "<p>Beta Needle</p>", "subject": "Search Bridge", "message_type": "comment", "model": "res.partner", "res_id": threadID, "author_id": authorID, "subtype_id": commentSubtypeID, "attachment_ids": []int64{attachmentID}, "body_is_html": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gammaID, err := server.Env.Model("mail.message").Create(map[string]any{"body": "<p>Gamma</p>", "message_type": "comment", "model": "res.partner", "res_id": threadID, "author_guest_id": guestID, "subtype_id": commentSubtypeID, "body_is_html": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	noticeID, err := server.Env.Model("mail.message").Create(map[string]any{"body": "<p>Notice</p>", "message_type": "notification", "model": "res.partner", "res_id": threadID, "author_id": authorID, "subtype_id": commentSubtypeID, "body_is_html": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("mail.message").Create(map[string]any{"body": "<p>User notification</p>", "message_type": "user_notification", "model": "res.partner", "res_id": threadID, "author_id": authorID, "subtype_id": commentSubtypeID, "body_is_html": true}); err != nil {
+		t.Fatal(err)
+	}
+	currentPartnerID := int64(0)
+	if rows, err := server.Env.Model("res.users").Browse(1).Read("partner_id"); err == nil && len(rows) != 0 {
+		currentPartnerID = int64Value(rows[0]["partner_id"])
+	}
+	if currentPartnerID == 0 {
+		currentPartnerID = authorID
+	}
+	notificationID, err := server.Env.Model("mail.notification").Create(map[string]any{"mail_message_id": noticeID, "res_partner_id": currentPartnerID, "notification_type": "inbox", "notification_status": "ready", "is_read": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("mail.message.reaction").Create(map[string]any{"message_id": betaID, "content": "ok", "partner_id": reactorID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("mail.message.reaction").Create(map[string]any{"message_id": betaID, "content": "ok", "guest_id": guestID}); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := server.Handler()
+	fetch := func(body string) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/mail/thread/messages", bytes.NewBufferString(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("thread messages response %d %s", rec.Code, rec.Body.String())
+		}
+		return decodeJSON(t, rec.Body.Bytes())
+	}
+	messageIDs := func(payload map[string]any) []int64 {
+		t.Helper()
+		items := payload["messages"].([]any)
+		out := make([]int64, 0, len(items))
+		for _, item := range items {
+			out = append(out, int64Value(item))
+		}
+		return out
+	}
+
+	payload := fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"limit":10}}`, threadID))
+	ids := messageIDs(payload)
+	if len(ids) != 4 || ids[0] != noticeID || ids[1] != gammaID || ids[2] != betaID || ids[3] != alphaID {
+		t.Fatalf("thread message ids = %+v", ids)
+	}
+	data := payload["data"].(map[string]any)
+	messageRows := data["mail.message"].([]any)
+	var beta map[string]any
+	for _, item := range messageRows {
+		row := item.(map[string]any)
+		if int64Value(row["id"]) == betaID {
+			beta = row
+			break
+		}
+	}
+	if beta == nil {
+		t.Fatalf("missing beta row in %+v", messageRows)
+	}
+	if body := beta["body"].([]any); len(body) != 2 || body[0] != "markup" || body[1] != "<p>Beta Needle</p>" {
+		t.Fatalf("thread message body = %+v", beta["body"])
+	}
+	thread := beta["thread"].(map[string]any)
+	if thread["model"] != "res.partner" || int64Value(thread["id"]) != threadID || thread["has_mail_thread"] != true {
+		t.Fatalf("thread relation = %+v", thread)
+	}
+	if len(data["MessageReactions"].([]any)) != 1 {
+		t.Fatalf("message reactions = %+v", data["MessageReactions"])
+	}
+	reaction := data["MessageReactions"].([]any)[0].(map[string]any)
+	if reaction["content"] != "ok" || int64Value(reaction["count"]) != 2 || int64Value(reaction["message"]) != betaID {
+		t.Fatalf("reaction group = %+v", reaction)
+	}
+	messageReactions := beta["reactions"].([]any)
+	if len(messageReactions) != 1 || int64Value(messageReactions[0].(map[string]any)["message"]) != betaID {
+		t.Fatalf("message reaction relation = %+v", beta["reactions"])
+	}
+	threads := data["mail.thread"].([]any)
+	if len(threads) != 1 || threads[0].(map[string]any)["model"] != "res.partner" || int64Value(threads[0].(map[string]any)["id"]) != threadID {
+		t.Fatalf("thread store rows = %+v", threads)
+	}
+	if len(data["res.partner"].([]any)) < 2 || len(data["mail.guest"].([]any)) != 1 {
+		t.Fatalf("actor store rows = partners:%+v guests:%+v", data["res.partner"], data["mail.guest"])
+	}
+	attachmentRows := data["ir.attachment"].([]any)
+	if len(attachmentRows) != 1 || int64Value(attachmentRows[0].(map[string]any)["id"]) != attachmentID || attachmentRows[0].(map[string]any)["filename"] != "thread-note.pdf" {
+		t.Fatalf("attachment store rows = %+v", attachmentRows)
+	}
+	subtypeRows := data["mail.message.subtype"].([]any)
+	if len(subtypeRows) != 1 || int64Value(subtypeRows[0].(map[string]any)["id"]) != commentSubtypeID || subtypeRows[0].(map[string]any)["name"] != "Comment" {
+		t.Fatalf("subtype store rows = %+v", subtypeRows)
+	}
+	notificationRows := data["mail.notification"].([]any)
+	if len(notificationRows) != 1 || int64Value(notificationRows[0].(map[string]any)["id"]) != notificationID || int64Value(notificationRows[0].(map[string]any)["mail_message_id"]) != noticeID {
+		t.Fatalf("notification store rows = %+v", notificationRows)
+	}
+
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"search_term":"Beta Needle","limit":10}}`, threadID))
+	if got := messageIDs(payload); len(got) != 1 || got[0] != betaID || int64Value(payload["count"]) != 1 {
+		t.Fatalf("search fetch = ids:%+v payload:%+v", got, payload)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"search_term":"TrackingOnlyNeedle","limit":10}}`, threadID))
+	if got := messageIDs(payload); len(got) != 1 || got[0] != alphaID || int64Value(payload["count"]) != 1 {
+		t.Fatalf("tracking search fetch = ids:%+v payload:%+v", got, payload)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"search_term":"TrackingOnlyNeedle","is_notification":false,"limit":10}}`, threadID))
+	if got := messageIDs(payload); len(got) != 0 || int64Value(payload["count"]) != 0 {
+		t.Fatalf("non-notification tracking search fetch = ids:%+v payload:%+v", got, payload)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"before":%d,"limit":2}}`, threadID, gammaID))
+	if got := messageIDs(payload); len(got) != 2 || got[0] != betaID || got[1] != alphaID {
+		t.Fatalf("before fetch ids = %+v", got)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"after":%d,"limit":10}}`, threadID, betaID))
+	if got := messageIDs(payload); len(got) != 2 || got[0] != noticeID || got[1] != gammaID {
+		t.Fatalf("after fetch ids = %+v", got)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"around":%d,"limit":3}}`, threadID, betaID))
+	if got := messageIDs(payload); len(got) != 2 || got[0] != gammaID || got[1] != betaID {
+		t.Fatalf("around fetch ids = %+v", got)
+	}
+	payload = fetch(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"fetch_params":{"is_notification":true,"limit":10}}`, threadID))
+	if got := messageIDs(payload); len(got) != 1 || got[0] != noticeID {
+		t.Fatalf("notification fetch ids = %+v", got)
+	}
+}
+
 func TestMailPartnerFromEmailRequiresPartnerManagerToCreate(t *testing.T) {
 	server := testMailThreadServer(t)
 	if _, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Existing", "email": "existing-route@example.com", "email_normalized": "existing-route@example.com", "active": true}); err != nil {
