@@ -43,23 +43,27 @@ This slice fixed the highest visible form-header issue and added a passive front
 - `reports/agent_audit_backlog.md`
 - `reports/progress_dashboard.html`
 - `reports/ui_parity_master_current.md`
+- `reports/web_visual_smoke/manifest.json`
+- `reports/web_visual_smoke/technical-form-desktop.png`
+- `reports/web_visual_smoke/technical-form-mobile.png`
+- `reports/web_visual_smoke/technical-list-mobile.png`
 
 ## Local Evidence
 
 GoERP local:
-- URL: `http://127.0.0.1:8073/web`
+- URL: `http://127.0.0.1:8075/web`
 - Visual smoke: 8/8 passed.
-- Manifest: `tmp/verification/ui_parity_master_local/manifest.json`
+- Manifest: `tmp/verification/web_visual_smoke_local/manifest.json`
 
 Screenshots:
-- `tmp/verification/ui_parity_master_local/launcher-desktop.png`
-- `tmp/verification/ui_parity_master_local/settings-desktop.png`
-- `tmp/verification/ui_parity_master_local/technical-list-desktop.png`
-- `tmp/verification/ui_parity_master_local/technical-form-desktop.png`
-- `tmp/verification/ui_parity_master_local/search-menu-desktop.png`
-- `tmp/verification/ui_parity_master_local/launcher-mobile.png`
-- `tmp/verification/ui_parity_master_local/technical-list-mobile.png`
-- `tmp/verification/ui_parity_master_local/technical-form-mobile.png`
+- `tmp/verification/web_visual_smoke_local/launcher-desktop.png`
+- `tmp/verification/web_visual_smoke_local/settings-desktop.png`
+- `tmp/verification/web_visual_smoke_local/technical-list-desktop.png`
+- `tmp/verification/web_visual_smoke_local/technical-form-desktop.png`
+- `tmp/verification/web_visual_smoke_local/search-menu-desktop.png`
+- `tmp/verification/web_visual_smoke_local/launcher-mobile.png`
+- `tmp/verification/web_visual_smoke_local/technical-list-mobile.png`
+- `tmp/verification/web_visual_smoke_local/technical-form-mobile.png`
 
 Smoke assertions:
 - Launcher desktop: 4 app tiles, 5 systray entries.
@@ -78,7 +82,7 @@ Smoke assertions:
 - `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/index.test.mjs`
 - `pnpm -C frontend build`
 - `node --test tools/web_visual_smoke/run.test.mjs`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/ui_parity_master_local --timeout-ms=30000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8075 --out=tmp/verification/web_visual_smoke_local --timeout-ms=30000`
 - `make ci`
 
 ## P0 Mismatches
