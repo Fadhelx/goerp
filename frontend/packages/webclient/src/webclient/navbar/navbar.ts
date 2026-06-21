@@ -18,6 +18,7 @@ export interface NavbarOptions {
   activeAppId?: number | string;
   onOpenApps?: () => void;
   onOpenApp?: (app: NavbarApp) => void;
+  onToggleMobileMenu?: (expanded: boolean) => void;
 }
 
 export function defaultSystrayItems(): SystrayItem[] {
@@ -30,6 +31,7 @@ export function defaultSystrayItems(): SystrayItem[] {
 export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
   const header = document.createElement("header");
   header.className = "o_main_navbar d-print-none";
+  let setMobileMenuExpanded = (_expanded: boolean) => {};
 
   const brand = document.createElement("div");
   brand.className = "o_navbar_apps_menu o-brand";
@@ -44,11 +46,22 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
     launcher.setAttribute("aria-current", "page");
   }
   launcher.append(renderLauncherIcon());
-  launcher.addEventListener("click", () => options.onOpenApps?.());
+  launcher.addEventListener("click", () => {
+    setMobileMenuExpanded(false);
+    options.onOpenApps?.();
+  });
   const title = document.createElement("h1");
   title.className = "o_menu_brand";
   title.textContent = "Odoo";
   brand.append(launcher, title);
+
+  const mobileMenu = renderMobileMenuToggle((expanded) => {
+    options.onToggleMobileMenu?.(expanded);
+  });
+  setMobileMenuExpanded = (expanded: boolean) => {
+    mobileMenu.setAttribute("aria-expanded", expanded ? "true" : "false");
+    options.onToggleMobileMenu?.(expanded);
+  };
 
   const nav = document.createElement("nav");
   nav.className = "o-nav o_navbar_sections";
@@ -64,7 +77,10 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
       button.className = "o_nav_entry active";
       button.setAttribute("aria-current", "page");
     }
-    button.addEventListener("click", () => options.onOpenApp?.(app));
+    button.addEventListener("click", () => {
+      setMobileMenuExpanded(false);
+      options.onOpenApp?.(app);
+    });
     nav.append(button);
   }
 
@@ -77,7 +93,7 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
   if (options.debug) systray.append(renderDebugItem());
   systray.append(renderUserMenu(options.userName ?? "Administrator"));
 
-  header.append(brand, nav, systray);
+  header.append(brand, mobileMenu, nav, systray);
   return header;
 }
 
@@ -87,6 +103,23 @@ function renderLauncherIcon(): HTMLElement {
   icon.setAttribute("aria-hidden", "true");
   for (let index = 0; index < 9; index += 1) icon.append(document.createElement("span"));
   return icon;
+}
+
+function renderMobileMenuToggle(onToggle: (expanded: boolean) => void): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o-mobile-menu-toggle";
+  button.setAttribute("aria-label", "Menu");
+  button.setAttribute("aria-expanded", "false");
+  const line = document.createElement("span");
+  line.setAttribute("aria-hidden", "true");
+  button.append(line);
+  button.addEventListener("click", () => {
+    const expanded = button.getAttribute("aria-expanded") !== "true";
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    onToggle(expanded);
+  });
+  return button;
 }
 
 function renderSystrayItem(item: SystrayItem): HTMLElement {

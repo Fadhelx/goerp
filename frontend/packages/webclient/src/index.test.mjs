@@ -34,6 +34,7 @@ import {
   registry,
   Registry,
   renderWindowAction,
+  renderWindowActionDialog,
   registries,
   session,
   serviceMetadata,
@@ -583,6 +584,7 @@ assert.throws(
 );
 
 const serverActionRequests = [];
+let serverActionCloseCount = 0;
 const serverActionServices = createWebClientServices({
   transport(request) {
     serverActionRequests.push(request);
@@ -620,11 +622,19 @@ const serverActionServices = createWebClientServices({
   }
 });
 const serverActionResult = await serverActionServices.action.doAction(55, {
-  additionalContext: { active_model: "res.partner", active_id: 9, active_ids: [9], from_options: true }
+  additionalContext: { active_model: "res.partner", active_id: 9, active_ids: [9], from_options: true },
+  onClose: () => {
+    serverActionCloseCount += 1;
+  }
 });
 assert.equal(serverActionResult.type, "ir.actions.act_window");
 assert.equal(serverActionResult.resModel, "res.partner");
 assert.equal(serverActionResult.action.path, "/server/partners");
+assert.equal(serverActionCloseCount, 0);
+assert.equal(serverActionServices.action.stack.length, 1);
+assert.equal(serverActionServices.action.stack[0].action.type, "ir.actions.act_window");
+assert.equal(serverActionServices.action.stack[0].dialog, true);
+assert.equal(serverActionServices.action.stack[0].action.res_model, "res.partner");
 assert.equal(serverActionRequests[0].route, "/web/action/load");
 assert.deepEqual(serverActionRequests[0].params.context, { active_model: "res.partner", active_id: 9, active_ids: [9], from_options: true });
 assert.equal(serverActionRequests[1].route, "/web/action/run");
@@ -637,8 +647,12 @@ assert.deepEqual(serverActionRequests[1].params.context, {
   from_options: true
 });
 assert.equal(serverActionRequests[2].route, "/web/dataset/call_kw/res.partner/get_views");
+await serverActionServices.action.doAction({ type: "ir.actions.act_window_close" });
+assert.equal(serverActionCloseCount, 1);
+assert.equal(serverActionServices.action.stack.length, 0);
 
 const falseServerActionRequests = [];
+let falseServerActionCloseCount = 0;
 const falseServerActionServices = createWebClientServices({
   transport(request) {
     falseServerActionRequests.push(request);
@@ -650,9 +664,16 @@ const falseServerActionServices = createWebClientServices({
 });
 const falseServerActionResult = await falseServerActionServices.action.doAction(
   { id: 56, type: "ir.actions.server", context: { from_action: "false" } },
-  { additional_context: { active_id: 10, active_model: "res.partner" } }
+  {
+    additional_context: { active_id: 10, active_model: "res.partner" },
+    onClose: () => {
+      falseServerActionCloseCount += 1;
+    }
+  }
 );
 assert.deepEqual(falseServerActionResult, { type: "ir.actions.act_window_close" });
+assert.equal(falseServerActionCloseCount, 1);
+assert.equal(falseServerActionServices.action.stack.length, 0);
 assert.equal(falseServerActionRequests[0].route, "/web/action/run");
 assert.deepEqual(falseServerActionRequests[0].params.context, {
   from_action: "false",
@@ -778,6 +799,22 @@ assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value
 assert.equal(renderedWindow.children[1].className, "gorp-list-view");
 assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
 assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+const dialogCloseEvents = [];
+const renderedDialog = renderWindowActionDialog({
+  ...windowResult,
+  action: { ...windowResult.action, name: "Partner Wizard", target: "new" }
+});
+renderedDialog.addEventListener("dialog:close", (event) => dialogCloseEvents.push(event.detail));
+assert.equal(renderedDialog.dataset.target, "new");
+assert.equal(renderedDialog.dataset.model, "res.partner");
+assert.equal(String(renderedDialog.className).split(/\s+/).includes("o_dialog"), true);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-dialog")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-body") && String(node.className).includes("o_act_window")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("gorp-window-action")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
+findAll(renderedDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new TestEvent("click"));
+assert.deepEqual(dialogCloseEvents, [{ model: "res.partner" }]);
 const createActionCalls = [];
 const createActionWindow = renderWindowAction(windowResult, {
   context: { active_id: 42 },

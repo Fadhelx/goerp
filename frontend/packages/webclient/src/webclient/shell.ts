@@ -23,8 +23,15 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   const apps = options.apps ?? navbarApps(menuApps);
   const action = document.createElement("section");
   action.className = "o_action_manager";
-  const openApp = (app: HomeMenuApp) => options.onOpenApp?.(app, action);
+  const setMobileMenuOpen = (open: boolean) => {
+    document.body?.classList?.toggle("o-mobile-menu-open", open);
+  };
+  const openApp = (app: HomeMenuApp) => {
+    setMobileMenuOpen(false);
+    return options.onOpenApp?.(app, action);
+  };
   const renderApps = () => {
+    setMobileMenuOpen(false);
     if (!options.menus) return;
     action.replaceChildren(renderHomeMenu(options.menus, {
       onOpenApp: openApp,
@@ -38,6 +45,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     companyName: options.companyName,
     debug: options.debug,
     onOpenApps: renderApps,
+    onToggleMobileMenu: setMobileMenuOpen,
     onOpenApp: (app) => {
       const menuApp = menuApps.find((item) => String(item.id) === String(app.id));
       if (menuApp) openApp(menuApp);

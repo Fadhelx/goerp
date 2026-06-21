@@ -370,7 +370,7 @@ function settingsSettingFromNode(
     .filter((fieldNode) => fieldNode.attrs.name && !invisible(fieldNode.attrs, values));
   const parsedFields = fieldNodes.map((fieldNode) => settingsFieldFromNode(fieldNode, fields, values));
   const firstField = parsedFields[0];
-  const label = node.attrs.string || node.attrs.title || firstField?.label || "";
+  const label = settingLabel(node.attrs.string || node.attrs.title || "", firstField);
   const help = node.attrs.help || collectSettingHelp(node, fieldNodes) || firstField?.help || "";
   const id = node.attrs.id || node.attrs.name || firstField?.name || `${blockID}-setting-${index + 1}`;
   if (!parsedFields.length && !label && !help) return null;
@@ -387,7 +387,7 @@ function settingsFieldFromNode(
   const type = fieldType(description, values[name]);
   return {
     name,
-    label: node.attrs.string || fieldLabel(description, name),
+    label: fieldNodeLabel(node.attrs.string, description, name),
     help: node.attrs.help || fieldHelp(description),
     type,
     widget: node.attrs.widget || fieldWidget(description),
@@ -397,6 +397,11 @@ function settingsFieldFromNode(
     readonly: truthyAttr(node.attrs.readonly) || truthyRecordValue(description, "readonly"),
     required: truthyAttr(node.attrs.required) || truthyRecordValue(description, "required")
   };
+}
+
+function settingLabel(candidate: string, firstField: SettingsField | undefined): string {
+  if (!firstField) return candidate;
+  return readableFieldLabel(candidate, firstField.name) || firstField.label;
 }
 
 function fallbackSettingsApp(
@@ -540,7 +545,59 @@ function labelFromAttrs(attrs: Record<string, string>, fallback: string): string
 }
 
 function fieldLabel(description: unknown, fallback: string): string {
-  return stringRecordValue(description, "string", "label") || fallback;
+  return readableFieldLabel(stringRecordValue(description, "string", "label"), fallback) || humanFieldLabel(fallback);
+}
+
+function fieldNodeLabel(candidate: string | undefined, description: unknown, fallback: string): string {
+  return readableFieldLabel(candidate, fallback) || fieldLabel(description, fallback);
+}
+
+function readableFieldLabel(candidate: string | undefined, fallback: string): string {
+  const label = (candidate ?? "").trim();
+  if (!label || isTechnicalFieldLabel(label, fallback)) return "";
+  return label;
+}
+
+function isTechnicalFieldLabel(label: string, fallback: string): boolean {
+  const normalized = label.replace(/\s+/g, " ").trim();
+  return normalized === fallback || /\b(?:module|group)_[a-z0-9_]+\b/i.test(normalized);
+}
+
+function humanFieldLabel(name: string): string {
+  const source = name
+    .replace(/^module_/, "")
+    .replace(/^group_/, "")
+    .replace(/^oi_workflow_/, "")
+    .replace(/^oi_/, "")
+    .replace(/hr_holidays/g, "time_off")
+    .replace(/uom/g, "units_of_measure");
+  const words = source
+    .split("_")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map(labelToken);
+  return words.join(" ") || name;
+}
+
+function labelToken(token: string): string {
+  const lower = token.toLowerCase();
+  const overrides: Record<string, string> = {
+    ai: "AI",
+    api: "API",
+    crm: "CRM",
+    hr: "HR",
+    id: "ID",
+    sms: "SMS",
+    url: "URL",
+    uri: "URI",
+    sale: "Sales",
+    expense: "Expenses",
+    holiday: "Time Off",
+    holidays: "Time Off",
+    stock: "Inventory",
+    timesheet: "Timesheets"
+  };
+  return overrides[lower] || lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 function fieldHelp(description: unknown): string {

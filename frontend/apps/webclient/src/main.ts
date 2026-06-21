@@ -2,10 +2,13 @@ import {
   createWebClient,
   makeEnv,
   renderWindowAction,
+  renderWindowActionDialog,
   routeStateFromAction,
   startServices,
   updateBrowserRoute,
+  type ActionRequest,
   type ActionService,
+  type ActionServiceOptions,
   type RPCRequest,
   type SessionService,
   type WebClientServices,
@@ -66,24 +69,143 @@ async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, ou
   }
   outlet.dataset.tsActionStatus = "loading";
   outlet.replaceChildren(renderActionLoading(app.name));
-  const actionService = env.services.action as ActionService;
-  const result = await actionService.doAction<unknown>(actionID, {
-    additionalContext: { menu_id: app.id }
+  const actionHost = createActionHost(env, outlet, app);
+  await actionHost.doAction(actionID, {
+    additionalContext: { menu_id: app.id },
+    stackPosition: "clear"
   });
-  if (!isWindowActionResult(result)) {
-    outlet.dataset.tsActionStatus = "unsupported";
-    outlet.replaceChildren(renderUnsupportedAction(app.name));
+}
+
+interface ActionHostState {
+  app?: HomeMenuApp;
+  dialogs: ActionDialogMount[];
+  env: ReturnType<typeof makeEnv>;
+  outlet: HTMLElement;
+  service: ActionService;
+}
+
+interface ActionDialogMount {
+  backdrop: HTMLElement;
+  dialog: HTMLElement;
+}
+
+function createActionHost(env: ReturnType<typeof makeEnv>, outlet: HTMLElement, app?: HomeMenuApp): ActionService {
+  const service = env.services.action as ActionService;
+  const state: ActionHostState = { app, dialogs: [], env, outlet, service };
+  const host: ActionService = {
+    get history() {
+      return service.history;
+    },
+    get current() {
+      return service.current;
+    },
+    get stack() {
+      return service.stack;
+    },
+    get currentRoute() {
+      return service.currentRoute;
+    },
+    get breadcrumbs() {
+      return service.breadcrumbs;
+    },
+    loadAction(action: ActionRequest, context?: Record<string, unknown>) {
+      return service.loadAction(action, context);
+    },
+    async doAction<T = unknown>(action: ActionRequest, options: ActionServiceOptions = {}): Promise<T> {
+      const result = await service.doAction<unknown>(action, options);
+      renderActionHostResult(state, host, result);
+      return result as T;
+    },
+    closeCurrent() {
+      const current = service.closeCurrent();
+      removeTopDialog(state);
+      return current;
+    },
+    clearStack() {
+      service.clearStack();
+      clearDialogs(state);
+    },
+    restoreStack(entries) {
+      return service.restoreStack(entries);
+    }
+  };
+  return host;
+}
+
+function renderActionHostResult(state: ActionHostState, host: ActionService, result: unknown): void {
+  if (isCloseActionResult(result)) {
+    removeTopDialog(state);
     return;
   }
-  const titledResult = withFallbackActionTitle(result, app.name);
+  if (!isWindowActionResult(result)) {
+    if (!state.dialogs.length && state.outlet.dataset.tsActionStatus === "loading") {
+      state.outlet.dataset.tsActionStatus = "unsupported";
+      state.outlet.replaceChildren(renderUnsupportedAction(state.app?.name ?? "Action"));
+    }
+    return;
+  }
+  const titledResult = withFallbackActionTitle(result, state.app?.name ?? "");
+  const services = actionHostServices(state.env, host);
+  if (isDialogWindowAction(titledResult)) {
+    const dialog = renderWindowActionDialog(titledResult, { services });
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop gorp-action-dialog-backdrop show";
+    dialog.addEventListener("dialog:close", () => {
+      void host.doAction({ type: "ir.actions.act_window_close" });
+    });
+    state.dialogs.push({ backdrop, dialog });
+    state.outlet.append(backdrop, dialog);
+    setBodyModalOpen(state);
+    state.outlet.dataset.tsDialogStatus = "ready";
+    return;
+  }
+  clearDialogs(state);
   updateBrowserRoute(routeStateFromAction(titledResult.action, {
-    menu_id: app.id,
+    ...(state.app ? { menu_id: state.app.id } : {}),
     view_type: titledResult.activeView
   }));
-  outlet.dataset.tsActionStatus = "ready";
-  outlet.replaceChildren(renderWindowAction(titledResult, {
-    services: env.services as unknown as WebClientServices
-  }));
+  state.outlet.dataset.tsActionStatus = "ready";
+  state.outlet.replaceChildren(renderWindowAction(titledResult, { services }));
+}
+
+function actionHostServices(env: ReturnType<typeof makeEnv>, action: ActionService): WebClientServices {
+  return {
+    ...(env.services as unknown as WebClientServices),
+    action
+  };
+}
+
+function isDialogWindowAction(result: WindowActionResult): boolean {
+  return result.action.target === "new";
+}
+
+function isCloseActionResult(result: unknown): boolean {
+  return Boolean(result && typeof result === "object" && (result as Record<string, unknown>).type === "ir.actions.act_window_close");
+}
+
+function removeTopDialog(state: ActionHostState): void {
+  const mount = state.dialogs.pop();
+  mount?.dialog.remove();
+  mount?.backdrop.remove();
+  setBodyModalOpen(state);
+  state.outlet.dataset.tsDialogStatus = state.dialogs.length ? "ready" : "closed";
+}
+
+function clearDialogs(state: ActionHostState): void {
+  for (const mount of state.dialogs.splice(0)) {
+    mount.dialog.remove();
+    mount.backdrop.remove();
+  }
+  setBodyModalOpen(state);
+  delete state.outlet.dataset.tsDialogStatus;
+}
+
+function setBodyModalOpen(state: ActionHostState): void {
+  if (state.dialogs.length) {
+    document.body.classList?.add("modal-open");
+  } else {
+    document.body.classList?.remove("modal-open");
+  }
 }
 
 function menuActionID(app: HomeMenuApp): string | number | undefined {

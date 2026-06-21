@@ -72,6 +72,10 @@ function hasClass(node, name) {
   return String(node.className).split(/\s+/).includes(name);
 }
 
+function allText(node) {
+  return [node.textContent, ...(node.children ?? []).map(allText)].filter(Boolean).join(" ");
+}
+
 const arch = `
   <form>
     <app name="general_settings" string="General Settings">
@@ -187,3 +191,60 @@ const fallback = parseSettingsArch(
 assert.equal(fallback.length, 1);
 assert.equal(fallback[0].id, "general-settings");
 assert.equal(fallback[0].blocks[0].settings.length, 2);
+
+const generatedLabelsArch = `
+  <form>
+    <app name="workflow" string="Workflow">
+      <block title="Activate Workflow on">
+        <setting>
+          <field name="module_oi_workflow_expense" string="module_oi_workflow_expense"/>
+        </setting>
+        <setting string="module_oi_workflow_hr_holidays_manager">
+          <field name="module_oi_workflow_hr_holidays_manager"/>
+        </setting>
+        <setting>
+          <field name="group_multi_currency"/>
+        </setting>
+      </block>
+    </app>
+  </form>
+`;
+const generatedLabels = parseSettingsArch(generatedLabelsArch, {}, {
+  module_oi_workflow_expense: false,
+  module_oi_workflow_hr_holidays_manager: false,
+  group_multi_currency: false
+});
+assert.deepEqual(generatedLabels[0].blocks[0].settings.map((setting) => setting.label), [
+  "Expenses",
+  "Time Off Manager",
+  "Multi Currency"
+]);
+const generatedLabelsRoot = renderSettingsView({
+  arch: generatedLabelsArch,
+  fields: {},
+  values: {
+    module_oi_workflow_expense: false,
+    module_oi_workflow_hr_holidays_manager: false,
+    group_multi_currency: false
+  },
+  activeApp: "workflow"
+});
+const generatedLabelsText = allText(generatedLabelsRoot);
+assert.match(generatedLabelsText, /Expenses/);
+assert.match(generatedLabelsText, /Time Off Manager/);
+assert.doesNotMatch(generatedLabelsText, /module_oi_workflow|group_multi_currency/);
+
+const metadataRawLabels = parseSettingsArch(generatedLabelsArch, {
+  module_oi_workflow_expense: { type: "boolean", string: "module_oi_workflow_expense" },
+  module_oi_workflow_hr_holidays_manager: { type: "boolean", string: "module_oi_workflow_hr_holidays_manager" },
+  group_multi_currency: { type: "boolean", string: "group_multi_currency" }
+}, {
+  module_oi_workflow_expense: false,
+  module_oi_workflow_hr_holidays_manager: false,
+  group_multi_currency: false
+});
+assert.deepEqual(metadataRawLabels[0].blocks[0].settings.map((setting) => setting.label), [
+  "Expenses",
+  "Time Off Manager",
+  "Multi Currency"
+]);

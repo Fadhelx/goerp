@@ -9,6 +9,22 @@ globalThis.matchMedia = () => ({ matches: false });
 globalThis.document = {
   documentElement: { dataset: {} },
   body: {
+    classList: {
+      values: new Set(),
+      add(value) {
+        this.values.add(value);
+      },
+      remove(value) {
+        this.values.delete(value);
+      },
+      toggle(value, force) {
+        if (force) this.values.add(value);
+        else this.values.delete(value);
+      },
+      contains(value) {
+        return this.values.has(value);
+      }
+    },
     replaceChildren(...nodes) {
       this.children = nodes;
     }
@@ -22,7 +38,12 @@ globalThis.document = {
       id: "",
       className: "",
       dataset: {},
+      attributes: {},
       children: [],
+      disabled: false,
+      hidden: false,
+      type: "",
+      value: "",
       replaceChildren(...nodes) {
         this.children = nodes;
       },
@@ -30,9 +51,27 @@ globalThis.document = {
         this.children.push(...nodes);
       },
       setAttribute(name, value) {
-        this[name] = String(value);
+        this.attributes[name] = String(value);
       },
-      addEventListener() {}
+      getAttribute(name) {
+        return this.attributes[name] ?? null;
+      },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
+      addEventListener(type, listener) {
+        this.listeners = this.listeners || {};
+        this.listeners[type] = [...(this.listeners[type] ?? []), listener];
+      },
+      dispatchEvent(event) {
+        event.target ??= this;
+        event.currentTarget = this;
+        for (const listener of this.listeners?.[event.type] ?? []) listener.call(this, event);
+        return !event.defaultPrevented;
+      },
+      remove() {
+        this.removed = true;
+      }
     };
   }
 };
@@ -62,9 +101,62 @@ globalThis.fetch = async (route, options = {}) => {
     return { ok: true, status: 200, async json() { return {
       all_menu_ids: [1, 2],
       root: { children: [1, 2] },
-      1: { id: 1, name: "Settings", children: [] },
+      1: { id: 1, name: "Settings", children: [], actionID: 3 },
       2: { id: 2, name: "Server Actions", children: [] }
     }; } };
+  }
+  if (route === "/web/action/load") {
+    const body = JSON.parse(options.body || "{}");
+    if (body.action_id === 3) {
+      return { ok: true, status: 200, async json() { return {
+        id: 3,
+        name: "Parent",
+        res_model: "x.parent",
+        type: "ir.actions.act_window",
+        view_mode: "form",
+        views: [[false, "form"]]
+      }; } };
+    }
+    if (body.action_id === "base.open_wizard") {
+      return { ok: true, status: 200, async json() { return {
+        name: "Partner Wizard",
+        res_model: "partner.wizard",
+        target: "new",
+        type: "ir.actions.act_window",
+        view_mode: "form",
+        views: [[false, "form"]]
+      }; } };
+    }
+  }
+  if (route === "/web/dataset/call_kw/x.parent/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: { name: { type: "char", string: "Name" } },
+      related_models: {},
+      views: {
+        form: {
+          arch: `<form><header><button name="base.open_wizard" type="action" string="Wizard"/></header><sheet><field name="name"/></sheet></form>`,
+          id: 30
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/x.parent/default_get") {
+    return { ok: true, status: 200, async json() { return { id: 11, name: "Parent" }; } };
+  }
+  if (route === "/web/dataset/call_kw/partner.wizard/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: { name: { type: "char", string: "Name" } },
+      related_models: {},
+      views: {
+        form: {
+          arch: `<form><sheet><field name="name"/></sheet></form>`,
+          id: 40
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/partner.wizard/default_get") {
+    return { ok: true, status: 200, async json() { return { name: "Wizard" }; } };
   }
   throw new Error(`unexpected fetch ${route}`);
 };
@@ -91,11 +183,30 @@ assert.match(shell.className, /o_web_client/);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
   ["/web/webclient/load_menus", "GET"]
 ]);
+
+findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+assert.equal(actionManager.dataset.tsActionStatus, "ready");
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action")).length, 1);
+findAll(actionManager, (node) => node.dataset?.workflowAction === "base.open_wizard")[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "ready");
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog-backdrop")).length, 1);
+assert.equal(globalThis.document.body.classList.contains("modal-open"), true);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog") && node.dataset?.model === "partner.wizard").length, 1);
+findAll(actionManager, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "closed");
+assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
 
 fetches.length = 0;
 sessionResponse = { uid: 0, name: "User 0", company_name: "My Company", quick_login: true };

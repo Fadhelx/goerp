@@ -24,6 +24,9 @@ globalThis.document = {
       setAttribute(name, value) {
         this.attributes[name] = String(value);
       },
+      getAttribute(name) {
+        return this.attributes[name] ?? null;
+      },
       addEventListener(type, listener) {
         this.listeners[type] = [...(this.listeners[type] ?? []), listener];
       }
@@ -50,6 +53,7 @@ assert.match(navbar.className, /o_main_navbar/);
 assert.equal(findAll(navbar, (node) => String(node.className).startsWith("o_menu_toggle ")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_toggle_icon")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_navbar_apps_menu")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(navbar, (node) => node.dataset?.menuId === "7" && node.attributes?.["aria-current"] === "page").length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_systray")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item")).length, 1);
@@ -62,3 +66,15 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("oe_topba
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_debug_manager")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.textContent).includes("Gorp")).length, 0);
+
+const toggled = [];
+const interactiveNavbar = renderNavbar({
+  apps: [{ id: 7, name: "Sales" }],
+  onToggleMobileMenu: (expanded) => toggled.push(expanded)
+});
+const mobileMenu = findAll(interactiveNavbar, (node) => String(node.className).includes("o-mobile-menu-toggle"))[0];
+mobileMenu.listeners.click[0]();
+assert.equal(mobileMenu.attributes["aria-expanded"], "true");
+mobileMenu.listeners.click[0]();
+assert.equal(mobileMenu.attributes["aria-expanded"], "false");
+assert.deepEqual(toggled, [true, false]);

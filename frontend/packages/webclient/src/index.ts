@@ -319,6 +319,10 @@ export interface RenderWindowActionOptions {
   exportNamelist?: (request: ExportNamelistRequest) => readonly unknown[] | Promise<readonly unknown[]>;
 }
 
+export interface RenderWindowActionDialogOptions extends RenderWindowActionOptions {
+  title?: string;
+}
+
 interface SettingsActionState {
   initialValues: Record<string, unknown>;
   currentValues: Record<string, unknown>;
@@ -1302,7 +1306,9 @@ export function createActionService(
       const loadedAction = await loader(action, actionOptionsContext(options));
       const invocation = { action: loadedAction, options: { ...options } };
       history.push(invocation);
+      let closingEntry: ActionStackEntry | null = null;
       if (isCloseAction(loadedAction)) {
+        closingEntry = stack.current;
         current = invocationFromEntry(stack.closeCurrent());
       } else {
         const stackEntry = shouldReplaceLastAction(options)
@@ -1311,11 +1317,22 @@ export function createActionService(
         current = invocationFromEntry(stackEntry);
       }
       const result = (await executor(invocation)) as T;
-      if (options.onClose) await options.onClose();
+      if (closingEntry) {
+        await runActionOnClose(closingEntry);
+      } else if (isServerAction(loadedAction) && isWindowActionExecutionResult(result)) {
+        stack.closeCurrent();
+        current = invocationFromEntry(stack.push(result.action, options));
+      } else if (isServerAction(loadedAction) && isCloseActionResult(result)) {
+        const serverEntry = stack.current;
+        current = invocationFromEntry(stack.closeCurrent());
+        if (serverEntry) await runActionOnClose(serverEntry);
+      }
       return result;
     },
     closeCurrent(): ActionInvocation | null {
+      const closingEntry = stack.current;
       current = invocationFromEntry(stack.closeCurrent());
+      if (closingEntry) void runActionOnClose(closingEntry);
       return current
         ? {
             action: { ...current.action },
@@ -1337,6 +1354,25 @@ export function createActionService(
         : null;
     }
   };
+}
+
+async function runActionOnClose(entry: ActionStackEntry): Promise<void> {
+  const callback = entry.options.onClose;
+  if (typeof callback === "function") await callback();
+}
+
+function isServerAction(action: Record<string, unknown>): boolean {
+  return action.type === "ir.actions.server";
+}
+
+function isWindowActionExecutionResult(value: unknown): value is WindowActionResult {
+  return isRecord(value)
+    && value.type === "ir.actions.act_window"
+    && isRecord(value.action);
+}
+
+function isCloseActionResult(value: unknown): boolean {
+  return isRecord(value) && value.type === "ir.actions.act_window_close";
 }
 
 export function createClientActionExecutor(
@@ -1645,6 +1681,45 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
   root.append(controlPanel, body);
   return root;
+}
+
+export function renderWindowActionDialog(result: WindowActionResult, options: RenderWindowActionDialogOptions = {}): HTMLElement {
+  const overlay = document.createElement("section");
+  overlay.className = "o_dialog gorp-action-dialog";
+  overlay.dataset.target = "new";
+  overlay.dataset.model = result.resModel;
+  const modal = document.createElement("div");
+  modal.className = "modal o_dialog_container show d-block";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  const dialog = document.createElement("div");
+  dialog.className = "modal-dialog modal-lg";
+  const content = document.createElement("div");
+  content.className = "modal-content";
+  const header = document.createElement("header");
+  header.className = "modal-header";
+  const title = document.createElement("h1");
+  title.className = "modal-title";
+  title.textContent = options.title || (typeof result.action.name === "string" && result.action.name.trim()) || result.resModel;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "btn-close";
+  close.setAttribute("aria-label", "Close");
+  close.addEventListener("click", () => {
+    overlay.dispatchEvent(new CustomEvent("dialog:close", {
+      bubbles: true,
+      detail: { model: result.resModel }
+    }));
+  });
+  header.append(title, close);
+  const body = document.createElement("div");
+  body.className = "modal-body o_act_window";
+  body.append(renderWindowAction(result, options));
+  content.append(header, body);
+  dialog.append(content);
+  modal.append(dialog);
+  overlay.append(modal);
+  return overlay;
 }
 
 function settingsActionState(result: WindowActionResult, values: Record<string, unknown>): SettingsActionState | null {

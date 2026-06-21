@@ -5720,6 +5720,69 @@ const webClientShellHTML = `<!doctype html>
 	#runtimeStatus {
 		display: none;
 	}
+	body.modal-open {
+		overflow: hidden;
+	}
+	.gorp-action-dialog {
+		position: fixed;
+		inset: 0;
+		z-index: 1055;
+		overflow: hidden auto;
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		padding: 56px 18px 24px;
+	}
+	.gorp-action-dialog .modal-dialog {
+		width: min(960px, 100%);
+		margin: 0;
+	}
+	.gorp-action-dialog .modal-content {
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		box-shadow: 0 18px 44px rgba(16, 24, 40, .28);
+		overflow: hidden;
+	}
+	.gorp-action-dialog .modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 52px;
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--line);
+		background: #fff;
+	}
+	.gorp-action-dialog .modal-title {
+		font-size: 18px;
+		font-weight: 500;
+	}
+	.gorp-action-dialog .btn-close {
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	.gorp-action-dialog .btn-close::before {
+		content: "x";
+		font-size: 20px;
+		line-height: 1;
+	}
+	.gorp-action-dialog .modal-body {
+		max-height: calc(100vh - 132px);
+		overflow: auto;
+		padding: 0;
+		background: #eef0f3;
+	}
+	.gorp-action-dialog-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 1050;
+		background: rgba(17, 24, 39, .42);
+	}
 	#modules {
 		margin: 0;
 		gap: 0;

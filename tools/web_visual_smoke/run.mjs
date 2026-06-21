@@ -64,6 +64,7 @@ export const scenarios = [
       const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action", 1, "TS window action");
       const controlPanelCount = await waitForCount(page, ".o_web_client .o_action_manager .o_control_panel", 1, "TS action control panel");
       const settingsCount = await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "TS settings renderer");
+      const settingsLabelAudit = await assertSettingsLabelSnapshot(page, ".o_web_client .o_action_manager .o_settings_container", "default TS Settings labels");
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
@@ -71,7 +72,26 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+    }
+  },
+  {
+    name: "default-webclient-mobile",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await setViewport(page, mobileViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "mobile TS webclient ready");
+      const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "mobile TS app tiles");
+      const mobileToggleCount = await waitForCount(page, ".o_web_client .o-mobile-menu-toggle", 1, "mobile TS menu toggle");
+      const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
+      if (overflow > 1) throw new Error(`mobile TS horizontal overflow: ${overflow}px`);
+      await clickSelector(page, ".o_web_client .o-mobile-menu-toggle");
+      await waitFor(page, `document.body.classList.contains("o-mobile-menu-open") && document.querySelector(".o_web_client .o-mobile-menu-toggle")?.getAttribute("aria-expanded") === "true"`, "mobile TS menu opened");
+      await clickText(page, ".o_web_client .o_navbar_sections .o_nav_entry", "Settings");
+      await waitFor(page, `!document.body.classList.contains("o-mobile-menu-open") && document.querySelector(".o_web_client .o-mobile-menu-toggle")?.getAttribute("aria-expanded") === "false"`, "mobile TS menu closed");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "mobile TS Settings action ready");
+      return { app_count: appCount, mobile_toggle_count: mobileToggleCount, horizontal_overflow_px: overflow };
     }
   },
   {
@@ -268,6 +288,37 @@ export function appURL(baseURL, path) {
 
 export function scenarioNames(list = scenarios) {
   return list.map((scenario) => scenario.name);
+}
+
+export function auditSettingsLabelSnapshot(snapshot) {
+  const settings = Array.isArray(snapshot?.settings) ? snapshot.settings : [];
+  const labelTexts = settings.flatMap((setting) => Array.isArray(setting.labels) ? setting.labels : [])
+    .map(normalizeText)
+    .filter(Boolean);
+  const allText = normalizeText([
+    ...(Array.isArray(snapshot?.appLabels) ? snapshot.appLabels : []),
+    ...settings.flatMap((setting) => Array.isArray(setting.labels) ? setting.labels : [])
+  ].join(" "));
+  const rawTechnicalLabels = [...new Set(allText.match(/\bmodule_[a-z0-9_]*\b/gi) || [])].sort();
+  const emptySettings = settings
+    .filter((setting) => !(Array.isArray(setting.labels) && setting.labels.some((label) => normalizeText(label))))
+    .map((setting, index) => normalizeText(setting?.id) || `setting-${index + 1}`);
+  const issues = [];
+  if (!settings.length) issues.push("no visible settings boxes");
+  if (rawTechnicalLabels.length) issues.push(`raw technical module labels: ${rawTechnicalLabels.join(", ")}`);
+  if (emptySettings.length) issues.push(`empty visible settings labels: ${emptySettings.join(", ")}`);
+  return {
+    ok: issues.length === 0,
+    issues,
+    visible_setting_count: settings.length,
+    visible_label_count: labelTexts.length,
+    raw_technical_label_count: rawTechnicalLabels.length,
+    empty_setting_label_count: emptySettings.length
+  };
+}
+
+function normalizeText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
 async function main() {
@@ -524,6 +575,36 @@ async function waitForCount(page, selector, minimum, label) {
     const count = document.querySelectorAll(${JSON.stringify(selector)}).length;
     return count >= ${Number(minimum)} ? count : 0;
   })()`, label);
+}
+
+async function assertSettingsLabelSnapshot(page, selector, label) {
+  const snapshot = await evaluate(page, `(() => {
+    const root = document.querySelector(${JSON.stringify(selector)});
+    if (!root) throw new Error("settings container not found: ${escapeForJS(selector)}");
+    const clean = (value) => String(value || "").replace(/\\s+/g, " ").trim();
+    const isVisible = (node) => !node.closest("[hidden], [aria-hidden='true']");
+    const labelSelectors = ".o_form_label, .o_setting_field_label, .form-check-label";
+    const settings = [...root.querySelectorAll(".o_setting_box")]
+      .filter(isVisible)
+      .map((box, index) => ({
+        id: box.dataset.settingId || "setting-" + (index + 1),
+        labels: [...new Set([...box.querySelectorAll(labelSelectors)].filter(isVisible).map((node) => clean(node.textContent)).filter(Boolean))],
+        text: clean(box.textContent)
+      }));
+    const appLabels = [...root.querySelectorAll(".o_settings_tab, .o_settings_app_title, .o_settings_block_title")]
+      .filter(isVisible)
+      .map((node) => clean(node.textContent))
+      .filter(Boolean);
+    return { settings, appLabels, text: [...appLabels, ...settings.map((setting) => setting.text)].join(" ") };
+  })()`);
+  const audit = auditSettingsLabelSnapshot(snapshot);
+  if (!audit.ok) throw new Error(`${label}: ${audit.issues.join("; ")}`);
+  return {
+    visible_setting_count: audit.visible_setting_count,
+    visible_label_count: audit.visible_label_count,
+    raw_technical_label_count: audit.raw_technical_label_count,
+    empty_setting_label_count: audit.empty_setting_label_count
+  };
 }
 
 async function assertFormHeaderLayout(page, label) {

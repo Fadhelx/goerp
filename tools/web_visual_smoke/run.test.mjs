@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  auditSettingsLabelSnapshot,
   appURL,
   parseArgs,
   redactedURL,
@@ -48,6 +49,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "settings-desktop",
     "default-webclient-takeover",
     "default-webclient-action-desktop",
+    "default-webclient-mobile",
     "technical-list-desktop",
     "hash-route-desktop",
     "technical-form-desktop",
@@ -56,4 +58,49 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "technical-list-mobile",
     "technical-form-mobile"
   ]);
+});
+
+test("settings label audit accepts human labels without treating field ids as visible text", () => {
+  const audit = auditSettingsLabelSnapshot({
+    text: "Workflow Expenses Time Off",
+    appLabels: ["Workflow", "Activate Workflow on"],
+    settings: [
+      { id: "module_oi_workflow_expense", labels: ["Expenses"], text: "Expenses" },
+      { id: "module_oi_workflow_hr_holidays", labels: ["Time Off"], text: "Time Off" }
+    ]
+  });
+
+  assert.equal(audit.ok, true);
+  assert.equal(audit.visible_setting_count, 2);
+  assert.equal(audit.visible_label_count, 2);
+  assert.equal(audit.raw_technical_label_count, 0);
+  assert.equal(audit.empty_setting_label_count, 0);
+});
+
+test("settings label audit rejects raw technical module labels", () => {
+  const audit = auditSettingsLabelSnapshot({
+    text: "Workflow module_oi_workflow_expense",
+    appLabels: ["Workflow"],
+    settings: [
+      { id: "workflow-expense", labels: ["module_oi_workflow_expense"], text: "module_oi_workflow_expense" }
+    ]
+  });
+
+  assert.equal(audit.ok, false);
+  assert.equal(audit.raw_technical_label_count, 1);
+  assert.match(audit.issues.join("\n"), /raw technical module labels: module_oi_workflow_expense/);
+});
+
+test("settings label audit rejects empty visible setting labels", () => {
+  const audit = auditSettingsLabelSnapshot({
+    text: "Workflow",
+    appLabels: ["Workflow"],
+    settings: [
+      { id: "workflow-empty", labels: [], text: "" }
+    ]
+  });
+
+  assert.equal(audit.ok, false);
+  assert.equal(audit.empty_setting_label_count, 1);
+  assert.match(audit.issues.join("\n"), /empty visible settings labels: workflow-empty/);
 });
