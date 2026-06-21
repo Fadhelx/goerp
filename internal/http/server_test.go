@@ -2977,6 +2977,185 @@ func TestMailThreadMessagesRouteFetchParamsAndStoreData(t *testing.T) {
 	}
 }
 
+func TestMailDataAndActionStoreBootstrap(t *testing.T) {
+	server := testMailThreadServer(t)
+	server.Bus = notifications.NewBus(100)
+	userPartnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "User Partner", "email": "user@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := server.Env.Model("res.users").Create(map[string]any{"name": "User", "login": "user", "partner_id": userPartnerID, "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Internal User"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Env.Model("res.users").Browse(userID).Write(map[string]any{"groups_id": []int64{groupID}}); err != nil {
+		t.Fatal(err)
+	}
+	server.Env = server.Env.WithContext(record.Context{UserID: userID, CompanyID: 1, CompanyIDs: []int64{1}})
+	if _, err := server.Env.Model("ir.model.data").Create(map[string]any{"module": "base", "name": "group_user", "complete_name": "base.group_user", "model": "res.groups", "res_id": groupID}); err != nil {
+		t.Fatal(err)
+	}
+	commentSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Comment", "description": "Discussions", "default": true, "internal": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("ir.model.data").Create(map[string]any{"module": "mail", "name": "mt_comment", "complete_name": "mail.mt_comment", "model": "mail.message.subtype", "res_id": commentSubtypeID}); err != nil {
+		t.Fatal(err)
+	}
+	noteSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Note", "description": "Notes", "default": true, "internal": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("ir.model.data").Create(map[string]any{"module": "mail", "name": "mt_note", "complete_name": "mail.mt_note", "model": "mail.message.subtype", "res_id": noteSubtypeID}); err != nil {
+		t.Fatal(err)
+	}
+	threadID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Thread Partner", "email": "thread@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	followerPartnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Follower", "email": "follower@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	selfFollowerID, err := server.Env.Model("mail.followers").Create(map[string]any{"res_model": "res.partner", "res_id": threadID, "partner_id": userPartnerID, "subtype_ids": []int64{commentSubtypeID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	followerID, err := server.Env.Model("mail.followers").Create(map[string]any{"res_model": "res.partner", "res_id": threadID, "partner_id": followerPartnerID, "subtype_ids": []int64{commentSubtypeID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	attachmentID, err := server.Env.Model("ir.attachment").Create(map[string]any{"name": "store.txt", "res_model": "res.partner", "res_id": threadID, "type": "binary", "datas": "c3RvcmU=", "mimetype": "text/plain", "checksum": "store-checksum", "has_thumbnail": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	activityTypeID, err := server.Env.Model("mail.activity.type").Create(map[string]any{"name": "To Do", "summary": "Follow up", "category": "default", "icon": "fa-tasks", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	activityID, err := server.Env.Model("mail.activity").Create(map[string]any{"activity_type_id": activityTypeID, "res_model": "res.partner", "res_id": threadID, "user_id": userID, "date_deadline": "2026-06-21", "summary": "Call", "note": "Call note", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduledID, err := server.Env.Model("mail.scheduled.message").Create(map[string]any{"model": "res.partner", "res_id": threadID, "scheduled_date": "2026-06-22T10:00:00Z", "author_id": userPartnerID, "subject": "Later", "body": "<p>Later</p>", "state": "scheduled"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cannedID, err := server.Env.Model("mail.canned.response").Create(map[string]any{"source": "::hello", "substitution": "Hello there", "create_uid": userID, "is_editable": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := server.Handler()
+	request := map[string]any{
+		"fetch_params": []any{
+			"init_messaging",
+			[]any{"mail.thread", map[string]any{
+				"thread_model": "res.partner",
+				"thread_id":    threadID,
+				"request_list": []any{"activities", "attachments", "followers", "scheduledMessages", "suggestedRecipients", "display_name", "contact_fields"},
+			}, int64(77)},
+			[]any{"mail.canned.response", map[string]any{}},
+			[]any{"systray_get_activities", map[string]any{}},
+			[]any{"avatar_card", map[string]any{"model": "res.partner", "id": followerPartnerID}},
+		},
+		"context": map[string]any{"mail_activity_today": "2026-06-21"},
+	}
+	post := func(path string, payload map[string]any) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(mustJSON(t, payload))))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s response %d %s", path, rec.Code, rec.Body.String())
+		}
+		return decodeJSON(t, rec.Body.Bytes())
+	}
+	payload := post("/mail/data", request)
+	store := payload["Store"].(map[string]any)
+	if int64Value(store["self_partner"]) != userPartnerID || int64Value(store["mt_comment"]) != commentSubtypeID || store["hasCannedResponses"] != true {
+		t.Fatalf("store bootstrap = %+v", store)
+	}
+	starred := store["starred"].(map[string]any)
+	inbox := store["inbox"].(map[string]any)
+	if int64Value(starred["counter_bus_id"]) != 0 || int64Value(inbox["counter_bus_id"]) != 0 || int64Value(store["activityCounter"]) != 1 {
+		t.Fatalf("store counters = %+v", store)
+	}
+	groups := store["activityGroups"].([]any)
+	if len(groups) != 1 || int64Value(groups[0].(map[string]any)["today_count"]) != 1 || int64Value(groups[0].(map[string]any)["total_count"]) != 1 {
+		t.Fatalf("activity groups = %+v", groups)
+	}
+	responses := payload["DataResponse"].([]any)
+	if len(responses) != 1 || int64Value(responses[0].(map[string]any)["id"]) != 77 || responses[0].(map[string]any)["_resolve"] != true {
+		t.Fatalf("data response = %+v", responses)
+	}
+	threads := payload["mail.thread"].([]any)
+	if len(threads) != 1 {
+		t.Fatalf("thread rows = %+v", threads)
+	}
+	thread := threads[0].(map[string]any)
+	if int64Value(thread["id"]) != threadID || thread["model"] != "res.partner" || thread["display_name"] != "Thread Partner" || thread["hasReadAccess"] != true || thread["hasWriteAccess"] != true {
+		t.Fatalf("thread row = %+v", thread)
+	}
+	if int64Value(thread["followersCount"]) != 2 || int64Value(thread["recipientsCount"]) != 1 || int64Value(thread["selfFollower"]) != selfFollowerID {
+		t.Fatalf("thread follower counts = %+v", thread)
+	}
+	if got := int64Slice(thread["followers"]); len(got) != 1 || got[0] != followerID {
+		t.Fatalf("followers = %+v", got)
+	}
+	if got := int64Slice(thread["recipients"]); len(got) != 1 || got[0] != followerID {
+		t.Fatalf("recipients = %+v", got)
+	}
+	if got := int64Slice(thread["activities"]); len(got) != 1 || got[0] != activityID {
+		t.Fatalf("activities = %+v", got)
+	}
+	if got := int64Slice(thread["attachments"]); len(got) != 1 || got[0] != attachmentID || thread["areAttachmentsLoaded"] != true || thread["isLoadingAttachments"] != false {
+		t.Fatalf("attachments = %+v thread=%+v", got, thread)
+	}
+	if got := int64Slice(thread["scheduledMessages"]); len(got) != 1 || got[0] != scheduledID {
+		t.Fatalf("scheduled messages = %+v", got)
+	}
+	if primary := thread["primary_email_field"].([]any); len(primary) != 1 || primary[0] != "email" {
+		t.Fatalf("contact fields = %+v", thread)
+	}
+	if _, ok := payload["mail.message"]; ok {
+		t.Fatalf("mail/data bootstrap should not fetch messages: %+v", payload["mail.message"])
+	}
+	if rows := payload["mail.activity"].([]any); len(rows) != 1 || int64Value(rows[0].(map[string]any)["id"]) != activityID {
+		t.Fatalf("activity rows = %+v", rows)
+	}
+	if rows := payload["ir.attachment"].([]any); len(rows) != 1 || int64Value(rows[0].(map[string]any)["id"]) != attachmentID {
+		t.Fatalf("attachment rows = %+v", rows)
+	}
+	if rows := payload["mail.followers"].([]any); len(rows) != 2 {
+		t.Fatalf("follower rows = %+v", rows)
+	}
+	if rows := payload["mail.canned.response"].([]any); len(rows) != 1 || int64Value(rows[0].(map[string]any)["id"]) != cannedID || rows[0].(map[string]any)["source"] != "::hello" {
+		t.Fatalf("canned rows = %+v", rows)
+	}
+	if rows := payload["mail.scheduled.message"].([]any); len(rows) != 1 || int64Value(rows[0].(map[string]any)["id"]) != scheduledID {
+		t.Fatalf("scheduled rows = %+v", rows)
+	}
+
+	actionPayload := post("/mail/action", request)
+	actionThreads := actionPayload["mail.thread"].([]any)
+	if len(actionThreads) != 1 || int64Value(actionThreads[0].(map[string]any)["id"]) != threadID {
+		t.Fatalf("action threads = %+v", actionThreads)
+	}
+	missing := post("/mail/data", map[string]any{
+		"fetch_params": []any{
+			[]any{"mail.thread", map[string]any{"thread_model": "res.partner", "thread_id": int64(999), "request_list": []any{"followers", "display_name"}}},
+		},
+	})
+	missingThread := missing["mail.thread"].([]any)[0].(map[string]any)
+	if int64Value(missingThread["id"]) != 999 || missingThread["hasReadAccess"] != false || missingThread["hasWriteAccess"] != false {
+		t.Fatalf("missing thread = %+v", missingThread)
+	}
+}
+
 func TestMailPartnerFromEmailRequiresPartnerManagerToCreate(t *testing.T) {
 	server := testMailThreadServer(t)
 	if _, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Existing", "email": "existing-route@example.com", "email_normalized": "existing-route@example.com", "active": true}); err != nil {

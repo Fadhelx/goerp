@@ -2559,4 +2559,19 @@ CREATE TABLE IF NOT EXISTS delegation_workflow_hook (
   payload TEXT
 );
 `},
+	{Version: 220, Name: "mail_canned_response", SQL: `
+CREATE TABLE IF NOT EXISTS mail_canned_response (
+  id BIGSERIAL PRIMARY KEY,
+  source TEXT,
+  substitution TEXT,
+  last_used TIMESTAMPTZ,
+  group_ids TEXT,
+  is_shared BOOLEAN NOT NULL DEFAULT false,
+  is_editable BOOLEAN NOT NULL DEFAULT true,
+  create_uid BIGINT,
+  create_date TIMESTAMPTZ,
+  write_uid BIGINT,
+  write_date TIMESTAMPTZ
+);
+`},
 }

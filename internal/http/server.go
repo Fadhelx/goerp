@@ -115,6 +115,8 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/mail/message/reaction", s.mailMessageReaction)
 	mux.HandleFunc("/mail/avatar/mail.message/", s.mailMessageAvatar)
 	mux.HandleFunc("/im_livechat/cors/message/reaction", s.livechatMessageReaction)
+	mux.HandleFunc("/mail/action", s.mailAction)
+	mux.HandleFunc("/mail/data", s.mailData)
 	mux.HandleFunc("/mail/thread/messages", s.mailThreadMessages)
 	mux.HandleFunc("/mail/starred/messages", s.mailStarredMessages)
 	mux.HandleFunc("/mail/chatter_fetch", s.mailChatterFetch)
@@ -835,6 +837,896 @@ func mailGuestTokenValid(env *record.Env, guestID int64, token string) bool {
 	}
 	expected := stringValue(rows[0]["access_token"])
 	return expected != "" && subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
+}
+
+func (s Server) mailAction(w http.ResponseWriter, r *http.Request) {
+	s.mailStoreRequest(w, r)
+}
+
+func (s Server) mailData(w http.ResponseWriter, r *http.Request) {
+	s.mailStoreRequest(w, r)
+}
+
+func (s Server) mailStoreRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		FetchParams []any          `json:"fetch_params"`
+		Context     map[string]any `json:"context"`
+	}
+	envelope, err := decodeRPCParams(r, &req)
+	if err != nil {
+		writeRPCError(w, nil, http.StatusBadRequest, err)
+		return
+	}
+	env := requestContextEnvFromMap(mailGuestContextEnv(s.publicRequestEnv(r), r), req.Context)
+	payload := map[string]any{}
+	for _, raw := range req.FetchParams {
+		name, params, dataID := mailStoreFetchParam(raw)
+		if name == "" {
+			continue
+		}
+		s.processMailStoreFetch(payload, env, name, params, dataID)
+	}
+	writeRPCOrJSON(w, envelope, payload)
+}
+
+func mailStoreFetchParam(raw any) (string, map[string]any, any) {
+	if name := strings.TrimSpace(stringValue(raw)); name != "" {
+		return name, map[string]any{}, nil
+	}
+	items, ok := raw.([]any)
+	if !ok || len(items) == 0 {
+		return "", map[string]any{}, nil
+	}
+	name := strings.TrimSpace(stringValue(items[0]))
+	if name == "" {
+		return "", map[string]any{}, nil
+	}
+	params := map[string]any{}
+	if len(items) > 1 {
+		params = mapValue(items[1])
+	}
+	var dataID any
+	if len(items) > 2 {
+		dataID = items[2]
+	}
+	return name, params, dataID
+}
+
+func (s Server) processMailStoreFetch(payload map[string]any, env *record.Env, name string, params map[string]any, dataID any) {
+	if payload == nil || env == nil {
+		return
+	}
+	switch name {
+	case "init_messaging":
+		s.addMailStoreInitMessaging(payload, env)
+	case "mail.thread":
+		s.addMailStoreThread(payload, env, params)
+	case "failures":
+		s.addMailStoreFailures(payload, env)
+	}
+	if env.Context().UserID != 0 && sessionInternalUser(env) {
+		switch name {
+		case "systray_get_activities":
+			s.addMailStoreSystrayActivities(payload, env)
+		case "mail.canned.response":
+			s.addMailStoreCannedResponses(payload, env)
+		case "avatar_card":
+			s.addMailStoreAvatarCard(payload, env, params)
+		}
+	}
+	if dataID != nil {
+		mailStoreMergeRecords(payload, "DataResponse", []map[string]any{{
+			"_resolve": true,
+			"id":       dataID,
+		}}, "id")
+	}
+}
+
+func (s Server) addMailStoreInitMessaging(payload map[string]any, env *record.Env) {
+	counterBusID := int64(0)
+	if s.Bus != nil {
+		counterBusID = s.Bus.LastID()
+	}
+	store := map[string]any{
+		"action_discuss_id":             falseIfZero(httpXMLIDResID(env, "mail", "action_discuss", "ir.actions.client")),
+		"channel_types_with_seen_infos": []string{"chat", "group"},
+		"hasCannedResponses":            mailStoreHasCannedResponses(env),
+		"hasGifPickerFeature":           configParameterValue(env, "discuss.tenor_api_key") != "",
+		"hasLinkPreviewFeature":         true,
+		"hasMessageTranslationFeature":  configParameterValue(env, "mail.google_translate_api_key") != "",
+		"inbox":                         mailStoreInboxMailbox(env, counterBusID),
+		"internalUserGroupId":           falseIfZero(httpXMLIDResID(env, "base", "group_user", "res.groups")),
+		"mt_comment":                    falseIfZero(httpXMLIDResID(env, "mail", "mt_comment", "mail.message.subtype")),
+		"mt_note":                       falseIfZero(httpXMLIDResID(env, "mail", "mt_note", "mail.message.subtype")),
+		"settings":                      sessionUserSettingsPayload(env),
+		"starred":                       internalmail.StarredMailboxPayload(env, counterBusID),
+		"initChannelsUnreadCounter":     mailStoreUnreadChannelCounter(env),
+		"activityCounter":               mailStoreActivityCounter(env),
+		"activity_counter_bus_id":       counterBusID,
+		"odoobot":                       falseIfZero(httpXMLIDResID(env, "base", "partner_root", "res.partner")),
+		"self_partner":                  falseIfZero(mailStoreCurrentPartnerID(env)),
+	}
+	mailStoreMergeSingleton(payload, "Store", store)
+	if partnerID := int64Value(store["odoobot"]); partnerID != 0 {
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, []int64{partnerID}), "id")
+	}
+	if partnerID := int64Value(store["self_partner"]); partnerID != 0 {
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, []int64{partnerID}), "id")
+	}
+	if guestID := mailStoreCurrentGuestID(env); guestID != 0 {
+		mailStoreMergeSingleton(payload, "Store", map[string]any{"self_guest": guestID})
+		mailStoreMergeRecords(payload, "mail.guest", mailStoreGuestRows(env, []int64{guestID}), "id")
+	}
+}
+
+func (s Server) addMailStoreThread(payload map[string]any, env *record.Env, params map[string]any) {
+	modelName := strings.TrimSpace(stringValue(params["thread_model"]))
+	threadID := int64Value(params["thread_id"])
+	if modelName == "" || threadID == 0 {
+		return
+	}
+	row := mailStoreThreadRow(env, modelName, threadID, stringSlice(params["request_list"]))
+	mailStoreMergeRecords(payload, "mail.thread", []map[string]any{row}, "model", "id")
+	if activities := int64Slice(row["activities"]); len(activities) > 0 {
+		if store, err := internalmail.ActivityFormat(env, activities); err == nil {
+			mailStoreMerge(payload, store)
+		}
+	}
+	if attachments := int64Slice(row["attachments"]); len(attachments) > 0 {
+		mailStoreMergeRecords(payload, "ir.attachment", mailStoreAttachmentRows(env, attachments), "id")
+	}
+	if followers := int64Slice(row["followers"]); len(followers) > 0 {
+		followerRows := mailStoreFollowerRows(env, followers)
+		mailStoreMergeRecords(payload, "mail.followers", followerRows, "id")
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, mailStoreFollowerPartnerIDs(followerRows)), "id")
+	}
+	if recipients := int64Slice(row["recipients"]); len(recipients) > 0 {
+		recipientRows := mailStoreFollowerRows(env, recipients)
+		mailStoreMergeRecords(payload, "mail.followers", recipientRows, "id")
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, mailStoreFollowerPartnerIDs(recipientRows)), "id")
+	}
+	if selfFollowerID := int64Value(row["selfFollower"]); selfFollowerID != 0 {
+		selfRows := mailStoreFollowerRows(env, []int64{selfFollowerID})
+		mailStoreMergeRecords(payload, "mail.followers", selfRows, "id")
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, mailStoreFollowerPartnerIDs(selfRows)), "id")
+	}
+	if scheduled := int64Slice(row["scheduledMessages"]); len(scheduled) > 0 {
+		mailStoreMergeRecords(payload, "mail.scheduled.message", mailStoreScheduledMessageRows(env, scheduled), "id")
+	}
+}
+
+func (s Server) addMailStoreFailures(payload map[string]any, env *record.Env) {
+	partnerID := mailStoreCurrentPartnerID(env)
+	if partnerID == 0 || !modelHasField(env, "mail.notification", "notification_status") {
+		return
+	}
+	found, err := env.Model("mail.notification").Search(domain.And(
+		domain.Cond("author_id", "=", partnerID),
+		domain.Cond("notification_status", "in", []string{"bounce", "exception"}),
+	))
+	if err != nil || found.Len() == 0 {
+		return
+	}
+	rows, err := found.Read("mail_message_id")
+	if err != nil {
+		return
+	}
+	messageIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		messageIDs = append(messageIDs, int64Value(row["mail_message_id"]))
+	}
+	mailStoreMergeRecords(payload, "mail.notification", mailStoreNotificationRows(env, messageIDs), "id")
+}
+
+func (s Server) addMailStoreSystrayActivities(payload map[string]any, env *record.Env) {
+	counterBusID := int64(0)
+	if s.Bus != nil {
+		counterBusID = s.Bus.LastID()
+	}
+	groups := mailStoreActivityGroups(env)
+	total := int64(0)
+	for _, group := range groups {
+		total += int64Value(group["total_count"])
+	}
+	mailStoreMergeSingleton(payload, "Store", map[string]any{
+		"activityCounter":         total,
+		"activity_counter_bus_id": counterBusID,
+		"activityGroups":          groups,
+	})
+}
+
+func (s Server) addMailStoreCannedResponses(payload map[string]any, env *record.Env) {
+	if _, ok := env.ModelMetadata("mail.canned.response"); !ok {
+		mailStoreMergeRecords(payload, "mail.canned.response", nil, "id")
+		return
+	}
+	found, err := env.Model("mail.canned.response").Search(domain.Or(
+		domain.Cond("create_uid", "=", env.Context().UserID),
+		domain.Cond("group_ids", "in", mailStoreCurrentUserGroupIDs(env)),
+	))
+	if err != nil {
+		return
+	}
+	rows, err := found.Read(availableModelFields(env, "mail.canned.response", "id", "source", "substitution", "last_used", "group_ids", "is_shared", "is_editable")...)
+	if err != nil {
+		return
+	}
+	for _, row := range rows {
+		if _, ok := row["is_shared"]; !ok {
+			row["is_shared"] = len(int64Slice(row["group_ids"])) > 0
+		}
+		if _, ok := row["is_editable"]; !ok {
+			row["is_editable"] = int64Value(row["create_uid"]) == env.Context().UserID || env.Context().UserID == 1
+		}
+	}
+	mailStoreMergeRecords(payload, "mail.canned.response", rows, "id")
+}
+
+func (s Server) addMailStoreAvatarCard(payload map[string]any, env *record.Env, params map[string]any) {
+	id := int64Value(params["id"])
+	modelName := strings.TrimSpace(stringValue(params["model"]))
+	if id == 0 || (modelName != "res.users" && modelName != "res.partner") {
+		return
+	}
+	switch modelName {
+	case "res.partner":
+		mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, []int64{id}), "id")
+	case "res.users":
+		rows, err := env.Model("res.users").Browse(id).Read(availableModelFields(env, "res.users", "id", "name", "login", "partner_id", "share", "notification_type", "signature")...)
+		if err != nil || len(rows) == 0 {
+			return
+		}
+		mailStoreMergeRecords(payload, "res.users", rows, "id")
+		if partnerID := int64Value(rows[0]["partner_id"]); partnerID != 0 {
+			mailStoreMergeRecords(payload, "res.partner", mailStorePartnerRows(env, []int64{partnerID}), "id")
+		}
+	}
+}
+
+func mailStoreMerge(dst map[string]any, src map[string]any) {
+	for modelName, value := range src {
+		if modelName == "Store" {
+			mailStoreMergeSingleton(dst, modelName, mapValue(value))
+			continue
+		}
+		mailStoreMergeRecords(dst, modelName, mailStoreRows(value), mailStoreIDFields(modelName)...)
+	}
+}
+
+func mailStoreMergeSingleton(dst map[string]any, modelName string, values map[string]any) {
+	if dst == nil || len(values) == 0 {
+		return
+	}
+	current := mapValue(dst[modelName])
+	for key, value := range values {
+		current[key] = value
+	}
+	dst[modelName] = current
+}
+
+func mailStoreMergeRecords(dst map[string]any, modelName string, rows []map[string]any, idFields ...string) {
+	if dst == nil || modelName == "" {
+		return
+	}
+	existing := mailStoreRows(dst[modelName])
+	if len(rows) == 0 {
+		if _, ok := dst[modelName]; !ok {
+			dst[modelName] = []map[string]any{}
+		}
+		return
+	}
+	index := map[string]int{}
+	for i, row := range existing {
+		if key := mailStoreRecordKey(row, idFields); key != "" {
+			index[key] = i
+		}
+	}
+	for _, row := range rows {
+		if len(row) == 0 {
+			continue
+		}
+		key := mailStoreRecordKey(row, idFields)
+		if key != "" {
+			if i, ok := index[key]; ok {
+				for fieldName, value := range row {
+					existing[i][fieldName] = value
+				}
+				continue
+			}
+			index[key] = len(existing)
+		}
+		existing = append(existing, row)
+	}
+	dst[modelName] = existing
+}
+
+func mailStoreRows(value any) []map[string]any {
+	switch typed := value.(type) {
+	case []map[string]any:
+		return append([]map[string]any(nil), typed...)
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			if row := mapValue(item); len(row) > 0 {
+				out = append(out, row)
+			}
+		}
+		return out
+	case map[string]any:
+		if len(typed) == 0 {
+			return nil
+		}
+		return []map[string]any{typed}
+	default:
+		return nil
+	}
+}
+
+func mailStoreIDFields(modelName string) []string {
+	switch modelName {
+	case "mail.thread":
+		return []string{"model", "id"}
+	case "MessageReactions":
+		return []string{"message", "content"}
+	default:
+		return []string{"id"}
+	}
+}
+
+func mailStoreRecordKey(row map[string]any, idFields []string) string {
+	if len(idFields) == 0 {
+		idFields = []string{"id"}
+	}
+	parts := make([]string, 0, len(idFields))
+	for _, fieldName := range idFields {
+		value, ok := row[fieldName]
+		if !ok || value == nil || value == false || fmt.Sprint(value) == "" || fmt.Sprint(value) == "0" {
+			return ""
+		}
+		parts = append(parts, fieldName+"="+fmt.Sprint(value))
+	}
+	return strings.Join(parts, "|")
+}
+
+func mailStoreCurrentPartnerID(env *record.Env) int64 {
+	if env == nil || env.Context().UserID == 0 || !modelHasField(env, "res.users", "partner_id") {
+		return 0
+	}
+	rows, err := env.Model("res.users").Browse(env.Context().UserID).Read("partner_id")
+	if err != nil || len(rows) == 0 {
+		return 0
+	}
+	return int64Value(rows[0]["partner_id"])
+}
+
+func mailStoreCurrentGuestID(env *record.Env) int64 {
+	if env == nil {
+		return 0
+	}
+	return int64Value(env.Context().Values["guest_id"])
+}
+
+func mailStoreCurrentUserGroupIDs(env *record.Env) []int64 {
+	groups := menuGroupSet(env)
+	out := make([]int64, 0, len(groups))
+	for id := range groups {
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func mailStoreRecordExists(env *record.Env, modelName string, id int64) bool {
+	if env == nil || modelName == "" || id == 0 {
+		return false
+	}
+	if _, ok := env.ModelMetadata(modelName); !ok {
+		return false
+	}
+	rows, err := env.Model(modelName).Browse(id).Read("id")
+	return err == nil && len(rows) > 0
+}
+
+func mailStoreThreadRow(env *record.Env, modelName string, id int64, requestList []string) map[string]any {
+	row := map[string]any{
+		"canPostOnReadonly": false,
+		"hasReadAccess":     false,
+		"hasWriteAccess":    false,
+		"has_mail_thread":   true,
+		"id":                id,
+		"model":             modelName,
+	}
+	if !mailStoreRecordExists(env, modelName, id) {
+		return row
+	}
+	row["hasReadAccess"] = true
+	row["hasWriteAccess"] = true
+	if containsHTTPString(requestList, "display_name") {
+		row["display_name"] = mailStoreDisplayName(env, modelName, id)
+	}
+	if containsHTTPString(requestList, "contact_fields") {
+		fields, err := internalmail.SuggestedRecipientFields(env, modelName)
+		if err == nil {
+			row["primary_email_field"] = fields["primary_email_field"]
+			row["partner_fields"] = fields["partner_fields"]
+		} else {
+			row["primary_email_field"] = ""
+			row["partner_fields"] = []string{}
+		}
+	}
+	if containsHTTPString(requestList, "attachments") {
+		ids := mailStoreAttachmentIDsForThread(env, modelName, id)
+		row["attachments"] = ids
+		row["areAttachmentsLoaded"] = true
+		row["isLoadingAttachments"] = false
+	}
+	if containsHTTPString(requestList, "activities") {
+		row["activities"] = mailStoreActivityIDsForThread(env, modelName, id, true)
+	}
+	if containsHTTPString(requestList, "followers") {
+		followerIDs := mailStoreFollowerIDs(env, modelName, id, false)
+		recipientIDs := mailStoreFollowerIDs(env, modelName, id, true)
+		selfFollowerID := mailStoreSelfFollowerID(env, modelName, id)
+		row["followers"] = followerIDs
+		row["followersCount"] = mailStoreFollowerCount(env, modelName, id, false)
+		row["recipients"] = recipientIDs
+		row["recipientsCount"] = mailStoreFollowerCount(env, modelName, id, true)
+		row["selfFollower"] = falseIfZero(selfFollowerID)
+	}
+	if containsHTTPString(requestList, "scheduledMessages") {
+		row["scheduledMessages"] = mailStoreScheduledMessageIDs(env, modelName, id)
+	}
+	if containsHTTPString(requestList, "suggestedRecipients") {
+		recipients, err := internalmail.SuggestedRecipients(env, internalmail.SuggestedRecipientsRequest{
+			Model:           modelName,
+			ResID:           id,
+			ReplyDiscussion: true,
+			NoCreate:        true,
+		})
+		if err == nil {
+			row["suggestedRecipients"] = recipients
+		} else {
+			row["suggestedRecipients"] = []map[string]any{}
+		}
+	}
+	return row
+}
+
+func mailStoreDisplayName(env *record.Env, modelName string, id int64) string {
+	if env == nil || modelName == "" || id == 0 {
+		return fmt.Sprintf("%s,%d", modelName, id)
+	}
+	if pairs, err := env.Model(modelName).Browse(id).NameGet(); err == nil && len(pairs) > 0 {
+		return stringValue(pairs[0][1])
+	}
+	rows, err := env.Model(modelName).Browse(id).Read(availableModelFields(env, modelName, "name", "display_name")...)
+	if err == nil && len(rows) > 0 {
+		return firstTextHTTP(rows[0]["display_name"], rows[0]["name"], fmt.Sprintf("%s,%d", modelName, id))
+	}
+	return fmt.Sprintf("%s,%d", modelName, id)
+}
+
+func mailStorePartnerRows(env *record.Env, ids []int64) []map[string]any {
+	ids = uniqueInt64Slice(ids)
+	if env == nil || len(ids) == 0 {
+		return nil
+	}
+	rows, err := env.Model("res.partner").Browse(ids...).Read(availableModelFields(env, "res.partner", "id", "name", "email", "active", "phone", "company_id", "parent_id", "commercial_partner_id", "partner_share")...)
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		id := int64Value(row["id"])
+		row["avatar_128"] = fmt.Sprintf("/web/image/res.partner/%d/avatar_128", id)
+		row["display_name"] = firstTextHTTP(row["display_name"], row["name"], fmt.Sprintf("Partner %d", id))
+	}
+	return rows
+}
+
+func mailStoreGuestRows(env *record.Env, ids []int64) []map[string]any {
+	ids = uniqueInt64Slice(ids)
+	if env == nil || len(ids) == 0 || !modelHasField(env, "mail.guest", "name") {
+		return nil
+	}
+	rows, err := env.Model("mail.guest").Browse(ids...).Read(availableModelFields(env, "mail.guest", "id", "name", "email", "country_id", "lang", "timezone")...)
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		row["avatar_128"] = fmt.Sprintf("/mail/avatar/mail.guest/%d", int64Value(row["id"]))
+	}
+	return rows
+}
+
+func mailStoreAttachmentIDsForThread(env *record.Env, modelName string, id int64) []int64 {
+	if env == nil || !modelHasField(env, "ir.attachment", "res_model") {
+		return nil
+	}
+	found, err := env.Model("ir.attachment").SearchWithOptions(domain.And(
+		domain.Cond("res_model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+	), record.SearchOptions{Order: "id asc"})
+	if err != nil {
+		return nil
+	}
+	return found.IDs()
+}
+
+func mailStoreAttachmentRows(env *record.Env, ids []int64) []map[string]any {
+	ids = uniqueInt64Slice(ids)
+	if env == nil || len(ids) == 0 {
+		return nil
+	}
+	rows, err := env.Model("ir.attachment").Browse(ids...).Read(availableModelFields(env, "ir.attachment", "id", "name", "res_model", "res_id", "mimetype", "checksum", "has_thumbnail", "file_size", "access_token")...)
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		row["filename"] = stringValue(row["name"])
+		if _, ok := row["has_thumbnail"]; !ok {
+			row["has_thumbnail"] = false
+		}
+	}
+	return rows
+}
+
+func mailStoreActivityIDsForThread(env *record.Env, modelName string, id int64, activeOnly bool) []int64 {
+	if env == nil || !modelHasField(env, "mail.activity", "res_model") {
+		return nil
+	}
+	node := domain.And(
+		domain.Cond("res_model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+	)
+	if activeOnly && modelHasField(env, "mail.activity", "active") {
+		node = domain.And(node, domain.Cond("active", "=", true))
+	}
+	found, err := env.Model("mail.activity").SearchWithOptions(node, record.SearchOptions{Order: "date_deadline asc, id asc"})
+	if err != nil {
+		return nil
+	}
+	return found.IDs()
+}
+
+func mailStoreFollowerIDs(env *record.Env, modelName string, id int64, recipientsOnly bool) []int64 {
+	if env == nil || !modelHasField(env, "mail.followers", "res_model") {
+		return nil
+	}
+	node := domain.And(
+		domain.Cond("res_model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+	)
+	currentPartnerID := mailStoreCurrentPartnerID(env)
+	if currentPartnerID != 0 {
+		node = domain.And(node, domain.Cond("partner_id", "!=", currentPartnerID))
+	}
+	if recipientsOnly {
+		commentSubtypeID := httpXMLIDResID(env, "mail", "mt_comment", "mail.message.subtype")
+		if commentSubtypeID != 0 {
+			node = domain.And(node, domain.Cond("subtype_ids", "in", []int64{commentSubtypeID}))
+		}
+	}
+	found, err := env.Model("mail.followers").SearchWithOptions(node, record.SearchOptions{Order: "id asc", Limit: 100})
+	if err != nil {
+		return nil
+	}
+	return found.IDs()
+}
+
+func mailStoreFollowerCount(env *record.Env, modelName string, id int64, recipientsOnly bool) int64 {
+	if env == nil || !modelHasField(env, "mail.followers", "res_model") {
+		return 0
+	}
+	node := domain.And(
+		domain.Cond("res_model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+	)
+	if recipientsOnly {
+		currentPartnerID := mailStoreCurrentPartnerID(env)
+		if currentPartnerID != 0 {
+			node = domain.And(node, domain.Cond("partner_id", "!=", currentPartnerID))
+		}
+		commentSubtypeID := httpXMLIDResID(env, "mail", "mt_comment", "mail.message.subtype")
+		if commentSubtypeID != 0 {
+			node = domain.And(node, domain.Cond("subtype_ids", "in", []int64{commentSubtypeID}))
+		}
+	}
+	found, err := env.Model("mail.followers").Search(node)
+	if err != nil {
+		return 0
+	}
+	return int64(found.Len())
+}
+
+func mailStoreSelfFollowerID(env *record.Env, modelName string, id int64) int64 {
+	partnerID := mailStoreCurrentPartnerID(env)
+	if partnerID == 0 || !modelHasField(env, "mail.followers", "partner_id") {
+		return 0
+	}
+	found, err := env.Model("mail.followers").SearchWithOptions(domain.And(
+		domain.Cond("res_model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+		domain.Cond("partner_id", "=", partnerID),
+	), record.SearchOptions{Limit: 1})
+	if err != nil || found.Len() == 0 {
+		return 0
+	}
+	ids := found.IDs()
+	if len(ids) == 0 {
+		return 0
+	}
+	return ids[0]
+}
+
+func mailStoreFollowerRows(env *record.Env, ids []int64) []map[string]any {
+	ids = uniqueInt64Slice(ids)
+	if env == nil || len(ids) == 0 {
+		return nil
+	}
+	rows, err := env.Model("mail.followers").Browse(ids...).Read(availableModelFields(env, "mail.followers", "id", "res_model", "res_id", "partner_id", "subtype_ids")...)
+	if err != nil {
+		return nil
+	}
+	partnerIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		partnerIDs = append(partnerIDs, int64Value(row["partner_id"]))
+	}
+	partners := map[int64]map[string]any{}
+	for _, partner := range mailStorePartnerRows(env, partnerIDs) {
+		partners[int64Value(partner["id"])] = partner
+	}
+	for _, row := range rows {
+		partnerID := int64Value(row["partner_id"])
+		partner := partners[partnerID]
+		row["display_name"] = firstTextHTTP(partner["display_name"], partner["name"])
+		row["email"] = stringValue(partner["email"])
+		row["is_active"] = partner["active"] != false
+		row["name"] = firstTextHTTP(partner["name"], row["display_name"])
+		row["thread"] = map[string]any{"id": int64Value(row["res_id"]), "model": stringValue(row["res_model"])}
+	}
+	return rows
+}
+
+func mailStoreFollowerPartnerIDs(rows []map[string]any) []int64 {
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, int64Value(row["partner_id"]))
+	}
+	return uniqueInt64Slice(ids)
+}
+
+func mailStoreScheduledMessageIDs(env *record.Env, modelName string, id int64) []int64 {
+	if env == nil || !modelHasField(env, "mail.scheduled.message", "model") {
+		return nil
+	}
+	found, err := env.Model("mail.scheduled.message").SearchWithOptions(domain.And(
+		domain.Cond("model", "=", modelName),
+		domain.Cond("res_id", "=", id),
+	), record.SearchOptions{Order: "scheduled_date asc, id asc"})
+	if err != nil {
+		return nil
+	}
+	return found.IDs()
+}
+
+func mailStoreScheduledMessageRows(env *record.Env, ids []int64) []map[string]any {
+	ids = uniqueInt64Slice(ids)
+	if env == nil || len(ids) == 0 {
+		return nil
+	}
+	rows, err := env.Model("mail.scheduled.message").Browse(ids...).Read(availableModelFields(env, "mail.scheduled.message", "id", "mail_message_id", "mail_mail_id", "mail_template_id", "model", "res_id", "scheduled_date", "author_id", "subject", "body", "partner_ids", "attachment_ids", "composition_comment_option", "is_note", "state")...)
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		row["body"] = []any{"markup", stringValue(row["body"])}
+	}
+	return rows
+}
+
+func mailStoreNotificationRows(env *record.Env, messageIDs []int64) []map[string]any {
+	messageIDs = uniqueInt64Slice(messageIDs)
+	if env == nil || len(messageIDs) == 0 {
+		return nil
+	}
+	found, err := env.Model("mail.notification").Search(domain.Cond("mail_message_id", "in", messageIDs))
+	if err != nil {
+		return nil
+	}
+	rows, err := found.Read(availableModelFields(env, "mail.notification", "id", "mail_message_id", "mail_mail_id", "res_partner_id", "mail_email_address", "notification_type", "notification_status", "failure_type", "failure_reason", "is_read", "read_date", "author_id")...)
+	if err != nil {
+		return nil
+	}
+	return rows
+}
+
+func mailStoreHasCannedResponses(env *record.Env) bool {
+	if env == nil {
+		return false
+	}
+	if _, ok := env.ModelMetadata("mail.canned.response"); !ok {
+		return false
+	}
+	found, err := env.Model("mail.canned.response").SearchWithOptions(domain.Or(
+		domain.Cond("create_uid", "=", env.Context().UserID),
+		domain.Cond("group_ids", "in", mailStoreCurrentUserGroupIDs(env)),
+	), record.SearchOptions{Limit: 1})
+	return err == nil && found.Len() > 0
+}
+
+func mailStoreInboxMailbox(env *record.Env, counterBusID int64) map[string]any {
+	counter := int64(0)
+	if partnerID := mailStoreCurrentPartnerID(env); partnerID != 0 && modelHasField(env, "mail.notification", "is_read") {
+		found, err := env.Model("mail.notification").Search(domain.And(
+			domain.Cond("res_partner_id", "=", partnerID),
+			domain.Cond("is_read", "=", false),
+		))
+		if err == nil {
+			counter = int64(found.Len())
+		}
+	}
+	return map[string]any{
+		"counter":        counter,
+		"counter_bus_id": counterBusID,
+		"id":             "inbox",
+		"model":          "mail.box",
+	}
+}
+
+func mailStoreUnreadChannelCounter(env *record.Env) int64 {
+	if env == nil || !modelHasField(env, "discuss.channel.member", "partner_id") {
+		return 0
+	}
+	partnerID := mailStoreCurrentPartnerID(env)
+	if partnerID == 0 {
+		return 0
+	}
+	found, err := env.Model("discuss.channel.member").Search(domain.Cond("partner_id", "=", partnerID))
+	if err != nil {
+		return 0
+	}
+	return int64(found.Len())
+}
+
+func mailStoreActivityCounter(env *record.Env) int64 {
+	if env == nil || !modelHasField(env, "mail.activity", "user_id") || env.Context().UserID == 0 {
+		return 0
+	}
+	node := domain.Cond("user_id", "=", env.Context().UserID)
+	if modelHasField(env, "mail.activity", "active") {
+		node = domain.And(node, domain.Cond("active", "=", true))
+	}
+	found, err := env.Model("mail.activity").Search(node)
+	if err != nil {
+		return 0
+	}
+	return int64(found.Len())
+}
+
+func mailStoreActivityGroups(env *record.Env) []map[string]any {
+	if env == nil || !modelHasField(env, "mail.activity", "user_id") || env.Context().UserID == 0 {
+		return nil
+	}
+	node := domain.Cond("user_id", "=", env.Context().UserID)
+	if modelHasField(env, "mail.activity", "active") {
+		node = domain.And(node, domain.Cond("active", "=", true))
+	}
+	found, err := env.Model("mail.activity").SearchWithOptions(node, record.SearchOptions{Order: "id desc", Limit: 1000})
+	if err != nil {
+		return nil
+	}
+	rows, err := found.Read("id", "res_model", "res_id", "date_deadline")
+	if err != nil {
+		return nil
+	}
+	type group struct {
+		model        string
+		activityIDs  []int64
+		overdueCount int64
+		todayCount   int64
+		plannedCount int64
+		totalCount   int64
+	}
+	groups := map[string]*group{}
+	for _, row := range rows {
+		modelName := firstTextHTTP(row["res_model"], "mail.activity")
+		item := groups[modelName]
+		if item == nil {
+			item = &group{model: modelName}
+			groups[modelName] = item
+		}
+		item.activityIDs = append(item.activityIDs, int64Value(row["id"]))
+		item.totalCount++
+		switch mailStoreActivityState(env, row) {
+		case "overdue":
+			item.overdueCount++
+		case "today":
+			item.todayCount++
+		default:
+			item.plannedCount++
+		}
+	}
+	keys := make([]string, 0, len(groups))
+	for key := range groups {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		item := groups[key]
+		modelID, modelLabel := mailStoreModelInfo(env, item.model)
+		row := map[string]any{
+			"domain":        []any{},
+			"icon":          "/base/static/description/icon.png",
+			"id":            modelID,
+			"model":         item.model,
+			"name":          modelLabel,
+			"overdue_count": item.overdueCount,
+			"planned_count": item.plannedCount,
+			"today_count":   item.todayCount,
+			"total_count":   item.totalCount,
+			"type":          "activity",
+			"view_type":     "list",
+		}
+		if item.model == "mail.activity" {
+			row["activity_ids"] = item.activityIDs
+			row["name"] = "Other activities"
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+func mailStoreActivityState(env *record.Env, row map[string]any) string {
+	deadline := strings.TrimSpace(stringValue(row["date_deadline"]))
+	if deadline == "" {
+		return "planned"
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+	if fixed, ok := env.Context().Values["mail_activity_today"]; ok {
+		if value := strings.TrimSpace(stringValue(fixed)); value != "" {
+			today = value
+		}
+	}
+	switch {
+	case deadline < today:
+		return "overdue"
+	case deadline == today:
+		return "today"
+	default:
+		return "planned"
+	}
+}
+
+func mailStoreModelInfo(env *record.Env, modelName string) (int64, string) {
+	label := modelName
+	id := int64(0)
+	if env == nil || !modelHasField(env, "ir.model", "model") {
+		return id, label
+	}
+	found, err := env.Model("ir.model").SearchWithOptions(domain.Cond("model", "=", modelName), record.SearchOptions{Limit: 1})
+	if err != nil || found.Len() == 0 {
+		return id, label
+	}
+	rows, err := found.Read("id", "name")
+	if err != nil || len(rows) == 0 {
+		return id, label
+	}
+	return int64Value(rows[0]["id"]), firstTextHTTP(rows[0]["name"], modelName)
+}
+
+func containsHTTPString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (s Server) mailThreadMessages(w http.ResponseWriter, r *http.Request) {
