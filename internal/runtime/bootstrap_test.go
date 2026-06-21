@@ -4537,6 +4537,89 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 }
 
+func TestBootstrapOIDelegationWebViewsAndActionMetadata(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := app.Server().Handler()
+	sessionCookie := runtimeSessionCookie(t, app)
+	actionID := app.ExternalIDs["oi_delegation.act_delegation"].ResID
+	if actionID == 0 {
+		t.Fatalf("missing delegation action external id: %+v", app.ExternalIDs["oi_delegation.act_delegation"])
+	}
+
+	actionBody := getBodyWithCookie(t, handler, "/web/action/load?id="+strconv.FormatInt(actionID, 10), sessionCookie)
+	actionPayload := decodeRuntimeJSON(t, []byte(actionBody))
+	if actionPayload["type"] != "ir.actions.act_window" || actionPayload["res_model"] != oi_delegation.ModelDelegation || actionPayload["view_mode"] != "list,form" {
+		t.Fatalf("delegation action payload = %+v", actionPayload)
+	}
+	actionViews, _ := actionPayload["views"].([]any)
+	if len(actionViews) != 2 ||
+		runtimeViewMode(actionViews[0]) != "list" ||
+		runtimeViewMode(actionViews[1]) != "form" {
+		t.Fatalf("delegation action views = %+v", actionViews)
+	}
+	if runtimeMapValue(actionPayload["_web_context"])["delegation"] != true {
+		t.Fatalf("delegation action web context = %+v", actionPayload["_web_context"])
+	}
+
+	viewsPayload := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"delegation","method":"get_views","kwargs":{"views":[[false,"list"],[false,"form"],[false,"search"]],"options":{"load_filters":true}}}`, sessionCookie)
+	viewPayload := runtimeMapValue(viewsPayload["views"])
+	listArch := stringValue(runtimeMapValue(viewPayload["list"])["arch"])
+	formArch := stringValue(runtimeMapValue(viewPayload["form"])["arch"])
+	searchArch := stringValue(runtimeMapValue(viewPayload["search"])["arch"])
+	for _, want := range []string{
+		`field name="employee_id" widget="many2one_avatar_employee"`,
+		`field name="state" widget="badge"`,
+		`decoration-success="state ==&#39;approved&#39;"`,
+		`decoration-info="state ==&#39;draft&#39;"`,
+		`decoration-warning="waiting_approval"`,
+		`field name="waiting_approval" column_invisible="1"`,
+	} {
+		if !strings.Contains(listArch, want) {
+			t.Fatalf("delegation list arch missing %s: %s", want, listArch)
+		}
+	}
+	for _, want := range []string{
+		`button name="action_revoked"`,
+		`field name="state" widget="statusbar_state_duration"`,
+		`approval_action_button`,
+		`field name="delegateTo_employee_id" widget="many2one_avatar_employee"`,
+		`field name="department_ids" widget="many2many_tags"`,
+		`field name="lines" nolabel="1" colspan="2"`,
+		`readonly="state != &#39;draft&#39;"`,
+		`list editable="bottom" delete="false" create="false"`,
+		`field name="group_id" readonly="1" force_save="1"`,
+		`<chatter>`,
+	} {
+		if !strings.Contains(formArch, want) {
+			t.Fatalf("delegation form arch missing %s: %s", want, formArch)
+		}
+	}
+	for _, want := range []string{
+		`filter string="Active" name="active" domain="[('state','=','confirmed'), ('date_from','&gt;=', current_date), ('date_to','&lt;=', current_date)]"`,
+		`filter string="Draft" name="draft" domain="[('state','=','draft')]"`,
+		`filter string="Confirm" name="confirm" domain="[('state','=','confirmed')]"`,
+		`filter string="Status" name="status" context="{'group_by':'state'}"`,
+		`filter string="Employee" name="employee" context="{'group_by':'employee_id'}"`,
+	} {
+		if !strings.Contains(searchArch, want) {
+			t.Fatalf("delegation search arch missing %s: %s", want, searchArch)
+		}
+	}
+	fields := runtimeMapValue(runtimeMapValue(runtimeMapValue(viewsPayload["models"])[oi_delegation.ModelDelegation])["fields"])
+	linesField := runtimeMapValue(fields["lines"])
+	if linesField["relation"] != oi_delegation.ModelDelegationLine {
+		t.Fatalf("delegation lines field = %+v", linesField)
+	}
+
+	viewLoadBody := getBodyWithCookie(t, handler, "/web/view/load?model=delegation", sessionCookie)
+	if !strings.Contains(viewLoadBody, "delegation.form") || !strings.Contains(viewLoadBody, "many2one_avatar_employee") || !strings.Contains(viewLoadBody, "Delegation Search") {
+		t.Fatalf("delegation view load response = %s", viewLoadBody)
+	}
+}
+
 func TestBootstrapWebNormalUserCanOpenRecordsListAndForm(t *testing.T) {
 	app, err := BootstrapOI("")
 	if err != nil {
@@ -5503,6 +5586,14 @@ func decodeRuntimeJSONList(t *testing.T, data []byte) []map[string]any {
 func runtimeMapValue(value any) map[string]any {
 	typed, _ := value.(map[string]any)
 	return typed
+}
+
+func runtimeViewMode(value any) string {
+	pair, _ := value.([]any)
+	if len(pair) < 2 {
+		return ""
+	}
+	return stringValue(pair[1])
 }
 
 func runtimeMenuByXMLID(payload map[string]any, xmlid string) map[string]any {

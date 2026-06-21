@@ -14240,6 +14240,9 @@ func (s Server) concreteActionPayload(modelName string, id int64) (map[string]an
 	}
 	if modelName == "ir.actions.act_window" {
 		payload["embedded_action_ids"] = reader.contextEmbeddedActionIDs(id)
+		if err := generatePersistedActionViews(payload); err != nil {
+			return nil, false
+		}
 	}
 	enrichWebShellActionPayload(reader.Env, payload)
 	return payload, true
@@ -14382,7 +14385,15 @@ func (s Server) cleanActionPayloadMap(modelName string, payload map[string]any) 
 }
 
 func generateActionViews(actionPayload map[string]any) error {
-	if _, exists := actionPayload["views"]; exists {
+	return generateActionViewsWithMode(actionPayload, true)
+}
+
+func generatePersistedActionViews(actionPayload map[string]any) error {
+	return generateActionViewsWithMode(actionPayload, false)
+}
+
+func generateActionViewsWithMode(actionPayload map[string]any, strictViewID bool) error {
+	if raw, exists := actionPayload["views"]; exists && !emptyActionViews(raw) {
 		return nil
 	}
 	viewMode := firstNonEmptyHTTPString(stringValue(actionPayload["view_mode"]), "list,form")
@@ -14400,13 +14411,36 @@ func generateActionViews(actionPayload map[string]any) error {
 		return nil
 	}
 	if len(modes) > 1 && viewID != 0 {
-		return fmt.Errorf("non-db action dictionaries should provide either multiple view modes or a single view mode and an optional view id: got view modes %v and view id %d", modes, viewID)
+		if strictViewID {
+			return fmt.Errorf("non-db action dictionaries should provide either multiple view modes or a single view mode and an optional view id: got view modes %v and view id %d", modes, viewID)
+		}
+		for _, mode := range modes {
+			views = append(views, []any{false, mode})
+		}
+		actionPayload["views"] = views
+		return nil
 	}
 	if len(modes) == 1 {
 		views = append(views, []any{falseIfZero(viewID), modes[0]})
 		actionPayload["views"] = views
 	}
 	return nil
+}
+
+func emptyActionViews(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case bool:
+		return !typed
+	case string:
+		text := strings.TrimSpace(typed)
+		return text == "" || strings.EqualFold(text, "false") || text == "[]"
+	case []any:
+		return len(typed) == 0
+	default:
+		return false
+	}
 }
 
 func splitViewModes(value string) []string {

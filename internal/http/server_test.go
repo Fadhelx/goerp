@@ -11734,6 +11734,12 @@ func TestCallKWGetViewsToolbarBindings(t *testing.T) {
 	if loadedWindow["view_mode"] != "list,form" || loadedWindow["mobile_view_mode"] != "kanban" || loadedWindow["context"] != "{}" || int64Value(loadedWindow["limit"]) != 80 || loadedWindow["cache"] != true || loadedWindow["filter"] != false {
 		t.Fatalf("loaded window defaults = %#v", loadedWindow)
 	}
+	loadedWindowViews := loadedWindow["views"].([]any)
+	if len(loadedWindowViews) != 2 ||
+		loadedWindowViews[0].([]any)[0] != false || loadedWindowViews[0].([]any)[1] != "list" ||
+		loadedWindowViews[1].([]any)[0] != false || loadedWindowViews[1].([]any)[1] != "form" {
+		t.Fatalf("loaded window views = %#v", loadedWindowViews)
+	}
 	assertActionPayloadKeys(t, loadedWindow, actionPayloadKeys("context", "cache", "mobile_view_mode", "domain", "filter", "group_ids", "limit", "res_id", "res_model", "search_view_id", "target", "view_id", "view_mode", "views", "embedded_action_ids", "close_on_report_download", "_web_domain", "_web_context")...)
 	baseRows, err := server.Env.Model("ir.actions.actions").Browse(firstActionID, reportID, formActionID).Read("id", "type", "name")
 	if err != nil {
@@ -12040,6 +12046,20 @@ func TestCleanActionResultFiltersReadableModelFields(t *testing.T) {
 	tupleViewPair := tupleViews[0].([]any)
 	if int64Value(tupleViewPair[0]) != int64(654) || tupleViewPair[1] != "form" {
 		t.Fatalf("generated tuple views = %#v", cleanedTupleWindow["views"])
+	}
+	falseViewsWindow := map[string]any{
+		"type":      "ir.actions.act_window",
+		"name":      "False Views Window",
+		"res_model": "res.partner",
+		"view_mode": "list,form",
+		"views":     false,
+	}
+	cleanedFalseViewsWindow := server.cleanActionResult(server.Env, falseViewsWindow).(map[string]any)
+	falseViews := cleanedFalseViewsWindow["views"].([]any)
+	if len(falseViews) != 2 ||
+		falseViews[0].([]any)[0] != false || falseViews[0].([]any)[1] != "list" ||
+		falseViews[1].([]any)[0] != false || falseViews[1].([]any)[1] != "form" {
+		t.Fatalf("generated false views = %#v", falseViews)
 	}
 }
 

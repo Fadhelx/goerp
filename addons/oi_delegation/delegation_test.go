@@ -731,7 +731,9 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 		ModuleName + ".mail_template_delegation_assigned",
 		ModuleName + ".approval_settings_delegation",
 		ModuleName + ".button_delegation_confirm",
-		ModuleName + ".view_oi_delegation_form",
+		ModuleName + ".view_delegation_form_list",
+		ModuleName + ".view_delegation_form_search",
+		ModuleName + ".view_delegation_form",
 		ModuleName + ".view_approval_log_delegation_list",
 		ModuleName + ".act_delegation",
 		ModuleName + ".action_delegation",
@@ -816,13 +818,60 @@ func TestDelegationManifestFixtureFiles(t *testing.T) {
 	if lineActionRows[0]["res_model"] != ModelDelegationLine || lineActionRows[0]["view_mode"] != "list,form" {
 		t.Fatalf("line action = %+v", lineActionRows[0])
 	}
-	viewRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".view_oi_delegation_form"].ResID).Read("model", "arch")
+	viewRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".view_delegation_form"].ResID).Read("model", "arch")
 	if err != nil {
 		t.Fatal(err)
 	}
 	arch, _ := viewRows[0]["arch"].(string)
-	if viewRows[0]["model"] != ModelDelegation || !strings.Contains(arch, `field name="delegateTo_employee_id"`) || !strings.Contains(arch, `field name="department_ids"`) {
+	for _, want := range []string{
+		`button name="action_revoked"`,
+		`field name="state" widget="statusbar"`,
+		`field name="employee_id" groups="base.group_system" widget="many2one_avatar_employee" domain="[('user_id.active','=', True)]" readonly="state!='draft'"`,
+		`field name="employee_id" groups="!base.group_system" widget="many2one_avatar_employee" readonly="1"`,
+		`field name="delegateTo_employee_id" widget="many2one_avatar_employee"`,
+		`required="one_employee"`,
+		`field name="department_ids" widget="many2many_tags"`,
+		`field name="lines" nolabel="1" colspan="2" readonly="state != 'draft'"`,
+		`list editable="bottom" delete="false" create="false"`,
+		`field name="group_id" readonly="1" force_save="1"`,
+		`<chatter/>`,
+	} {
+		if !strings.Contains(arch, want) {
+			t.Fatalf("form arch missing %q: %s", want, arch)
+		}
+	}
+	if viewRows[0]["model"] != ModelDelegation {
 		t.Fatalf("view = %+v", viewRows[0])
+	}
+	listRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".view_delegation_form_list"].ResID).Read("model", "arch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listArch, _ := listRows[0]["arch"].(string)
+	for _, want := range []string{
+		`field name="employee_id" widget="many2one_avatar_employee"`,
+		`field name="state" widget="badge" decoration-success="state =='approved'" decoration-info="state =='draft'" decoration-warning="waiting_approval"`,
+		`field name="waiting_approval" column_invisible="1"`,
+	} {
+		if listRows[0]["model"] != ModelDelegation || !strings.Contains(listArch, want) {
+			t.Fatalf("list arch missing %q: %+v", want, listRows[0])
+		}
+	}
+	searchRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".view_delegation_form_search"].ResID).Read("model", "arch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	searchArch, _ := searchRows[0]["arch"].(string)
+	for _, want := range []string{
+		`filter string="Active" name="active" domain="[('state','=','confirmed'), ('date_from','&gt;=', current_date), ('date_to','&lt;=', current_date)]"`,
+		`filter string="Draft" name="draft" domain="[('state','=','draft')]"`,
+		`filter string="Confirm" name="confirm" domain="[('state','=','confirmed')]"`,
+		`filter string="Status" name="status" context="{'group_by':'state'}"`,
+		`filter string="Employee" name="employee" context="{'group_by':'employee_id'}"`,
+	} {
+		if searchRows[0]["model"] != ModelDelegation || !strings.Contains(searchArch, want) {
+			t.Fatalf("search arch missing %q: %+v", want, searchRows[0])
+		}
 	}
 	menuRows, err := env.Model("ir.ui.menu").Browse(ids[ModuleName+".menu_oi_delegation_requests"].ResID).Read("parent_id", "action")
 	if err != nil {
