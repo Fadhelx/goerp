@@ -1,148 +1,110 @@
-# UI Parity Master Current Plan
+# UI Parity Master Current Report
 
 Date: 2026-06-21
 Workspace: `/Users/fadhelalqaidoom/Documents/gorp`
-Scope: `/web` UI parity with Odoo 19 Enterprise.
+Scope: GoERP `/web` UI parity with Odoo 19 Enterprise.
 Accounting: excluded. Phase 2 only.
-Reference input: `/Users/fadhelalqaidoom/Desktop/odoo` used only as reference.
+Reference input: `/Users/fadhelalqaidoom/Desktop/odoo/odoo19` inspected only as reference. No proprietary source/assets copied.
 
-## Current Result
+## Status
 
-GoERP `/web` is usable for first testing, but it is not yet 100% Odoo Enterprise UI parity.
+GoERP `/web` is usable for testing.
 
-Current parity estimate: 35-45%.
+Current parity estimate: 40-50%.
 
-Reason: the visible `/web` route still behaves like a static server shell. The frontend TS webclient now has stronger Odoo-compatible pieces, but full parity requires making that runtime own `/web` actions, routing, dialogs, settings, views, and services.
+This slice fixed the highest visible form-header issue and added a passive frontend bootstrap path. It does not complete full Odoo parity because the default `/web` runtime still uses the inline Go shell.
 
-## Evidence Created
+## Implemented This Slice
 
-Local server:
-- `http://127.0.0.1:8075/web`
-- Health: `{"status":"ok"}`
+- Fixed form control-panel layout so Save/Discard, breadcrumbs, title, pager, and form sheet do not overlap on desktop or mobile.
+- Added a visible Odoo-style pager lane in record forms.
+- Added `/web/static/frontend/` serving for compiled frontend dist assets.
+- Injected the passive TypeScript webclient bootstrap script when `frontend/dist/apps/webclient/src/main.js` exists.
+- Added `frontend/apps/webclient/src/main.ts` bootstrap entrypoint.
+- Extended frontend tests to cover `frontend/apps/**`.
+- Extended visual smoke to cover mobile technical form.
+- Added form-header bounding-box assertions to visual smoke.
+- Fixed visual smoke navigation reset with a per-scenario cache-busted `/web?smoke=N` URL.
+- Integrated a small `res.users` read-mutation guard after local smoke exposed a concurrent derived-field map mutation crash during session-info reads.
 
-Visual smoke:
-- Passed 7/7 scenarios.
-- Report: `reports/uiux/master_current_smoke/manifest.json`
+## Changed Files
 
-Screenshots:
-- `reports/uiux/master_current_smoke/launcher-desktop.png`
-- `reports/uiux/master_current_smoke/settings-desktop.png`
-- `reports/uiux/master_current_smoke/technical-list-desktop.png`
-- `reports/uiux/master_current_smoke/technical-form-desktop.png`
-- `reports/uiux/master_current_smoke/search-menu-desktop.png`
-- `reports/uiux/master_current_smoke/launcher-mobile.png`
-- `reports/uiux/master_current_smoke/technical-list-mobile.png`
-
-Subagent reports:
-- Reference audit: `reports/uiux/subagents/reference-audit/odoo19_web_reference_audit.md`
-- Current runtime audit: `reports/uiux/subagents/current-audit/current-ui-runtime-audit.md`
-
-Additional subagent screenshots:
-- `reports/uiux/subagents/current-audit/`
-
-## Verified Working Now
-
-Smoke assertions:
-- Launcher desktop: 4 app tiles, 5 systray entries.
-- Settings desktop: 3 setting blocks, 14 setting boxes.
-- Technical list desktop: Server Actions, 20 rows.
-- Technical form desktop: Process Workflow Escalation, 6 fields.
-- Search menu desktop: 3 filters, 4 group by entries, 2 favorites.
-- Launcher mobile: 4 app tiles, mobile menu toggle, 0 px horizontal overflow.
-- Technical list mobile: 20 cards, 0 px horizontal overflow.
-
-Checks:
-- `pnpm -C frontend test`: passed.
-- `make ci`: passed.
-
-## Implementation Begun
-
-Frontend changes present in the working tree:
-- `frontend/packages/webclient/src/home_menu/home_menu.ts`
-- `frontend/packages/webclient/src/home_menu/home_menu.test.mjs`
-- `frontend/packages/webclient/src/webclient/navbar/navbar.ts`
-- `frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs`
-- `frontend/packages/webclient/src/index.ts`
-- `frontend/packages/webclient/src/index.test.mjs`
-- `frontend/packages/webclient/src/search/search_model.ts`
-- `frontend/packages/webclient/src/search/search_model.test.mjs`
-- `frontend/packages/webclient/src/search/search_arch_parser.test.mjs`
-
-Implemented:
-- Added Odoo-compatible home menu hooks: `data-view="apps"`, `o_home_menu`, `o_apps`.
-- Added app/nav metadata: `data-menu-id`, titles, `aria-label`, `aria-current`.
-- Marked launcher active when no app is active.
-- Hid zero systray counters.
-- Wired parsed search arch/default facets into TS window action execution.
-- Applied default search domain/context/group-by to TS `web_search_read`.
-- Rendered TS window actions with an Odoo-compatible control panel instead of a standalone title.
-
-Report/dashboard files changed:
+- `internal/http/server.go`
+- `internal/http/server_test.go`
+- `internal/record/record.go`
+- `internal/record/record_test.go`
+- `internal/runtime/bootstrap.go`
+- `frontend/apps/webclient/src/main.ts`
+- `frontend/apps/webclient/src/main.test.mjs`
+- `frontend/scripts/build.mjs`
+- `frontend/scripts/test.mjs`
+- `tools/web_visual_smoke/run.mjs`
+- `tools/web_visual_smoke/run.test.mjs`
 - `reports/agent_audit_backlog.md`
 - `reports/progress_dashboard.html`
 - `reports/ui_parity_master_current.md`
 
-## P0 Gaps
+## Local Evidence
 
-1. Replace inline `/web` server shell with bundled TS webclient runtime.
-   - Impact: current user-facing shell cannot reach full Odoo action/service behavior.
-   - Owner: runtime shell worker.
-   - Acceptance: `/web` bootstraps frontend bundle; route state supports action, model, view type, id, menu id, debug, and company ids.
+GoERP local:
+- URL: `http://127.0.0.1:8073/web`
+- Visual smoke: 8/8 passed.
+- Manifest: `tmp/verification/ui_parity_master_local/manifest.json`
 
-2. Fix form control panel and breadcrumb overlap.
-   - Evidence: `reports/uiux/subagents/current-audit/technical-form-desktop.png`
-   - Owner: action/control-panel worker.
-   - Acceptance: Save/Discard, breadcrumbs, title, pager, and view controls never overlap on desktop or mobile.
+Screenshots:
+- `tmp/verification/ui_parity_master_local/launcher-desktop.png`
+- `tmp/verification/ui_parity_master_local/settings-desktop.png`
+- `tmp/verification/ui_parity_master_local/technical-list-desktop.png`
+- `tmp/verification/ui_parity_master_local/technical-form-desktop.png`
+- `tmp/verification/ui_parity_master_local/search-menu-desktop.png`
+- `tmp/verification/ui_parity_master_local/launcher-mobile.png`
+- `tmp/verification/ui_parity_master_local/technical-list-mobile.png`
+- `tmp/verification/ui_parity_master_local/technical-form-mobile.png`
 
-3. Implement real action service and action stack.
-   - Owner: action stack worker.
-   - Acceptance: menu opens action, list opens form, breadcrumbs return correctly, dialogs handle target `new`, no stale panels remain.
+Smoke assertions:
+- Launcher desktop: 4 app tiles, 5 systray entries.
+- Settings desktop: 3 settings blocks, 14 settings boxes.
+- Technical list desktop: Server Actions, 20 rows.
+- Technical form desktop: 6 fields, no header overlap.
+- Search menu desktop: 3 filters, 4 group-by entries, 2 favorites.
+- Launcher mobile: 4 app tiles, menu toggle, 0 px horizontal overflow.
+- Technical list mobile: 20 cards, 0 px horizontal overflow.
+- Technical form mobile: 6 fields, no header overlap, 0 px horizontal overflow.
 
-4. Implement real Settings app parity.
-   - Owner: settings worker.
-   - Acceptance: General Settings, Users & Companies, Technical, and Translations render as settings apps with typed controls, sections, dirty save/discard, and search.
+## Tests Run
 
-5. Implement Apps catalog parity.
-   - Owner: apps catalog worker.
-   - Acceptance: app cards show product names, provenance-safe icons, descriptions, categories, install/update state, activation flow, and module info.
+- `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember)$'`
+- `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember|WebRoutes|WebclientLoadMenusOdooShape|ActionLoadOdooShapeAndJSONRPC|ActionLoadNormalizesWindowDomainContextForWebShell|CallKWGetViewsOdooShape)$'`
+- `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/index.test.mjs`
+- `pnpm -C frontend build`
+- `node --test tools/web_visual_smoke/run.test.mjs`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/ui_parity_master_local --timeout-ms=30000`
+- `make ci`
 
-## P1 Gaps
+## P0 Mismatches
 
-1. Complete list renderer.
-   - Add row checkboxes, select all, action menu, sortable headers, optional columns, grouped rows, inline edit gates, and keyboard behavior.
+1. Default `/web` still uses the inline Go shell.
+   - Required: bundled TS/OWL runtime owns shell, action manager, services, menus, dialogs, and routing.
 
-2. Complete form renderer.
-   - Add header buttons, smart buttons, statusbars, sheets, groups, notebooks, modifiers, onchanges, x2many widgets, image/binary widgets, code editor, and chatter layout.
+2. Action stack is incomplete.
+   - Required: menu action stack, breadcrumbs, form/list restore, dialog target `new`, router hash/state, stale-panel cleanup.
 
-3. Complete search/control panel.
-   - Add full search arch behavior, saved favorites persistence, custom filters/groups, date intervals, suggestions, action/cog menus, and mobile layout.
+3. Settings is not full Odoo Settings.
+   - Required: typed settings fields, dirty save/discard, module sections, Technical settings depth, search, and company/user scoped controls.
 
-4. Complete navbar/systray/mobile behavior.
-   - Add messages, activities, user menu, company switcher, debug menu, mobile burger/back navigation, and responsive systray state.
+4. List/form renderers are partial.
+   - Required: row selection/action menus/sort/grouping/edit gates; form buttons/statusbars/notebooks/modifiers/onchange/x2many/chatter.
 
-5. Complete Enterprise launcher theme.
-   - Add provenance-safe generated/licensed icon set, Enterprise dark launcher spacing, search behavior, keyboard navigation, and app deduplication.
+5. Systray/mobile parity is partial.
+   - Required: user/company/debug/mail/activity dropdowns, mobile burger/back navigation, responsive action state.
 
-## P2 Gaps
+6. Apps catalog parity is partial.
+   - Required: app catalog metadata, module install/update states, categories, provenance-safe icons, and post-install refresh.
 
-1. Add automated Odoo reference comparison screenshots.
-2. Add production selector smoke for `/web`.
-3. Add normal-user browser workflow fixtures.
-4. Add stable selector contract on top of Odoo-compatible classes.
-5. Tokenize Enterprise dark/light theme across navbar, home menu, settings, list, form, search, dropdowns, buttons, and mobile.
+## Implementation Status
 
-## Next Assignment Queue
+Complete for this slice.
 
-1. `runtime-shell-worker`: make TS webclient own `/web`; keep server as API/runtime provider.
-2. `action-stack-worker`: route restore, action stack, target modes, breadcrumbs, dialog target.
-3. `settings-worker`: real settings parser/controller and typed settings fields.
-4. `list-form-worker`: list/form renderer parity and form header overlap fix.
-5. `apps-catalog-worker`: module catalog UX and safe install/update flow.
-6. `systray-mobile-worker`: user/company/debug/mail/activity dropdowns and mobile navigation.
-7. `visual-regression-worker`: local, production, and reference screenshot checks.
+Not complete for full UI parity.
 
-## Notes
-
-- No accounting module work was done.
-- No proprietary Odoo Enterprise or OI source/assets were copied.
-- Existing untracked production smoke folder remains: `reports/verification/web_visual_smoke_prod/`.
+Next implementation target: make the bundled TS/OWL webclient the default `/web` owner while preserving current passing visual smoke.

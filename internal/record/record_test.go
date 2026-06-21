@@ -2465,6 +2465,44 @@ func TestResUsersGroupPayloadX2ManyCommands(t *testing.T) {
 	}
 }
 
+func TestResUsersReadDoesNotMutateDerivedFields(t *testing.T) {
+	env := securityDerivedFieldsEnv(t)
+	groupUserID, err := env.Model("res.groups").Create(map[string]any{"name": "Role / User"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model("ir.model.data").Create(map[string]any{"module": "base", "name": "group_user", "model": "res.groups", "res_id": groupUserID}); err != nil {
+		t.Fatal(err)
+	}
+	userID, err := env.Model("res.users").Create(map[string]any{
+		"login":     "read-user",
+		"name":      "Read User",
+		"active":    true,
+		"group_ids": []int64{groupUserID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := env.stores["res.users"].records[userID]
+	delete(stored, "all_group_ids")
+	delete(stored, "share")
+	delete(stored, "groups_count")
+	delete(stored, "role")
+
+	rows, err := env.Model("res.users").Browse(userID).Read("id", "name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["name"] != "Read User" {
+		t.Fatalf("read rows = %+v", rows)
+	}
+	for _, fieldName := range []string{"all_group_ids", "share", "groups_count", "role"} {
+		if _, ok := stored[fieldName]; ok {
+			t.Fatalf("read mutated stored %s: %+v", fieldName, stored)
+		}
+	}
+}
+
 func TestResUsersRejectDisjointUserTypeGroups(t *testing.T) {
 	env := securityDerivedFieldsEnv(t)
 	groupUserID, err := env.Model("res.groups").Create(map[string]any{"name": "Role / User"})

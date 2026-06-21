@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_BASE_URL = "http://127.0.0.1:8069";
 const DEFAULT_OUT_DIR = "reports/web_visual_smoke";
+let navigationCounter = 0;
 
 export const scenarios = [
   {
@@ -57,7 +58,8 @@ export const scenarios = [
         const title = document.querySelector("#recordTitle")?.textContent?.trim() || "";
         return title && title !== "Loading" ? title : "";
       })()`, "technical form title");
-      return { title, field_count: fieldCount };
+      const layout = await assertFormHeaderLayout(page, "desktop technical form");
+      return { title, field_count: fieldCount, ...layout };
     }
   },
   {
@@ -94,6 +96,24 @@ export const scenarios = [
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`mobile technical horizontal overflow: ${overflow}px`);
       return { card_count: cardCount, horizontal_overflow_px: overflow };
+    }
+  },
+  {
+    name: "technical-form-mobile",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await openServerActionsList(page, config, mobileViewport());
+      await clickFirst(page, ".o_mobile_list_cards .o_mobile_record_card button");
+      await waitFor(page, `!document.querySelector("#recordPanel")?.hidden`, "mobile technical form panel");
+      const fieldCount = await waitForCount(page, "#recordForm input[data-field]", 1, "mobile technical form fields");
+      const title = await waitFor(page, `(() => {
+        const title = document.querySelector("#recordTitle")?.textContent?.trim() || "";
+        return title && title !== "Loading" ? title : "";
+      })()`, "mobile technical form title");
+      const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
+      if (overflow > 1) throw new Error(`mobile form horizontal overflow: ${overflow}px`);
+      const layout = await assertFormHeaderLayout(page, "mobile technical form");
+      return { title, field_count: fieldCount, horizontal_overflow_px: overflow, ...layout };
     }
   }
 ];
@@ -342,7 +362,8 @@ async function openServerActionsList(page, config, viewport) {
 
 async function openWeb(page, config, viewport) {
   await setViewport(page, viewport);
-  await page.send("Page.navigate", { url: appURL(config.baseURL, "/web") });
+  navigationCounter += 1;
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${navigationCounter}`) });
   await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "document ready");
   await waitFor(page, `Boolean(document.querySelector(".o_web_client .o_action_manager"))`, "web client shell");
   await maybeLogin(page);
@@ -447,6 +468,38 @@ async function waitForCount(page, selector, minimum, label) {
     const count = document.querySelectorAll(${JSON.stringify(selector)}).length;
     return count >= ${Number(minimum)} ? count : 0;
   })()`, label);
+}
+
+async function assertFormHeaderLayout(page, label) {
+  return evaluate(page, `(() => {
+    const selectors = {
+      buttons: "#recordPanel .o_control_panel_main_buttons",
+      breadcrumbs: "#recordPanel .o_control_panel_breadcrumbs",
+      navigation: "#recordPanel .o_control_panel_navigation",
+      controlPanel: "#recordPanel .o-control-panel",
+      formSheet: "#recordPanel .o_form_sheet"
+    };
+    const rects = {};
+    for (const [name, selector] of Object.entries(selectors)) {
+      const node = document.querySelector(selector);
+      if (!node) throw new Error("missing form layout selector " + selector);
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) throw new Error("empty form layout selector " + selector);
+      rects[name] = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    }
+    const intersects = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+    const failures = [];
+    if (intersects(rects.buttons, rects.breadcrumbs)) failures.push("buttons overlap breadcrumbs");
+    if (intersects(rects.breadcrumbs, rects.navigation)) failures.push("breadcrumbs overlap navigation");
+    if (rects.controlPanel.bottom > rects.formSheet.top + 1) failures.push("control panel overlaps form sheet");
+    if (failures.length) throw new Error(${JSON.stringify(label)} + ": " + failures.join("; ") + " " + JSON.stringify(rects));
+    return {
+      form_header_buttons_width: Math.round(rects.buttons.width),
+      form_header_breadcrumbs_width: Math.round(rects.breadcrumbs.width),
+      form_header_navigation_width: Math.round(rects.navigation.width),
+      form_header_gap_px: Math.round(rects.formSheet.top - rects.controlPanel.bottom)
+    };
+  })()`);
 }
 
 async function waitFor(page, expression, label) {

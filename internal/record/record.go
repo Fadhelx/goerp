@@ -6088,9 +6088,6 @@ func (r RecordSet) Read(fields ...string) ([]map[string]any, error) {
 	if r.model.model.Name == "res.groups" {
 		r.model.syncAllResGroupsDerivedFields()
 	}
-	if r.model.model.Name == "res.users" {
-		r.model.syncAllResUsersDerivedFields()
-	}
 	if r.model.model.Name == "mailing.contact" || r.model.model.Name == "mailing.list" || r.model.model.Name == "mailing.mailing" || r.model.model.Name == "utm.campaign" {
 		r.model.syncAllMailingDerivedFields()
 	}

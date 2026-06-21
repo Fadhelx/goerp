@@ -11624,6 +11624,52 @@ func TestAssetDebugFileServesBundleMember(t *testing.T) {
 	}
 }
 
+func TestFrontendDistAssetAndBootstrapScript(t *testing.T) {
+	root := t.TempDir()
+	entry := filepath.Join(root, "apps", "webclient", "src", "main.js")
+	if err := os.MkdirAll(filepath.Dir(entry), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(entry, []byte("document.documentElement.dataset.tsWebclient='ready';"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := (Server{FrontendDist: root}).Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`) {
+		t.Fatalf("web bootstrap response %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/static/frontend/apps/webclient/src/main.js", nil))
+	if rec.Code != http.StatusOK || rec.Body.String() != "document.documentElement.dataset.tsWebclient='ready';" || !strings.Contains(rec.Header().Get("Content-Type"), "javascript") {
+		t.Fatalf("frontend asset response %d %q headers=%v", rec.Code, rec.Body.String(), rec.Header())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/web/static/frontend/apps/webclient/src/main.js", nil))
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+		t.Fatalf("frontend asset head response %d %q", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/static/frontend/apps/webclient/src/missing.js", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing frontend asset status %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/static/frontend/apps/webclient/src/main.js", nil))
+	if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {
+		t.Fatalf("frontend asset method status %d allow=%q", rec.Code, rec.Header().Get("Allow"))
+	}
+
+	if _, ok := safeFrontendDistPath(root, "../secret.js"); ok {
+		t.Fatalf("safeFrontendDistPath allowed traversal")
+	}
+}
+
 func TestSessionInfoOdooShape(t *testing.T) {
 	server := testMailThreadServer(t)
 	env := server.Env.WithContext(record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})

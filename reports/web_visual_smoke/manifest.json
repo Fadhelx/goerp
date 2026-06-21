@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-21T12:16:52.060Z",
-  "base_url": "http://127.0.0.1:18073/",
+  "generated_at": "2026-06-21T13:04:43.260Z",
+  "base_url": "http://127.0.0.1:8073/",
   "chrome": "Google Chrome",
   "scenarios": [
     {
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 291
+      "duration_ms": 296
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,7 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 418
+      "duration_ms": 434
     },
     {
       "name": "technical-list-desktop",
@@ -49,7 +49,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 426
+      "duration_ms": 431
     },
     {
       "name": "technical-form-desktop",
@@ -60,12 +60,16 @@
         "mobile": false
       },
       "screenshot": "technical-form-desktop.png",
-      "sha256": "5e82b79cfe72ed8860d5504898a302e0b7a5c7e1bb2744aefe933cf772851366",
+      "sha256": "0c664985db3958f5b697deade6a72eedad48bee215f51f8772b89c5ebd49f820",
       "assertions": {
         "title": "Process Workflow Escalation",
-        "field_count": 6
+        "field_count": 6,
+        "form_header_buttons_width": 129,
+        "form_header_breadcrumbs_width": 1141,
+        "form_header_navigation_width": 27,
+        "form_header_gap_px": 10
       },
-      "duration_ms": 554
+      "duration_ms": 422
     },
     {
       "name": "search-menu-desktop",
@@ -82,7 +86,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 436
+      "duration_ms": 431
     },
     {
       "name": "launcher-mobile",
@@ -99,7 +103,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 231
+      "duration_ms": 240
     },
     {
       "name": "technical-list-mobile",
@@ -110,13 +114,34 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "a0d0d685bfea363cfcf65eaf3f6d5505f202cf0eda468eebd15f286e89cd3dcf",
+      "sha256": "a0d97c35d563f0f748924725d65f31391e2434f73c5519ac6ced92adf27ba1dc",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 410
+      "duration_ms": 409
+    },
+    {
+      "name": "technical-form-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "technical-form-mobile.png",
+      "sha256": "ff4c9594db296c8031ef1b783251356ff7c6c3f63cc13ff8aefa24359ba034f4",
+      "assertions": {
+        "title": "Process Workflow Escalation",
+        "field_count": 6,
+        "horizontal_overflow_px": 0,
+        "form_header_buttons_width": 366,
+        "form_header_breadcrumbs_width": 366,
+        "form_header_navigation_width": 366,
+        "form_header_gap_px": 10
+      },
+      "duration_ms": 614
     }
   ],
-  "duration_ms": 2920
+  "duration_ms": 3440
 }

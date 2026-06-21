@@ -63,6 +63,7 @@ type Server struct {
 	Modules       map[string]module.Manifest
 	ExternalIDs   map[string]data.ExternalID
 	Security      *security.Engine
+	FrontendDist  string
 
 	Impersonation       *impersonation.Service
 	Bus                 *notifications.Bus
@@ -90,6 +91,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/web/session/modules", s.sessionModules)
 	mux.HandleFunc("/web/session/destroy", s.sessionDestroy)
 	mux.HandleFunc("/web/session/logout", s.logout)
+	mux.HandleFunc("/web/static/frontend/", s.frontendAsset)
 	mux.HandleFunc("/web/login_as/", s.loginAs)
 	mux.HandleFunc("/web/login_back", s.loginBack)
 	mux.HandleFunc("/web/become/debug", s.loginAsDebug)
@@ -4979,7 +4981,86 @@ func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = io.WriteString(w, webClientShellHTML)
+	_, _ = io.WriteString(w, s.webClientShellHTML())
+}
+
+func (s Server) webClientShellHTML() string {
+	entry := "apps/webclient/src/main.js"
+	if _, ok := s.frontendDistFile(entry); !ok {
+		return webClientShellHTML
+	}
+	script := `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`
+	return strings.Replace(webClientShellHTML, "</body>", script+"\n</body>", 1)
+}
+
+func (s Server) frontendAsset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rel := strings.TrimPrefix(r.URL.Path, "/web/static/frontend/")
+	filename, ok := s.frontendDistFile(rel)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, filename)
+}
+
+func (s Server) frontendDistFile(rel string) (string, bool) {
+	root, ok := s.frontendDistRoot()
+	if !ok {
+		return "", false
+	}
+	filename, ok := safeFrontendDistPath(root, rel)
+	if !ok {
+		return "", false
+	}
+	info, err := os.Stat(filename)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	return filename, true
+}
+
+func (s Server) frontendDistRoot() (string, bool) {
+	candidates := []string{}
+	if strings.TrimSpace(s.FrontendDist) != "" {
+		candidates = append(candidates, s.FrontendDist)
+	}
+	candidates = append(candidates, "frontend/dist", "current/frontend/dist", "/opt/goerp/current/frontend/dist")
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func safeFrontendDistPath(root string, rel string) (string, bool) {
+	if rel == "" || strings.ContainsRune(rel, 0) {
+		return "", false
+	}
+	clean := filepath.Clean(filepath.FromSlash(rel))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || filepath.IsAbs(clean) {
+		return "", false
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	targetAbs, err := filepath.Abs(filepath.Join(rootAbs, clean))
+	if err != nil {
+		return "", false
+	}
+	inside, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return targetAbs, true
 }
 
 const webClientShellHTML = `<!doctype html>
@@ -5931,6 +6012,7 @@ const webClientShellHTML = `<!doctype html>
 		margin: 0;
 		font-size: 18px;
 		font-weight: 500;
+		min-width: 0;
 	}
 	.o-control-panel .toolbar {
 		padding: 0;
@@ -6239,18 +6321,61 @@ const webClientShellHTML = `<!doctype html>
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		flex: 1 1 auto;
 		min-width: 0;
 	}
 	.o-form-control .o-breadcrumbs button {
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 36vw;
 		padding: 0;
 		background: transparent;
 		border: 0;
 		color: var(--accent);
 		font-size: 18px;
 		font-weight: 500;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.o-form-control .o-breadcrumbs span {
+		flex: 0 0 auto;
 		color: var(--muted);
+	}
+	.o-form-control .o-breadcrumbs h2 {
+		flex: 1 1 auto;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.record-panel .o_control_panel_main {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 8px 16px;
+	}
+	.record-panel .o_control_panel_main_buttons {
+		grid-column: 1;
+		grid-row: 1;
+		flex-wrap: nowrap;
+		white-space: nowrap;
+	}
+	.record-panel .o_control_panel_breadcrumbs {
+		grid-column: 2;
+		grid-row: 1;
+		min-width: 0;
+	}
+	.record-panel .o_control_panel_actions {
+		display: none;
+	}
+	.record-panel .o_control_panel_navigation {
+		grid-column: 3;
+		grid-row: 1;
+		min-width: 0;
+		justify-content: flex-end;
+	}
+	.record-panel .o_control_panel_meta {
+		display: none;
 	}
 	.o-form-content {
 		max-width: 980px;
@@ -6323,6 +6448,30 @@ const webClientShellHTML = `<!doctype html>
 			align-items: stretch;
 			gap: 10px;
 			padding: 10px 12px;
+		}
+		.record-panel .o_control_panel_main {
+			grid-template-columns: minmax(0, 1fr);
+			align-items: stretch;
+			gap: 8px;
+		}
+		.record-panel .o_control_panel_main_buttons,
+		.record-panel .o_control_panel_breadcrumbs,
+		.record-panel .o_control_panel_navigation {
+			grid-column: 1;
+			grid-row: auto;
+			justify-content: flex-start;
+		}
+		.record-panel .o_control_panel_main_buttons {
+			order: 1;
+		}
+		.record-panel .o_control_panel_breadcrumbs {
+			order: 2;
+		}
+		.record-panel .o_control_panel_navigation {
+			order: 3;
+		}
+		.o-form-control .o-breadcrumbs button {
+			max-width: 42vw;
 		}
 		.o-list-content { padding: 12px; overflow-x: hidden; }
 		.o-list-view table { display: none; }
@@ -7133,7 +7282,7 @@ const webClientShellHTML = `<!doctype html>
       recordPanel.className = "panel record-panel o_form_view";
       recordPanel.id = "recordPanel";
       recordPanel.hidden = true;
-      recordPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="saveRecord" class="btn btn-primary o_form_button_save">Save</button><button id="readRecord" class="btn btn-secondary o_form_button_cancel">Discard</button></div><div class="o-breadcrumbs o_breadcrumb"><button id="recordBack" type="button" class="secondary">Records</button><span>/</span><h2 id="recordTitle" class="active">Record</h2></div></div><div class="o_control_panel_actions"></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap"></div></div><input id="recordModel" hidden><input id="recordID" hidden><input id="recordFields" hidden></div></div><div class="o-list-content o-form-content o_form_sheet_bg"><div id="recordForm" class="record-grid o-form-sheet o_form_sheet"></div><pre id="recordRaw" hidden></pre></div>';
+      recordPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_main_buttons d-print-none"><button id="saveRecord" class="btn btn-primary o_form_button_save">Save</button><button id="readRecord" class="btn btn-secondary o_form_button_cancel">Discard</button></div><div class="o_control_panel_breadcrumbs"><div class="o-breadcrumbs o_breadcrumb"><button id="recordBack" type="button" class="secondary">Records</button><span>/</span><h2 id="recordTitle" class="active">Record</h2></div></div><div class="o_control_panel_actions"></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap"><span class="o_pager_value">1</span><span>/</span><span class="o_pager_limit">1</span></div></div></div><div class="o_control_panel_meta"><input id="recordModel" hidden><input id="recordID" hidden><input id="recordFields" hidden></div></div><div class="o-list-content o-form-content o_form_sheet_bg"><div id="recordForm" class="record-grid o-form-sheet o_form_sheet"></div><pre id="recordRaw" hidden></pre></div>';
       modelPanel.append(recordPanel);
 
       document.getElementById("reloadApps").addEventListener("click", loadInstallApps);

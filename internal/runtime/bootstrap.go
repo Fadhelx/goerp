@@ -197,6 +197,7 @@ func (a *App) Server() web.Server {
 		Modules:             a.Modules,
 		ExternalIDs:         a.ExternalIDs,
 		Security:            a.Security,
+		FrontendDist:        "frontend/dist",
 		Impersonation:       a.Impersonation,
 		Bus:                 a.Bus,
 		Workflow:            &internalworkflow.Dispatcher{Actions: a.ServerActions, Mailer: envActionHooks{env: a.Env, app: a}, Delegations: a.Delegation},

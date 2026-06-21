@@ -24,6 +24,7 @@ async function walk(dir) {
 }
 
 await walk(join(root, "packages"));
+await walk(join(root, "apps"));
 
 let ran = 0;
 for (const file of testFiles.sort()) {
