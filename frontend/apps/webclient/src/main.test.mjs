@@ -191,7 +191,7 @@ const catalog = mod.renderAppsCatalogView({
     project: { name: "Project", technical_name: "project", state: "to remove", installable: true }
   }
 }, {
-  onModuleAction: (technicalName, method) => moduleActions.push({ technicalName, method })
+  onModuleAction: (technicalName, method, query) => moduleActions.push({ technicalName, method, query })
 });
 assert.equal(findAll(catalog, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
@@ -199,7 +199,7 @@ assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").len
 const crmInstall = findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_install" && node.disabled === false)[0];
 crmInstall.dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.deepEqual(moduleActions, [{ technicalName: "crm", method: "button_immediate_install" }]);
+assert.deepEqual(moduleActions, [{ technicalName: "crm", method: "button_immediate_install", query: "" }]);
 assert.equal(crmInstall.textContent, "Installing");
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_upgrade" && node.disabled === false).length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_uninstall" && node.disabled === false).length, 1);
@@ -210,6 +210,10 @@ catalogSearch.value = "crm";
 catalogSearch.dispatchEvent(new CustomEvent("input"));
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 0);
+const filteredCrmInstall = findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_install" && node.disabled === false)[0];
+filteredCrmInstall.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(moduleActions.at(-1), { technicalName: "crm", method: "button_immediate_install", query: "crm" });
 let shell = globalThis.document.body.children[0].children[0];
 assert.match(shell.className, /o_web_client/);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);

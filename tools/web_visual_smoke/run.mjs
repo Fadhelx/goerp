@@ -347,9 +347,16 @@ export const scenarios = [
       await setInput(page, ".o_web_client .gorp-apps-catalog .o_searchview_input", "ai");
       const beforeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled state");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
-      const afterState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module installed state");
-      const buttonLabel = await textContent(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
-      return { module: "ai", catalog_count: catalogCount, before_state: beforeState, after_state: afterState, button_label: buttonLabel };
+      const afterInstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module installed state");
+      await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_upgrade_button", 1, "AI module upgrade button");
+      await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_uninstall_button", 1, "AI module uninstall button");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_upgrade_button");
+      const afterUpgradeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module upgraded state");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_uninstall_button");
+      const afterUninstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled after uninstall action");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
+      const restoredState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module restored installed state");
+      return { module: "ai", catalog_count: catalogCount, before_state: beforeState, after_install_state: afterInstallState, after_upgrade_state: afterUpgradeState, after_uninstall_state: afterUninstallState, restored_state: restoredState };
     }
   }
 ];

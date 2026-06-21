@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-21T17:27:53.344Z",
-  "base_url": "http://127.0.0.1:8073/",
+  "generated_at": "2026-06-21T17:29:11.300Z",
+  "base_url": "http://127.0.0.1:8069/",
   "chrome": "Google Chrome",
   "scenarios": [
     {
@@ -12,7 +12,7 @@
         "mobile": false
       },
       "screenshot": "default-apps-install-desktop.png",
-      "sha256": "fd9d9525e7b6e37dab00e65292f78b6eafe772511cf1d37a62c9a16beb7ff3f9",
+      "sha256": "4e77b9ff4bc4c98b149b5c8d3a0505842bf4b6bdc11fb6360b10037fadda0f8f",
       "assertions": {
         "module": "ai",
         "catalog_count": 1,
@@ -22,8 +22,8 @@
         "after_uninstall_state": "uninstalled",
         "restored_state": "installed"
       },
-      "duration_ms": 1187
+      "duration_ms": 1043
     }
   ],
-  "duration_ms": 1373
+  "duration_ms": 1196
 }

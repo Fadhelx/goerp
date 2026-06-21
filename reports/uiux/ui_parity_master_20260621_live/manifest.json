@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-21T17:10:32.545Z",
+  "generated_at": "2026-06-21T17:29:34.325Z",
   "base_url": "http://127.0.0.1:8069/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 284
+      "duration_ms": 281
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,7 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 440
+      "duration_ms": 423
     },
     {
       "name": "default-webclient-takeover",
@@ -51,7 +51,7 @@
         "search_count": 1,
         "action_count": 1
       },
-      "duration_ms": 244
+      "duration_ms": 254
     },
     {
       "name": "default-webclient-action-desktop",
@@ -76,7 +76,7 @@
         "save_disabled": true,
         "discard_disabled": true
       },
-      "duration_ms": 420
+      "duration_ms": 427
     },
     {
       "name": "default-technical-search-desktop",
@@ -95,7 +95,7 @@
         "window_count": 1,
         "row_count": 20
       },
-      "duration_ms": 567
+      "duration_ms": 441
     },
     {
       "name": "default-technical-form-desktop",
@@ -113,7 +113,7 @@
         "form_count": 1,
         "field_count": 6
       },
-      "duration_ms": 630
+      "duration_ms": 557
     },
     {
       "name": "default-search-menu-desktop",
@@ -130,7 +130,7 @@
         "group_by_items": 4,
         "favorite_items": 1
       },
-      "duration_ms": 448
+      "duration_ms": 603
     },
     {
       "name": "default-search-filter-click-desktop",
@@ -147,7 +147,7 @@
         "selected_filter_count": 1,
         "row_count": 19
       },
-      "duration_ms": 590
+      "duration_ms": 641
     },
     {
       "name": "default-view-switch-desktop",
@@ -165,7 +165,7 @@
         "form_hash": "#action=7&model=ir.actions.server&view_type=form&menu_id=8",
         "list_hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8"
       },
-      "duration_ms": 730
+      "duration_ms": 717
     },
     {
       "name": "default-hash-route-desktop",
@@ -182,7 +182,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 672
+      "duration_ms": 673
     },
     {
       "name": "default-webclient-mobile",
@@ -193,13 +193,13 @@
         "mobile": true
       },
       "screenshot": "default-webclient-mobile.png",
-      "sha256": "bdc3e2edc2c0a51eb1113fcefda798df74c6e9da56f3f9d681f588f00bd0eb3b",
+      "sha256": "04fafc07124d54fb5c00c0ed613d375bba01ae18e75ba6b82e075676e930cfda",
       "assertions": {
         "app_count": 4,
         "mobile_toggle_count": 1,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 419
+      "duration_ms": 441
     },
     {
       "name": "technical-list-desktop",
@@ -215,7 +215,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 463
+      "duration_ms": 441
     },
     {
       "name": "hash-route-desktop",
@@ -232,7 +232,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 648
+      "duration_ms": 659
     },
     {
       "name": "technical-form-desktop",
@@ -252,7 +252,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 507
+      "duration_ms": 474
     },
     {
       "name": "search-menu-desktop",
@@ -269,7 +269,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 451
+      "duration_ms": 436
     },
     {
       "name": "launcher-mobile",
@@ -286,7 +286,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 264
+      "duration_ms": 247
     },
     {
       "name": "technical-list-mobile",
@@ -302,7 +302,7 @@
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 428
+      "duration_ms": 418
     },
     {
       "name": "technical-form-mobile",
@@ -323,7 +323,7 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 564
+      "duration_ms": 465
     },
     {
       "name": "normal-user-launcher-desktop",
@@ -334,16 +334,16 @@
         "mobile": false
       },
       "screenshot": "normal-user-launcher-desktop.png",
-      "sha256": "7f3534c8f4ded5f01a7b7b941e7bdad7b3e4f8fff02af07785753c6012c3c0d6",
+      "sha256": "327bfcf89240acdafe70aa0034524608800a18594ad6e1ff310608c9bc7d2cc1",
       "assertions": {
-        "uid": 5,
+        "uid": 8,
         "app_count": 1,
         "menu_count": 5,
         "title": "Approval Buttons",
         "model": "approval.buttons",
         "window_count": 1
       },
-      "duration_ms": 691
+      "duration_ms": 756
     },
     {
       "name": "default-apps-install-desktop",
@@ -354,16 +354,18 @@
         "mobile": false
       },
       "screenshot": "default-apps-install-desktop.png",
-      "sha256": "ca06621cb6c862a8fe1c83fc8f7f0f7e1ef09792de8f46e2b198cd72c1559db9",
+      "sha256": "4e77b9ff4bc4c98b149b5c8d3a0505842bf4b6bdc11fb6360b10037fadda0f8f",
       "assertions": {
         "module": "ai",
         "catalog_count": 1,
         "before_state": "uninstalled",
-        "after_state": "installed",
-        "button_label": "Installed"
+        "after_install_state": "installed",
+        "after_upgrade_state": "installed",
+        "after_uninstall_state": "uninstalled",
+        "restored_state": "installed"
       },
-      "duration_ms": 660
+      "duration_ms": 964
     }
   ],
-  "duration_ms": 10789
+  "duration_ms": 10444
 }

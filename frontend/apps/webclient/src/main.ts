@@ -402,7 +402,7 @@ export interface AppsCatalogPayload {
 
 export interface AppsCatalogRenderOptions {
   onInstall?: (technicalName: string) => unknown;
-  onModuleAction?: (technicalName: string, method: AppsCatalogActionMethod) => unknown;
+  onModuleAction?: (technicalName: string, method: AppsCatalogActionMethod, query: string) => unknown;
   query?: string;
   title?: string;
 }
@@ -464,7 +464,7 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
     grid.replaceChildren();
     const modules = appsCatalogModules(payload).filter((item) => !query || item.searchText.includes(query));
     for (const item of modules) {
-      grid.append(renderAppsCatalogCard(item, options));
+      grid.append(renderAppsCatalogCard(item, { ...options, query }));
     }
     if (!grid.children.length) {
       const empty = document.createElement("p");
@@ -487,15 +487,16 @@ interface AppsCatalogDisplayModule {
   technicalName: string;
 }
 
-async function renderAppsCatalog(_env: ReturnType<typeof makeEnv>, outlet: HTMLElement, title: string): Promise<void> {
+async function renderAppsCatalog(_env: ReturnType<typeof makeEnv>, outlet: HTMLElement, title: string, query = ""): Promise<void> {
   outlet.dataset.tsActionStatus = "loading";
   outlet.replaceChildren(renderActionLoading(title || "Apps"));
   const payload = await fetchJSON<AppsCatalogPayload>("/web/session/modules");
   const view = renderAppsCatalogView(payload, {
     title,
-    onModuleAction: async (technicalName, method) => {
+    query,
+    onModuleAction: async (technicalName, method, currentQuery) => {
       await runAppsCatalogModuleAction(technicalName, method);
-      await renderAppsCatalog(_env, outlet, title);
+      await renderAppsCatalog(_env, outlet, title, currentQuery);
     }
   });
   outlet.dataset.tsActionStatus = "ready";
@@ -576,7 +577,7 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = action.runningLabel;
-      await actionHandler(module.technicalName, action.method);
+      await actionHandler(module.technicalName, action.method, options.query || "");
     });
     actions.append(button);
   }
