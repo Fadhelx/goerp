@@ -5349,6 +5349,23 @@ const webClientShellHTML = `<!doctype html>
       gap: 8px;
       margin-top: 8px;
     }
+	.menu-list .o_menuitem {
+		background: var(--panel);
+		color: var(--text);
+		border-color: var(--line);
+	}
+	.menu-list .o_menu_section {
+		background: var(--panel-soft);
+		color: var(--muted);
+	}
+	.o_app_path {
+		display: block;
+		margin-top: 2px;
+		color: var(--muted);
+		font-size: 11px;
+		font-weight: 500;
+		line-height: 1.2;
+	}
 	.module-grid {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6022,6 +6039,69 @@ const webClientShellHTML = `<!doctype html>
 		min-width: 0;
 		overflow-wrap: anywhere;
 	}
+	.o_settings_view .o-control-panel {
+		min-height: 58px;
+	}
+	.o_settings_content {
+		padding: 18px;
+		background: #f6f7f8;
+	}
+	.o_settings_container {
+		display: grid;
+		gap: 16px;
+		max-width: 1180px;
+		margin: 0 auto;
+	}
+	.app_settings_block {
+		display: grid;
+		gap: 12px;
+		padding: 16px;
+		border: 1px solid var(--line);
+		background: #fff;
+	}
+	.app_settings_block h3 {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 600;
+	}
+	.o_setting_grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 10px;
+	}
+	.o_setting_box {
+		display: grid;
+		grid-template-columns: 24px minmax(0, 1fr);
+		gap: 10px;
+		min-height: 82px;
+		padding: 12px;
+		border: 1px solid var(--line);
+		background: #fff;
+	}
+	.o_setting_left_pane {
+		width: 16px;
+		height: 16px;
+		margin-top: 2px;
+		border: 1px solid var(--accent-2);
+		border-radius: 50%;
+		background: rgba(1,126,132,.12);
+	}
+	.o_setting_right_pane {
+		display: grid;
+		gap: 6px;
+		min-width: 0;
+	}
+	.o_setting_right_pane .o_form_label {
+		font-weight: 600;
+		color: var(--text);
+	}
+	.o_setting_right_pane .text-muted {
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.o_setting_action {
+		justify-self: start;
+	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	}
@@ -6294,6 +6374,7 @@ const webClientShellHTML = `<!doctype html>
 	function setView(name) {
 		document.body.dataset.view = name;
 		document.body.classList.remove("o-mobile-menu-open");
+		if (name !== "records") showRecordForm(false);
 		const mobileMenu = document.getElementById("mobileMenu");
 		if (mobileMenu) mobileMenu.setAttribute("aria-expanded", "false");
 		for (const panel of document.querySelectorAll(".view-panel")) {
@@ -6566,7 +6647,8 @@ const webClientShellHTML = `<!doctype html>
       for (const button of document.querySelectorAll(".o_cp_switch_buttons .o_switch_view")) {
         const isKanban = button.classList.contains("o_kanban");
         const isList = button.classList.contains("o_list");
-        button.classList.toggle("active", (workbench.activeView === "kanban" && isKanban) || (workbench.activeView !== "kanban" && isList));
+        const isForm = button.classList.contains("o_form");
+        button.classList.toggle("active", (workbench.activeView === "kanban" && isKanban) || (workbench.activeView === "form" && isForm) || (workbench.activeView !== "kanban" && workbench.activeView !== "form" && isList));
       }
     }
 
@@ -6705,6 +6787,13 @@ const webClientShellHTML = `<!doctype html>
       appPanel.innerHTML = '<div class="o-app-shell o_home_menu"><div class="o-app-search"><label><span class="sr-only">Search apps</span><input id="appSearch" class="o_searchview_input" placeholder="Search apps"></label></div><div id="appGrid" class="app-grid o_apps"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div>';
       main.insertBefore(appPanel, modelPanel);
 
+      const settingsPanel = document.createElement("section");
+      settingsPanel.id = "settingsView";
+      settingsPanel.className = "panel view-panel o_form_view o_settings_view";
+      settingsPanel.dataset.view = "settings";
+      settingsPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="settingsSave" class="btn btn-primary o_form_button_save">Save</button><button id="settingsDiscard" class="btn btn-secondary o_form_button_cancel">Discard</button></div><h2 class="o_breadcrumb active">Settings</h2></div><div class="o_control_panel_actions"><div class="o_cp_searchview d-flex input-group" role="search"><div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list"><button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button><div class="o_searchview_input_container"><label class="field"><span class="sr-only">Search settings</span><input id="settingsSearch" class="o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0" placeholder="Search..." role="searchbox"></label></div></div><button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button></div></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap" id="settingsPager"></div></div></div></div><div class="o_settings_content o_form_sheet_bg"><div id="settingsBlocks" class="o_settings_container"></div></div>';
+      main.insertBefore(settingsPanel, modelPanel);
+
       const modulePanel = document.createElement("section");
       modulePanel.id = "installView";
       modulePanel.className = "panel view-panel o-list-view";
@@ -6722,6 +6811,8 @@ const webClientShellHTML = `<!doctype html>
       document.getElementById("reloadApps").addEventListener("click", loadInstallApps);
       document.getElementById("moduleSearch").addEventListener("input", loadInstallApps);
       document.getElementById("appSearch").addEventListener("input", () => renderApps(workbench.menus));
+      document.getElementById("settingsSearch").addEventListener("input", () => renderSettingsView(workbench.action || {}));
+      document.getElementById("settingsDiscard").addEventListener("click", () => renderSettingsView(workbench.action || {}));
       document.getElementById("appSearch").addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
         const cards = Array.from(document.querySelectorAll("#appGrid .o_app"));
@@ -6740,8 +6831,11 @@ const webClientShellHTML = `<!doctype html>
     function showRecordForm(active) {
       const recordPanel = document.getElementById("recordPanel");
       if (recordPanel) recordPanel.hidden = !active;
+      if (recordPanel) recordPanel.classList.toggle("active", active);
       const listContent = document.querySelector("#recordsView > .o-list-content");
       if (listContent) listContent.hidden = active;
+      const listControl = document.querySelector("#recordsView > .o-control-panel");
+      if (listControl) listControl.hidden = active;
       const listToolbar = document.querySelector("#recordsView > .o-control-panel .toolbar");
       if (listToolbar) listToolbar.hidden = active;
     }
@@ -6804,6 +6898,8 @@ const webClientShellHTML = `<!doctype html>
         topButton.type = "button";
         topButton.className = "o_nav_entry";
         topButton.textContent = child.name || "Menu";
+        topButton.dataset.menuId = String(child.id);
+        if (child.xmlid) topButton.dataset.menuXmlid = child.xmlid;
         topButton.addEventListener("click", () => openMenu(child.id));
         topMenu.append(topButton);
       }
@@ -6814,6 +6910,11 @@ const webClientShellHTML = `<!doctype html>
         item.append(left);
         moduleHost.append(item);
       }
+    }
+
+    function navigationMenuFor(menu) {
+      if (!menu || (menu.children || []).length || !menuHasDirectAction(menu)) return menu;
+      return menuEntry(menu.parent_id) || menu;
     }
 
     function menuEntry(menuID) {
@@ -6850,12 +6951,160 @@ const webClientShellHTML = `<!doctype html>
     }
 
     function appSearchText(menu) {
-      const parts = [cleanAppName(menu && menu.name)];
-      for (const childID of (menu && menu.children) || []) {
-        const child = menuEntry(childID);
-        if (child && child.name) parts.push(cleanAppName(child.name));
-      }
+      const parts = [];
+      collectMenuSearchText(menu, parts, new Set());
       return parts.join(" ").toLowerCase();
+    }
+
+    function collectMenuSearchText(menu, parts, seen) {
+      if (!menu || seen.has(menu.id)) return;
+      seen.add(menu.id);
+      if (menu.name) parts.push(cleanAppName(menu.name));
+      for (const childID of menu.children || []) {
+        collectMenuSearchText(menuEntry(childID), parts, seen);
+      }
+    }
+
+    function menuPath(menu) {
+      const names = [];
+      let current = menu;
+      const seen = new Set();
+      while (current && current.id && !seen.has(current.id)) {
+        seen.add(current.id);
+        if (current.name) names.unshift(cleanAppName(current.name));
+        current = menuEntry(current.parent_id);
+      }
+      return names.join(" / ");
+    }
+
+    function allMenuEntries(payload) {
+      const entries = [];
+      const ids = Array.isArray(payload && payload.all_menu_ids) ? payload.all_menu_ids : Object.keys(payload || {});
+      const seen = new Set();
+      for (const rawID of ids) {
+        const menu = menuEntry(rawID);
+        if (!menu || seen.has(menu.id)) continue;
+        seen.add(menu.id);
+        entries.push(menu);
+      }
+      return entries.sort((left, right) => {
+        const leftPath = menuPath(left);
+        const rightPath = menuPath(right);
+        return leftPath.localeCompare(rightPath);
+      });
+    }
+
+    function matchingActionMenus(payload, needle) {
+      if (!needle) return [];
+      return allMenuEntries(payload).filter((menu) => {
+        if (!menuHasDirectAction(menu)) return false;
+        return menuPath(menu).toLowerCase().includes(needle);
+      });
+    }
+
+    function menuHasDirectAction(menu) {
+      return Boolean(menu && (menu.hasDirectAction || menu.directActionID));
+    }
+
+    function findActionMenu(names) {
+      const lowered = names.map((name) => cleanAppName(name).toLowerCase());
+      return allMenuEntries(workbench.menus).find((menu) => {
+        if (!menuHasDirectAction(menu)) return false;
+        const name = cleanAppName(menu.name).toLowerCase();
+        return lowered.includes(name);
+      }) || null;
+    }
+
+    function renderSettingsView(action) {
+      const host = document.getElementById("settingsBlocks");
+      if (!host) return;
+      host.replaceChildren();
+      const needle = ((document.getElementById("settingsSearch") || {}).value || "").toLowerCase();
+      const sections = [
+        {
+          title: "Users & Companies",
+          entries: [
+            {label: "Users", names: ["Users"]},
+            {label: "Groups", names: ["Groups"]},
+            {label: "Companies", names: ["Companies"]}
+          ]
+        },
+        {
+          title: "Technical",
+          entries: [
+            {label: "Server Actions", names: ["Server Actions"]},
+            {label: "Automated Actions", names: ["Automated Actions", "Automation Rules"]},
+            {label: "Scheduled Actions", names: ["Scheduled Actions"]},
+            {label: "Views", names: ["Views"]},
+            {label: "Models", names: ["Models"]},
+            {label: "Access Rights", names: ["Access Rights"]},
+            {label: "Record Rules", names: ["Record Rules"]},
+            {label: "Outgoing Mail Servers", names: ["Outgoing Mail Servers", "Mail Servers"]},
+            {label: "Email Templates", names: ["Email Templates"]}
+          ]
+        },
+        {
+          title: "Apps",
+          entries: [
+            {label: "Apps", names: ["Apps", "Modules"]},
+            {label: "AI", names: ["AI", "AI Settings"]}
+          ]
+        }
+      ];
+      let visibleCount = 0;
+      for (const section of sections) {
+        const block = document.createElement("section");
+        block.className = "app_settings_block";
+        block.dataset.string = section.title;
+        const heading = document.createElement("h3");
+        heading.textContent = section.title;
+        const grid = document.createElement("div");
+        grid.className = "o_setting_grid";
+        for (const entry of section.entries) {
+          const menu = findActionMenu(entry.names);
+          const searchText = (section.title + " " + entry.label + " " + entry.names.join(" ")).toLowerCase();
+          if (needle && !searchText.includes(needle)) continue;
+          const box = document.createElement("div");
+          box.className = "o_setting_box";
+          box.dataset.setting = appKey(entry.label);
+          const left = document.createElement("div");
+          left.className = "o_setting_left_pane";
+          const right = document.createElement("div");
+          right.className = "o_setting_right_pane";
+          const label = document.createElement("span");
+          label.className = "o_form_label";
+          label.textContent = entry.label;
+          const description = document.createElement("span");
+          description.className = "text-muted";
+          description.textContent = menu ? menuPath(menu) : "Not available";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn btn-secondary o_setting_action";
+          button.textContent = menu ? "Open" : "Unavailable";
+          button.disabled = !menu;
+          if (menu) {
+            button.dataset.menuId = String(menu.id);
+            if (menu.xmlid) button.dataset.menuXmlid = menu.xmlid;
+            button.addEventListener("click", () => openMenu(menu.id));
+          }
+          right.append(label, description, button);
+          box.append(left, right);
+          grid.append(box);
+          visibleCount++;
+        }
+        if (grid.children.length) {
+          block.append(heading, grid);
+          host.append(block);
+        }
+      }
+      if (!host.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "o_view_nocontent";
+        empty.textContent = "No settings found";
+        host.append(empty);
+      }
+      const pager = document.getElementById("settingsPager");
+      if (pager) pager.textContent = visibleCount ? "1-" + visibleCount + " / " + visibleCount : "0 / 0";
     }
 
     function normalizedApps(payload) {
@@ -6903,6 +7152,12 @@ const webClientShellHTML = `<!doctype html>
         icon.dataset.iconToken = appIconToken(name);
         icon.textContent = app.initials || appInitials(name);
         button.querySelector("strong").textContent = name;
+        if (app.subtitle) {
+          const path = document.createElement("small");
+          path.className = "o_app_path";
+          path.textContent = app.subtitle;
+          button.append(path);
+        }
         button.addEventListener("click", clickHandler);
         grid.append(button);
         found++;
@@ -6911,6 +7166,17 @@ const webClientShellHTML = `<!doctype html>
       for (const app of apps) {
         if (needle && !app.searchText.includes(needle)) continue;
         appendAppCard(app, () => openMenu(app.menu.id));
+      }
+      if (needle) {
+        for (const menu of matchingActionMenus(payload, needle).slice(0, 24)) {
+          const path = menuPath(menu);
+          appendAppCard({
+            name: menu.name || path,
+            key: "menu-" + menu.id,
+            initials: appInitials(menu.name || path),
+            subtitle: path
+          }, () => openMenu(menu.id));
+        }
       }
       if ((!needle || "apps".includes(needle)) && !apps.some((app) => app.key === "apps")) {
         appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {
@@ -6931,21 +7197,33 @@ const webClientShellHTML = `<!doctype html>
       const menu = menuEntry(menuID);
       if (!menu) return;
       document.getElementById("menuStatus").textContent = menu.name;
-      renderSidebarMenu(menu);
+      const navigationMenu = navigationMenuFor(menu);
+      renderSidebarMenu(navigationMenu);
       const list = document.getElementById("menuList");
       list.replaceChildren();
-      for (const childID of menu.children || []) {
+      function appendMenuButton(childID, depth) {
         const child = menuEntry(childID);
-        if (!child) continue;
+        if (!child) return;
         const button = document.createElement("button");
         button.type = "button";
-        button.className = child.actionID ? "" : "secondary";
+        button.className = menuHasDirectAction(child) ? "o_menuitem" : "secondary o_menu_section";
         button.textContent = child.name || "Menu";
+        button.dataset.menuId = String(child.id);
+        if (child.xmlid) button.dataset.menuXmlid = child.xmlid;
+        button.style.marginLeft = Math.min(depth, 4) * 12 + "px";
         button.addEventListener("click", () => openMenu(child.id));
         list.append(button);
+        for (const grandchildID of child.children || []) {
+          appendMenuButton(grandchildID, depth + 1);
+        }
       }
-      if (menu.actionID) {
+      for (const childID of navigationMenu.children || []) {
+        appendMenuButton(childID, 0);
+      }
+      if (menuHasDirectAction(menu)) {
         await openAction(menu.actionID);
+      } else if ((menu.children || []).length) {
+        setView("apps");
       }
     }
 
@@ -6959,6 +7237,11 @@ const webClientShellHTML = `<!doctype html>
           workbench.action = action;
           workbench.openedRecord = null;
           document.getElementById("recordSearch").value = "";
+          if (model === "res.config.settings") {
+            renderSettingsView(action);
+            setView("settings");
+            return;
+          }
           ensureModelOption(model);
           modelSelect.value = model;
           if (action.limit) document.getElementById("limit").value = String(action.limit);
@@ -7293,8 +7576,8 @@ const webClientShellHTML = `<!doctype html>
       host.replaceChildren();
       if (!Array.isArray(rows) || rows.length === 0) {
         const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent = "No rows.";
+        empty.className = "o_view_nocontent";
+        empty.textContent = "No records";
         host.append(empty);
         const pager = document.getElementById("recordPager");
         if (pager) pager.textContent = "0 / 0";
@@ -7540,6 +7823,8 @@ const webClientShellHTML = `<!doctype html>
       button.addEventListener("click", async () => {
         if (button.classList.contains("o_form")) {
           const first = document.querySelector("#rows tr[data-id], #rows .o_kanban_record[data-id]");
+          workbench.activeView = "form";
+          updateViewSwitchButtons();
           if (first && first.dataset.id) await openRecord(modelSelect.value, first.dataset.id);
           return;
         }
@@ -18309,6 +18594,7 @@ func flattenMenuNode(node menu.Node, appID int64, payload map[string]any, legacy
 		childIDs = append(childIDs, child.Menu.ID)
 	}
 	actionID, actionModel, actionPath := menuEffectiveAction(node, actions)
+	directActionID := node.Menu.ActionID
 	webIcon := falseIfEmpty(node.Menu.WebIcon)
 	webIconData := falseIfEmpty(node.Menu.WebIconData)
 	if node.Menu.ID == appID && webIconData == false && node.Menu.WebIcon == "" {
@@ -18321,6 +18607,8 @@ func flattenMenuNode(node menu.Node, appID int64, payload map[string]any, legacy
 		"appID":               appID,
 		"xmlid":               node.Menu.XMLID,
 		"actionID":            falseIfZero(actionID),
+		"directActionID":      falseIfZero(directActionID),
+		"hasDirectAction":     directActionID != 0,
 		"actionModel":         falseIfEmpty(actionModel),
 		"actionPath":          falseIfEmpty(actionPath),
 		"webIcon":             webIcon,

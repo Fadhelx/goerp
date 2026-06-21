@@ -11391,6 +11391,13 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`.o_searchview_icon::before`,
 		`.o_searchview_dropdown_toggler::before`,
 		`o_app_launcher`,
+		`settingsPanel.id = "settingsView";`,
+		`settingsPanel.className = "panel view-panel o_form_view o_settings_view";`,
+		`id="settingsBlocks" class="o_settings_container"`,
+		`block.className = "app_settings_block";`,
+		`box.className = "o_setting_box";`,
+		`button.className = "btn btn-secondary o_setting_action";`,
+		`if (model === "res.config.settings")`,
 		`button.className = "app-card o_app has-icon"`,
 		`recordPanel.className = "panel record-panel o_form_view"`,
 		`class="record-grid o-form-sheet o_form_sheet"`,
@@ -11415,11 +11422,21 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`class="o-systray-item o_user_menu o-user-menu-button dropdown-toggle"`,
 		`class="oe_topbar_name"`,
 		`topButton.className = "o_nav_entry";`,
+		`topButton.dataset.menuId = String(child.id);`,
+		`function navigationMenuFor(menu)`,
 		`function normalizedApps(payload)`,
+		`function collectMenuSearchText(menu, parts, seen)`,
+		`function matchingActionMenus(payload, needle)`,
+		`function menuHasDirectAction(menu)`,
+		`function findActionMenu(names)`,
+		`function renderSettingsView(action)`,
 		`const seen = new Map();`,
 		`button.dataset.appName = name;`,
 		`button.dataset.appKey = app.key || appKey(name);`,
+		`path.className = "o_app_path";`,
 		`icon.dataset.iconToken = appIconToken(name);`,
+		`button.className = menuHasDirectAction(child) ? "o_menuitem" : "secondary o_menu_section";`,
+		`if (child.xmlid) button.dataset.menuXmlid = child.xmlid;`,
 		`appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => {`,
 		`function moduleDisplayName(name)`,
 		`const seenModules = new Set();`,
@@ -11437,6 +11454,9 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`out.push([actionSearchViewID(action), "search"])`,
 		`workbench.action = null;`,
 		`showRecordForm(false)`,
+		`if (listControl) listControl.hidden = active;`,
+		`workbench.activeView = "form";`,
+		`empty.className = "o_view_nocontent";`,
 		`const listNodes = viewArchFieldNodes(listView.arch);`,
 		`workbench.listFieldAttrs = fieldAttrMap(listNodes);`,
 		`workbench.listViewAttrs = viewRootAttrs(listView.arch, "list");`,
@@ -11850,9 +11870,15 @@ func TestWebclientLoadMenusOdooShape(t *testing.T) {
 	if settings["name"] != "Settings" || settings["appID"] != float64(1) || settings["actionID"] != float64(1) || settings["actionModel"] != "ir.actions.act_window" || settings["actionPath"] != "partners" || settings["xmlid"] != "base.menu_settings" {
 		t.Fatalf("settings = %#v", settings)
 	}
+	if settings["hasDirectAction"] != false || settings["directActionID"] != false {
+		t.Fatalf("settings direct action = %#v", settings)
+	}
 	partners := payload["2"].(map[string]any)
 	if partners["actionID"] != float64(1) || partners["action"] != "ir.actions.act_window,base.action_partner" || partners["parent_id"] != float64(1) || partners["webIconData"] != "iVBORw0KGgo=" || partners["webIconDataMimetype"] != "image/png" {
 		t.Fatalf("partners = %#v", partners)
+	}
+	if partners["hasDirectAction"] != true || partners["directActionID"] != float64(1) {
+		t.Fatalf("partners direct action = %#v", partners)
 	}
 	children := payload["children"].(map[string]any)
 	if children["2"].(map[string]any)["actionModel"] != "ir.actions.act_window" {

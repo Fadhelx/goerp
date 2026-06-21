@@ -1,146 +1,78 @@
 # UI Parity Master Report
 
 Date: 2026-06-21
-Scope: Odoo 19 reference at `http://127.0.0.1:8071/odoo` versus GoERP at `http://127.0.0.1:8069/web`.
-Accounting: skipped.
-Output constraint: only this report file was created.
+Scope: GoERP web UI versus Odoo 19 web UI.
+Accounting: excluded. Phase 2 only.
+Reference input: `/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo`.
 
-## Live Availability
+## Current Status
 
-| Target | Result |
-| --- | --- |
-| Odoo 19 reference | Listening on `127.0.0.1:8071`; `/odoo` redirects to `/web/login?redirect=%2Fodoo%3F`. |
-| GoERP | Not listening on `127.0.0.1:8069`; browser and curl both returned connection refused. |
-
-Evidence:
-
-- `curl -I http://127.0.0.1:8071/odoo` returned `303 SEE OTHER` to `/web/login?redirect=%2Fodoo%3F`.
-- `lsof -nP -iTCP:8071 -sTCP:LISTEN` showed Python process `PID 14063`.
-- `curl -I http://127.0.0.1:8069/web` failed with connection refused.
-- `lsof -nP -iTCP:8069 -sTCP:LISTEN` returned no listener.
-
-## Screenshots And Observations
-
-Odoo reference screenshot captured:
-
-- Visible page: login screen, not authenticated webclient.
-- Layout: centered auth card, soft geometric background, logo placeholder, email/password fields, password visibility button, primary purple login button, signup/passkey options, database manager link, `Powered by Odoo`.
-- Live DOM text: `Email`, `Choose a user`, `Password`, `Reset Password`, `Log in`, `Use a Passkey`, `Manage Databases`, `Powered by Odoo`.
-- Live classes observed on login include `o_home_menu_background`, `oe_login_form`, `o_login_auth`, `o_database_list`, `o_show_password`, `o_caps_lock_warning`, `o_main_components_container`, `o_overlay_container`, `o_notification_manager`.
-
-GoERP screenshot not captured:
-
-- `http://127.0.0.1:8069/web` refused connection.
-- No live GoERP DOM could be compared in this run.
-
-## Selector Match Matrix
-
-Source-level match verified against GoERP source and allowed Odoo 19 reference tree. Live GoERP verification is blocked until port `8069` is running.
-
-| Selector/Class | GoERP source | Odoo 19 reference source |
+| Area | Status | Evidence |
 | --- | --- | --- |
-| `o_web_client` | yes | yes |
-| `o_main_navbar` | yes | yes |
-| `o_menu_toggle` | yes | yes |
-| `o_menu_toggle_icon` | yes | yes |
-| `o_navbar_apps_menu` | yes | yes |
-| `o_menu_systray` | yes | yes |
-| `o_action_manager` | yes | yes |
-| `o_control_panel` | yes | yes |
-| `o_control_panel_main` | yes | yes |
-| `o_control_panel_main_buttons` | yes | yes |
-| `o_control_panel_breadcrumbs` | yes | yes |
-| `o_control_panel_actions` | yes | yes |
-| `o_control_panel_navigation` | yes | yes |
-| `o_cp_pager` | yes | yes |
-| `o_pager` | yes | yes |
-| `o_searchview` | yes | yes |
-| `o_searchview_input_container` | yes | yes |
-| `o_searchview_input` | yes | yes |
-| `o_searchview_dropdown_toggler` | yes | yes |
-| `o_app` | yes | yes |
-| `o_app_icon` | yes | yes |
-| `o_list_view` | yes | yes |
-| `o_form_view` | yes | yes |
-| `o_form_sheet` | yes | yes |
+| Odoo reference | Available for source/runtime inspection | `odoo-bin --version` returns `Odoo Server 19.0`. |
+| GoERP local | Pass | Fresh local server on `127.0.0.1:8073`; `/web` returned `102537` bytes. |
+| GoERP production | Pass, prior deployed build | `https://api.fadhelalqaidoomxyz.xyz/web` returned `200 OK` through nginx. |
+| Shell identity | Pass | Title `Odoo`; `.o_web_client`, `.o_main_navbar`, `.o_action_manager` present. |
+| App launcher | Partial pass | App tiles: Approvals, Delegation, Settings, Apps. Nested action search improved locally. |
+| Settings | Improved locally | Settings now opens `settingsView`, `3` settings blocks, `14` setting boxes. |
+| Technical menus | Pass | Technical categories and direct actions reachable. |
+| List view | Partial pass | Server Actions list: `20` rows, pager `1-20 / 20`. |
+| Kanban view | Partial pass | Ungrouped kanban renderer and cards present. |
+| Form view | Improved locally | Form switch active, record form visible, one active form control panel. |
+| Mobile | Partial pass | `390x844` verified by subagent: app tiles visible, menu toggle present, no horizontal overflow. |
 
-Non-matches from the same bounded scan:
+## Implemented In This Slice
 
-- `o_kanban_renderer`: present in Odoo 19 reference source; missing in GoERP source.
-- `o_app_launcher`: present in GoERP source; not found in the Odoo 19 reference source scan.
-- `o_app_name`: present in GoERP source; not found in the Odoo 19 reference source scan.
+- Added an Odoo-like Settings surface in `/web`.
+- Added settings blocks for Users & Companies, Technical, Apps, and AI.
+- Wired settings actions to existing menu/action records instead of showing an empty generic list.
+- Added recursive Technical menu/action discoverability from the app launcher search.
+- Added direct-action menu metadata to menu payloads.
+- Fixed form view state so Form becomes the active switch and the list control panel hides while the record form is open.
+- Changed empty list state to use `o_view_nocontent`.
 
-## Visible Gaps
+## Remaining Gaps
 
-P0 gaps:
+P0:
 
-- GoERP is unavailable locally on `127.0.0.1:8069`; normal-user UI testing cannot start.
-- Odoo reference is blocked at login; authenticated Odoo 19 webclient parity cannot be compared without a valid session.
-- GoERP cannot yet prove live parity for navbar, app launcher, list, form, control panel, settings, technical menus, app install flow, or record open flow in this run.
+1. Replace production inline `/web` shell with the bundled TS/OWL-style webclient runtime.
+2. Implement real Odoo action stack: route state, breadcrumbs, action container, nested dialogs, target `new/current/main`.
+3. Implement full control panel search model: filters, group by, favorites, saved filters, suggestions.
+4. Implement Settings form parity: real configuration fields, app sidebar, unsaved changes, save/discard semantics.
+5. Implement form renderer parity: groups, notebooks, modifiers, onchanges, x2many editors, field widgets.
 
-P1 gaps:
+P1:
 
-- GoERP needs an Odoo-like login/auth screen for unauthenticated access if `/web` is not public.
-- GoERP source still contains local shell classes such as `gorp-navbar`, `gorp-action`, and `o-launcher-button`; these do not block selectors, but they indicate the UI is still a custom shell layer.
-- App launcher parity is partial. Need Odoo-style app grid behavior, app menu grouping, active app menu state, search, icons, and Settings/Apps entry behavior.
-- Navbar parity is partial. Need real app switcher menu behavior, company switcher, user menu, systray dropdowns, notification/activity counters, and keyboard behavior.
-- Control panel parity is partial. Need real search model dropdowns, filters, group-bys, favorites, pager totals, view switcher state, and breadcrumbs tied to route/action state.
-- View parity is partial. Need full list renderer behavior, form renderer widgets, statusbar, chatter/activity side panel, relational widgets, dialogs, modals, and `o_kanban_renderer`.
-- Theme parity is partial. Need final Odoo Enterprise-like spacing, typography, colors, borders, hover states, empty states, and mobile behavior using provenance-safe generated assets only.
+1. Complete list renderer: row selection actions, sorting, optional columns, inline edit.
+2. Complete kanban renderer: grouped columns, card templates, quick create, drag/drop, progress bars, record menus.
+3. Implement systray dropdowns: messages, activities, company switcher, user menu, debug menu.
+4. Add dialog/notification service parity: modal stack, confirmation dialogs, export/import dialogs, toasts.
+5. Replace initials-based app icons with provenance-safe generated or licensed icon assets.
 
-P2 gaps:
+P2:
 
-- Need screenshot regression coverage for `/web`, app launcher, Settings, Apps install/update, technical menus, list view, form view, create/edit/save/discard, search dropdown, user menu, systray, and mobile width.
-- Need CI job that fails when key Odoo selectors disappear.
-- Need browser report artifact that records exact URL, viewport, screenshot, selector counts, and console errors.
+1. Add screenshot regression suite for app launcher, Settings, Technical menus, list, kanban, form, dialogs, and mobile.
+2. Add production smoke that verifies selector counts after each deploy.
+3. Add Odoo reference comparison captures when an authenticated reference session is available.
 
-## Prioritized Implementation Tasks
+## Recommended Agent Assignments
 
-1. Restore local GoERP availability on `127.0.0.1:8069` and add a health check for `/web`.
-2. Provide or create a valid Odoo 19 reference session on `127.0.0.1:8071` before visual parity comparison.
-3. Add GoERP unauthenticated login page parity with Odoo login selectors and layout.
-4. Replace remaining inline/custom shell behavior with the shared OWL-style webclient/action-manager path.
-5. Implement real app launcher and Settings/Apps workflows: app grid, module install/update buttons, Settings entry, Technical menus.
-6. Complete navbar/systray parity: app switcher, company menu, user menu, messages, activities, counters, dropdown panels.
-7. Complete control panel parity: Odoo search model, filters, group-bys, favorites, pager totals, view switcher, action breadcrumbs.
-8. Complete renderer parity: list, form, kanban, chatter, statusbar, relational fields, dialogs, modals, notifications.
-9. Add `o_kanban_renderer` implementation and tests.
-10. Add automated browser visual checks against both live Odoo and GoERP once both sessions are available.
+1. `runtime-shell-worker`: replace inline `/web` with TS webclient bundle; own `internal/http/server.go`, frontend build integration, web assets.
+2. `search-control-worker`: implement search model/dropdowns/favorites; own `frontend/packages/webclient/src/search/**` and control panel tests.
+3. `settings-worker`: implement real Settings form renderer and save/discard; own settings view files and `res.config.settings` UI contracts.
+4. `renderer-worker`: finish list/form/kanban parity; own renderer code and focused view tests.
+5. `systray-dialog-worker`: implement systray dropdowns, dialog service, notifications; own navbar/dialog files.
+6. `visual-regression-worker`: create browser screenshot checks for local/prod/reference parity.
 
-## Verification Steps
+## Verification Run
 
-Run after GoERP and Odoo reference are both available:
+Passed:
 
-1. Check listeners:
-   - `curl -sS -I http://127.0.0.1:8069/web`
-   - `curl -sS -I http://127.0.0.1:8071/odoo`
-2. Open Odoo reference and authenticate.
-3. Open GoERP `/web`.
-4. Capture desktop screenshots at `1280x720` for:
-   - Odoo app launcher
-   - GoERP app launcher
-   - Odoo Settings/Apps
-   - GoERP Settings/Apps
-   - Odoo list view
-   - GoERP list view
-   - Odoo form view
-   - GoERP form view
-5. Assert GoERP selector counts for:
-   - `.o_web_client`
-   - `.o_main_navbar`
-   - `.o_action_manager`
-   - `.o_control_panel`
-   - `.o_control_panel_main`
-   - `.o_menu_systray`
-   - `.o_searchview`
-   - `.o_list_view`
-   - `.o_form_view`
-   - `.o_kanban_renderer`
-6. Verify no visible custom branding/classes leak into user-facing text: `GoERP`, `Gorp`, `Developer RPC`, `Build dashboard`.
-7. Run focused frontend checks:
-   - `pnpm -C frontend typecheck`
-   - `pnpm -C frontend lint`
-   - `pnpm -C frontend test`
-   - `pnpm -C frontend build`
-8. Run project CI before claiming implementation complete:
-   - `make ci`
+- `go test -timeout=10m ./internal/http -run 'TestWebAliasesAndAssets|TestWebclientLoadMenusOdooShape|TestActionLoadOdooShapeAndJSONRPC|TestActionLoadNormalizesWindowDomainContextForWebShell|TestWebShellActionMetadataNormalizesPythonLiterals|TestCallKWGetViewsOdooShape|TestCallKWGetViewsToolbarBindings' -count=1`
+- Browser local `127.0.0.1:8073/web`: Settings panel rendered `3` blocks and `14` setting boxes.
+- Browser local `127.0.0.1:8073/web`: Server Actions list -> Kanban -> Form rendered one active form control panel and active switch `Form`.
+- `make ci`
+
+Pending:
+
+- Production deploy of this local UI slice.

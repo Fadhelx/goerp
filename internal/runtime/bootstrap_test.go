@@ -4490,7 +4490,7 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 
 	body = getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
-	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Technical", "Server Actions", "Scheduled Actions", "Automation Rules", "Access Rights", "Record Rules"} {
+	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Users", "Groups", "Technical", "Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages", "Apps"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("menu response missing %s: %s", want, body)
 		}
@@ -4500,17 +4500,49 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	if settingsMenu["name"] != "Settings" || settingsMenu["is_app"] != true || settingsMenu["actionModel"] != "ir.actions.act_window" || int64Value(settingsMenu["actionID"]) == 0 {
 		t.Fatalf("settings menu = %+v", settingsMenu)
 	}
+	if settingsMenu["hasDirectAction"] != true || int64Value(settingsMenu["directActionID"]) == 0 {
+		t.Fatalf("settings direct action = %+v", settingsMenu)
+	}
 	technicalMenu := runtimeMenuByXMLID(menuPayload, "base.menu_technical")
 	if technicalMenu["name"] != "Technical" || int64Value(technicalMenu["parent_id"]) != int64Value(settingsMenu["id"]) {
 		t.Fatalf("technical menu = %+v settings=%+v", technicalMenu, settingsMenu)
+	}
+	if technicalMenu["hasDirectAction"] != false || technicalMenu["directActionID"] != false {
+		t.Fatalf("technical direct action = %+v", technicalMenu)
 	}
 	serverActionsMenu := runtimeMenuByXMLID(menuPayload, "base.menu_ir_actions_server")
 	if serverActionsMenu["name"] != "Server Actions" || serverActionsMenu["actionModel"] != "ir.actions.act_window" || int64Value(serverActionsMenu["actionID"]) == 0 || int64Value(serverActionsMenu["parent_id"]) == 0 {
 		t.Fatalf("server actions menu = %+v", serverActionsMenu)
 	}
+	if serverActionsMenu["hasDirectAction"] != true || int64Value(serverActionsMenu["directActionID"]) == 0 {
+		t.Fatalf("server actions direct action = %+v", serverActionsMenu)
+	}
 	recordRulesMenu := runtimeMenuByXMLID(menuPayload, "base.menu_ir_rule")
 	if recordRulesMenu["name"] != "Record Rules" || recordRulesMenu["actionModel"] != "ir.actions.act_window" || int64Value(recordRulesMenu["actionID"]) == 0 {
 		t.Fatalf("record rules menu = %+v", recordRulesMenu)
+	}
+	for _, item := range []struct {
+		xmlid string
+		name  string
+	}{
+		{"base.menu_users_users", "Users"},
+		{"base.menu_users_groups", "Groups"},
+		{"base.menu_ir_ui_view", "Views"},
+		{"base.menu_ir_ui_menu", "Menu Items"},
+		{"base.menu_ir_model", "Models"},
+		{"base.menu_ir_model_fields", "Fields"},
+		{"base.menu_ir_model_access", "Access Rights"},
+		{"base.menu_mail_template", "Email Templates"},
+		{"base.menu_ir_mail_server", "Outgoing Mail Servers"},
+		{"base.menu_fetchmail_server", "Incoming Mail Servers"},
+		{"base.menu_mail_mail", "Emails"},
+		{"base.menu_mail_message", "Messages"},
+		{"base.menu_ir_module_module", "Apps"},
+	} {
+		entry := runtimeMenuByXMLID(menuPayload, item.xmlid)
+		if entry["name"] != item.name || entry["actionModel"] != "ir.actions.act_window" || int64Value(entry["actionID"]) == 0 {
+			t.Fatalf("%s menu = %+v", item.xmlid, entry)
+		}
 	}
 	actionViews := postRuntimeJSONWithCookie(t, handler, "/web/dataset/call_kw", `{"model":"ir.actions.server","method":"get_views","kwargs":{"views":[[false,"list"],[false,"form"]],"options":{}}}`, sessionCookie)
 	views := runtimeMapValue(actionViews["views"])
