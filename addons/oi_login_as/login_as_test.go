@@ -133,6 +133,13 @@ func TestLoginAsManifestFixtures(t *testing.T) {
 	}
 }
 
+func TestLoginAsDefaultConfigEnablesSourceDebugRoute(t *testing.T) {
+	config := DefaultConfig()
+	if !config.DebugRouteEnabled || config.DebugRoute != "/web/become/debug" || config.SystemUserID != 1 {
+		t.Fatalf("debug config = %+v", config)
+	}
+}
+
 func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 	baseDir := packageDir(t)
 	env := loginAsFixtureEnv(t)
@@ -478,6 +485,7 @@ func assertAccessCSVFixture(t *testing.T, rel string, raw []byte) {
 
 func assertOwlTemplateFixture(t *testing.T, rel string, raw []byte) {
 	t.Helper()
+	text := string(raw)
 	var doc owlTemplateDoc
 	if err := xml.Unmarshal(raw, &doc); err != nil {
 		t.Fatalf("parse %s: %v", rel, err)
@@ -487,6 +495,16 @@ func assertOwlTemplateFixture(t *testing.T, rel string, raw []byte) {
 	}
 	for _, template := range doc.Templates {
 		if template.Name == "oi_login_as.LoginAs" {
+			if rel == "static/src/login_as/login_as.xml" {
+				for _, want := range []string{`t-on-click.prevent="_onClick"`, `t-if="impersonate"`, `title="Login back"`, `fa fa-user-secret`, `t-else=""`, `title="Login As"`, `fa fa-user`} {
+					if !strings.Contains(text, want) {
+						t.Fatalf("%s missing source template marker %q", rel, want)
+					}
+				}
+				if strings.Contains(text, "oi_login_as_stop") || strings.Contains(text, "o_menu_systray_item") {
+					t.Fatalf("%s kept non-source systray template markers", rel)
+				}
+			}
 			return
 		}
 	}
@@ -499,11 +517,31 @@ func assertOdooJSFixture(t *testing.T, rel string, raw []byte) {
 	if !strings.Contains(text, "@odoo-module") {
 		t.Fatalf("%s missing odoo module marker", rel)
 	}
-	if !strings.Contains(text, "login.as") && !strings.Contains(text, "Login As") {
+	if rel != "static/src/login_as/debug_menu_items.js" && !strings.Contains(text, "login.as") && !strings.Contains(text, "Login As") {
 		t.Fatalf("%s missing login-as intent", rel)
 	}
 	if rel == "static/src/login_as/login_as.js" && !strings.Contains(text, "/web/login_back") {
 		t.Fatalf("%s missing login_back route", rel)
+	}
+	if rel == "static/src/login_as/login_as.js" {
+		for _, want := range []string{`export class LoginAs`, `static props = {}`, `get impersonate()`, `_onClick()`, `LoginAsSystrayItem`, `{ sequence: 1 }`} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("%s missing source systray marker %q", rel, want)
+			}
+		}
+		if strings.Contains(text, "oi_login_as.LoginAsSystray") || strings.Contains(text, "{ sequence: 10 }") || strings.Contains(text, "encodeURIComponent") {
+			t.Fatalf("%s kept non-source systray registration/redirect markers", rel)
+		}
+	}
+	if rel == "static/src/login_as/debug_menu_items.js" {
+		for _, want := range []string{`@web/core/debug/debug_menu_items`, `delete registry.category("debug").category("default").content.becomeSuperuser`, `/web/become/debug?redirect=${redirect}`} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("%s missing source debug marker %q", rel, want)
+			}
+		}
+		if strings.Contains(text, "oi_login_as.open_login_as_wizard") || strings.Contains(text, "encodeURIComponent") {
+			t.Fatalf("%s kept non-source debug menu markers", rel)
+		}
 	}
 }
 

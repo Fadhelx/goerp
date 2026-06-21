@@ -127,6 +127,7 @@ func DefaultConfig() impersonation.Config {
 	config.AllowInactiveGroupID = GroupLoginAsAllowInactive
 	config.AllowSuperuserGroupID = GroupLoginAsAllowSuperuser
 	config.DebugGroupID = GroupLoginAsDebug
+	config.DebugRouteEnabled = true
 	config.PortalSupport = true
 	config.SystemUserID = 1
 	return config

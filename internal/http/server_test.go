@@ -10986,6 +10986,12 @@ func TestWebAliasesAndAssets(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/odoo?debug=1", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<title>Odoo</title>") || !strings.Contains(rec.Body.String(), "o-app-launcher-view") {
+		t.Fatalf("odoo alias response %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("web shell method status %d %s", rec.Code, rec.Body.String())
@@ -16650,6 +16656,41 @@ func TestLoginAsDebugRouteSwitchesToSystemWhenEnabled(t *testing.T) {
 	}
 	if !strings.Contains(rows[0]["details"].(string), "inspect") {
 		t.Fatalf("debug audit details = %#v", rows[0])
+	}
+}
+
+func TestLoginAsDebugRouteUsesOdooDefaultRedirect(t *testing.T) {
+	server := testLoginAsAuditServer(t, 12, testDebugImpersonationService(true))
+	handler := server.Handler()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/web/become/debug?session_id=sid", nil)
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/odoo?debug=1" {
+		t.Fatalf("debug default redirect response %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	session, ok := server.Impersonation.Session("sid")
+	if !ok || !session.Impersonating || session.ReturnTo != "/odoo?debug=1" {
+		t.Fatalf("debug default session = %+v ok=%v", session, ok)
+	}
+}
+
+func TestLoginAsDebugRouteCurrentSystemUserRedirectsWithoutSwitch(t *testing.T) {
+	server := testLoginAsAuditServer(t, 1, testDebugImpersonationService(true))
+	handler := server.Handler()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/web/become/debug?session_id=sid", nil)
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/odoo?debug=1" {
+		t.Fatalf("system debug response %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if _, ok := server.Impersonation.Session("sid"); ok {
+		t.Fatal("system debug route created impersonation session")
+	}
+	rows := readLoginAsAuditRows(t, server)
+	if len(rows) != 0 {
+		t.Fatalf("system debug route wrote audit rows = %#v", rows)
 	}
 }
 

@@ -299,6 +299,13 @@ func (s *Service) Routes() []RouteDescriptor {
 	}
 }
 
+func (s *Service) IsSystemUser(userID int64) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	user, ok := s.users[userID]
+	return ok && (user.Superuser || user.ID == s.config.SystemUserID)
+}
+
 func (s *Service) Session(sessionID string) (Session, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

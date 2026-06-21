@@ -80,6 +80,8 @@ func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/web", s.webClient)
 	mux.HandleFunc("/web/", s.webClient)
+	mux.HandleFunc("/odoo", s.webClient)
+	mux.HandleFunc("/odoo/", s.webClient)
 	mux.HandleFunc("/web/health", s.health)
 	mux.HandleFunc("/web/session/info", s.sessionInfo)
 	mux.HandleFunc("/web/session/get_session_info", s.sessionInfo)
@@ -3913,7 +3915,7 @@ func (s Server) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/web" && r.URL.Path != "/web/" {
+	if r.URL.Path != "/web" && r.URL.Path != "/web/" && r.URL.Path != "/odoo" && r.URL.Path != "/odoo/" {
 		http.NotFound(w, r)
 		return
 	}
@@ -5954,9 +5956,14 @@ func (s Server) loginAsDebug(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	redirect := safeDebugRedirect(r.URL.Query().Get("redirect"))
+	if s.Impersonation.IsSystemUser(actorID) {
+		http.Redirect(w, r, redirect, http.StatusFound)
+		return
+	}
 	auditStart := s.loginAsAuditLen()
 	_, err := s.Impersonation.SwitchToSystem(sessionID, actorID, impersonation.SwitchOptions{
-		ReturnTo: safeWebRedirect(r.URL.Query().Get("redirect")),
+		ReturnTo: redirect,
 		Reason:   r.URL.Query().Get("reason"),
 	})
 	if auditErr := s.persistLoginAsAuditSince(auditStart, r); auditErr != nil {
@@ -5967,7 +5974,7 @@ func (s Server) loginAsDebug(w http.ResponseWriter, r *http.Request) {
 		writeLoginAsError(w, err)
 		return
 	}
-	http.Redirect(w, r, safeWebRedirect(r.URL.Query().Get("redirect")), http.StatusFound)
+	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
 func (s Server) callKW(w http.ResponseWriter, r *http.Request) {
@@ -16799,6 +16806,21 @@ func safeWebRedirect(value string) string {
 		return value
 	}
 	return "/web"
+}
+
+func safeDebugRedirect(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "/odoo?debug=1"
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" {
+		return "/web"
+	}
+	if value == "/odoo" || strings.HasPrefix(value, "/odoo/") || strings.HasPrefix(value, "/odoo?") || strings.HasPrefix(value, "/odoo#") {
+		return value
+	}
+	return safeWebRedirect(value)
 }
 
 func writeLoginAsError(w http.ResponseWriter, err error) {

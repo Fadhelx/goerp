@@ -7,37 +7,29 @@ import { registry } from "@web/core/registry";
 import { session } from "@web/session";
 import { user } from "@web/core/user";
 
-export class LoginAsSystray extends Component {
+export class LoginAs extends Component {
+    static props = {};
     static template = "oi_login_as.LoginAs";
 
-    get loginAs() {
-        return session.login_as || {};
+    setup() {
     }
 
-    get isImpersonating() {
-        return Boolean(
-            this.loginAs.active ||
-                session.impersonate ||
-                session.login_as_user_id ||
-                session.login_as_original_uid
-        );
+    get impersonate() {
+        return session.impersonate;
     }
 
-    get redirect() {
-        return browser.location.pathname + browser.location.search + browser.location.hash;
-    }
-
-    onClick() {
-        if (this.isImpersonating) {
+    _onClick() {
+        const redirect = browser.location.pathname + browser.location.search + browser.location.hash;
+        if (this.impersonate) {
             return this.env.services.action.doAction({
                 type: "ir.actions.act_url",
-                url: `/web/login_back?redirect=${encodeURIComponent(this.redirect)}`,
+                url: `/web/login_back?redirect=${redirect}`,
                 target: "self",
             });
         }
         return this.env.services.action.doAction({
             type: "ir.actions.act_window",
-            name: _t("Login As"),
+            name: _t("Login as"),
             res_model: "login.as",
             views: [[false, "form"]],
             target: "new",
@@ -46,10 +38,10 @@ export class LoginAsSystray extends Component {
 }
 
 registry.category("systray").add(
-    "oi_login_as.LoginAsSystray",
+    "LoginAsSystrayItem",
     {
-        Component: LoginAsSystray,
-        isDisplayed: (env) => (env.debug && user.isSystem) || Boolean(session.login_as?.active || session.impersonate),
+        Component: LoginAs,
+        isDisplayed: (env) => (env.debug && user.isSystem) || session.impersonate,
     },
-    { sequence: 10 }
+    { sequence: 1 }
 );
