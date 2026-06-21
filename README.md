@@ -60,6 +60,27 @@ Run the server shell:
 go run ./cmd/gorpd
 ```
 
+## Production Release Packaging
+
+Do not deploy `gorpd` as a binary-only artifact. Runtime bootstrap resolves the release root, then reads fixture and asset files from `internal/base` and `addons`.
+
+Build releases as source trees:
+
+```sh
+release="gorp-$(git rev-parse --short HEAD)"
+rm -rf "dist/$release"
+mkdir -p dist
+git archive --format=tar --prefix="$release/" HEAD | tar -C dist -xf -
+go build -o "dist/$release/gorpd" ./cmd/gorpd
+test -f "dist/$release/go.mod"
+test -f "dist/$release/internal/base/data/res_bank.xml"
+test -f "dist/$release/addons/oi_workflow/data/ir_cron.xml"
+(cd "dist/$release" && ./gorpd modules >/dev/null)
+tar -C dist -czf "dist/$release.tar.gz" "$release"
+```
+
+Deploy the unpacked release directory. Start `./gorpd serve` from inside that directory, or make the service working directory point at that directory.
+
 ## Agent Guidance
 
 Repo-local agent skills live in `agent_skills/`.

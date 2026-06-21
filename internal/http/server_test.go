@@ -11386,10 +11386,28 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`id="kanbanViewButton" class="btn btn-secondary o_switch_view o_kanban"`,
 		`o_searchview_input_container`,
 		`o_searchview_dropdown_toggler`,
+		`id="recordSearchFacets" class="o_searchview_facet_container"`,
+		`id="recordSearchDropdown" class="o_searchview_dropdown_toggler`,
+		`id="recordSearchMenu" class="o_search_bar_menu o_search_options dropdown-menu o-dropdown--menu" hidden`,
+		`id="recordFilterMenu"><h3>Filters</h3>`,
+		`id="recordGroupByMenu"><h3>Group By</h3>`,
+		`id="recordFavoriteMenu"><h3>Favorites</h3>`,
 		`.o_cp_searchview`,
 		`.o_searchview_input_container .field`,
 		`.o_searchview_icon::before`,
 		`.o_searchview_dropdown_toggler::before`,
+		`.o_searchview_facet_container`,
+		`.o_searchview_facet_label`,
+		`.o_facet_values`,
+		`.o_facet_remove`,
+		`.o_search_options`,
+		`.o_dropdown_container`,
+		`o_filter_menu`,
+		`o_group_by_menu`,
+		`o_favorite_menu`,
+		`.o_menu_item`,
+		`.o_grouped_list`,
+		`.o_group_header`,
 		`o_app_launcher`,
 		`settingsPanel.id = "settingsView";`,
 		`settingsPanel.className = "panel view-panel o_form_view o_settings_view";`,
@@ -11430,6 +11448,14 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`function menuHasDirectAction(menu)`,
 		`function findActionMenu(names)`,
 		`function renderSettingsView(action)`,
+		`function currentSearchState(query)`,
+		`function searchFilterItems()`,
+		`function searchGroupByItems()`,
+		`function saveCurrentFavorite()`,
+		`function renderSearchFacets()`,
+		`function renderSearchMenu()`,
+		`function toggleSearchMenu()`,
+		`function renderGroupedRows(groups, groupBy)`,
 		`const seen = new Map();`,
 		`button.dataset.appName = name;`,
 		`button.dataset.appKey = app.key || appKey(name);`,
@@ -11445,7 +11471,9 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`callKW(model, "web_search_read"`,
 		`callKW(model, "web_read"`,
 		`callKW(workbench.openedRecord.model, "web_save"`,
-		`domain: combinedDomain(actionDomain(workbench.action), document.getElementById("recordSearch").value)`,
+		`domain: combinedDomain(actionDomain(workbench.action), query)`,
+		`groupby: searchState.groupBy`,
+		`callKW(model, "web_read_group"`,
 		`context: readContext(workbench.action)`,
 		`count_limit: 10001`,
 		`action._web_context`,
@@ -11453,6 +11481,7 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`if (key.startsWith("search_default_")) delete context[key];`,
 		`out.push([actionSearchViewID(action), "search"])`,
 		`workbench.action = null;`,
+		`workbench.searchFacets = [];`,
 		`showRecordForm(false)`,
 		`if (listControl) listControl.hidden = active;`,
 		`workbench.activeView = "form";`,
@@ -11496,6 +11525,9 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		if !strings.Contains(body, needle) {
 			t.Fatalf("web client missing %q", needle)
 		}
+	}
+	if strings.Contains(body, "o_favorites_menu") {
+		t.Fatalf("web client still uses plural favorites menu selector")
 	}
 	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`, `<h1>GoERP</h1>`, `<h1>Gorp</h1>`} {
 		if strings.Contains(body, needle) {

@@ -68,7 +68,10 @@ const normalized = createControlPanelState({
   search: {
     query: "azure",
     facets: [{ id: "customers", type: "filter", label: "Customers" }]
-  }
+  },
+  filters: [{ id: "customers", label: "Customers", active: true }],
+  groupBys: [{ id: "salesperson", label: "Salesperson" }],
+  favorites: [{ id: "mine", label: "My Search" }]
 });
 assert.equal(normalized.pager.offset, 20);
 assert.equal(normalized.search.placeholder, "Search...");
@@ -90,7 +93,17 @@ assert.equal(findAll(root, (node) => node.className === "breadcrumb-item").lengt
 assert.equal(findAll(root, (node) => node.className === "breadcrumb-item active").length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_input_container")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_dropdown_toggler")).length, 1);
-assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_facet_filter"))[0].textContent, "Customers");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_search_bar_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_filter_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorites_menu")).length, 0);
+assert.equal(findAll(root, (node) => String(node.className).includes("selected"))[0].attributes["aria-checked"], "true");
+const facet = findAll(root, (node) => String(node.className).includes("o_searchview_facet_filter"))[0];
+assert.ok(facet);
+assert.equal(findAll(facet, (node) => String(node.className).includes("o_searchview_facet_label"))[0].textContent, "Filter");
+assert.equal(findAll(facet, (node) => String(node.className) === "o_facet_value")[0].textContent, "Customers");
+assert.equal(findAll(facet, (node) => String(node.className).includes("o_facet_remove")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
 

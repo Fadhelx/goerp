@@ -5811,6 +5811,122 @@ const webClientShellHTML = `<!doctype html>
 		border-right: 4px solid transparent;
 		border-top: 5px solid currentColor;
 	}
+	.o_searchview_facet_container {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 4px;
+		max-width: 52%;
+	}
+	.o_searchview_facet {
+		display: inline-flex;
+		align-items: stretch;
+		max-width: 180px;
+		border-radius: 4px;
+		background: #e9ecef;
+		color: var(--text);
+		overflow: hidden;
+	}
+	.o_searchview_facet_label {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 6px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 12px;
+	}
+	.o_searchview_facet .o_facet_values {
+		padding: 0 6px;
+		font-size: 12px;
+		line-height: 24px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.o_facet_remove {
+		width: 24px;
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	.o_search_options {
+		position: absolute;
+		z-index: 30;
+		top: calc(100% + 4px);
+		right: 0;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(160px, 1fr));
+		min-width: min(720px, calc(100vw - 32px));
+		border: 1px solid var(--line);
+		background: #fff;
+		box-shadow: 0 12px 28px rgba(15,23,42,.12);
+	}
+	.o_search_options[hidden] {
+		display: none;
+	}
+	.o_dropdown_container {
+		display: grid;
+		align-content: start;
+		gap: 4px;
+		padding: 12px;
+		border-right: 1px solid var(--line);
+	}
+	.o_dropdown_container:last-child {
+		border-right: 0;
+	}
+	.o_dropdown_container h3 {
+		margin: 0 0 6px;
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 600;
+		text-transform: uppercase;
+	}
+	.o_menu_item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		width: 100%;
+		min-height: 30px;
+		border: 0;
+		background: transparent;
+		color: var(--text);
+		text-align: left;
+	}
+	.o_menu_item:hover,
+	.o_menu_item.active {
+		background: #f2f7f7;
+		color: var(--accent);
+	}
+	.o_menu_item .o_search_check {
+		color: var(--accent);
+		font-weight: 700;
+	}
+	.o_grouped_list {
+		display: grid;
+		gap: 0;
+		border: 1px solid var(--line);
+		background: #fff;
+	}
+	.o_group_header {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		padding: 9px 12px;
+		border-bottom: 1px solid var(--line);
+		background: #f8f9fa;
+		cursor: pointer;
+	}
+	.o_group_header:hover {
+		background: #f2f7f7;
+	}
+	.o_group_name {
+		font-weight: 600;
+	}
+	.o_group_count {
+		color: var(--muted);
+		font-size: 12px;
+	}
 	.o-control-panel h2 {
 		margin: 0;
 		font-size: 18px;
@@ -5818,6 +5934,9 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-control-panel .toolbar {
 		padding: 0;
+	}
+	.o-control-panel .o_cp_searchview {
+		position: relative;
 	}
 	.o-control-panel .field {
 		min-width: 180px;
@@ -6298,9 +6417,10 @@ const webClientShellHTML = `<!doctype html>
                   Limit
                   <input id="limit" type="number" min="1" max="200" value="20">
                 </label>
-                <div class="o_cp_searchview d-flex input-group" role="search">
+                <div class="o_cp_searchview d-flex input-group" role="search" id="recordSearchRoot">
                   <div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list">
                     <button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button>
+                    <div id="recordSearchFacets" class="o_searchview_facet_container"></div>
                     <div class="o_searchview_input_container">
                       <label class="field">
                         <span class="sr-only">Search</span>
@@ -6308,7 +6428,12 @@ const webClientShellHTML = `<!doctype html>
                       </label>
                     </div>
                   </div>
-                  <button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button>
+                  <button type="button" id="recordSearchDropdown" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options" aria-expanded="false"></button>
+                  <div id="recordSearchMenu" class="o_search_bar_menu o_search_options dropdown-menu o-dropdown--menu" hidden>
+                    <div class="o_dropdown_container o_filter_menu" id="recordFilterMenu"><h3>Filters</h3></div>
+                    <div class="o_dropdown_container o_group_by_menu" id="recordGroupByMenu"><h3>Group By</h3></div>
+                    <div class="o_dropdown_container o_favorite_menu" id="recordFavoriteMenu"><h3>Favorites</h3></div>
+                  </div>
                 </div>
                 <button id="loadRows" class="secondary o-debug-only" hidden>Load</button>
               </div>
@@ -6411,10 +6536,13 @@ const webClientShellHTML = `<!doctype html>
 		workbench.kanbanFields = [];
 		workbench.formFieldAttrs = {};
 		workbench.formFields = [];
+		workbench.searchFacets = [];
 		workbench.activeView = "list";
 		workbench.openedRecord = null;
 		showRecordForm(false);
 		fieldsInput.value = defaultFields[modelSelect.value] || "id,display_name";
+		renderSearchFacets();
+		renderSearchMenu();
     });
 
     async function requestJSON(path, options) {
@@ -6481,17 +6609,7 @@ const webClientShellHTML = `<!doctype html>
       const limit = Number(document.getElementById("limit").value || 20);
       document.getElementById("rows").textContent = "Loading...";
       try {
-        const payload = await callKW(model, "web_search_read", {
-          kwargs: {
-            domain: combinedDomain(actionDomain(workbench.action), document.getElementById("recordSearch").value),
-            specification: fieldSpecification(fields),
-            limit,
-            count_limit: 10001,
-            order: "id desc",
-            context: readContext(workbench.action)
-          }
-        });
-        renderRows((payload && payload.records) || [], fields);
+        await loadSearchResults(model, fields, limit, document.getElementById("recordSearch").value);
       } catch (error) {
         if (await ensureSession(error)) return;
         document.getElementById("rows").innerHTML = "";
@@ -6506,23 +6624,44 @@ const webClientShellHTML = `<!doctype html>
       const fields = ["id", ...activeRecordFields()].filter((item, index, list) => item && list.indexOf(item) === index);
       document.getElementById("rows").textContent = "Loading...";
       try {
-        const payload = await callKW(modelSelect.value, "web_search_read", {
-          kwargs: {
-            domain: combinedDomain(actionDomain(workbench.action), value),
-            specification: fieldSpecification(fields),
-            limit: 20,
-            count_limit: 10001,
-            order: "id desc",
-            context: readContext(workbench.action)
-          }
-        });
-        renderRows((payload && payload.records) || [], fields);
+        await loadSearchResults(modelSelect.value, fields, 20, value);
         setView("records");
       } catch (error) {
         if (await ensureSession(error)) return;
         document.getElementById("rows").textContent = "Search error: " + error.message;
         setView("records");
       }
+    }
+
+    async function loadSearchResults(model, fields, limit, query) {
+      const searchState = currentSearchState(query);
+      renderSearchFacets();
+      renderSearchMenu();
+      if (searchState.groupBy.length) {
+        const payload = await callKW(model, "web_read_group", {
+          kwargs: {
+            domain: searchState.domain,
+            groupby: searchState.groupBy,
+            aggregates: ["__count"],
+            limit,
+            order: searchState.groupBy[0],
+            context: searchState.context
+          }
+        });
+        renderGroupedRows((payload && payload.groups) || [], searchState.groupBy[0]);
+        return;
+      }
+      const payload = await callKW(model, "web_search_read", {
+        kwargs: {
+          domain: searchState.domain,
+          specification: fieldSpecification(fields),
+          limit,
+          count_limit: 10001,
+          order: "id desc",
+          context: searchState.context
+        }
+      });
+      renderRows((payload && payload.records) || [], fields);
     }
 
     async function createPartner() {
@@ -6554,8 +6693,194 @@ const webClientShellHTML = `<!doctype html>
       kanbanFields: [],
       formFieldAttrs: {},
       formFields: [],
+      searchFacets: [],
       activeView: "list"
     };
+
+    function currentSearchState(query) {
+      return {
+        domain: combinedDomain(actionDomain(workbench.action), query),
+        context: readContext(workbench.action),
+        groupBy: workbench.searchFacets.filter((facet) => facet.type === "groupBy").map((facet) => facet.field).filter(Boolean)
+      };
+    }
+
+    function fieldAvailable(name) {
+      if (!name) return false;
+      if (workbench.fieldMeta && workbench.fieldMeta[name]) return true;
+      return activeRecordFields().includes(name) || (defaultFields[modelSelect.value] || "").split(",").map((field) => field.trim()).includes(name);
+    }
+
+    function searchFilterItems() {
+      const items = [];
+      if (fieldAvailable("active")) {
+        items.push({id: "active", type: "filter", label: "Active", domain: [["active", "=", true]]});
+        items.push({id: "archived", type: "filter", label: "Archived", domain: [["active", "=", false]]});
+      }
+      if (modelSelect.value === "ir.actions.server" && fieldAvailable("state")) {
+        items.push({id: "state-code", type: "filter", label: "Code", domain: [["state", "=", "code"]]});
+      }
+      if (modelSelect.value === "mail.mail" && fieldAvailable("state")) {
+        items.push({id: "mail-outgoing", type: "filter", label: "Outgoing", domain: [["state", "!=", "sent"]]});
+      }
+      return items;
+    }
+
+    function searchGroupByItems() {
+      const preferred = ["state", "model_name", "model", "active", "type", "message_type", "server_type", "periodicity", "provider", "user_id", "company_id"];
+      return preferred.filter(fieldAvailable).slice(0, 8).map((field) => ({
+        id: "group-" + field,
+        type: "groupBy",
+        label: fieldLabel(field),
+        field
+      }));
+    }
+
+    function favoriteStorageKey() {
+      return "goerp.searchFavorites." + modelSelect.value;
+    }
+
+    function searchFavorites() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(favoriteStorageKey()) || "[]");
+        return Array.isArray(parsed) ? parsed.filter((item) => item && item.label) : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function saveCurrentFavorite() {
+      const query = document.getElementById("recordSearch").value || "";
+      const facets = workbench.searchFacets.map((facet) => ({...facet}));
+      const label = query || facets.map((facet) => facet.label).join(", ") || "Current Search";
+      const favorite = {id: "favorite-" + Date.now(), label, query, facets};
+      const favorites = [favorite, ...searchFavorites().filter((item) => item.label !== label)].slice(0, 8);
+      try { localStorage.setItem(favoriteStorageKey(), JSON.stringify(favorites)); } catch (_error) {}
+      renderSearchMenu();
+    }
+
+    function applyFavorite(favorite) {
+      document.getElementById("recordSearch").value = favorite.query || "";
+      workbench.searchFacets = Array.isArray(favorite.facets) ? favorite.facets.map((facet) => ({...facet})) : [];
+      loadRows();
+    }
+
+    function clearSearchState() {
+      document.getElementById("recordSearch").value = "";
+      workbench.searchFacets = [];
+      closeSearchMenu();
+      loadRows();
+    }
+
+    function searchFacetActive(id) {
+      return workbench.searchFacets.some((facet) => facet.id === id);
+    }
+
+    function toggleSearchFacet(facet) {
+      const current = workbench.searchFacets;
+      workbench.searchFacets = current.some((item) => item.id === facet.id)
+        ? current.filter((item) => item.id !== facet.id)
+        : [...current, {...facet}];
+      loadRows();
+    }
+
+    function removeSearchFacet(id) {
+      workbench.searchFacets = workbench.searchFacets.filter((facet) => facet.id !== id);
+      loadRows();
+    }
+
+    function renderSearchFacets() {
+      const host = document.getElementById("recordSearchFacets");
+      if (!host) return;
+      host.replaceChildren();
+      for (const facet of workbench.searchFacets) {
+        const item = document.createElement("div");
+        item.className = "o_searchview_facet position-relative d-inline-flex";
+        item.dataset.facetId = facet.id;
+        const label = document.createElement("span");
+        label.className = "o_searchview_facet_label";
+        label.textContent = facet.type === "groupBy" ? "Group By" : "Filter";
+        const value = document.createElement("span");
+        value.className = "o_facet_values";
+        value.textContent = facet.label;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "o_facet_remove";
+        remove.setAttribute("aria-label", "Remove " + facet.label);
+        remove.textContent = "x";
+        remove.addEventListener("click", () => removeSearchFacet(facet.id));
+        item.append(label, value, remove);
+        host.append(item);
+      }
+    }
+
+    function renderSearchMenu() {
+      renderSearchMenuSection("recordFilterMenu", "Filters", searchFilterItems(), toggleSearchFacet);
+      renderSearchMenuSection("recordGroupByMenu", "Group By", searchGroupByItems(), toggleSearchFacet);
+      const favorites = searchFavorites();
+      const favoriteHost = document.getElementById("recordFavoriteMenu");
+      if (favoriteHost) {
+        favoriteHost.replaceChildren();
+        const heading = document.createElement("h3");
+        heading.textContent = "Favorites";
+        favoriteHost.append(heading);
+        appendSearchMenuButton(favoriteHost, {id: "save-current", label: "Save current search"}, saveCurrentFavorite, false);
+        appendSearchMenuButton(favoriteHost, {id: "clear-search", label: "Clear search"}, clearSearchState, false);
+        for (const favorite of favorites) {
+          appendSearchMenuButton(favoriteHost, favorite, () => applyFavorite(favorite), false);
+        }
+      }
+    }
+
+    function renderSearchMenuSection(id, title, items, handler) {
+      const host = document.getElementById(id);
+      if (!host) return;
+      host.replaceChildren();
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      host.append(heading);
+      if (!items.length) {
+        const empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "No items";
+        host.append(empty);
+        return;
+      }
+      for (const item of items) appendSearchMenuButton(host, item, () => handler(item), searchFacetActive(item.id));
+    }
+
+    function appendSearchMenuButton(host, item, handler, active) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dropdown-item o_menu_item" + (active ? " active" : "");
+      button.dataset.searchItem = item.id || "";
+      button.textContent = item.label || "Item";
+      if (active) {
+        const check = document.createElement("span");
+        check.className = "o_search_check";
+        check.textContent = "v";
+        button.append(check);
+      }
+      button.addEventListener("click", handler);
+      host.append(button);
+    }
+
+    function toggleSearchMenu() {
+      const menu = document.getElementById("recordSearchMenu");
+      const button = document.getElementById("recordSearchDropdown");
+      if (!menu || !button) return;
+      renderSearchMenu();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function closeSearchMenu() {
+      const menu = document.getElementById("recordSearchMenu");
+      const button = document.getElementById("recordSearchDropdown");
+      if (menu) menu.hidden = true;
+      if (button) button.setAttribute("aria-expanded", "false");
+    }
 
     function actionContext(action) {
       if (action && typeof action._web_context === "object" && !Array.isArray(action._web_context)) return action._web_context;
@@ -6607,6 +6932,9 @@ const webClientShellHTML = `<!doctype html>
     function combinedDomain(base, needle) {
       const domain = Array.isArray(base) ? [...base] : [];
       for (const item of searchDefaultDomain(workbench.action)) domain.push(item);
+      for (const facet of workbench.searchFacets) {
+        if (facet.type === "filter" && Array.isArray(facet.domain)) domain.push(...facet.domain);
+      }
       const term = (needle || "").trim();
       if (term) domain.push(["display_name", "ilike", term]);
       return domain;
@@ -7236,6 +7564,7 @@ const webClientShellHTML = `<!doctype html>
           document.querySelector("#recordsView .o-control-panel h2").textContent = action.name || model;
           workbench.action = action;
           workbench.openedRecord = null;
+          workbench.searchFacets = [];
           document.getElementById("recordSearch").value = "";
           if (model === "res.config.settings") {
             renderSettingsView(action);
@@ -7247,6 +7576,8 @@ const webClientShellHTML = `<!doctype html>
           if (action.limit) document.getElementById("limit").value = String(action.limit);
           showRecordForm(false);
           await loadActionViews(action, model);
+          renderSearchFacets();
+          renderSearchMenu();
           await loadRows();
           setView("records");
         }
@@ -7567,6 +7898,52 @@ const webClientShellHTML = `<!doctype html>
       return list.children.length ? list : null;
     }
 
+    function renderGroupedRows(groups, groupBy) {
+      const host = document.getElementById("rows");
+      host.replaceChildren();
+      const pager = document.getElementById("recordPager");
+      if (!Array.isArray(groups) || !groups.length) {
+        const empty = document.createElement("div");
+        empty.className = "o_view_nocontent";
+        empty.textContent = "No records";
+        host.append(empty);
+        if (pager) pager.textContent = "0 / 0";
+        return;
+      }
+      const wrapper = document.createElement("div");
+      wrapper.className = "o_grouped_list o_list_renderer";
+      wrapper.dataset.groupby = groupBy || "";
+      let total = 0;
+      for (const group of groups) {
+        const count = Number(group.__count || group.count || group[groupBy + "_count"] || 0);
+        total += count;
+        const header = document.createElement("div");
+        header.className = "o_group_header";
+        header.dataset.groupby = groupBy || "";
+        const name = document.createElement("span");
+        name.className = "o_group_name";
+        name.textContent = fieldDisplayValue(groupBy, group[groupBy]) || "Undefined";
+        const countNode = document.createElement("span");
+        countNode.className = "o_group_count";
+        countNode.textContent = count + " records";
+        header.append(name, countNode);
+        const groupDomain = Array.isArray(group.__domain) ? group.__domain : (Array.isArray(group.__extra_domain) ? group.__extra_domain : null);
+        if (groupDomain) {
+          header.addEventListener("click", () => {
+            workbench.searchFacets = [
+              ...workbench.searchFacets.filter((facet) => facet.id !== "group-domain-" + groupBy),
+              {id: "group-domain-" + groupBy, type: "filter", label: name.textContent, domain: groupDomain}
+            ];
+            workbench.searchFacets = workbench.searchFacets.filter((facet) => facet.type !== "groupBy");
+            loadRows();
+          });
+        }
+        wrapper.append(header);
+      }
+      host.append(wrapper);
+      if (pager) pager.textContent = "1-" + groups.length + " / " + groups.length + " groups" + (total ? " (" + total + ")" : "");
+    }
+
     function renderRows(rows, fields) {
       if (workbench.activeView === "kanban") {
         renderKanbanRows(rows, fields);
@@ -7819,6 +8196,12 @@ const webClientShellHTML = `<!doctype html>
     setView("apps");
     document.getElementById("loadRows").addEventListener("click", loadRows);
     document.getElementById("createPartner").addEventListener("click", createPartner);
+    document.getElementById("recordSearchDropdown").addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleSearchMenu();
+    });
+    document.getElementById("recordSearchRoot").addEventListener("click", (event) => event.stopPropagation());
+    document.addEventListener("click", closeSearchMenu);
     for (const button of document.querySelectorAll(".o_cp_switch_buttons .o_switch_view")) {
       button.addEventListener("click", async () => {
         if (button.classList.contains("o_form")) {
@@ -7837,6 +8220,8 @@ const webClientShellHTML = `<!doctype html>
       if (event.key === "Enter") searchRows(event.currentTarget.value);
     });
     document.getElementById("loginButton").addEventListener("click", login);
+    renderSearchFacets();
+    renderSearchMenu();
     loadRuntime().then(loadRows).catch((error) => {
       runtimeStatus.textContent = "Startup error: " + error.message;
       runtimeStatus.className = "status-error";

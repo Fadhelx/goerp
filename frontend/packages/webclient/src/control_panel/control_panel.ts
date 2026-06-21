@@ -79,12 +79,7 @@ export function renderControlPanel(state: ControlPanelState, callbacks: ControlP
 
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions d-empty-none d-flex align-items-center justify-content-start justify-content-lg-around order-2 order-lg-1 w-100 mw-100 w-lg-auto";
-  actions.append(
-    renderSearch(normalized.search, callbacks),
-    renderMenuLane("o_filter_menu", "Filters", normalized.filters ?? [], callbacks.onFilter),
-    renderMenuLane("o_group_by_menu", "Group By", normalized.groupBys ?? [], callbacks.onGroupBy),
-    renderMenuLane("o_favorites_menu", "Favorites", normalized.favorites ?? [], callbacks.onFavorite)
-  );
+  actions.append(renderSearch(normalized, callbacks));
 
   const navigation = document.createElement("div");
   navigation.className = "o_control_panel_navigation d-flex flex-wrap flex-md-nowrap justify-content-end gap-1 gap-xl-3 order-1 order-lg-2 flex-grow-1";
@@ -137,7 +132,7 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
   return root;
 }
 
-function renderSearch(search: ControlPanelSearchState | undefined, callbacks: ControlPanelCallbacks): HTMLElement {
+function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks): HTMLElement {
   const root = document.createElement("div");
   root.className = "o_cp_searchview d-flex input-group";
   root.setAttribute("role", "search");
@@ -156,18 +151,14 @@ function renderSearch(search: ControlPanelSearchState | undefined, callbacks: Co
   searchButton.append(icon);
   const inputContainer = document.createElement("div");
   inputContainer.className = "o_searchview_input_container d-flex flex-grow-1 flex-wrap gap-1 mw-100";
-  for (const facet of search?.facets ?? []) {
-    const tag = document.createElement("span");
-    tag.className = `o_searchview_facet o_searchview_facet_${facet.type} position-relative d-inline-flex align-items-stretch rounded-2 bg-200 text-nowrap`;
-    tag.textContent = facet.label;
-    tag.dataset.facetId = facet.id;
-    inputContainer.append(tag);
+  for (const facet of state.search?.facets ?? []) {
+    inputContainer.append(renderSearchFacet(facet));
   }
   const input = document.createElement("input");
   input.className = "o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0";
   input.type = "text";
-  input.value = search?.query ?? "";
-  input.placeholder = search?.placeholder ?? "Search...";
+  input.value = state.search?.query ?? "";
+  input.placeholder = state.search?.placeholder ?? "Search...";
   input.setAttribute("role", "searchbox");
   input.addEventListener("input", () => callbacks.onSearch?.(input.value));
   inputContainer.append(input);
@@ -176,8 +167,37 @@ function renderSearch(search: ControlPanelSearchState | undefined, callbacks: Co
   dropdown.type = "button";
   dropdown.className = "o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0";
   dropdown.setAttribute("aria-label", "Search options");
-  root.append(searchView, dropdown);
+  const menu = document.createElement("div");
+  menu.className = "o_search_bar_menu o-dropdown--menu dropdown-menu";
+  menu.append(
+    renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter),
+    renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy),
+    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite)
+  );
+  root.append(searchView, dropdown, menu);
   return root;
+}
+
+function renderSearchFacet(facet: SearchFacet): HTMLElement {
+  const tag = document.createElement("span");
+  tag.className = `o_searchview_facet o_searchview_facet_${facet.type} position-relative d-inline-flex align-items-stretch rounded-2 bg-200 text-nowrap`;
+  tag.dataset.facetId = facet.id;
+  const label = document.createElement("span");
+  label.className = "o_searchview_facet_label";
+  label.textContent = facet.type === "groupBy" ? "Group By" : facet.type === "favorite" ? "Favorite" : "Filter";
+  const value = document.createElement("span");
+  value.className = "o_facet_values";
+  const valueText = document.createElement("span");
+  valueText.className = "o_facet_value";
+  valueText.textContent = facet.label;
+  value.append(valueText);
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "o_facet_remove";
+  remove.setAttribute("aria-label", `Remove ${facet.label}`);
+  remove.textContent = "x";
+  tag.append(label, value, remove);
+  return tag;
 }
 
 function renderMenuLane(
@@ -187,19 +207,19 @@ function renderMenuLane(
   callback: ((item: ControlPanelMenuItem) => void) | undefined
 ): HTMLElement {
   const root = document.createElement("div");
-  root.className = `o_cp_menu ${className} o-dropdown`;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "o_cp_menu_button btn btn-secondary o-dropdown-caret";
-  button.textContent = label;
-  button.disabled = items.length === 0;
-  root.append(button);
+  root.className = `o_dropdown_container ${className}`;
+  const title = document.createElement("h3");
+  title.className = "o_dropdown_title";
+  title.textContent = label;
+  root.append(title);
   for (const item of items) {
     const menuItem = document.createElement("button");
     menuItem.type = "button";
-    menuItem.className = item.active ? "o_menu_item o-dropdown-item dropdown-item active" : "o_menu_item o-dropdown-item dropdown-item";
+    menuItem.className = item.active ? "o_menu_item o-dropdown-item dropdown-item selected" : "o_menu_item o-dropdown-item dropdown-item";
     menuItem.textContent = item.label;
     menuItem.dataset.menuItemId = item.id;
+    menuItem.setAttribute("role", "menuitemcheckbox");
+    menuItem.setAttribute("aria-checked", item.active ? "true" : "false");
     menuItem.disabled = item.disabled === true;
     menuItem.addEventListener("click", () => callback?.(item));
     root.append(menuItem);
