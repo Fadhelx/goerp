@@ -20,9 +20,16 @@ export interface HomeMenuApp {
   sequence: number;
   searchText: string;
   menu: HomeMenuEntry;
+  parentPath?: string;
+  rootId?: number | string;
+  isMenuAction?: boolean;
 }
 
 const ICON_TOKENS = ["teal", "purple", "blue", "terracotta", "green", "slate"] as const;
+
+export interface NormalizeHomeMenuAppsOptions {
+  includeDescendantActions?: boolean;
+}
 
 export function cleanAppName(value: unknown): string {
   const name = String(value ?? "App").replace(/\s+/g, " ").trim();
@@ -60,7 +67,10 @@ export function homeMenuEntry(payload: HomeMenuPayload, id: number | string): Ho
   return value as HomeMenuEntry;
 }
 
-export function normalizeHomeMenuApps(payload: HomeMenuPayload | null | undefined): HomeMenuApp[] {
+export function normalizeHomeMenuApps(
+  payload: HomeMenuPayload | null | undefined,
+  options: NormalizeHomeMenuAppsOptions = {}
+): HomeMenuApp[] {
   if (!payload) return [];
   const apps: HomeMenuApp[] = [];
   const byKey = new Map<string, HomeMenuApp>();
@@ -93,22 +103,77 @@ export function normalizeHomeMenuApps(payload: HomeMenuPayload | null | undefine
       if (index >= 0) apps[index] = app;
     }
   }
-  return apps.sort((left, right) => left.sequence - right.sequence);
+  const roots = apps.sort((left, right) => left.sequence - right.sequence);
+  if (!options.includeDescendantActions) return roots;
+  return [
+    ...roots,
+    ...roots.flatMap((app) => descendantActionApps(payload, app))
+  ].sort((left, right) => left.sequence - right.sequence || left.name.localeCompare(right.name));
 }
 
 function homeMenuSearchText(payload: HomeMenuPayload, menu: HomeMenuEntry): string {
   const parts = [cleanAppName(menu.name)];
-  for (const childId of menu.children ?? []) {
-    const child = homeMenuEntry(payload, childId);
-    if (child?.name) parts.push(cleanAppName(child.name));
-  }
+  collectMenuNames(payload, menu.children ?? [], new Set(), parts);
   return parts.join(" ").toLowerCase();
 }
 
 function isBetterMenuCandidate(existing: HomeMenuEntry, candidate: HomeMenuEntry): boolean {
-  const existingHasAction = Boolean(existing.actionID ?? existing.actionId);
-  const candidateHasAction = Boolean(candidate.actionID ?? candidate.actionId);
+  const existingHasAction = menuActionValue(existing) !== undefined;
+  const candidateHasAction = menuActionValue(candidate) !== undefined;
   const existingChildCount = existing.children?.length ?? 0;
   const candidateChildCount = candidate.children?.length ?? 0;
   return (!existingHasAction && candidateHasAction) || candidateChildCount > existingChildCount;
+}
+
+function descendantActionApps(payload: HomeMenuPayload, root: HomeMenuApp): HomeMenuApp[] {
+  const out: HomeMenuApp[] = [];
+  const rootName = cleanAppName(root.menu.name ?? root.name);
+  const visit = (id: number | string, path: string[], visited: Set<string>) => {
+    const key = String(id);
+    if (visited.has(key)) return;
+    const nextVisited = new Set(visited);
+    nextVisited.add(key);
+    const menu = homeMenuEntry(payload, id);
+    if (!menu) return;
+    const name = cleanAppName(menu.name);
+    const nextPath = [...path, name];
+    const action = menuActionValue(menu);
+    if (action !== undefined) {
+      out.push({
+        id: menu.id ?? id,
+        key: `${root.key}:${String(menu.id ?? id)}`,
+        name,
+        initials: appInitials(name),
+        iconToken: root.iconToken,
+        sequence: root.sequence + ((out.length + 1) / 1000),
+        searchText: nextPath.join(" ").toLowerCase(),
+        menu,
+        parentPath: path.join(" / "),
+        rootId: root.id,
+        isMenuAction: true
+      });
+    }
+    for (const childId of menu.children ?? []) visit(childId, nextPath, nextVisited);
+  };
+  for (const childId of root.menu.children ?? []) visit(childId, [rootName], new Set([String(root.id)]));
+  return out;
+}
+
+function collectMenuNames(payload: HomeMenuPayload, ids: readonly (number | string)[], visited: Set<string>, out: string[]): void {
+  for (const id of ids) {
+    const key = String(id);
+    if (visited.has(key)) continue;
+    visited.add(key);
+    const menu = homeMenuEntry(payload, id);
+    if (!menu) continue;
+    if (menu.name) out.push(cleanAppName(menu.name));
+    collectMenuNames(payload, menu.children ?? [], visited, out);
+  }
+}
+
+function menuActionValue(menu: HomeMenuEntry): number | string | undefined {
+  const value = menu.actionID ?? menu.actionId;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return undefined;
 }

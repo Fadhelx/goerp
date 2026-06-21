@@ -46,10 +46,11 @@ export const scenarios = [
       await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
       const navCount = await waitForCount(page, ".o_web_client .o_main_navbar", 1, "TS navbar");
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
+      const searchCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app_search_input", 1, "TS app search");
       const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
-      return { nav_count: navCount, app_count: appCount, action_count: actionCount };
+      return { nav_count: navCount, app_count: appCount, search_count: searchCount, action_count: actionCount };
     }
   },
   {
@@ -73,6 +74,27 @@ export const scenarios = [
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
       return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+    }
+  },
+  {
+    name: "default-technical-search-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
+      await setInput(page, ".o_web_client .o_app_search_input", "Server Actions");
+      const actionCardCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", 1, "TS technical search actions");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Server Actions", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
+      const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
+      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr", 1, "TS Server Actions rows");
+      const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
+      })()`, "TS technical action hash");
+      return { title, hash, action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount };
     }
   },
   {
