@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import {
   buildSearchState,
+  createDateGroupByFacet,
+  createDateRangeFacet,
   createSearchModel,
+  groupByDescriptor,
+  SEARCH_DATE_INTERVALS,
   searchFacetLabel
 } from "../../../../dist/packages/webclient/src/search/search_model.js";
 
@@ -51,4 +55,47 @@ assert.deepEqual(
     context: {},
     groupBy: []
   }
+);
+
+assert.deepEqual(SEARCH_DATE_INTERVALS.map((item) => item.id), ["year", "quarter", "month", "week", "day"]);
+assert.equal(groupByDescriptor("create_date", "month"), "create_date:month");
+assert.deepEqual(
+  buildSearchState("", [createDateGroupByFacet("create_date", "Creation Date", "quarter")]).groupBy,
+  ["create_date:quarter"]
+);
+assert.deepEqual(
+  buildSearchState("", [createDateRangeFacet("create_date", "This Month", "2026-06-01", "2026-07-01")]).domain,
+  [
+    ["create_date", ">=", "2026-06-01"],
+    ["create_date", "<", "2026-07-01"]
+  ]
+);
+
+const favoriteSearch = createSearchModel({ searchFields: ["name"] });
+favoriteSearch.setQuery("draft");
+let favoriteState = favoriteSearch.addFacet({ id: "state", type: "filter", label: "Draft", domain: [["state", "=", "draft"]] });
+assert.equal(favoriteState.query, "draft");
+favoriteState = favoriteSearch.activateFavorite({
+  id: "my-favorite",
+  label: "My Favorite",
+  domain: [["active", "=", true]],
+  context: { search_default_active: 1 },
+  groupBy: ["user_id", "create_date:month"]
+});
+assert.equal(favoriteState.query, "");
+assert.deepEqual(favoriteState.facets.map((facet) => facet.id), ["my-favorite"]);
+assert.deepEqual(favoriteState.domain, [["active", "=", true]]);
+assert.deepEqual(favoriteState.context, { search_default_active: 1 });
+assert.deepEqual(favoriteState.groupBy, ["user_id", "create_date:month"]);
+
+assert.deepEqual(
+  buildSearchState("", [
+    { id: "active", type: "filter", label: "Active", group: 1, domain: [["active", "=", true]] },
+    { id: "inactive", type: "filter", label: "Inactive", group: 1, domain: [["active", "=", false]] },
+    { id: "customer", type: "filter", label: "Customer", group: 2, domain: [["customer_rank", ">", 0]] }
+  ]).domain,
+  [
+    ["|", ["active", "=", true], ["active", "=", false]],
+    ["customer_rank", ">", 0]
+  ]
 );

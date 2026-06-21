@@ -18,6 +18,8 @@ export interface ControlPanelMenuItem {
   label: string;
   active?: boolean;
   disabled?: boolean;
+  children?: readonly ControlPanelMenuItem[];
+  separatorBefore?: boolean;
 }
 
 export interface ControlPanelSearchState {
@@ -46,6 +48,9 @@ export interface ControlPanelCallbacks {
   onFilter?: (item: ControlPanelMenuItem) => void;
   onGroupBy?: (item: ControlPanelMenuItem) => void;
   onFavorite?: (item: ControlPanelMenuItem) => void;
+  onFacetRemove?: (facet: SearchFacet) => void;
+  onAddCustomFilter?: () => void;
+  onAddCustomGroup?: () => void;
 }
 
 export function createControlPanelState(state: ControlPanelState): ControlPanelState {
@@ -152,7 +157,7 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   const inputContainer = document.createElement("div");
   inputContainer.className = "o_searchview_input_container d-flex flex-grow-1 flex-wrap gap-1 mw-100";
   for (const facet of state.search?.facets ?? []) {
-    inputContainer.append(renderSearchFacet(facet));
+    inputContainer.append(renderSearchFacet(facet, callbacks));
   }
   const input = document.createElement("input");
   input.className = "o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0";
@@ -170,15 +175,15 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   const menu = document.createElement("div");
   menu.className = "o_search_bar_menu o-dropdown--menu dropdown-menu";
   menu.append(
-    renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter),
-    renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy),
-    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite)
+    renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter, { customFilter: callbacks.onAddCustomFilter }),
+    renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy, { customGroup: callbacks.onAddCustomGroup }),
+    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite, { favorite: true })
   );
   root.append(searchView, dropdown, menu);
   return root;
 }
 
-function renderSearchFacet(facet: SearchFacet): HTMLElement {
+function renderSearchFacet(facet: SearchFacet, callbacks: ControlPanelCallbacks): HTMLElement {
   const tag = document.createElement("span");
   tag.className = `o_searchview_facet o_searchview_facet_${facet.type} position-relative d-inline-flex align-items-stretch rounded-2 bg-200 text-nowrap`;
   tag.dataset.facetId = facet.id;
@@ -196,6 +201,7 @@ function renderSearchFacet(facet: SearchFacet): HTMLElement {
   remove.className = "o_facet_remove";
   remove.setAttribute("aria-label", `Remove ${facet.label}`);
   remove.textContent = "x";
+  remove.addEventListener("click", () => callbacks.onFacetRemove?.(facet));
   tag.append(label, value, remove);
   return tag;
 }
@@ -204,7 +210,8 @@ function renderMenuLane(
   className: string,
   label: string,
   items: readonly ControlPanelMenuItem[],
-  callback: ((item: ControlPanelMenuItem) => void) | undefined
+  callback: ((item: ControlPanelMenuItem) => void) | undefined,
+  options: { customFilter?: () => void; customGroup?: () => void; favorite?: boolean } = {}
 ): HTMLElement {
   const root = document.createElement("div");
   root.className = `o_dropdown_container ${className}`;
@@ -213,9 +220,35 @@ function renderMenuLane(
   title.textContent = label;
   root.append(title);
   for (const item of items) {
+    if (item.separatorBefore) root.append(dropdownDivider());
+    if (item.children?.length) {
+      const group = document.createElement("div");
+      group.className = item.active ? "o_menu_item o_group_by_menu_item selected" : "o_menu_item o_group_by_menu_item";
+      group.dataset.menuItemId = item.id;
+      const groupLabel = document.createElement("span");
+      groupLabel.className = "text-truncate";
+      groupLabel.textContent = item.label;
+      group.append(groupLabel);
+      for (const child of item.children) {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = child.active ? "o_item_option o-dropdown-item dropdown-item selected" : "o_item_option o-dropdown-item dropdown-item";
+        option.textContent = child.label;
+        option.dataset.menuItemId = child.id;
+        option.dataset.parentMenuItemId = item.id;
+        option.setAttribute("role", "menuitemcheckbox");
+        option.setAttribute("aria-checked", child.active ? "true" : "false");
+        option.disabled = child.disabled === true;
+        option.addEventListener("click", () => callback?.(child));
+        group.append(option);
+      }
+      root.append(group);
+      continue;
+    }
     const menuItem = document.createElement("button");
     menuItem.type = "button";
-    menuItem.className = item.active ? "o_menu_item o-dropdown-item dropdown-item selected" : "o_menu_item o-dropdown-item dropdown-item";
+    const favoriteClass = options.favorite ? " o_favorite_item" : "";
+    menuItem.className = item.active ? `o_menu_item o-dropdown-item dropdown-item${favoriteClass} selected` : `o_menu_item o-dropdown-item dropdown-item${favoriteClass}`;
     menuItem.textContent = item.label;
     menuItem.dataset.menuItemId = item.id;
     menuItem.setAttribute("role", "menuitemcheckbox");
@@ -224,7 +257,32 @@ function renderMenuLane(
     menuItem.addEventListener("click", () => callback?.(item));
     root.append(menuItem);
   }
+  if (options.customFilter) {
+    if (items.length) root.append(dropdownDivider());
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_menu_item o_add_custom_filter o-dropdown-item dropdown-item";
+    button.textContent = "Custom Filter...";
+    button.addEventListener("click", () => options.customFilter?.());
+    root.append(button);
+  }
+  if (options.customGroup) {
+    if (items.length) root.append(dropdownDivider());
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_menu_item o_add_custom_group_menu o-dropdown-item dropdown-item";
+    button.textContent = "Add Custom Group";
+    button.addEventListener("click", () => options.customGroup?.());
+    root.append(button);
+  }
   return root;
+}
+
+function dropdownDivider(): HTMLElement {
+  const divider = document.createElement("div");
+  divider.className = "dropdown-divider";
+  divider.setAttribute("role", "separator");
+  return divider;
 }
 
 function renderViewSwitcher(views: readonly ControlPanelView[], callbacks: ControlPanelCallbacks): HTMLElement {
@@ -281,6 +339,8 @@ function normalizeMenuItem(item: ControlPanelMenuItem): ControlPanelMenuItem {
     id: item.id,
     label: item.label,
     active: item.active === true,
-    disabled: item.disabled === true
+    disabled: item.disabled === true,
+    children: item.children?.map(normalizeMenuItem),
+    separatorBefore: item.separatorBefore === true
   };
 }

@@ -60,6 +60,10 @@ function findAll(node, predicate, out = []) {
   return out;
 }
 
+function hasClass(node, name) {
+  return String(node.className).split(/\s+/).includes(name);
+}
+
 const normalized = createControlPanelState({
   title: "Partners",
   breadcrumbs: [{ id: "root", label: "Contacts" }, { id: "current", label: "Partners" }],
@@ -70,7 +74,17 @@ const normalized = createControlPanelState({
     facets: [{ id: "customers", type: "filter", label: "Customers" }]
   },
   filters: [{ id: "customers", label: "Customers", active: true }],
-  groupBys: [{ id: "salesperson", label: "Salesperson" }],
+  groupBys: [
+    {
+      id: "create_date",
+      label: "Creation Date",
+      children: [
+        { id: "create_date:month", label: "Month", active: true },
+        { id: "create_date:week", label: "Week" }
+      ]
+    },
+    { id: "salesperson", label: "Salesperson" }
+  ],
   favorites: [{ id: "mine", label: "My Search" }]
 });
 assert.equal(normalized.pager.offset, 20);
@@ -81,7 +95,11 @@ const root = renderControlPanel(normalized, {
   onBreadcrumb: (breadcrumb) => events.push(["breadcrumb", breadcrumb.id]),
   onSearch: (query) => events.push(["search", query]),
   onViewSwitch: (viewType) => events.push(["view", viewType]),
-  onPagerNext: () => events.push(["next"])
+  onPagerNext: () => events.push(["next"]),
+  onGroupBy: (item) => events.push(["groupBy", item.id]),
+  onFacetRemove: (facet) => events.push(["remove", facet.id]),
+  onAddCustomFilter: () => events.push(["customFilter"]),
+  onAddCustomGroup: () => events.push(["customGroup"])
 });
 
 assert.ok(String(root.className).includes("o_control_panel"));
@@ -95,10 +113,18 @@ assert.equal(findAll(root, (node) => String(node.className).includes("o_searchvi
 assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_dropdown_toggler")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_search_bar_menu")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_filter_menu")).length, 1);
-assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_group_by_menu")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_menu")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorites_menu")).length, 0);
 assert.equal(findAll(root, (node) => String(node.className).includes("selected"))[0].attributes["aria-checked"], "true");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_filter")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu_item")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item")).length, 1);
+assert.ok(findAll(root, (node) => String(node.className).includes("dropdown-divider")).length >= 2);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_item_option")).length, 2);
+assert.equal(findAll(root, (node) => node.dataset?.parentMenuItemId === "create_date").length, 2);
+assert.equal(findAll(root, (node) => node.dataset?.menuItemId === "create_date:month")[0].attributes["aria-checked"], "true");
 const facet = findAll(root, (node) => String(node.className).includes("o_searchview_facet_filter"))[0];
 assert.ok(facet);
 assert.equal(findAll(facet, (node) => String(node.className).includes("o_searchview_facet_label"))[0].textContent, "Filter");
@@ -114,10 +140,18 @@ input.dispatchEvent(new TestEvent("input"));
 findAll(root, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.breadcrumbId === "root")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => node.dataset?.menuItemId === "create_date:week")[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_facet_remove"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
 
 assert.deepEqual(events, [
   ["search", "beta"],
   ["view", "form"],
   ["breadcrumb", "root"],
-  ["next"]
+  ["next"],
+  ["groupBy", "create_date:week"],
+  ["remove", "customers"],
+  ["customFilter"],
+  ["customGroup"]
 ]);

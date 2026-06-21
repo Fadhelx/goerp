@@ -35,14 +35,27 @@ export {
 } from "./router/action_router.js";
 export {
   buildSearchState,
+  createDateGroupByFacet,
+  createDateRangeFacet,
   createSearchModel,
+  groupByDescriptor,
+  SEARCH_DATE_INTERVALS,
   searchFacetLabel,
+  type SearchDateInterval,
   type SearchFacet,
   type SearchFacetType,
   type SearchModel,
   type SearchModelOptions,
   type SearchModelState
 } from "./search/search_model.js";
+export {
+  parseSearchArch,
+  searchItemFacet,
+  type ParsedSearchArch,
+  type ParsedSearchItem,
+  type ParsedSearchItemType,
+  type SearchArchParseOptions
+} from "./search/search_arch_parser.js";
 export {
   createControlPanelState,
   renderControlPanel,
