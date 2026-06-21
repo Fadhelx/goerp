@@ -79,6 +79,9 @@ globalThis.document = {
       append(...nodes) {
         this.children.push(...nodes);
       },
+      replaceChildren(...nodes) {
+        this.children = nodes;
+      },
       setAttribute(name, value) {
         this.attributes[name] = String(value);
       },
@@ -797,6 +800,87 @@ assert.deepEqual(createActionCalls[0].action.views, [[false, "form"]]);
 assert.equal(createActionCalls[0].action.view_mode, "form");
 assert.equal("res_id" in createActionCalls[0].action, false);
 assert.deepEqual(createActionCalls[0].options, { additionalContext: { active_id: 42 }, replaceLastAction: true });
+
+const settingsSaveCalls = [];
+const settingsEvents = [];
+const settingsWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Settings",
+    res_model: "res.config.settings",
+    view_mode: "form",
+    context: { active_app: "general_settings" }
+  },
+  activeView: "form",
+  resModel: "res.config.settings",
+  viewDescriptions: {
+    fields: {
+      group_multi_currency: { type: "boolean", string: "Multi Currency" },
+      default_provider: {
+        type: "selection",
+        string: "Default Provider",
+        selection: [["local", "Local"], ["openai", "OpenAI"]]
+      }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form>
+          <app name="general_settings" string="General Settings">
+            <block title="Companies">
+              <setting string="Multi Currency"><field name="group_multi_currency"/></setting>
+              <setting string="Provider"><field name="default_provider"/></setting>
+            </block>
+          </app>
+        </form>`,
+        id: 30
+      }
+    }
+  },
+  records: [{ id: 5, group_multi_currency: false, default_provider: "local" }],
+  length: 1
+}, {
+  services: {
+    orm: {
+      webSave(model, ids, data, kwargs) {
+        settingsSaveCalls.push({ model, ids, data, kwargs });
+        return Promise.resolve(true);
+      }
+    }
+  }
+});
+settingsWindow.addEventListener("settings:field-change", (event) => settingsEvents.push(["field", event.detail]));
+settingsWindow.addEventListener("settings:save", (event) => settingsEvents.push(["save", event.detail]));
+settingsWindow.addEventListener("settings:discard", (event) => settingsEvents.push(["discard", event.detail]));
+assert.equal(findAll(settingsWindow, (node) => String(node.className).includes("o_settings_container")).length, 1);
+const settingsSave = findAll(settingsWindow, (node) => node.dataset?.settingsAction === "save")[0];
+const settingsDiscard = findAll(settingsWindow, (node) => node.dataset?.settingsAction === "discard")[0];
+assert.equal(settingsSave.disabled, true);
+assert.equal(settingsDiscard.disabled, true);
+const currencyToggle = findAll(settingsWindow, (node) => node.dataset?.field === "group_multi_currency" && node.type === "checkbox")[0];
+currencyToggle.checked = true;
+currencyToggle.dispatchEvent(new TestEvent("change"));
+assert.equal(settingsSave.disabled, false);
+assert.equal(settingsDiscard.disabled, false);
+settingsSave.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(settingsSaveCalls, [{
+  model: "res.config.settings",
+  ids: [5],
+  data: { group_multi_currency: true },
+  kwargs: { context: { active_app: "general_settings" } }
+}]);
+assert.equal(settingsSave.disabled, true);
+assert.equal(findAll(settingsWindow, (node) => String(node.className).includes("o_settings_dirty_status"))[0].textContent, "Saved");
+const providerSelect = findAll(settingsWindow, (node) => node.dataset?.field === "default_provider" && node.tag === "select")[0];
+providerSelect.value = "openai";
+providerSelect.dispatchEvent(new TestEvent("change"));
+assert.equal(settingsDiscard.disabled, false);
+settingsDiscard.dispatchEvent(new TestEvent("click"));
+assert.equal(settingsDiscard.disabled, true);
+assert.equal(findAll(settingsWindow, (node) => node.dataset?.field === "default_provider" && node.tag === "select")[0].value, "local");
+assert.equal(settingsEvents.some((entry) => entry[0] === "save"), true);
+assert.equal(settingsEvents.some((entry) => entry[0] === "discard"), true);
 
 const kanbanOpenEvents = [];
 const kanbanWindow = renderWindowAction({

@@ -23,6 +23,7 @@ import {
   type ControlPanelView as ActionControlPanelView
 } from "./control_panel/control_panel.js";
 import type { HomeMenuApp, HomeMenuPayload } from "./home_menu/app_metadata.js";
+import { renderSettingsView } from "./settings/settings_renderer.js";
 import { createWebClientShell } from "./webclient/shell.js";
 
 export {
@@ -316,6 +317,16 @@ export interface RenderWindowActionOptions {
   exportDownload?: (request: ExportDownloadRequest) => unknown | Promise<unknown>;
   exportGetFields?: (request: ExportGetFieldsRequest) => readonly unknown[] | Promise<readonly unknown[]>;
   exportNamelist?: (request: ExportNamelistRequest) => readonly unknown[] | Promise<readonly unknown[]>;
+}
+
+interface SettingsActionState {
+  initialValues: Record<string, unknown>;
+  currentValues: Record<string, unknown>;
+  dirtyFields: Set<string>;
+  saveButton?: HTMLButtonElement;
+  discardButton?: HTMLButtonElement;
+  status?: HTMLElement;
+  renderBody?: () => void;
 }
 
 export interface FormValidationContext {
@@ -1621,14 +1632,203 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   const viewDescription = result.viewDescriptions.views[result.activeView];
   const fields = result.viewDescriptions.fields;
   const records = options.records ?? result.records;
-  const body = result.activeView === "form"
-    ? renderFormView(viewDescription, fields, options.values ?? records?.[0] ?? result.records[0] ?? {}, result.resModel, options)
-    : result.activeView === "kanban"
-      ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
-      : renderListView(viewDescription, fields, records, result.resModel, options);
+  const values = options.values ?? records?.[0] ?? result.records[0] ?? {};
+  const settingsState = settingsActionState(result, values);
+  const body = settingsState
+    ? renderSettingsActionView(result, viewDescription, fields, settingsState, root)
+    : result.activeView === "form"
+      ? renderFormView(viewDescription, fields, values, result.resModel, options)
+      : result.activeView === "kanban"
+        ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
+        : renderListView(viewDescription, fields, records, result.resModel, options);
   const controlPanel = renderWindowActionControlPanel(result, root, options);
+  if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
   root.append(controlPanel, body);
   return root;
+}
+
+function settingsActionState(result: WindowActionResult, values: Record<string, unknown>): SettingsActionState | null {
+  if (result.resModel !== "res.config.settings" || result.activeView !== "form") return null;
+  const initialValues = cloneRecord(values);
+  return {
+    initialValues,
+    currentValues: cloneRecord(values),
+    dirtyFields: new Set()
+  };
+}
+
+function renderSettingsActionView(
+  result: WindowActionResult,
+  viewDescription: ViewDescription | undefined,
+  fields: Record<string, unknown>,
+  state: SettingsActionState,
+  eventRoot: HTMLElement
+): HTMLElement {
+  const wrapper = document.createElement("section");
+  wrapper.className = "gorp-settings-action o_settings_form_view";
+  wrapper.dataset.model = result.resModel;
+  const render = () => {
+    wrapper.replaceChildren(renderSettingsView({
+      arch: viewDescription?.arch ?? "",
+      fields,
+      values: state.currentValues,
+      activeApp: settingsActiveApp(result.action)
+    }, {
+      onFieldChange(name, value) {
+        updateSettingsPendingValue(state, name, value);
+        eventRoot.dispatchEvent(new CustomEvent("settings:field-change", {
+          bubbles: true,
+          detail: { name, value, dirty: state.dirtyFields.size > 0 }
+        }));
+      }
+    }));
+  };
+  state.renderBody = render;
+  render();
+  return wrapper;
+}
+
+function appendSettingsActionButtons(
+  controlPanel: HTMLElement,
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: SettingsActionState,
+  options: RenderWindowActionOptions
+): void {
+  const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
+  if (!mainButtons) return;
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "btn btn-primary o_form_button_save";
+  save.dataset.settingsAction = "save";
+  save.textContent = "Save";
+  const discard = document.createElement("button");
+  discard.type = "button";
+  discard.className = "btn btn-secondary o_form_button_cancel";
+  discard.dataset.settingsAction = "discard";
+  discard.textContent = "Discard";
+  const status = document.createElement("span");
+  status.className = "o_settings_dirty_status text-muted";
+  state.saveButton = save;
+  state.discardButton = discard;
+  state.status = status;
+  save.addEventListener("click", () => {
+    void saveSettingsAction(eventRoot, result, state, options).catch((error) => {
+      setSettingsStatus(state, error instanceof Error ? error.message : String(error));
+      eventRoot.dispatchEvent(new CustomEvent("settings:save-error", {
+        bubbles: true,
+        detail: { error }
+      }));
+    });
+  });
+  discard.addEventListener("click", () => {
+    discardSettingsAction(eventRoot, state);
+  });
+  mainButtons.append(save, discard, status);
+  updateSettingsButtons(state);
+}
+
+function updateSettingsPendingValue(state: SettingsActionState, name: string, value: unknown): void {
+  state.currentValues = { ...state.currentValues, [name]: value };
+  if (sameSettingsValue(state.initialValues[name], value)) {
+    state.dirtyFields.delete(name);
+  } else {
+    state.dirtyFields.add(name);
+  }
+  setSettingsStatus(state, state.dirtyFields.size ? "Unsaved changes" : "");
+  updateSettingsButtons(state);
+}
+
+async function saveSettingsAction(
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: SettingsActionState,
+  options: RenderWindowActionOptions
+): Promise<void> {
+  const changes = settingsChangedValues(state);
+  if (!Object.keys(changes).length) return;
+  state.saveButton?.setAttribute("aria-busy", "true");
+  try {
+    const orm = options.services?.orm;
+    if (orm) {
+      const context = isRecord(result.action.context) ? result.action.context : options.context ?? {};
+      const recordID = numberRecordID(state.currentValues.id);
+      if (recordID !== undefined) {
+        await orm.webSave(result.resModel, [recordID], changes, { context });
+      } else {
+        const created = await orm.create<unknown>(result.resModel, [{ ...state.currentValues }], { context });
+        const createdID = createdRecordID(created);
+        if (createdID !== undefined) state.currentValues = { ...state.currentValues, id: createdID };
+      }
+    }
+  } finally {
+    state.saveButton?.removeAttribute("aria-busy");
+  }
+  state.initialValues = cloneRecord(state.currentValues);
+  state.dirtyFields.clear();
+  setSettingsStatus(state, "Saved");
+  updateSettingsButtons(state);
+  eventRoot.dispatchEvent(new CustomEvent("settings:save", {
+    bubbles: true,
+    detail: { model: result.resModel, values: cloneRecord(state.currentValues), changes }
+  }));
+}
+
+function discardSettingsAction(eventRoot: HTMLElement, state: SettingsActionState): void {
+  state.currentValues = cloneRecord(state.initialValues);
+  state.dirtyFields.clear();
+  state.renderBody?.();
+  setSettingsStatus(state, "");
+  updateSettingsButtons(state);
+  eventRoot.dispatchEvent(new CustomEvent("settings:discard", {
+    bubbles: true,
+    detail: { values: cloneRecord(state.currentValues) }
+  }));
+}
+
+function settingsChangedValues(state: SettingsActionState): Record<string, unknown> {
+  const changes: Record<string, unknown> = {};
+  for (const name of state.dirtyFields) changes[name] = state.currentValues[name];
+  return changes;
+}
+
+function updateSettingsButtons(state: SettingsActionState): void {
+  const dirty = state.dirtyFields.size > 0;
+  if (state.saveButton) state.saveButton.disabled = !dirty;
+  if (state.discardButton) state.discardButton.disabled = !dirty;
+}
+
+function setSettingsStatus(state: SettingsActionState, value: string): void {
+  if (state.status) state.status.textContent = value;
+}
+
+function sameSettingsValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function settingsActiveApp(action: Record<string, unknown>): string | undefined {
+  const context = isRecord(action.context) ? action.context : {};
+  for (const key of ["active_app", "settings_app", "module"]) {
+    const value = context[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function cloneRecord(values: Record<string, unknown>): Record<string, unknown> {
+  return { ...values };
+}
+
+function createdRecordID(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const id = createdRecordID(item);
+      if (id !== undefined) return id;
+    }
+  }
+  if (isRecord(value)) return numberRecordID(value.id);
+  return undefined;
 }
 
 function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement {

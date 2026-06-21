@@ -85,7 +85,7 @@ export function createActionStack(): ActionStackController {
     },
     push(action: Record<string, unknown>, options: ActionStackOptions = {}): ActionStackEntry {
       if (shouldClearStack(action, options)) entries = [];
-      const entry = makeActionStackEntry(action, options, undefined, currentRouteEntry(entries)?.id);
+      const entry = makeActionStackEntry(action, options, undefined, parentIdForPush(action, entries));
       entries = [...entries, entry];
       return cloneEntry(entry);
     },
@@ -93,7 +93,12 @@ export function createActionStack(): ActionStackController {
       if (shouldClearStack(action, options)) entries = [];
       const previousEntries = entries.slice(0, -1);
       const previous = entries[entries.length - 1];
-      const parentId = previous?.dialog ? previous.parentId : currentRouteEntry(previousEntries)?.id;
+      if (isDialogAction(action) && previous && !previous.dialog) {
+        const entry = makeActionStackEntry(action, options, undefined, previous.id);
+        entries = [...entries, entry];
+        return cloneEntry(entry);
+      }
+      const parentId = parentIdForReplace(action, previous, previousEntries);
       const entry = makeActionStackEntry(action, options, undefined, parentId);
       entries = entries.length ? [...previousEntries, entry] : [entry];
       return cloneEntry(entry);
@@ -263,6 +268,24 @@ function currentRouteEntry(entries: readonly ActionStackEntry[]): ActionStackEnt
     if (entry.route) return entry;
   }
   return null;
+}
+
+function parentIdForPush(action: Record<string, unknown>, entries: readonly ActionStackEntry[]): string | undefined {
+  if (isDialogAction(action)) return entries[entries.length - 1]?.id;
+  return currentRouteEntry(entries)?.id;
+}
+
+function parentIdForReplace(
+  action: Record<string, unknown>,
+  previous: ActionStackEntry | undefined,
+  previousEntries: readonly ActionStackEntry[]
+): string | undefined {
+  if (isDialogAction(action)) return previous?.dialog ? previous.parentId : previousEntries[previousEntries.length - 1]?.id;
+  return previous?.dialog ? previous.parentId : currentRouteEntry(previousEntries)?.id;
+}
+
+function isDialogAction(action: Record<string, unknown>): boolean {
+  return text(action.target) === "new";
 }
 
 function shouldClearStack(action: Record<string, unknown>, options: ActionStackOptions): boolean {

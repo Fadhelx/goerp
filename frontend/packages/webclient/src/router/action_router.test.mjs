@@ -96,6 +96,24 @@ assert.deepEqual(routeFromStack.actionStack.map((item) => item.displayName), ["P
 assert.equal(routeFromStack.actionStack.length, 2);
 assert.equal(serializeRouteState(routeFromStack), "#action=9&model=res.partner&view_type=form&id=42&menu_id=3&debug=1");
 
+const routeFromStackWithActiveIds = routeStateFromStack(stack.entries, {
+  active_id: 42,
+  active_ids: [42, 43]
+});
+const activeRouteEntry = routeFromStackWithActiveIds.actionStack.at(-1);
+assert.equal(activeRouteEntry.active_id, 42);
+assert.deepEqual(activeRouteEntry.active_ids, [42, 43]);
+assert.equal(routeFromStackWithActiveIds.active_id, 42);
+assert.deepEqual(routeFromStackWithActiveIds.active_ids, [42, 43]);
+assert.equal(serializeRouteState(routeFromStackWithActiveIds), "#action=9&model=res.partner&view_type=form&id=42&menu_id=3&active_id=42&active_ids=42%2C43");
+
+assert.deepEqual(routeStateFromStack([], {
+  action: 88,
+  actionStack: [{ action: 99, displayName: "Stale" }]
+}), {
+  action: 88
+});
+
 const stackUrls = [];
 const stackTarget = {
   location: { pathname: "/web", search: "", hash: "" },

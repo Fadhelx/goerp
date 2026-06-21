@@ -67,6 +67,15 @@ const ROUTE_ORDER = [
 ];
 
 const NUMERIC_KEYS = new Set(["action", "id", "menu_id", "active_id"]);
+const ACTION_STACK_ROUTE_KEYS = [
+  "action",
+  "model",
+  "view_type",
+  "id",
+  "menu_id",
+  "active_id",
+  "active_ids"
+];
 
 export function routeStateFromAction(
   action: Record<string, unknown>,
@@ -90,14 +99,16 @@ export function routeStateFromStack(
   entries: readonly ActionRouteSource[],
   extra: WebClientRouteState = {}
 ): WebClientRouteState {
+  const { actionStack: _staleActionStack, ...extraState } = extra;
   const actionStack = entries
     .filter((entry) => !isDialogEntry(entry))
     .map(routeActionStateFromEntry)
     .filter((entry) => Object.keys(entry).length > 0);
-  const current = actionStack[actionStack.length - 1];
+  const stack = mergeCurrentRouteState(actionStack, extra);
+  const current = stack[stack.length - 1];
   return normalizeRouteState({
-    ...extra,
-    ...(actionStack.length ? { actionStack } : {}),
+    ...extraState,
+    ...(stack.length ? { actionStack: stack } : {}),
     ...(current ? currentRouteState(current) : {})
   });
 }
@@ -224,6 +235,29 @@ function routeActionStateFromEntry(entry: ActionRouteSource): WebClientRouteActi
 function currentRouteState(state: WebClientRouteActionState): WebClientRouteState {
   const { displayName: _displayName, target: _target, ...route } = state;
   return route;
+}
+
+function mergeCurrentRouteState(
+  actionStack: readonly WebClientRouteActionState[],
+  route: WebClientRouteState
+): WebClientRouteActionState[] {
+  if (!actionStack.length) return [...actionStack];
+  const currentRoute = currentActionStackRouteState(route);
+  if (!Object.keys(currentRoute).length) return [...actionStack];
+  const current = normalizeRouteActionState({
+    ...actionStack[actionStack.length - 1],
+    ...currentRoute
+  });
+  return [...actionStack.slice(0, -1), current];
+}
+
+function currentActionStackRouteState(route: WebClientRouteState): Record<string, unknown> {
+  const state: Record<string, unknown> = {};
+  for (const key of ACTION_STACK_ROUTE_KEYS) {
+    const value = route[key];
+    if (value !== undefined) state[key] = value;
+  }
+  return state;
 }
 
 function isDialogEntry(entry: ActionRouteSource): boolean {

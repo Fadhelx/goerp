@@ -12,7 +12,7 @@ GoERP `/web` is usable for testing.
 
 Current parity estimate: 45-55%.
 
-Current slices fixed the highest visible form-header issue, added Odoo-style hash route restore for list/form navigation, and made the bundled TypeScript/Odoo-like webclient own default `/web`. Full Odoo parity is still incomplete because the TS action manager, renderers, settings, and dialogs are not yet complete.
+Current slices fixed the highest visible form-header issue, added Odoo-style hash route restore for list/form navigation, made the bundled TypeScript/Odoo-like webclient own default `/web`, and wired the clean-room Settings renderer into `res.config.settings` window actions. Full Odoo parity is still incomplete because dialogs, advanced Settings behavior, systray, Apps install, and deeper view renderers are not complete.
 
 ## Implemented This Slice
 
@@ -36,6 +36,8 @@ Current slices fixed the highest visible form-header issue, added Odoo-style has
 - Added action-stack route metadata, current-route snapshots, target `new` dialog route exclusion, target `main` stack clearing, and history-state stack payloads.
 - Added search facet category/value metadata and Odoo-like multi-value facet rendering.
 - Added a clean-room settings renderer foundation for Odoo-style `<app>`, `<block>`, `<setting>`, typed controls, and simple invisible-expression handling.
+- Wired the Settings renderer into TS window actions with dirty state, Save/Discard buttons, `webSave` persistence, and discard rerender.
+- Added route-stack active-id merge and nested dialog parent regressions.
 
 ## Changed Files
 
@@ -94,7 +96,7 @@ Smoke assertions:
 - Launcher desktop: 4 app tiles, 5 systray entries.
 - Settings desktop: 3 settings blocks, 14 settings boxes.
 - Default TS takeover desktop: Odoo shell, navbar, action manager, and app launcher render from loaded session/menu data on plain `/web`.
-- Default TS action desktop: Settings action opens in the shared renderer with title `Settings`, action hash, and control panel.
+- Default TS action desktop: Settings action opens in the shared renderer with title `Settings`, action hash, control panel, `.o_settings_container`, and disabled Save/Discard buttons.
 - Technical list desktop: Server Actions, 20 rows.
 - Hash route desktop: Server Actions writes `#action`, `model`, `view_type`, and `menu_id`, then reloads back into the list.
 - Technical form desktop: 6 fields, no header overlap.
@@ -117,11 +119,12 @@ Smoke assertions:
 ## P0 Mismatches
 
 1. Action stack and dialogs are incomplete.
-   - Improved: route-stack metadata, current-route snapshots, target `new` route exclusion, target `main` stack clearing, and history-state stack payloads.
-   - Required: wire stack helpers into the live action-manager UI, render target `new` modals, implement stale-panel cleanup, and support deeper breadcrumb navigation.
+   - Improved: route-stack metadata, active-id merge, nested dialog parents, current-route snapshots, target `new` route exclusion, target `main` stack clearing, and history-state stack payloads.
+   - Required: render target `new` modals, implement stale-panel cleanup, and support deeper breadcrumb navigation.
 
 2. Settings is not full Odoo Settings.
-   - Required: typed settings fields, dirty save/discard, module sections, Technical settings depth, search, and company/user scoped controls.
+   - Improved: Odoo-style app/block/setting parsing, typed controls, dirty Save/Discard state, save event/persistence path, and discard rerender.
+   - Required: Settings search, module install links, confirmation flows, company/user scoped controls, richer invisible/modifier expressions, and exact settings navigation polish.
 
 3. List/form renderers are partial.
    - Required: row selection/action menus/sort/grouping/edit gates; form buttons/statusbars/notebooks/modifiers/onchange/x2many/chatter.
@@ -138,4 +141,4 @@ Complete for this slice.
 
 Not complete for full UI parity.
 
-Next implementation target: wire the new route-stack helpers into the live TS action manager and implement target `new` modal rendering.
+Next implementation target: implement target `new` modal rendering and Settings search/company-scope behavior in the live TS action manager.

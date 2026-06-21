@@ -54,6 +54,70 @@ assert.deepEqual(stack.currentRoute, {
 });
 assert.equal(stack.closeCurrent().title, "Azure Interior");
 
+const nestedStack = createActionStack();
+const routeParent = nestedStack.push({
+  id: 21,
+  type: "ir.actions.act_window",
+  name: "Tasks",
+  res_model: "project.task",
+  view_mode: "list,form"
+});
+const parentDialog = nestedStack.push({
+  type: "ir.actions.act_window",
+  name: "Schedule Activity",
+  target: "new",
+  res_model: "mail.activity",
+  view_mode: "form"
+});
+const childDialog = nestedStack.push({
+  type: "ir.actions.act_window",
+  name: "Select Template",
+  target: "new",
+  res_model: "mail.template",
+  view_mode: "form"
+});
+assert.equal(parentDialog.parentId, routeParent.id);
+assert.equal(childDialog.parentId, parentDialog.id);
+assert.deepEqual(nestedStack.currentRoute, {
+  action: 21,
+  model: "project.task",
+  view_type: "list"
+});
+assert.equal(nestedStack.closeCurrent().id, parentDialog.id);
+
+const replaceDialogStack = createActionStack();
+const replaceRoute = replaceDialogStack.push({
+  id: 22,
+  type: "ir.actions.act_window",
+  name: "Leads",
+  res_model: "crm.lead",
+  view_mode: "list,form"
+});
+const replaceWizard = replaceDialogStack.replace({
+  type: "ir.actions.act_window",
+  name: "Convert Lead",
+  target: "new",
+  res_model: "crm.lead2opportunity.partner",
+  view_mode: "form"
+}, { replaceLastAction: true });
+assert.equal(replaceDialogStack.entries.length, 2);
+assert.equal(replaceWizard.parentId, replaceRoute.id);
+assert.deepEqual(replaceDialogStack.currentRoute, {
+  action: 22,
+  model: "crm.lead",
+  view_type: "list"
+});
+const replacementWizard = replaceDialogStack.replace({
+  type: "ir.actions.act_window",
+  name: "Convert Lead Options",
+  target: "new",
+  res_model: "crm.lead2opportunity.partner",
+  view_mode: "form"
+}, { replaceLastAction: true });
+assert.equal(replaceDialogStack.entries.length, 2);
+assert.equal(replacementWizard.parentId, replaceRoute.id);
+assert.deepEqual(replaceDialogStack.entries.map((entry) => entry.title), ["Leads", "Convert Lead Options"]);
+
 const orders = stack.push({
   id: 12,
   type: "ir.actions.act_window",

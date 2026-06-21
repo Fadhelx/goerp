@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-21T14:08:47.410Z",
-  "base_url": "http://127.0.0.1:8073/",
+  "generated_at": "2026-06-21T14:27:34.438Z",
+  "base_url": "http://127.0.0.1:8069/",
   "chrome": "Google Chrome",
   "scenarios": [
     {
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 263
+      "duration_ms": 324
     },
     {
       "name": "settings-desktop",
@@ -28,12 +28,12 @@
         "mobile": false
       },
       "screenshot": "settings-desktop.png",
-      "sha256": "c03074e6d7b5285e4ce467379ded94d38bf8700a09917ba7b04050fb71a9b416",
+      "sha256": "4a89a7c63eca7f499d38321b9fe14043a5b85a64cf30a27680b85e8111e4c81e",
       "assertions": {
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 332
+      "duration_ms": 448
     },
     {
       "name": "default-webclient-takeover",
@@ -50,7 +50,7 @@
         "app_count": 4,
         "action_count": 1
       },
-      "duration_ms": 243
+      "duration_ms": 250
     },
     {
       "name": "default-webclient-action-desktop",
@@ -61,14 +61,17 @@
         "mobile": false
       },
       "screenshot": "default-webclient-action-desktop.png",
-      "sha256": "e8d38c874215a2a1aaa7a1c804606a5a8a9c9ebf843a8c3406d9975a72f83488",
+      "sha256": "6882a25701335f93bd2e7f456858e736b25dc8624de30d0f17ed45529a18f7c9",
       "assertions": {
         "title": "Settings",
         "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
         "window_count": 1,
-        "control_panel_count": 1
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "save_disabled": true,
+        "discard_disabled": true
       },
-      "duration_ms": 399
+      "duration_ms": 412
     },
     {
       "name": "technical-list-desktop",
@@ -84,7 +87,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 437
+      "duration_ms": 451
     },
     {
       "name": "hash-route-desktop",
@@ -101,7 +104,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 736
+      "duration_ms": 657
     },
     {
       "name": "technical-form-desktop",
@@ -121,7 +124,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 528
+      "duration_ms": 508
     },
     {
       "name": "search-menu-desktop",
@@ -138,7 +141,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 439
+      "duration_ms": 441
     },
     {
       "name": "launcher-mobile",
@@ -155,7 +158,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 236
+      "duration_ms": 246
     },
     {
       "name": "technical-list-mobile",
@@ -171,7 +174,7 @@
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 414
+      "duration_ms": 429
     },
     {
       "name": "technical-form-mobile",
@@ -192,8 +195,8 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 470
+      "duration_ms": 557
     }
   ],
-  "duration_ms": 4618
+  "duration_ms": 4917
 }
