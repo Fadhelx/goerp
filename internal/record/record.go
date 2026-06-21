@@ -1152,6 +1152,8 @@ func (m ModelSet) normalizeCreateValues(values map[string]any) map[string]any {
 		return m.normalizeModuleCategoryValues(values)
 	case "ir.model.data":
 		return m.normalizeIrModelDataValues(nil, values)
+	case "login.as":
+		return m.normalizeLoginAsValues(nil, values)
 	case "res.users":
 		return m.normalizeResUsersValues(nil, values)
 	case "res.groups":
@@ -1864,6 +1866,10 @@ func (m ModelSet) validateModelConstraints(row map[string]any) error {
 		if err := m.validateResUsers(row); err != nil {
 			return err
 		}
+	case "login.as":
+		if err := m.validateLoginAs(row); err != nil {
+			return err
+		}
 	case "ir.model.data":
 		if err := m.validateIrModelData(row); err != nil {
 			return err
@@ -1935,6 +1941,8 @@ func (m ModelSet) validateCreateConstraints(row map[string]any) error {
 		return m.validateMailMailForcedServer(row)
 	case "mail.inbound.message.lock":
 		return m.validateMailInboundMessageLockCreate(row)
+	case "login.as":
+		return m.validateLoginAs(row)
 	default:
 		return nil
 	}
@@ -7193,6 +7201,12 @@ func (m ModelSet) normalizeRecordWriteValues(existing map[string]any, values map
 				return m.normalizeResUsersValues(existing, values)
 			}
 		}
+	case "login.as":
+		for _, fieldName := range []string{"user_id", "group_id"} {
+			if _, ok := values[fieldName]; ok {
+				return m.normalizeLoginAsValues(existing, values)
+			}
+		}
 	case "delegation":
 		for _, fieldName := range []string{"employee_id", "delegateTo_employee_id", "delegate_to_employee_id", "date_from", "date_to", "state", "one_employee", "lines"} {
 			if _, ok := values[fieldName]; ok {
@@ -7213,6 +7227,85 @@ func (m ModelSet) normalizeRecordWriteValues(existing map[string]any, values map
 		return m.normalizeIrModelDataValues(existing, values)
 	}
 	return values
+}
+
+func (m ModelSet) normalizeLoginAsValues(existing map[string]any, values map[string]any) map[string]any {
+	out := copyValues(values)
+	userID := numericID(safeRowValue(existing, "user_id"))
+	if value, ok := out["user_id"]; ok {
+		userID = numericID(value)
+	}
+	if m.fieldExists("login.as", "company_id") {
+		out["company_id"] = m.loginAsUserCompanyID(userID)
+	}
+	if m.fieldExists("login.as", "company_ids") {
+		out["company_ids"] = m.loginAsUserCompanyIDs(userID)
+	}
+	if m.fieldExists("login.as", "group_ids") {
+		out["group_ids"] = m.loginAsVisibleUserGroupIDs(userID)
+	}
+	return out
+}
+
+func (m ModelSet) validateLoginAs(row map[string]any) error {
+	if numericID(row["user_id"]) == 0 {
+		return fmt.Errorf("login.as requires user_id")
+	}
+	return nil
+}
+
+func (m ModelSet) loginAsUserCompanyID(userID int64) int64 {
+	user := m.rowByID("res.users", userID)
+	if user == nil {
+		return 0
+	}
+	return numericID(user["company_id"])
+}
+
+func (m ModelSet) loginAsUserCompanyIDs(userID int64) []int64 {
+	user := m.rowByID("res.users", userID)
+	if user == nil {
+		return []int64{}
+	}
+	return uniqueSortedRecordIDs(int64Values(user["company_ids"]))
+}
+
+func (m ModelSet) loginAsVisibleUserGroupIDs(userID int64) []int64 {
+	user := m.rowByID("res.users", userID)
+	if user == nil {
+		return []int64{}
+	}
+	groupIDs := uniqueRecordIDs(append(append(int64Values(user["groups_id"]), int64Values(user["group_ids"])...), int64Values(user["all_group_ids"])...))
+	sort.SliceStable(groupIDs, func(i, j int) bool {
+		return m.loginAsGroupFullName(groupIDs[i]) < m.loginAsGroupFullName(groupIDs[j])
+	})
+	out := make([]int64, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if m.loginAsGroupCategoryVisible(groupID) {
+			out = append(out, groupID)
+		}
+	}
+	return out
+}
+
+func (m ModelSet) loginAsGroupCategoryVisible(groupID int64) bool {
+	group := m.rowByID("res.groups", groupID)
+	if group == nil {
+		return false
+	}
+	category := m.rowByID("ir.module.category", numericID(group["category_id"]))
+	return category != nil && truthyRecordValue(category["visible"])
+}
+
+func (m ModelSet) loginAsGroupFullName(groupID int64) string {
+	group := m.rowByID("res.groups", groupID)
+	if group == nil {
+		return ""
+	}
+	if fullName := strings.TrimSpace(stringValue(group["full_name"])); fullName != "" {
+		return fullName
+	}
+	return strings.TrimSpace(stringValue(group["name"]))
 }
 
 func (m ModelSet) normalizeIrModelDataValues(existing map[string]any, values map[string]any) map[string]any {

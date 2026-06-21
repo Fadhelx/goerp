@@ -14015,6 +14015,97 @@ func TestLoginAsCallButtonSwitchToUserReturnsActURL(t *testing.T) {
 	}
 }
 
+func TestLoginAsDefaultGetAndOnchangeMirrorSourceWizard(t *testing.T) {
+	reg := record.NewRegistry()
+	for _, m := range internalbase.Models() {
+		if err := reg.Register(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := oi_login_as.RegisterRecordModels(reg); err != nil {
+		t.Fatal(err)
+	}
+	env := record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
+	visibleCategoryID, err := env.Model("ir.module.category").Create(map[string]any{"name": "Visible", "visible": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenCategoryID, err := env.Model("ir.module.category").Create(map[string]any{"name": "Hidden", "visible": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	companyID, err := env.Model("res.company").Create(map[string]any{"name": "Main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherCompanyID, err := env.Model("res.company").Create(map[string]any{"name": "Branch"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lateGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Late", "full_name": "Z Late", "category_id": visibleCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	earlyGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Early", "full_name": "A Early", "category_id": visibleCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Hidden", "full_name": "B Hidden", "category_id": hiddenCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelatedGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Other", "full_name": "C Other", "category_id": visibleCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := env.Model("res.users").Create(map[string]any{
+		"name":        "Target",
+		"login":       "target",
+		"company_id":  companyID,
+		"company_ids": []int64{companyID, otherCompanyID},
+		"group_ids":   []int64{lateGroupID, hiddenGroupID, earlyGroupID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := Server{Env: env}.Handler()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"model":"login.as","method":"default_get","args":[["user_id","company_id","company_ids","group_ids"]],"kwargs":{"context":{"default_user_id":%d}}}`, userID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("default_get response %d %s", rec.Code, rec.Body.String())
+	}
+	defaults := decodeJSON(t, rec.Body.Bytes())
+	if int64Value(defaults["user_id"]) != userID || int64Value(defaults["company_id"]) != companyID || !reflect.DeepEqual(int64Slice(defaults["company_ids"]), []int64{companyID, otherCompanyID}) || !reflect.DeepEqual(int64Slice(defaults["group_ids"]), []int64{earlyGroupID, lateGroupID}) {
+		t.Fatalf("defaults = %+v", defaults)
+	}
+
+	rec = httptest.NewRecorder()
+	body = bytes.NewBufferString(fmt.Sprintf(`{"model":"login.as","method":"onchange","args":[{"user_id":%d,"group_id":%d},["group_id"],{}],"kwargs":{}}`, userID, unrelatedGroupID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("onchange response %d %s", rec.Code, rec.Body.String())
+	}
+	onchange := decodeJSON(t, rec.Body.Bytes())
+	values := onchange["value"].(map[string]any)
+	if values["user_id"] != false || len(int64Slice(values["group_ids"])) != 0 || values["company_id"] != false {
+		t.Fatalf("invalid group onchange = %+v", values)
+	}
+
+	rec = httptest.NewRecorder()
+	body = bytes.NewBufferString(fmt.Sprintf(`{"model":"login.as","method":"onchange","args":[{"user_id":%d,"group_id":%d},["group_id"],{}],"kwargs":{}}`, userID, lateGroupID))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("valid onchange response %d %s", rec.Code, rec.Body.String())
+	}
+	onchange = decodeJSON(t, rec.Body.Bytes())
+	values = onchange["value"].(map[string]any)
+	if int64Value(values["user_id"]) != userID || int64Value(values["company_id"]) != companyID || !reflect.DeepEqual(int64Slice(values["group_ids"]), []int64{earlyGroupID, lateGroupID}) {
+		t.Fatalf("valid group onchange = %+v", values)
+	}
+}
+
 func TestCallButtonDispatchesWorkflowApproval(t *testing.T) {
 	server := testWorkflowDispatchServer(t)
 	settingsID := createHTTPWorkflowSettings(t, server.Env)

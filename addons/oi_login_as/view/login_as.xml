@@ -1,7 +1,27 @@
 <odoo>
   <record id="view_login_as_form" model="ir.ui.view">
-    <field name="name">login.as.form</field>
+    <field name="name">login.as.from</field>
     <field name="model">login.as</field>
-    <field name="arch">&lt;form string="Login As"&gt;&lt;group&gt;&lt;field name="group_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="company_id"/&gt;&lt;field name="company_ids"/&gt;&lt;field name="return_to"/&gt;&lt;field name="allow_inactive"/&gt;&lt;field name="allow_superuser"/&gt;&lt;/group&gt;&lt;field name="group_ids"/&gt;&lt;footer&gt;&lt;button name="switch_to_user" type="object" string="Login As" class="btn-primary"/&gt;&lt;button special="cancel" string="Cancel"/&gt;&lt;/footer&gt;&lt;/form&gt;</field>
+    <field name="arch" type="xml">
+      <form>
+        <group>
+          <field name="group_id" options="{'no_create': True}" domain="[('category_id.visible','=', True)]"/>
+          <field name="user_id" widget="many2one_avatar_user" context="{'active_test' : False}" options="{'no_create': True}" domain="group_id and [('groups_id','=', group_id)] or []"/>
+          <field name="company_id" groups="base.group_multi_company"/>
+          <field name="company_ids" widget="many2many_tags" groups="base.group_multi_company"/>
+        </group>
+        <group string="User Groups">
+          <field name="group_ids" nolabel="1" colspan="2">
+            <list>
+              <field name="full_name"/>
+            </list>
+          </field>
+        </group>
+        <footer>
+          <button name="switch_to_user" type="object" string="Switch to user" class="oe_highlight"/>
+          <button string="Cancel" class="btn btn-default" special="cancel"/>
+        </footer>
+      </form>
+    </field>
   </record>
 </odoo>

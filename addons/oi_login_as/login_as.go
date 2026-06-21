@@ -139,10 +139,10 @@ func NewService() *impersonation.Service {
 func loginAsWizardModel() model.Model {
 	m := simple(ModelLoginAsWizard, "login_as",
 		field.New("group_id", field.Many2One).WithRelation("res.groups"),
-		field.New("user_id", field.Many2One).WithRelation("res.users"),
-		field.New("group_ids", field.Many2Many).WithRelation("res.groups"),
-		field.New("company_id", field.Many2One).WithRelation("res.company"),
-		field.New("company_ids", field.Many2Many).WithRelation("res.company"),
+		required(field.New("user_id", field.Many2One).WithRelation("res.users")),
+		readonly(field.New("group_ids", field.Many2Many).WithRelation("res.groups")),
+		readonly(related(field.New("company_id", field.Many2One).WithRelation("res.company"), "user_id.company_id")),
+		readonly(related(field.New("company_ids", field.Many2Many).WithRelation("res.company"), "user_id.company_ids")),
 		field.New("return_to", field.Char),
 		field.New("allow_inactive", field.Bool),
 		field.New("allow_superuser", field.Bool),
@@ -157,6 +157,22 @@ func simple(name string, table string, fields ...field.Field) model.Model {
 		m.AddField(f)
 	}
 	return m
+}
+
+func required(f field.Field) field.Field {
+	f.Required = true
+	return f
+}
+
+func readonly(f field.Field) field.Field {
+	f.Readonly = true
+	return f
+}
+
+func related(f field.Field, path string) field.Field {
+	f.RelationField = path
+	f.Store = true
+	return f
 }
 
 func extension(name string, table string, fields ...field.Field) model.Model {

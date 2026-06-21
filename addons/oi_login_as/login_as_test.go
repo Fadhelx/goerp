@@ -64,6 +64,17 @@ func TestManifestInstallAndModels(t *testing.T) {
 			t.Fatalf("missing wizard field %s", fieldName)
 		}
 	}
+	if !wizard.Fields["user_id"].Required {
+		t.Fatalf("user_id field metadata = %+v", wizard.Fields["user_id"])
+	}
+	for _, fieldName := range []string{"group_ids", "company_id", "company_ids"} {
+		if !wizard.Fields[fieldName].Readonly {
+			t.Fatalf("%s field metadata = %+v", fieldName, wizard.Fields[fieldName])
+		}
+	}
+	if wizard.Fields["company_id"].RelationField != "user_id.company_id" || wizard.Fields["company_ids"].RelationField != "user_id.company_ids" {
+		t.Fatalf("company related fields = %+v %+v", wizard.Fields["company_id"], wizard.Fields["company_ids"])
+	}
 	extensions := extensionMap()
 	for _, fieldName := range []string{"allow_login_as", "login_as_group_ids"} {
 		if _, ok := extensions["res.users"].Fields[fieldName]; !ok {
@@ -187,6 +198,25 @@ func TestLoginAsAccessCSVLoadsWithLocalModels(t *testing.T) {
 	if rows[0]["model"] != ModelLoginAsWizard || !strings.Contains(arch, `field name="user_id"`) || !strings.Contains(arch, `button name="switch_to_user"`) || strings.Contains(arch, `button name="action_login"`) {
 		t.Fatalf("view row = %+v", rows[0])
 	}
+	for _, want := range []string{
+		`<form>`,
+		`field name="group_id" options="{'no_create': True}" domain="[('category_id.visible','=', True)]"`,
+		`field name="user_id" widget="many2one_avatar_user" context="{'active_test' : False}" options="{'no_create': True}" domain="group_id and [('groups_id','=', group_id)] or []"`,
+		`field name="company_id" groups="base.group_multi_company"`,
+		`field name="company_ids" widget="many2many_tags" groups="base.group_multi_company"`,
+		`group string="User Groups"`,
+		`field name="full_name"`,
+		`button name="switch_to_user" type="object" string="Switch to user" class="oe_highlight"`,
+	} {
+		if !strings.Contains(arch, want) {
+			t.Fatalf("view arch missing %q: %s", want, arch)
+		}
+	}
+	for _, removed := range []string{`field name="return_to"`, `field name="allow_inactive"`, `field name="allow_superuser"`, `string="Login As" class="btn-primary"`} {
+		if strings.Contains(arch, removed) {
+			t.Fatalf("view arch contains local-only %q: %s", removed, arch)
+		}
+	}
 	rows, err = env.Model("ir.ui.view").Browse(ids[ModuleName+".user_dropdown"].ResID).Read("type", "key", "inherit_id", "inherit_id_ref", "priority", "arch")
 	if err != nil {
 		t.Fatal(err)
@@ -276,6 +306,65 @@ func TestLoginAsAddonServiceDefaults(t *testing.T) {
 	}
 	if !session.Impersonating || session.OriginalUserID != 10 || session.UserID != 20 {
 		t.Fatalf("session = %+v", session)
+	}
+}
+
+func TestLoginAsWizardRelatedAndComputedFields(t *testing.T) {
+	env := loginAsFixtureEnv(t)
+	visibleCategoryID, err := env.Model("ir.module.category").Create(map[string]any{"name": "Visible", "visible": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenCategoryID, err := env.Model("ir.module.category").Create(map[string]any{"name": "Hidden", "visible": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	companyID, err := env.Model("res.company").Create(map[string]any{"name": "Main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherCompanyID, err := env.Model("res.company").Create(map[string]any{"name": "Branch"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lateGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Late", "full_name": "Z Late", "category_id": visibleCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	earlyGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Early", "full_name": "A Early", "category_id": visibleCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hiddenGroupID, err := env.Model("res.groups").Create(map[string]any{"name": "Hidden", "full_name": "B Hidden", "category_id": hiddenCategoryID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := env.Model("res.users").Create(map[string]any{
+		"name":        "Target",
+		"login":       "target",
+		"company_id":  companyID,
+		"company_ids": []int64{companyID, otherCompanyID},
+		"group_ids":   []int64{lateGroupID, hiddenGroupID, earlyGroupID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model(ModelLoginAsWizard).Create(map[string]any{}); err == nil || !strings.Contains(err.Error(), "requires user_id") {
+		t.Fatalf("expected required user_id error, got %v", err)
+	}
+	wizardID, err := env.Model(ModelLoginAsWizard).Create(map[string]any{"user_id": userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := env.Model(ModelLoginAsWizard).Browse(wizardID).Read("company_id", "company_ids", "group_ids")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["company_id"] != companyID || !reflect.DeepEqual(rows[0]["company_ids"], []int64{companyID, otherCompanyID}) || !reflect.DeepEqual(rows[0]["group_ids"], []int64{earlyGroupID, lateGroupID}) {
+		t.Fatalf("wizard related/computed row = %+v", rows[0])
+	}
+	if err := env.Model(ModelLoginAsWizard).Browse(wizardID).Write(map[string]any{"user_id": int64(0)}); err == nil || !strings.Contains(err.Error(), "requires user_id") {
+		t.Fatalf("expected required user_id write error, got %v", err)
 	}
 }
 

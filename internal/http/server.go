@@ -9404,6 +9404,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		if req.Model == internalworkflow.ModelStateUpdateWizard {
 			return internalworkflow.StateUpdateWizardDefaultGet(env, fields, mapValue(kwarg(req.Kwargs, "context")))
 		}
+		if req.Model == "login.as" {
+			return loginAsDefaultGet(env, fields, mapValue(kwarg(req.Kwargs, "context")))
+		}
 		return env.Model(req.Model).DefaultGet(fields, mapValue(kwarg(req.Kwargs, "context")))
 	case "name_get":
 		ids := int64Slice(arg(req.Args, 0))
@@ -9604,6 +9607,9 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 		if req.Model == "delegation" {
 			values = delegationOnchangeValues(env, values, stringSlice(arg(req.Args, 1)), mapValue(kwarg(req.Kwargs, "context")))
 		}
+		if req.Model == "login.as" {
+			values = loginAsOnchangeValues(env, values)
+		}
 		if req.Model == internalworkflow.ModelStateUpdateWizard {
 			var err error
 			values, err = internalworkflow.StateUpdateWizardOnchange(env, values, stringSlice(arg(req.Args, 1)))
@@ -9628,6 +9634,133 @@ func (s Server) dispatchLoginAsMethod(env *record.Env, req callKWRequest) (any, 
 	default:
 		return nil, false, nil
 	}
+}
+
+func loginAsDefaultGet(env *record.Env, fields []string, context map[string]any) (map[string]any, error) {
+	values, err := env.Model("login.as").DefaultGet(fields, context)
+	if err != nil {
+		return nil, err
+	}
+	return loginAsApplyComputedValues(env, values, fields), nil
+}
+
+func loginAsOnchangeValues(env *record.Env, values map[string]any) map[string]any {
+	out := make(map[string]any, len(values)+3)
+	for key, value := range values {
+		out[key] = value
+	}
+	userID := loginAsValueID(out["user_id"])
+	groupID := loginAsValueID(out["group_id"])
+	if groupID != 0 && userID != 0 && !loginAsUserHasGroup(env, userID, groupID) {
+		out["user_id"] = false
+		userID = 0
+	}
+	return loginAsApplyComputedValues(env, out, nil)
+}
+
+func loginAsApplyComputedValues(env *record.Env, values map[string]any, fields []string) map[string]any {
+	if values == nil {
+		values = map[string]any{}
+	}
+	userID := loginAsValueID(values["user_id"])
+	include := func(name string) bool {
+		return len(fields) == 0 || containsString(fields, name)
+	}
+	user := loginAsUserRow(env, userID)
+	if include("company_id") {
+		values["company_id"] = false
+		if user != nil {
+			if companyID := int64Value(user["company_id"]); companyID != 0 {
+				values["company_id"] = companyID
+			}
+		}
+	}
+	if include("company_ids") {
+		values["company_ids"] = []int64{}
+		if user != nil {
+			values["company_ids"] = uniqueInt64Slice(int64Slice(user["company_ids"]))
+		}
+	}
+	if include("group_ids") {
+		values["group_ids"] = loginAsVisibleUserGroupIDs(env, user)
+	}
+	return values
+}
+
+func loginAsUserHasGroup(env *record.Env, userID int64, groupID int64) bool {
+	user := loginAsUserRow(env, userID)
+	if user == nil || groupID == 0 {
+		return false
+	}
+	return containsHTTPInt64(uniqueInt64Slice(append(append(int64Slice(user["groups_id"]), int64Slice(user["group_ids"])...), int64Slice(user["all_group_ids"])...)), groupID)
+}
+
+func loginAsVisibleUserGroupIDs(env *record.Env, user map[string]any) []int64 {
+	if env == nil || user == nil {
+		return []int64{}
+	}
+	ids := uniqueInt64Slice(append(append(int64Slice(user["groups_id"]), int64Slice(user["group_ids"])...), int64Slice(user["all_group_ids"])...))
+	sort.SliceStable(ids, func(i, j int) bool {
+		return loginAsGroupFullName(env, ids[i]) < loginAsGroupFullName(env, ids[j])
+	})
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if loginAsGroupVisible(env, id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func loginAsUserRow(env *record.Env, userID int64) map[string]any {
+	if env == nil || userID == 0 {
+		return nil
+	}
+	rows, err := env.Model("res.users").Browse(userID).Read("company_id", "company_ids", "groups_id", "group_ids", "all_group_ids")
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	return rows[0]
+}
+
+func loginAsGroupVisible(env *record.Env, groupID int64) bool {
+	if env == nil || groupID == 0 {
+		return false
+	}
+	rows, err := env.Model("res.groups").Browse(groupID).Read("category_id")
+	if err != nil || len(rows) == 0 {
+		return false
+	}
+	categoryID := int64Value(rows[0]["category_id"])
+	if categoryID == 0 {
+		return false
+	}
+	categoryRows, err := env.Model("ir.module.category").Browse(categoryID).Read("visible")
+	return err == nil && len(categoryRows) > 0 && truthyHTTPValue(categoryRows[0]["visible"])
+}
+
+func loginAsGroupFullName(env *record.Env, groupID int64) string {
+	if env == nil || groupID == 0 {
+		return ""
+	}
+	rows, err := env.Model("res.groups").Browse(groupID).Read("full_name", "name")
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	if fullName := strings.TrimSpace(stringValue(rows[0]["full_name"])); fullName != "" {
+		return fullName
+	}
+	return strings.TrimSpace(stringValue(rows[0]["name"]))
+}
+
+func loginAsValueID(value any) int64 {
+	if id := int64Value(value); id != 0 {
+		return id
+	}
+	if values, ok := value.([]any); ok && len(values) > 0 {
+		return int64Value(values[0])
+	}
+	return 0
 }
 
 func (s Server) loginAsWizardActURL(env *record.Env, req callKWRequest) (map[string]any, error) {
