@@ -1562,9 +1562,12 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   if (createButton) title.append(createButton);
   const viewDescription = result.viewDescriptions.views[result.activeView];
   const fields = result.viewDescriptions.fields;
+  const records = options.records ?? result.records;
   const body = result.activeView === "form"
-    ? renderFormView(viewDescription, fields, options.values ?? options.records?.[0] ?? result.records[0] ?? {}, result.resModel, options)
-    : renderListView(viewDescription, fields, options.records ?? result.records, result.resModel, options);
+    ? renderFormView(viewDescription, fields, options.values ?? records?.[0] ?? result.records[0] ?? {}, result.resModel, options)
+    : result.activeView === "kanban"
+      ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
+      : renderListView(viewDescription, fields, records, result.resModel, options);
   root.append(title, body);
   return root;
 }
@@ -1575,8 +1578,9 @@ function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLEl
   if (!formView) return null;
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "btn btn-primary o_list_button_add";
+  button.className = result.activeView === "kanban" ? "btn btn-primary o-kanban-button-new" : "btn btn-primary o_list_button_add";
   button.dataset.createAction = "true";
+  if (result.activeView === "kanban") button.setAttribute("accesskey", "c");
   button.textContent = "New";
   button.addEventListener("click", async () => {
     const action = createFormAction(result.action, formView);
@@ -1705,6 +1709,109 @@ function renderListView(
     return shell;
   }
   return table;
+}
+
+function renderKanbanView(
+  viewDescription: ViewDescription | undefined,
+  fields: Record<string, unknown>,
+  records: readonly Record<string, unknown>[],
+  model: string,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions = {}
+): HTMLElement {
+  const arch = viewDescription?.arch ?? "";
+  const fieldNodes = kanbanViewFieldNodes(arch, fields, records[0] ?? {});
+  const titleField = kanbanTitleField(fieldNodes, fields);
+  const renderer = document.createElement("div");
+  renderer.className = "o_kanban_renderer o_renderer o_kanban_ungrouped";
+  renderer.dataset.model = model;
+  if (!records.length) {
+    const empty = document.createElement("div");
+    empty.className = "o_view_nocontent";
+    empty.textContent = "No records";
+    renderer.append(empty);
+    return renderer;
+  }
+  for (const record of records) {
+    const card = document.createElement("article");
+    card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
+    card.setAttribute("role", "link");
+    card.setAttribute("tabindex", "0");
+    const recordID = numberRecordID(record.id);
+    if (recordID !== undefined) card.dataset.id = String(recordID);
+    card.dataset.model = model;
+    card.addEventListener("click", async () => {
+      if (recordID === undefined) return;
+      await openKanbanRecord(model, recordID, action, options, renderer);
+    });
+    const main = document.createElement("div");
+    main.className = "oe_kanban_details";
+    const title = document.createElement("strong");
+    title.className = "o_kanban_record_title";
+    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id);
+    main.append(title);
+    for (const node of fieldNodes) {
+      if (node.name === titleField || node.name === "id") continue;
+      const line = document.createElement("div");
+      line.className = "o_kanban_record_field";
+      line.dataset.field = node.name;
+      const label = document.createElement("span");
+      label.className = "o_kanban_field_label";
+      label.textContent = fieldLabel(fields, node.name);
+      const value = document.createElement("span");
+      value.className = "o_kanban_field_value";
+      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
+      line.append(label, value);
+      main.append(line);
+    }
+    card.append(main);
+    renderer.append(card);
+  }
+  return renderer;
+}
+
+function kanbanViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {
+  const nodes = parseViewFieldNodes(arch).filter((node) => !fieldInvisible(node, evalContext));
+  if (nodes.length) return nodes;
+  const preferred = ["display_name", "name", ...Object.keys(fields)];
+  return preferred
+    .filter((name, index, list) => name !== "id" && Boolean(fields[name]) && list.indexOf(name) === index)
+    .slice(0, 6)
+    .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
+}
+
+function kanbanTitleField(nodes: readonly ViewFieldNode[], fields: Record<string, unknown>): string {
+  if (nodes.some((node) => node.name === "display_name")) return "display_name";
+  if (nodes.some((node) => node.name === "name")) return "name";
+  return nodes[0]?.name ?? (fields.display_name ? "display_name" : "name");
+}
+
+async function openKanbanRecord(
+  model: string,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): Promise<void> {
+  const formView = formViewRef(action) ?? [false, "form"];
+  const nextAction: Record<string, unknown> = {
+    ...action,
+    res_id: id,
+    res_model: model,
+    view_mode: "form",
+    views: [[formView[0], "form"]]
+  };
+  if (options.services?.action) {
+    await options.services.action.doAction(nextAction, {
+      additionalContext: { ...(options.context ?? {}) },
+      replaceLastAction: true
+    });
+    return;
+  }
+  root.dispatchEvent(new CustomEvent("action:open-record", {
+    bubbles: true,
+    detail: { action: nextAction, model, id }
+  }));
 }
 
 function listViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {

@@ -759,6 +759,61 @@ assert.equal(createActionCalls[0].action.view_mode, "form");
 assert.equal("res_id" in createActionCalls[0].action, false);
 assert.deepEqual(createActionCalls[0].options, { additionalContext: { active_id: 42 }, replaceLastAction: true });
 
+const kanbanOpenEvents = [];
+const kanbanWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" },
+      company_id: { type: "many2one", relation: "res.company", string: "Company" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="company_id"/></kanban>`,
+        id: 18
+      },
+      form: {
+        arch: `<form><field name="display_name"/></form>`,
+        id: 19
+      }
+    }
+  },
+  records: [
+    { id: 11, display_name: "Azure Interior", email: "azure@example.test", company_id: [3, "My Company"] }
+  ],
+  length: 1
+});
+assert.equal(kanbanWindow.dataset.view, "kanban");
+const kanbanCreateButton = findAll(kanbanWindow, (node) => node.dataset?.createAction === "true")[0];
+assert.ok(String(kanbanCreateButton.className).includes("o-kanban-button-new"));
+assert.equal(kanbanCreateButton.attributes.accesskey, "c");
+const kanbanRenderer = findAll(kanbanWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+kanbanRenderer.addEventListener("action:open-record", (event) => kanbanOpenEvents.push(event.detail));
+assert.ok(String(kanbanRenderer.className).includes("o_kanban_ungrouped"));
+assert.equal(kanbanRenderer.dataset.model, "res.partner");
+const kanbanCard = findAll(kanbanRenderer, (node) => String(node.className ?? "").includes("o_kanban_record"))[0];
+assert.ok(String(kanbanCard.className).includes("o_kanban_global_click"));
+assert.ok(String(kanbanCard.className).includes("d-flex"));
+assert.equal(kanbanCard.attributes.role, "link");
+assert.equal(kanbanCard.dataset.id, "11");
+assert.equal(findAll(kanbanCard, (node) => String(node.className ?? "").includes("o_kanban_record_title"))[0].textContent, "Azure Interior");
+assert.deepEqual(findAll(kanbanCard, (node) => String(node.className ?? "").includes("o_kanban_record_field")).map((node) => node.dataset.field), ["email", "company_id"]);
+kanbanCard.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(kanbanOpenEvents.length, 1);
+assert.equal(kanbanOpenEvents[0].action.res_id, 11);
+assert.deepEqual(kanbanOpenEvents[0].action.views, [[false, "form"]]);
+
 const delegationWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Delegation" },

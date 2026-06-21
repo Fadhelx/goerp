@@ -5980,6 +5980,48 @@ const webClientShellHTML = `<!doctype html>
 	.o-list-view tr:hover td {
 		background: #f2f7f7;
 	}
+	.o_kanban_renderer {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 10px;
+		padding: 12px 18px;
+	}
+	.o_kanban_record {
+		display: grid;
+		gap: 8px;
+		min-height: 92px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		padding: 12px;
+		cursor: pointer;
+	}
+	.o_kanban_record:hover {
+		border-color: rgba(113,75,103,.35);
+		box-shadow: 0 2px 8px rgba(15,23,42,.06);
+	}
+	.o_kanban_record_title {
+		display: block;
+		margin-bottom: 4px;
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--text);
+	}
+	.o_kanban_record_field {
+		display: grid;
+		grid-template-columns: minmax(74px, .42fr) minmax(0, 1fr);
+		gap: 8px;
+		align-items: center;
+		min-width: 0;
+		font-size: 13px;
+	}
+	.o_kanban_field_label {
+		color: var(--muted);
+	}
+	.o_kanban_field_value {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	}
@@ -6195,6 +6237,7 @@ const webClientShellHTML = `<!doctype html>
               <div class="o_cp_pager o_pager text-nowrap" id="recordPager"></div>
               <nav class="o_cp_switch_buttons d-print-none d-inline-flex btn-group" aria-label="Views">
                 <button type="button" class="btn btn-secondary o_switch_view o_list active" aria-label="List View">List</button>
+                <button type="button" id="kanbanViewButton" class="btn btn-secondary o_switch_view o_kanban" aria-label="Kanban View">Kanban</button>
                 <button type="button" class="btn btn-secondary o_switch_view o_form" aria-label="Form View">Form</button>
               </nav>
             </div>
@@ -6283,8 +6326,11 @@ const webClientShellHTML = `<!doctype html>
 		workbench.fieldMeta = {};
 		workbench.listFieldAttrs = {};
 		workbench.listViewAttrs = {};
+		workbench.kanbanFieldAttrs = {};
+		workbench.kanbanFields = [];
 		workbench.formFieldAttrs = {};
 		workbench.formFields = [];
+		workbench.activeView = "list";
 		workbench.openedRecord = null;
 		showRecordForm(false);
 		fieldsInput.value = defaultFields[modelSelect.value] || "id,display_name";
@@ -6350,7 +6396,7 @@ const webClientShellHTML = `<!doctype html>
 
     async function loadRows() {
       const model = modelSelect.value;
-      const fields = ["id", ...(workbench.fields.length ? workbench.fields : fieldsInput.value.split(",").map((field) => field.trim()).filter(Boolean))].filter((value, index, list) => value && list.indexOf(value) === index);
+      const fields = ["id", ...activeRecordFields()].filter((value, index, list) => value && list.indexOf(value) === index);
       const limit = Number(document.getElementById("limit").value || 20);
       document.getElementById("rows").textContent = "Loading...";
       try {
@@ -6376,7 +6422,7 @@ const webClientShellHTML = `<!doctype html>
     }
 
     async function searchRows(value) {
-      const fields = ["id", ...(workbench.fields.length ? workbench.fields : fieldsInput.value.split(",").map((field) => field.trim()).filter(Boolean))].filter((item, index, list) => item && list.indexOf(item) === index);
+      const fields = ["id", ...activeRecordFields()].filter((item, index, list) => item && list.indexOf(item) === index);
       document.getElementById("rows").textContent = "Loading...";
       try {
         const payload = await callKW(modelSelect.value, "web_search_read", {
@@ -6423,8 +6469,11 @@ const webClientShellHTML = `<!doctype html>
       fieldMeta: {},
       listFieldAttrs: {},
       listViewAttrs: {},
+      kanbanFieldAttrs: {},
+      kanbanFields: [],
       formFieldAttrs: {},
-      formFields: []
+      formFields: [],
+      activeView: "list"
     };
 
     function actionContext(action) {
@@ -6499,6 +6548,26 @@ const webClientShellHTML = `<!doctype html>
       if (!out.some((item) => item[1] === "form")) out.push([false, "form"]);
       if (!out.some((item) => item[1] === "search")) out.push([actionSearchViewID(action), "search"]);
       return out;
+    }
+
+    function firstDisplayView(action) {
+      for (const item of normalizeActionViews(action || {})) {
+        if (item[1] && item[1] !== "search") return item[1];
+      }
+      return "list";
+    }
+
+    function activeRecordFields() {
+      if (workbench.activeView === "kanban" && workbench.kanbanFields.length) return workbench.kanbanFields;
+      return workbench.fields.length ? workbench.fields : fieldsInput.value.split(",").map((field) => field.trim()).filter(Boolean);
+    }
+
+    function updateViewSwitchButtons() {
+      for (const button of document.querySelectorAll(".o_cp_switch_buttons .o_switch_view")) {
+        const isKanban = button.classList.contains("o_kanban");
+        const isList = button.classList.contains("o_list");
+        button.classList.toggle("active", (workbench.activeView === "kanban" && isKanban) || (workbench.activeView !== "kanban" && isList));
+      }
     }
 
     function viewArchFields(arch) {
@@ -6600,22 +6669,29 @@ const webClientShellHTML = `<!doctype html>
           }
         });
       const listView = (((viewInfo || {}).views || {}).list) || {};
+      const kanbanView = (((viewInfo || {}).views || {}).kanban) || {};
       const formView = (((viewInfo || {}).views || {}).form) || {};
       const listNodes = viewArchFieldNodes(listView.arch);
+      const kanbanNodes = viewArchFieldNodes(kanbanView.arch);
       const formNodes = viewArchFieldNodes(formView.arch);
       const listFields = listNodes.map((node) => node.name).filter((field) => field !== "id");
+      const kanbanFields = kanbanNodes.map((node) => node.name).filter((field) => field !== "id");
       const formFields = formNodes.map((node) => node.name).filter((field) => field !== "id");
       const fallback = (defaultFields[model] || "id,display_name,name").split(",").map((field) => field.trim()).filter(Boolean);
       workbench.viewInfo = viewInfo || {};
+      workbench.activeView = firstDisplayView(action);
       workbench.fields = (listFields.length ? listFields : fallback).filter((field) => field !== "id");
+      workbench.kanbanFields = (kanbanFields.length ? kanbanFields : workbench.fields).filter((field) => field !== "id");
       workbench.formFields = (formFields.length ? formFields : workbench.fields).filter((field) => field !== "id");
       workbench.fieldLabels = viewFieldLabels(model, viewInfo);
       workbench.fieldMeta = (((viewInfo || {}).models || {})[model] || {}).fields || {};
       workbench.listFieldAttrs = fieldAttrMap(listNodes);
       workbench.listViewAttrs = viewRootAttrs(listView.arch, "list");
+      workbench.kanbanFieldAttrs = fieldAttrMap(kanbanNodes);
       workbench.formFieldAttrs = fieldAttrMap(formNodes);
-      fieldsInput.value = ["id", ...workbench.fields].filter((value, index, list) => list.indexOf(value) === index).join(",");
+      fieldsInput.value = ["id", ...activeRecordFields()].filter((value, index, list) => list.indexOf(value) === index).join(",");
       document.getElementById("recordFields").value = ["id", ...workbench.formFields].filter((value, index, list) => list.indexOf(value) === index).join(",");
+      updateViewSwitchButtons();
     }
 
     function buildWorkbenchPanels() {
@@ -7209,6 +7285,10 @@ const webClientShellHTML = `<!doctype html>
     }
 
     function renderRows(rows, fields) {
+      if (workbench.activeView === "kanban") {
+        renderKanbanRows(rows, fields);
+        return;
+      }
       const host = document.getElementById("rows");
       host.replaceChildren();
       if (!Array.isArray(rows) || rows.length === 0) {
@@ -7281,6 +7361,61 @@ const webClientShellHTML = `<!doctype html>
         mobileCards.append(card);
       }
       host.append(table, mobileCards);
+    }
+
+    function renderKanbanRows(rows, fields) {
+      const host = document.getElementById("rows");
+      host.replaceChildren();
+      const pager = document.getElementById("recordPager");
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "o_kanban_renderer o_renderer o_kanban_ungrouped";
+        const message = document.createElement("div");
+        message.className = "o_view_nocontent";
+        message.textContent = "No records";
+        empty.append(message);
+        host.append(empty);
+        if (pager) pager.textContent = "0 / 0";
+        return;
+      }
+      if (pager) pager.textContent = "1-" + rows.length + " / " + rows.length;
+      const renderer = document.createElement("div");
+      renderer.className = "o_kanban_renderer o_renderer o_kanban_ungrouped";
+      renderer.dataset.model = modelSelect.value;
+      const fieldList = fields.filter((field) => field !== "id");
+      const titleField = fieldList.includes("display_name") ? "display_name" : (fieldList.includes("name") ? "name" : fieldList[0]);
+      for (const row of rows) {
+        const card = document.createElement("article");
+        card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
+        card.setAttribute("role", "link");
+        card.tabIndex = 0;
+        card.dataset.id = row.id || "";
+        card.dataset.model = modelSelect.value;
+        if (row.id) card.addEventListener("click", () => openRecord(modelSelect.value, row.id));
+        const details = document.createElement("div");
+        details.className = "oe_kanban_details";
+        const title = document.createElement("strong");
+        title.className = "o_kanban_record_title";
+        title.textContent = fieldDisplayValue(titleField, row[titleField] || row.display_name || row.name || row.id || "");
+        details.append(title);
+        for (const field of fieldList) {
+          if (field === titleField) continue;
+          const line = document.createElement("div");
+          line.className = "o_kanban_record_field";
+          line.dataset.field = field;
+          const label = document.createElement("span");
+          label.className = "o_kanban_field_label";
+          label.textContent = fieldLabel(field);
+          const value = document.createElement("span");
+          value.className = "o_kanban_field_value";
+          value.append(renderFieldValue(field, row[field], row, workbench.kanbanFieldAttrs[field] || workbench.listFieldAttrs[field] || {}));
+          line.append(label, value);
+          details.append(line);
+        }
+        card.append(details);
+        renderer.append(card);
+      }
+      host.append(renderer);
     }
 
     async function openRecord(model, id) {
@@ -7401,6 +7536,18 @@ const webClientShellHTML = `<!doctype html>
     setView("apps");
     document.getElementById("loadRows").addEventListener("click", loadRows);
     document.getElementById("createPartner").addEventListener("click", createPartner);
+    for (const button of document.querySelectorAll(".o_cp_switch_buttons .o_switch_view")) {
+      button.addEventListener("click", async () => {
+        if (button.classList.contains("o_form")) {
+          const first = document.querySelector("#rows tr[data-id], #rows .o_kanban_record[data-id]");
+          if (first && first.dataset.id) await openRecord(modelSelect.value, first.dataset.id);
+          return;
+        }
+        workbench.activeView = button.classList.contains("o_kanban") ? "kanban" : "list";
+        updateViewSwitchButtons();
+        await loadRows();
+      });
+    }
     document.getElementById("recordSearch").addEventListener("keydown", (event) => {
       if (event.key === "Enter") searchRows(event.currentTarget.value);
     });
