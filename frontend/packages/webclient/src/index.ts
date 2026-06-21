@@ -255,6 +255,7 @@ export interface RenderWindowActionOptions {
     action?: ActionService;
     orm?: ORMService;
     notification?: NotificationService;
+    mail?: PortalMailService;
   };
   confirm?: (message: string) => boolean | Promise<boolean>;
   onRefresh?: () => unknown | Promise<unknown>;
@@ -3199,9 +3200,7 @@ function renderFormView(
     label.append(caption, value);
     form.append(label);
   }
-  if (viewHasChatter(arch)) {
-    form.append(renderChatterContainer(model, recordID));
-  }
+  if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
   return form;
 }
 
@@ -3322,7 +3321,7 @@ function viewHasChatter(arch: string): boolean {
   return /<chatter(?:\s|\/|>)/.test(arch);
 }
 
-function renderChatterContainer(model: string, recordID: number | undefined): HTMLElement {
+function renderChatterContainer(model: string, recordID: number | undefined, options: RenderWindowActionOptions): HTMLElement {
   const chatter = document.createElement("aside");
   chatter.className = "gorp-chatter o-mail-ChatterContainer o-mail-Form-chatter o-mail-Chatter";
   chatter.dataset.threadModel = model;
@@ -3336,6 +3335,7 @@ function renderChatterContainer(model: string, recordID: number | undefined): HT
     const button = document.createElement("button");
     button.type = "button";
     button.className = "gorp-chatter-tab";
+    button.dataset.chatterAction = label.toLowerCase().replace(/\s+/g, "-");
     button.textContent = label;
     composer.append(button);
   }
@@ -3343,7 +3343,153 @@ function renderChatterContainer(model: string, recordID: number | undefined): HT
   thread.className = "gorp-chatter-thread o-mail-Thread";
   thread.dataset.chatterThread = "true";
   chatter.append(header, composer, thread);
+  if (recordID !== undefined && options.services?.mail) {
+    thread.textContent = "Loading...";
+    void loadChatterThread(thread, model, recordID, options);
+  }
   return chatter;
+}
+
+async function loadChatterThread(
+  thread: HTMLElement,
+  model: string,
+  recordID: number,
+  options: RenderWindowActionOptions
+): Promise<void> {
+  try {
+    const payload = await options.services?.mail?.chatterFetch(
+      { thread_model: model, thread_id: recordID },
+      { limit: 30 },
+      chatterAccessParams(options.context)
+    );
+    renderChatterThread(thread, payload);
+  } catch {
+    clearElementChildren(thread);
+    thread.textContent = "Chatter unavailable";
+  }
+}
+
+function chatterAccessParams(context?: Record<string, unknown>): PortalAccessParams | null {
+  if (!context) return null;
+  const token = firstValue(context.token ?? context.access_token ?? context.accessToken);
+  const hash = firstValue(context.hash ?? context._hash);
+  const pid = firstValue(context.pid);
+  if (token === undefined && hash === undefined && pid === undefined) return null;
+  return { token, hash, pid };
+}
+
+function renderChatterThread(thread: HTMLElement, payload: unknown): void {
+  clearElementChildren(thread);
+  const messages = chatterMessages(payload);
+  if (messages.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "gorp-chatter-empty text-muted";
+    empty.textContent = "No messages.";
+    thread.append(empty);
+    return;
+  }
+  for (const message of messages) thread.append(renderChatterMessage(message));
+}
+
+function chatterMessages(payload: unknown): Record<string, unknown>[] {
+  if (!isRecord(payload)) return [];
+  const data = isRecord(payload.data) ? payload.data : {};
+  const rows = Array.isArray(data["mail.message"])
+    ? (data["mail.message"] as unknown[]).filter(isRecord)
+    : Array.isArray(payload.messages) && payload.messages.every(isRecord)
+      ? (payload.messages as Record<string, unknown>[])
+      : [];
+  if (!Array.isArray(payload.messages) || rows.length === 0) return rows;
+  const byID = new Map(rows.map((row) => [String(row.id ?? ""), row]));
+  const ordered = payload.messages
+    .map((id) => byID.get(String(id)))
+    .filter((row): row is Record<string, unknown> => row !== undefined);
+  return ordered.length ? ordered : rows;
+}
+
+function renderChatterMessage(message: Record<string, unknown>): HTMLElement {
+  const article = document.createElement("article");
+  article.className = ["gorp-chatter-message", "o-mail-Message", message.is_message_subtype_note ? "o-note" : ""]
+    .filter(Boolean)
+    .join(" ");
+  if (firstValue(message.id) !== undefined) article.dataset.messageId = String(message.id);
+  const avatarURL = firstText(message.author_avatar_url);
+  if (avatarURL) {
+    const avatar = document.createElement("img");
+    avatar.className = "gorp-chatter-avatar o_avatar o-mail-Message-avatar";
+    avatar.src = avatarURL;
+    avatar.alt = chatterAuthorName(message);
+    article.append(avatar);
+  }
+  const content = document.createElement("div");
+  content.className = "gorp-chatter-message-content";
+  const meta = document.createElement("div");
+  meta.className = "gorp-chatter-message-meta";
+  const author = document.createElement("span");
+  author.className = "o-mail-Message-author";
+  author.textContent = chatterAuthorName(message);
+  meta.append(author);
+  const published = firstText(message.published_date_str, message.date);
+  if (published) {
+    const date = document.createElement("time");
+    date.className = "o-mail-Message-date";
+    date.textContent = published;
+    meta.append(date);
+  }
+  const body = document.createElement("div");
+  body.className = "o-mail-Message-body";
+  body.textContent = chatterBodyText(message.body);
+  content.append(meta, body);
+  const attachments = renderChatterAttachments(message.attachment_ids);
+  if (attachments) content.append(attachments);
+  const reactions = renderChatterReactions(message.reactions);
+  if (reactions) content.append(reactions);
+  article.append(content);
+  return article;
+}
+
+function chatterAuthorName(message: Record<string, unknown>): string {
+  const author = isRecord(message.author_id) ? message.author_id : isRecord(message.author_guest_id) ? message.author_guest_id : {};
+  return firstText(author.name, message.email_from) ?? "OdooBot";
+}
+
+function chatterBodyText(value: unknown): string {
+  const body = Array.isArray(value) && value[0] === "markup" ? value[1] : value;
+  if (body === null || body === undefined || body === false) return "";
+  return String(body)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function renderChatterAttachments(value: unknown): HTMLElement | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const list = document.createElement("div");
+  list.className = "gorp-chatter-attachments o-mail-AttachmentList";
+  for (const item of value) {
+    const attachment: Record<string, unknown> = isRecord(item) ? item : { id: item };
+    const chip = document.createElement("span");
+    chip.className = "gorp-chatter-attachment o-mail-Attachment";
+    chip.textContent = firstText(attachment.filename, attachment.name, attachment.id) ?? "Attachment";
+    list.append(chip);
+  }
+  return list;
+}
+
+function renderChatterReactions(value: unknown): HTMLElement | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const list = document.createElement("div");
+  list.className = "gorp-chatter-reactions o-mail-ReactionList";
+  for (const item of value) {
+    if (!isRecord(item)) continue;
+    const chip = document.createElement("span");
+    chip.className = "gorp-chatter-reaction o-mail-Reaction";
+    chip.textContent = `${firstText(item.content) ?? ""} ${firstText(item.count) ?? ""}`.trim();
+    list.append(chip);
+  }
+  return list.children.length ? list : null;
 }
 
 function renderFormWorkflowActionMenu(

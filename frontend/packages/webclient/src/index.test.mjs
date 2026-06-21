@@ -780,6 +780,7 @@ const decoratedRows = findAll(delegationWidgetWindow, (node) => String(node.clas
 assert.equal(decoratedRows.length, 1);
 assert.equal(decoratedRows[0].dataset.field, undefined);
 
+const delegationChatterFetches = [];
 const delegationFormWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Delegation" },
@@ -800,6 +801,29 @@ const delegationFormWidgetWindow = renderWindowAction({
   },
   records: [{ id: 6, employee_id: [8, "Marc Demo"], name: "DG0001" }],
   length: 1
+}, {
+  context: { access_token: "thread-token", hash: "thread-hash", pid: 12 },
+  services: {
+    mail: {
+      chatterFetch(thread, fetchParams, access) {
+        delegationChatterFetches.push({ thread, fetchParams, access });
+        return Promise.resolve({
+          messages: [44],
+          data: {
+            "mail.message": [{
+              id: 44,
+              author_id: { id: 8, name: "Marc Demo" },
+              author_avatar_url: "/mail/avatar/mail.message/44/author_avatar/50x50?access_token=thread-token",
+              body: ["markup", "<p>Approved<br/>Now</p>"],
+              published_date_str: "2026-06-21 09:30:00",
+              attachment_ids: [{ id: 7, filename: "approval.pdf" }],
+              reactions: [{ content: "ok", count: 2 }]
+            }]
+          }
+        });
+      }
+    }
+  }
 });
 const delegationForm = delegationFormWidgetWindow.children[1];
 assert.equal(findAll(delegationForm, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0].dataset.resId, "8");
@@ -809,6 +833,19 @@ assert.equal(delegationChatter.dataset.threadId, "6");
 assert.ok(String(delegationChatter.className).includes("o-mail-ChatterContainer"));
 assert.ok(String(delegationChatter.className).includes("o-mail-Form-chatter"));
 assert.ok(String(delegationChatter.className).includes("o-mail-Chatter"));
+await Promise.resolve();
+await Promise.resolve();
+assert.deepEqual(delegationChatterFetches[0], {
+  thread: { thread_model: "delegation", thread_id: 6 },
+  fetchParams: { limit: 30 },
+  access: { token: "thread-token", hash: "thread-hash", pid: 12 }
+});
+const delegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").includes("o-mail-Message"));
+assert.equal(delegationMessages[0].dataset.messageId, "44");
+assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").includes("o-mail-Message-author"))[0].textContent.includes("Marc Demo"));
+assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent.includes("Approved"));
+assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-attachment o-mail-Attachment")[0].textContent, "approval.pdf");
+assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-reaction o-mail-Reaction")[0].textContent, "ok 2");
 
 const invalidDirectWindowRequests = [];
 const invalidDirectWindowServices = createWebClientServices({

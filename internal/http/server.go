@@ -4241,6 +4241,57 @@ const webClientShellHTML = `<!doctype html>
 		flex-wrap: wrap;
 		margin: 8px 0;
 	}
+	.o-mail-Thread {
+		display: grid;
+		gap: 10px;
+	}
+	.o-mail-Message {
+		display: grid;
+		grid-template-columns: 32px minmax(0, 1fr);
+		gap: 10px;
+		padding: 8px 0;
+		border-top: 1px solid var(--line);
+	}
+	.o-mail-Message:first-child {
+		border-top: 0;
+	}
+	.o-mail-Message-avatar {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		object-fit: cover;
+		background: var(--panel-soft);
+	}
+	.o-mail-Message-meta {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.o-mail-Message-author {
+		font-weight: 600;
+		color: var(--text);
+	}
+	.o-mail-Message-body {
+		margin-top: 3px;
+		white-space: pre-wrap;
+	}
+	.o-mail-AttachmentList,
+	.o-mail-ReactionList {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: 6px;
+	}
+	.o-mail-Attachment,
+	.o-mail-Reaction {
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		padding: 2px 6px;
+		background: var(--panel-soft);
+		font-size: 12px;
+	}
 	.menu-list {
       display: flex;
       flex-wrap: wrap;
@@ -5814,6 +5865,7 @@ const webClientShellHTML = `<!doctype html>
         const button = document.createElement("button");
         button.type = "button";
         button.className = "secondary";
+        button.dataset.chatterAction = label.toLowerCase().replace(/\s+/g, "-");
         button.textContent = label;
         composer.append(button);
       }
@@ -5821,7 +5873,121 @@ const webClientShellHTML = `<!doctype html>
       thread.className = "o-mail-Thread";
       thread.dataset.chatterThread = "true";
       chatter.append(header, composer, thread);
+      if (id) loadChatterThread(thread, model, id);
       return chatter;
+    }
+
+    async function loadChatterThread(thread, model, id) {
+      thread.textContent = "Loading...";
+      try {
+        const payload = await requestJSON("/mail/chatter_fetch", {
+          method: "POST",
+          body: JSON.stringify({thread_model: model, thread_id: Number(id), fetch_params: {limit: 30}})
+        });
+        renderChatterThread(thread, payload);
+      } catch (_error) {
+        thread.textContent = "Chatter unavailable";
+      }
+    }
+
+    function renderChatterThread(thread, payload) {
+      thread.replaceChildren();
+      const messages = chatterMessages(payload);
+      if (!messages.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No messages.";
+        thread.append(empty);
+        return;
+      }
+      for (const message of messages) thread.append(renderChatterMessage(message));
+    }
+
+    function chatterMessages(payload) {
+      const rows = payload && payload.data && Array.isArray(payload.data["mail.message"]) ? payload.data["mail.message"] : [];
+      if (!Array.isArray(payload && payload.messages)) return rows;
+      const byID = new Map(rows.map((row) => [String(row.id || ""), row]));
+      const ordered = payload.messages.map((id) => byID.get(String(id))).filter(Boolean);
+      return ordered.length ? ordered : rows;
+    }
+
+    function renderChatterMessage(message) {
+      const article = document.createElement("article");
+      article.className = "o-mail-Message" + (message.is_message_subtype_note ? " o-note" : "");
+      if (message.id) article.dataset.messageId = String(message.id);
+      const avatarURL = message.author_avatar_url || "";
+      if (avatarURL) {
+        const avatar = document.createElement("img");
+        avatar.className = "o_avatar o-mail-Message-avatar";
+        avatar.src = avatarURL;
+        avatar.alt = chatterAuthorName(message);
+        article.append(avatar);
+      } else {
+        const spacer = document.createElement("span");
+        article.append(spacer);
+      }
+      const content = document.createElement("div");
+      const meta = document.createElement("div");
+      meta.className = "o-mail-Message-meta";
+      const author = document.createElement("span");
+      author.className = "o-mail-Message-author";
+      author.textContent = chatterAuthorName(message);
+      meta.append(author);
+      if (message.published_date_str || message.date) {
+        const time = document.createElement("time");
+        time.className = "o-mail-Message-date";
+        time.textContent = String(message.published_date_str || message.date);
+        meta.append(time);
+      }
+      const body = document.createElement("div");
+      body.className = "o-mail-Message-body";
+      body.textContent = chatterBodyText(message.body);
+      content.append(meta, body);
+      const attachments = renderChatterAttachments(message.attachment_ids);
+      if (attachments) content.append(attachments);
+      const reactions = renderChatterReactions(message.reactions);
+      if (reactions) content.append(reactions);
+      article.append(content);
+      return article;
+    }
+
+    function chatterAuthorName(message) {
+      const author = message.author_id && typeof message.author_id === "object" ? message.author_id : message.author_guest_id && typeof message.author_guest_id === "object" ? message.author_guest_id : null;
+      return String((author && author.name) || message.email_from || "OdooBot");
+    }
+
+    function chatterBodyText(value) {
+      const body = Array.isArray(value) && value[0] === "markup" ? value[1] : value;
+      if (body === null || body === undefined || body === false) return "";
+      return String(body).replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    function renderChatterAttachments(value) {
+      if (!Array.isArray(value) || !value.length) return null;
+      const list = document.createElement("div");
+      list.className = "o-mail-AttachmentList";
+      for (const item of value) {
+        const attachment = item && typeof item === "object" ? item : {id: item};
+        const chip = document.createElement("span");
+        chip.className = "o-mail-Attachment";
+        chip.textContent = String(attachment.filename || attachment.name || attachment.id || "Attachment");
+        list.append(chip);
+      }
+      return list;
+    }
+
+    function renderChatterReactions(value) {
+      if (!Array.isArray(value) || !value.length) return null;
+      const list = document.createElement("div");
+      list.className = "o-mail-ReactionList";
+      for (const reaction of value) {
+        if (!reaction || typeof reaction !== "object") continue;
+        const chip = document.createElement("span");
+        chip.className = "o-mail-Reaction";
+        chip.textContent = String(((reaction.content || "") + " " + (reaction.count || "")).trim());
+        list.append(chip);
+      }
+      return list.children.length ? list : null;
     }
 
     function renderRows(rows, fields) {
