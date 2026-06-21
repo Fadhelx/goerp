@@ -6,6 +6,7 @@ import {
   createSearchModel,
   groupByDescriptor,
   SEARCH_DATE_INTERVALS,
+  searchFacetDisplay,
   searchFacetLabel
 } from "../../../../dist/packages/webclient/src/search/search_model.js";
 
@@ -60,6 +61,26 @@ assert.deepEqual(
 assert.deepEqual(SEARCH_DATE_INTERVALS.map((item) => item.id), ["year", "quarter", "month", "week", "day"]);
 assert.equal(groupByDescriptor("create_date", "month"), "create_date:month");
 assert.deepEqual(
+  searchFacetDisplay({
+    id: "state",
+    type: "filter",
+    label: "Status",
+    categoryLabel: "Stage",
+    valueLabels: ["Draft", "Done"]
+  }),
+  { categoryLabel: "Stage", valueLabels: ["Draft", "Done"] }
+);
+assert.equal(
+  searchFacetLabel({
+    id: "state",
+    type: "filter",
+    label: "Status",
+    categoryLabel: "Stage",
+    valueLabels: ["Draft", "Done"]
+  }),
+  "Draft or Done"
+);
+assert.deepEqual(
   buildSearchState("", [createDateGroupByFacet("create_date", "Creation Date", "quarter")]).groupBy,
   ["create_date:quarter"]
 );
@@ -106,3 +127,21 @@ assert.deepEqual(
   ]).groupBy,
   ["user_id"]
 );
+
+const labelSearch = createSearchModel({ searchFields: ["name"] });
+const labelState = labelSearch.addFacet({
+  id: "stage",
+  type: "filter",
+  label: "Stage",
+  categoryLabel: " Pipeline Stage ",
+  valueLabels: [" New ", "", "Won"],
+  domain: [["stage", "in", ["new", "won"]]]
+});
+assert.deepEqual(labelState.facets[0], {
+  id: "stage",
+  type: "filter",
+  label: "Stage",
+  categoryLabel: "Pipeline Stage",
+  valueLabels: ["New", "Won"],
+  domain: [["stage", "in", ["new", "won"]]]
+});

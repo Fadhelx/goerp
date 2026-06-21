@@ -1,5 +1,5 @@
 import type { ThemeTokens } from "../../../theme-tokens/src/index";
-import { normalizeHomeMenuApps, type HomeMenuPayload } from "../home_menu/app_metadata.js";
+import { normalizeHomeMenuApps, type HomeMenuApp, type HomeMenuPayload } from "../home_menu/app_metadata.js";
 import { renderHomeMenu } from "../home_menu/home_menu.js";
 import { renderNavbar, type NavbarApp } from "./navbar/navbar.js";
 
@@ -10,6 +10,8 @@ export interface WebClientShellOptions {
   userName?: string;
   companyName?: string;
   menus?: HomeMenuPayload;
+  onOpenApp?: (app: HomeMenuApp, outlet: HTMLElement) => unknown;
+  onOpenAppsCatalog?: (outlet: HTMLElement) => unknown;
 }
 
 export function createWebClientShell(options: WebClientShellOptions): HTMLElement {
@@ -17,19 +19,33 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   root.className = "o_web_client";
   root.dataset.theme = options.theme.name;
   root.dataset.mobileSafe = "true";
-  const apps = options.apps ?? navbarAppsFromMenus(options.menus);
+  const menuApps = normalizeHomeMenuApps(options.menus);
+  const apps = options.apps ?? navbarApps(menuApps);
+  const action = document.createElement("section");
+  action.className = "o_action_manager";
+  const openApp = (app: HomeMenuApp) => options.onOpenApp?.(app, action);
+  const renderApps = () => {
+    if (!options.menus) return;
+    action.replaceChildren(renderHomeMenu(options.menus, {
+      onOpenApp: openApp,
+      onOpenAppsCatalog: () => options.onOpenAppsCatalog?.(action)
+    }));
+  };
 
   const navbar = renderNavbar({
     apps,
     userName: options.userName,
     companyName: options.companyName,
-    debug: options.debug
+    debug: options.debug,
+    onOpenApps: renderApps,
+    onOpenApp: (app) => {
+      const menuApp = menuApps.find((item) => String(item.id) === String(app.id));
+      if (menuApp) openApp(menuApp);
+    }
   });
 
-  const action = document.createElement("section");
-  action.className = "o_action_manager";
   if (options.menus) {
-    action.append(renderHomeMenu(options.menus));
+    renderApps();
   } else {
     const ready = document.createElement("section");
     ready.className = "o-control-panel o_control_panel";
@@ -41,8 +57,8 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   return root;
 }
 
-function navbarAppsFromMenus(menus: HomeMenuPayload | undefined): NavbarApp[] {
-  return normalizeHomeMenuApps(menus).map((app) => ({
+function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {
+  return apps.map((app) => ({
     id: app.id,
     name: app.name
   }));

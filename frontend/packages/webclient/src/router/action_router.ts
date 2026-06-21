@@ -1,5 +1,23 @@
 export type RouteScalar = string | number | boolean;
-export type RouteValue = RouteScalar | readonly RouteScalar[] | null | undefined;
+export type RouteValue =
+  | RouteScalar
+  | readonly RouteScalar[]
+  | readonly WebClientRouteActionState[]
+  | null
+  | undefined;
+
+export interface WebClientRouteActionState {
+  action?: number | string;
+  model?: string;
+  view_type?: string;
+  id?: number | string;
+  menu_id?: number | string;
+  active_id?: number | string;
+  active_ids?: readonly (number | string)[];
+  displayName?: string;
+  target?: string;
+  [key: string]: RouteScalar | readonly RouteScalar[] | null | undefined;
+}
 
 export interface WebClientRouteState {
   action?: number | string;
@@ -11,7 +29,17 @@ export interface WebClientRouteState {
   active_ids?: readonly (number | string)[];
   debug?: boolean | string;
   cids?: string;
+  actionStack?: readonly WebClientRouteActionState[];
   [key: string]: RouteValue;
+}
+
+export interface ActionRouteSource {
+  action: Record<string, unknown>;
+  title?: string;
+  target?: string;
+  dialog?: boolean;
+  breadcrumbVisible?: boolean;
+  route?: Record<string, unknown> | null;
 }
 
 export interface BrowserRouteTarget {
@@ -58,6 +86,22 @@ export function routeStateFromAction(
   return normalizeRouteState(state);
 }
 
+export function routeStateFromStack(
+  entries: readonly ActionRouteSource[],
+  extra: WebClientRouteState = {}
+): WebClientRouteState {
+  const actionStack = entries
+    .filter((entry) => !isDialogEntry(entry))
+    .map(routeActionStateFromEntry)
+    .filter((entry) => Object.keys(entry).length > 0);
+  const current = actionStack[actionStack.length - 1];
+  return normalizeRouteState({
+    ...extra,
+    ...(actionStack.length ? { actionStack } : {}),
+    ...(current ? currentRouteState(current) : {})
+  });
+}
+
 export function normalizeRouteState(input: Record<string, unknown> | WebClientRouteState): WebClientRouteState {
   const state: WebClientRouteState = {};
   for (const [key, value] of Object.entries(input)) {
@@ -76,6 +120,7 @@ export function serializeRouteState(input: WebClientRouteState): string {
   for (const key of keys) {
     const value = state[key];
     if (Array.isArray(value)) {
+      if (!value.every(isRouteScalar)) continue;
       if (!value.length) continue;
       pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(value.map(String).join(","))}`);
     } else if (isRouteScalar(value)) {
@@ -107,13 +152,14 @@ export function updateBrowserRoute(
   state: WebClientRouteState,
   options: { replace?: boolean; target?: BrowserRouteTarget } = {}
 ): string {
+  const normalized = normalizeRouteState(state);
   const target = options.target ?? (typeof window !== "undefined" ? window : undefined);
   const pathname = target?.location.pathname || "/web";
   const search = target?.location.search || "";
-  const url = `${pathname}${search}${serializeRouteState(state)}`;
+  const url = `${pathname}${search}${serializeRouteState(normalized)}`;
   if (target?.history) {
-    if (options.replace) target.history.replaceState({ ...state }, "", url);
-    else target.history.pushState({ ...state }, "", url);
+    if (options.replace) target.history.replaceState({ ...normalized }, "", url);
+    else target.history.pushState({ ...normalized }, "", url);
   }
   return url;
 }
@@ -125,6 +171,13 @@ function routeKeyOrder(key: string): number {
 
 function normalizeRouteValue(key: string, value: unknown): RouteValue {
   if (value === undefined || value === null || value === false || value === "") return undefined;
+  if (key === "actionStack" && Array.isArray(value)) {
+    const stack = value
+      .filter(isRecord)
+      .map(normalizeRouteActionState)
+      .filter((entry) => Object.keys(entry).length > 0);
+    return stack.length ? stack : undefined;
+  }
   if (Array.isArray(value)) {
     const values = value
       .map((item) => normalizeRouteValue(key, item))
@@ -145,6 +198,36 @@ function normalizeRouteValue(key: string, value: unknown): RouteValue {
     return trimmed;
   }
   return undefined;
+}
+
+function normalizeRouteActionState(input: Record<string, unknown>): WebClientRouteActionState {
+  const state: WebClientRouteActionState = {};
+  for (const [key, value] of Object.entries(input)) {
+    const normalized = normalizeRouteValue(key, value);
+    if (normalized === undefined || normalized === null || normalized === "") continue;
+    if (Array.isArray(normalized) && !normalized.every(isRouteScalar)) continue;
+    if (isRouteScalar(normalized) || Array.isArray(normalized)) state[key] = normalized;
+  }
+  return state;
+}
+
+function routeActionStateFromEntry(entry: ActionRouteSource): WebClientRouteActionState {
+  const fromRoute = isRecord(entry.route) ? normalizeRouteActionState(entry.route) : routeStateFromAction(entry.action);
+  const state = normalizeRouteActionState(fromRoute);
+  const title = text(entry.title);
+  if (title) state.displayName = title;
+  const target = text(entry.target ?? entry.action.target);
+  if (target && target !== "current") state.target = target;
+  return normalizeRouteActionState(state);
+}
+
+function currentRouteState(state: WebClientRouteActionState): WebClientRouteState {
+  const { displayName: _displayName, target: _target, ...route } = state;
+  return route;
+}
+
+function isDialogEntry(entry: ActionRouteSource): boolean {
+  return entry.dialog === true || text(entry.target ?? entry.action.target) === "new";
 }
 
 function parseRouteValue(key: string, value: string): RouteValue {
@@ -193,4 +276,8 @@ function firstActionViewType(action: Record<string, unknown>): string {
     return action.view_mode.split(",").map((view) => view.trim()).find((view) => view && view !== "search") ?? "";
   }
   return "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

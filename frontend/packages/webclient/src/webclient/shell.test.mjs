@@ -15,6 +15,9 @@ globalThis.document = {
       append(...nodes) {
         this.children.push(...nodes);
       },
+      replaceChildren(...nodes) {
+        this.children = nodes;
+      },
       setAttribute(name, value) {
         this.attributes[name] = String(value);
       },
@@ -31,6 +34,7 @@ function findAll(node, predicate, out = []) {
   return out;
 }
 
+const opened = [];
 const shell = createWebClientShell({
   theme: {
     name: "enterprise-like",
@@ -45,8 +49,11 @@ const shell = createWebClientShell({
   companyName: "My Company",
   menus: {
     root: { children: [1, 2] },
-    1: { id: 1, name: "Settings", children: [] },
+    1: { id: 1, name: "Settings", children: [], actionID: 9 },
     2: { id: 2, name: "Server Actions", children: [] }
+  },
+  onOpenApp(app, outlet) {
+    opened.push({ id: app.id, actionID: app.menu.actionID, outletClass: outlet.className });
   }
 });
 
@@ -59,3 +66,10 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_me
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
 assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
 assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp")).length, 0);
+
+findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].listeners.click[0]();
+findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_entry"))[0].listeners.click[0]();
+assert.deepEqual(opened, [
+  { id: 1, actionID: 9, outletClass: "o_action_manager" },
+  { id: 1, actionID: 9, outletClass: "o_action_manager" }
+]);

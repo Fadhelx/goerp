@@ -10,9 +10,9 @@ Reference input: `/Users/fadhelalqaidoom/Desktop/odoo/odoo19` inspected only as 
 
 GoERP `/web` is usable for testing.
 
-Current parity estimate: 40-50%.
+Current parity estimate: 45-55%.
 
-Current slices fixed the highest visible form-header issue, added a passive frontend bootstrap path, and added Odoo-style hash route restore for list/form navigation. Full Odoo parity is still incomplete because the default `/web` runtime still uses the inline Go shell.
+Current slices fixed the highest visible form-header issue, added Odoo-style hash route restore for list/form navigation, and made the bundled TypeScript/Odoo-like webclient own default `/web`. Full Odoo parity is still incomplete because the TS action manager, renderers, settings, and dialogs are not yet complete.
 
 ## Implemented This Slice
 
@@ -30,6 +30,12 @@ Current slices fixed the highest visible form-header issue, added a passive fron
 - Added browser back/forward route restoration hooks.
 - Improved `?ts_webclient=1` takeover to render the shared Odoo-like shell from session/menu data.
 - Added `hash-route-desktop` and `ts-webclient-takeover` visual smoke coverage.
+- Made the TypeScript webclient the default `/web` runtime, with the legacy inline shell available through `?legacy_webclient=1`.
+- Added default `/web` visual smoke coverage for TS shell takeover and Settings action rendering.
+- Wired TS app/menu clicks to load window actions into the shared renderer and write route hash state.
+- Added action-stack route metadata, current-route snapshots, target `new` dialog route exclusion, target `main` stack clearing, and history-state stack payloads.
+- Added search facet category/value metadata and Odoo-like multi-value facet rendering.
+- Added a clean-room settings renderer foundation for Odoo-style `<app>`, `<block>`, `<setting>`, typed controls, and simple invisible-expression handling.
 
 ## Changed Files
 
@@ -40,6 +46,18 @@ Current slices fixed the highest visible form-header issue, added a passive fron
 - `internal/runtime/bootstrap.go`
 - `frontend/apps/webclient/src/main.ts`
 - `frontend/apps/webclient/src/main.test.mjs`
+- `frontend/packages/webclient/src/control_panel/control_panel.ts`
+- `frontend/packages/webclient/src/control_panel/control_panel.test.mjs`
+- `frontend/packages/webclient/src/router/action_router.ts`
+- `frontend/packages/webclient/src/router/action_router.test.mjs`
+- `frontend/packages/webclient/src/search/search_model.ts`
+- `frontend/packages/webclient/src/search/search_model.test.mjs`
+- `frontend/packages/webclient/src/settings/settings_renderer.ts`
+- `frontend/packages/webclient/src/settings/settings_renderer.test.mjs`
+- `frontend/packages/webclient/src/services/action_stack.ts`
+- `frontend/packages/webclient/src/services/action_stack.test.mjs`
+- `frontend/packages/webclient/src/webclient/shell.ts`
+- `frontend/packages/webclient/src/webclient/shell.test.mjs`
 - `frontend/scripts/build.mjs`
 - `frontend/scripts/test.mjs`
 - `tools/web_visual_smoke/run.mjs`
@@ -56,13 +74,14 @@ Current slices fixed the highest visible form-header issue, added a passive fron
 
 GoERP local:
 - URL: `http://127.0.0.1:8073/web`
-- Visual smoke: 10/10 passed.
+- Visual smoke: 11/11 passed.
 - Manifest: `reports/web_visual_smoke/manifest.json`
 
 Screenshots:
 - `reports/web_visual_smoke/launcher-desktop.png`
 - `reports/web_visual_smoke/settings-desktop.png`
-- `reports/web_visual_smoke/ts-webclient-takeover.png`
+- `reports/web_visual_smoke/default-webclient-takeover.png`
+- `reports/web_visual_smoke/default-webclient-action-desktop.png`
 - `reports/web_visual_smoke/technical-list-desktop.png`
 - `reports/web_visual_smoke/hash-route-desktop.png`
 - `reports/web_visual_smoke/technical-form-desktop.png`
@@ -74,7 +93,8 @@ Screenshots:
 Smoke assertions:
 - Launcher desktop: 4 app tiles, 5 systray entries.
 - Settings desktop: 3 settings blocks, 14 settings boxes.
-- TS takeover desktop: Odoo shell, navbar, action manager, and app launcher render from loaded session/menu data.
+- Default TS takeover desktop: Odoo shell, navbar, action manager, and app launcher render from loaded session/menu data on plain `/web`.
+- Default TS action desktop: Settings action opens in the shared renderer with title `Settings`, action hash, and control panel.
 - Technical list desktop: Server Actions, 20 rows.
 - Hash route desktop: Server Actions writes `#action`, `model`, `view_type`, and `menu_id`, then reloads back into the list.
 - Technical form desktop: 6 fields, no header overlap.
@@ -87,32 +107,29 @@ Smoke assertions:
 
 - `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember)$'`
 - `go test -timeout=10m ./internal/http -run 'Test(WebAliasesAndAssets|FrontendDistAssetAndBootstrapScript|AssetDebugFileServesBundleMember|WebRoutes|WebclientLoadMenusOdooShape|ActionLoadOdooShapeAndJSONRPC|ActionLoadNormalizesWindowDomainContextForWebShell|CallKWGetViewsOdooShape)$'`
-- `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/index.test.mjs`
+- `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/services/action_stack.test.mjs packages/webclient/src/router/action_router.test.mjs packages/webclient/src/webclient/shell.test.mjs packages/webclient/src/search/search_model.test.mjs packages/webclient/src/control_panel/control_panel.test.mjs packages/webclient/src/index.test.mjs`
 - `pnpm -C frontend build`
 - `node --test tools/web_visual_smoke/run.test.mjs`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/local_runtime_slice_smoke --timeout-ms=30000`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --timeout-ms=30000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/web_visual_smoke_local --timeout-ms=60000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=reports/web_visual_smoke --timeout-ms=60000`
 - `make ci`
 
 ## P0 Mismatches
 
-1. Default `/web` still uses the inline Go shell.
-   - Required: bundled TS/OWL runtime owns shell, action manager, services, menus, dialogs, and routing.
+1. Action stack and dialogs are incomplete.
+   - Improved: route-stack metadata, current-route snapshots, target `new` route exclusion, target `main` stack clearing, and history-state stack payloads.
+   - Required: wire stack helpers into the live action-manager UI, render target `new` modals, implement stale-panel cleanup, and support deeper breadcrumb navigation.
 
-2. Action stack is incomplete.
-   - Improved: basic hash state now covers menu/action/model/list/kanban/form record restore.
-   - Required: dialog target `new`, deeper breadcrumb stack behavior, multi-action stack history, and stale-panel cleanup.
-
-3. Settings is not full Odoo Settings.
+2. Settings is not full Odoo Settings.
    - Required: typed settings fields, dirty save/discard, module sections, Technical settings depth, search, and company/user scoped controls.
 
-4. List/form renderers are partial.
+3. List/form renderers are partial.
    - Required: row selection/action menus/sort/grouping/edit gates; form buttons/statusbars/notebooks/modifiers/onchange/x2many/chatter.
 
-5. Systray/mobile parity is partial.
+4. Systray/mobile parity is partial.
    - Required: user/company/debug/mail/activity dropdowns, mobile burger/back navigation, responsive action state.
 
-6. Apps catalog parity is partial.
+5. Apps catalog parity is partial.
    - Required: app catalog metadata, module install/update states, categories, provenance-safe icons, and post-install refresh.
 
 ## Implementation Status
@@ -121,4 +138,4 @@ Complete for this slice.
 
 Not complete for full UI parity.
 
-Next implementation target: make the bundled TS/OWL webclient the default `/web` owner while preserving current passing visual smoke.
+Next implementation target: wire the new route-stack helpers into the live TS action manager and implement target `new` modal rendering.

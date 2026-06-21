@@ -6,6 +6,14 @@ export interface ActionBreadcrumb {
   resId?: number | string;
 }
 
+export interface ActionStackRouteState {
+  action?: number | string;
+  model?: string;
+  view_type?: string;
+  id?: number | string;
+  menu_id?: number | string;
+}
+
 export interface ActionStackEntry {
   id: string;
   action: Record<string, unknown>;
@@ -16,11 +24,16 @@ export interface ActionStackEntry {
   resId?: number | string;
   target: string;
   viewTypes: readonly string[];
+  parentId?: string;
+  dialog: boolean;
+  breadcrumbVisible: boolean;
+  route: ActionStackRouteState | null;
 }
 
 export interface ActionStackSnapshot {
   entries: readonly ActionStackEntry[];
   current: ActionStackEntry | null;
+  currentRoute: ActionStackRouteState | null;
   breadcrumbs: readonly ActionBreadcrumb[];
 }
 
@@ -34,6 +47,7 @@ export interface ActionStackOptions {
 export interface ActionStackController {
   readonly entries: readonly ActionStackEntry[];
   readonly current: ActionStackEntry | null;
+  readonly currentRoute: ActionStackRouteState | null;
   readonly breadcrumbs: readonly ActionBreadcrumb[];
   snapshot(): ActionStackSnapshot;
   push(action: Record<string, unknown>, options?: ActionStackOptions): ActionStackEntry;
@@ -55,6 +69,9 @@ export function createActionStack(): ActionStackController {
     get current(): ActionStackEntry | null {
       return entries.length ? cloneEntry(entries[entries.length - 1]) : null;
     },
+    get currentRoute(): ActionStackRouteState | null {
+      return cloneRoute(currentRouteEntry(entries)?.route ?? null);
+    },
     get breadcrumbs(): readonly ActionBreadcrumb[] {
       return actionBreadcrumbs(entries);
     },
@@ -62,18 +79,23 @@ export function createActionStack(): ActionStackController {
       return {
         entries: entries.map(cloneEntry),
         current: entries.length ? cloneEntry(entries[entries.length - 1]) : null,
+        currentRoute: cloneRoute(currentRouteEntry(entries)?.route ?? null),
         breadcrumbs: actionBreadcrumbs(entries)
       };
     },
     push(action: Record<string, unknown>, options: ActionStackOptions = {}): ActionStackEntry {
-      if (options.clearBreadcrumbs || options.stackPosition === "clear") entries = [];
-      const entry = makeActionStackEntry(action, options);
+      if (shouldClearStack(action, options)) entries = [];
+      const entry = makeActionStackEntry(action, options, undefined, currentRouteEntry(entries)?.id);
       entries = [...entries, entry];
       return cloneEntry(entry);
     },
     replace(action: Record<string, unknown>, options: ActionStackOptions = {}): ActionStackEntry {
-      const entry = makeActionStackEntry(action, options);
-      entries = entries.length ? [...entries.slice(0, -1), entry] : [entry];
+      if (shouldClearStack(action, options)) entries = [];
+      const previousEntries = entries.slice(0, -1);
+      const previous = entries[entries.length - 1];
+      const parentId = previous?.dialog ? previous.parentId : currentRouteEntry(previousEntries)?.id;
+      const entry = makeActionStackEntry(action, options, undefined, parentId);
+      entries = entries.length ? [...previousEntries, entry] : [entry];
       return cloneEntry(entry);
     },
     clear(): void {
@@ -90,7 +112,15 @@ export function createActionStack(): ActionStackController {
       return cloneEntry(entries[index]);
     },
     restore(nextEntries: readonly ActionStackEntry[]): ActionStackEntry | null {
-      entries = nextEntries.map((entry) => makeActionStackEntry(entry.action, entry.options, entry.id));
+      entries = [];
+      for (const entry of nextEntries) {
+        entries.push(makeActionStackEntry(
+          entry.action,
+          entry.options,
+          entry.id,
+          entry.parentId ?? currentRouteEntry(entries)?.id
+        ));
+      }
       return entries.length ? cloneEntry(entries[entries.length - 1]) : null;
     }
   };
@@ -107,18 +137,25 @@ export function isCloseAction(action: Record<string, unknown>): boolean {
 export function makeActionStackEntry(
   action: Record<string, unknown>,
   options: Record<string, unknown> = {},
-  id = `action-${++nextStackID}`
+  id = `action-${++nextStackID}`,
+  parentId?: string
 ): ActionStackEntry {
   const resModel = text(action.res_model);
   const resID = actionID(action.res_id);
+  const target = text(action.target) || "current";
+  const route = target === "new" ? null : actionRouteState(action);
   const entry: ActionStackEntry = {
     id,
     action: { ...action },
     options: { ...options },
     title: actionTitle(action),
-    target: text(action.target) || "current",
-    viewTypes: actionViewTypes(action)
+    target,
+    viewTypes: actionViewTypes(action),
+    dialog: target === "new",
+    breadcrumbVisible: route !== null && !actionNoBreadcrumbs(action),
+    route
   };
+  if (parentId) entry.parentId = parentId;
   const idValue = actionID(action.id);
   if (idValue !== undefined) entry.actionId = idValue;
   if (resModel) entry.resModel = resModel;
@@ -128,7 +165,7 @@ export function makeActionStackEntry(
 
 export function actionBreadcrumbs(entries: readonly ActionStackEntry[]): ActionBreadcrumb[] {
   return entries
-    .filter((entry) => entry.target !== "new")
+    .filter((entry) => entry.breadcrumbVisible)
     .map((entry) => {
       const breadcrumb: ActionBreadcrumb = {
         id: entry.id,
@@ -177,18 +214,63 @@ function cloneEntry(entry: ActionStackEntry): ActionStackEntry {
     options: { ...entry.options },
     title: entry.title,
     target: entry.target,
-    viewTypes: [...entry.viewTypes]
+    viewTypes: [...entry.viewTypes],
+    dialog: entry.dialog,
+    breadcrumbVisible: entry.breadcrumbVisible,
+    route: cloneRoute(entry.route)
   };
+  if (entry.parentId !== undefined) clone.parentId = entry.parentId;
   if (entry.actionId !== undefined) clone.actionId = entry.actionId;
   if (entry.resModel !== undefined) clone.resModel = entry.resModel;
   if (entry.resId !== undefined) clone.resId = entry.resId;
   return clone;
 }
 
+function actionRouteState(action: Record<string, unknown>): ActionStackRouteState {
+  const state: ActionStackRouteState = {};
+  const actionValue = actionID(action.id);
+  if (actionValue !== undefined) state.action = actionValue;
+  const model = text(action.res_model);
+  if (model) state.model = model;
+  const viewType = text(action.view_type) || actionViewTypes(action)[0] || "";
+  if (viewType) state.view_type = viewType;
+  const idValue = actionID(action.res_id);
+  if (idValue !== undefined) state.id = idValue;
+  const menuID = actionID(action.menu_id);
+  if (menuID !== undefined) state.menu_id = menuID;
+  return state;
+}
+
+function actionNoBreadcrumbs(action: Record<string, unknown>): boolean {
+  if (action._noBreadcrumbs === true || action.no_breadcrumbs === true) return true;
+  const context = action.context;
+  return isRecord(context) && context.no_breadcrumbs === true;
+}
+
 function actionID(value: unknown): number | string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) return value.trim();
   return undefined;
+}
+
+function cloneRoute(route: ActionStackRouteState | null): ActionStackRouteState | null {
+  return route ? { ...route } : null;
+}
+
+function currentRouteEntry(entries: readonly ActionStackEntry[]): ActionStackEntry | null {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry.route) return entry;
+  }
+  return null;
+}
+
+function shouldClearStack(action: Record<string, unknown>, options: ActionStackOptions): boolean {
+  return options.clearBreadcrumbs === true || options.stackPosition === "clear" || text(action.target) === "main";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function text(value: unknown): string {

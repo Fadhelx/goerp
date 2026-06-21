@@ -37,12 +37,12 @@ export const scenarios = [
     }
   },
   {
-    name: "ts-webclient-takeover",
+    name: "default-webclient-takeover",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
       await setViewport(page, desktopViewport());
-      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?ts_webclient=1&smoke=${++navigationCounter}`) });
-      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "TS takeover document ready");
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "default TS takeover document ready");
       await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
       const navCount = await waitForCount(page, ".o_web_client .o_main_navbar", 1, "TS navbar");
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
@@ -50,6 +50,25 @@ export const scenarios = [
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
       return { nav_count: navCount, app_count: appCount, action_count: actionCount };
+    }
+  },
+  {
+    name: "default-webclient-action-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
+      await clickText(page, ".o_web_client .o_home_menu .o_app", "Settings");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS action ready");
+      const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action", 1, "TS window action");
+      const controlPanelCount = await waitForCount(page, ".o_web_client .o_action_manager .o_control_panel", 1, "TS action control panel");
+      const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
+      })()`, "TS action route hash");
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount };
     }
   },
   {
@@ -71,7 +90,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
       })()`, "action route hash");
-      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web${hash}`) });
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?legacy_webclient=1${hash}`) });
       await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "document ready after hash reload");
       await waitFor(page, `Boolean(document.querySelector(".o_web_client .o_action_manager"))`, "web client shell after hash reload");
       await waitFor(page, `document.body.dataset.view === "records"`, "records view after hash reload");
@@ -397,7 +416,7 @@ async function openServerActionsList(page, config, viewport) {
 async function openWeb(page, config, viewport) {
   await setViewport(page, viewport);
   navigationCounter += 1;
-  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${navigationCounter}`) });
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?legacy_webclient=1&smoke=${navigationCounter}`) });
   await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "document ready");
   await waitFor(page, `Boolean(document.querySelector(".o_web_client .o_action_manager"))`, "web client shell");
   await maybeLogin(page);

@@ -22,7 +22,7 @@ import {
   type ControlPanelMenuItem as ActionControlPanelMenuItem,
   type ControlPanelView as ActionControlPanelView
 } from "./control_panel/control_panel.js";
-import type { HomeMenuPayload } from "./home_menu/app_metadata.js";
+import type { HomeMenuApp, HomeMenuPayload } from "./home_menu/app_metadata.js";
 import { createWebClientShell } from "./webclient/shell.js";
 
 export {
@@ -42,12 +42,15 @@ export {
   normalizeRouteState,
   parseRouteState,
   routeStateFromAction,
+  routeStateFromStack,
   routeStateToURL,
   serializeRouteState,
   updateBrowserRoute,
+  type ActionRouteSource,
   type BrowserRouteTarget,
   type RouteScalar,
   type RouteValue,
+  type WebClientRouteActionState,
   type WebClientRouteState
 } from "./router/action_router.js";
 export {
@@ -89,6 +92,8 @@ export interface WebClientOptions {
   theme: ThemeTokens;
   menus?: HomeMenuPayload;
   session?: Record<string, unknown>;
+  onOpenApp?: (app: HomeMenuApp, outlet: HTMLElement) => unknown;
+  onOpenAppsCatalog?: (outlet: HTMLElement) => unknown;
 }
 
 export interface RPCRequest {
@@ -223,6 +228,7 @@ export interface ActionService {
   readonly history: readonly ActionInvocation[];
   readonly current: ActionInvocation | null;
   readonly stack: readonly ActionStackEntry[];
+  readonly currentRoute: ActionStackEntry["route"];
   readonly breadcrumbs: readonly ActionBreadcrumb[];
   loadAction(action: ActionRequest, context?: Record<string, unknown>): Promise<Record<string, unknown>>;
   doAction<T = unknown>(action: ActionRequest, options?: ActionServiceOptions): Promise<T>;
@@ -1272,6 +1278,9 @@ export function createActionService(
     get stack(): readonly ActionStackEntry[] {
       return stack.entries;
     },
+    get currentRoute(): ActionStackEntry["route"] {
+      return stack.currentRoute;
+    },
     get breadcrumbs(): readonly ActionBreadcrumb[] {
       return stack.breadcrumbs;
     },
@@ -1583,7 +1592,9 @@ export function createWebClient(options: WebClientOptions) {
         debug: Boolean(options.env.debug),
         menus: options.menus,
         userName: sessionUserName(options.session),
-        companyName: sessionCompanyName(options.session)
+        companyName: sessionCompanyName(options.session),
+        onOpenApp: options.onOpenApp,
+        onOpenAppsCatalog: options.onOpenAppsCatalog
       });
     }
   };

@@ -80,15 +80,18 @@ const ready = new Promise((resolve) => {
 });
 
 const mod = await import("../../../dist/apps/webclient/src/main.js");
-assert.equal(globalThis.document.documentElement.dataset.tsWebclient, "available");
-assert.equal(fetches.length, 0);
-await mod.bootstrapGoERPWebClient();
 const detail = await ready;
 
 assert.equal(globalThis.document.documentElement.dataset.tsWebclient, "ready");
 assert.equal(detail.session.uid, 7);
 assert.deepEqual(detail.menus.all_menu_ids, [1, 2]);
 assert.equal(typeof mod.bootstrapGoERPWebClient, "function");
+let shell = globalThis.document.body.children[0].children[0];
+assert.match(shell.className, /o_web_client/);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
   ["/web/webclient/load_menus", "GET"]
@@ -96,16 +99,10 @@ assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
 
 fetches.length = 0;
 sessionResponse = { uid: 0, name: "User 0", company_name: "My Company", quick_login: true };
-globalThis.location.search = "?ts_webclient=1";
+globalThis.location.search = "?legacy_webclient=1";
+globalThis.document.body.children = [];
 await mod.bootstrapGoERPWebClient();
-const shell = globalThis.document.body.children[0].children[0];
-assert.match(shell.className, /o_web_client/);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
-assert.equal(findAll(shell, (node) => String(node.textContent).includes("Admin")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.textContent).includes("My Company")).length, 1);
+assert.equal(globalThis.document.body.children.length, 0);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
   ["/web/session/authenticate", "POST"],

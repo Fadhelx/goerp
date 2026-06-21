@@ -27,8 +27,14 @@ const form = stack.replace({
 assert.equal(stack.entries.length, 1);
 assert.equal(form.resId, 42);
 assert.deepEqual(stack.breadcrumbs.map((item) => item.label), ["Azure Interior"]);
+assert.deepEqual(stack.currentRoute, {
+  action: 7,
+  model: "res.partner",
+  view_type: "form",
+  id: 42
+});
 
-stack.push({
+const dialog = stack.push({
   type: "ir.actions.act_window",
   name: "Compose",
   target: "new",
@@ -36,8 +42,50 @@ stack.push({
   view_mode: "form"
 });
 assert.equal(stack.entries.length, 2);
+assert.equal(dialog.dialog, true);
+assert.equal(dialog.parentId, form.id);
+assert.equal(dialog.route, null);
 assert.deepEqual(stack.breadcrumbs.map((item) => item.label), ["Azure Interior"]);
+assert.deepEqual(stack.currentRoute, {
+  action: 7,
+  model: "res.partner",
+  view_type: "form",
+  id: 42
+});
 assert.equal(stack.closeCurrent().title, "Azure Interior");
+
+const orders = stack.push({
+  id: 12,
+  type: "ir.actions.act_window",
+  name: "Orders",
+  target: "main",
+  res_model: "sale.order",
+  view_mode: "list,form"
+});
+assert.equal(stack.entries.length, 1);
+assert.equal(orders.parentId, undefined);
+assert.deepEqual(stack.breadcrumbs.map((item) => item.label), ["Orders"]);
+
+const orderForm = stack.push({
+  id: 12,
+  type: "ir.actions.act_window",
+  name: "S0001",
+  res_model: "sale.order",
+  res_id: 99,
+  views: [[false, "form"]]
+});
+stack.push({
+  id: 13,
+  type: "ir.actions.act_window",
+  name: "Hidden",
+  res_model: "sale.order.line",
+  context: { no_breadcrumbs: true },
+  view_mode: "list"
+});
+assert.deepEqual(stack.breadcrumbs.map((item) => item.label), ["Orders", "S0001"]);
+assert.equal(stack.closeTo(orders.id).title, "Orders");
+assert.equal(stack.entries.length, 1);
+assert.equal(orderForm.resId, 99);
 
 const executed = [];
 const action = createActionService((invocation) => {
@@ -62,6 +110,12 @@ await action.doAction({
 assert.deepEqual(executed, ["Partners", "Partner Form"]);
 assert.equal(action.stack.length, 1);
 assert.equal(action.current.action.res_id, 5);
+assert.deepEqual(action.currentRoute, {
+  action: 1,
+  model: "res.partner",
+  view_type: "form",
+  id: 5
+});
 assert.deepEqual(action.breadcrumbs.map((item) => item.label), ["Partner Form"]);
 
 await action.doAction({ type: "ir.actions.act_window_close" });

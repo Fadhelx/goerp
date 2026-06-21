@@ -46,7 +46,8 @@ test("scenario inventory covers requested web theme surfaces", () => {
   assert.deepEqual(scenarioNames(), [
     "launcher-desktop",
     "settings-desktop",
-    "ts-webclient-takeover",
+    "default-webclient-takeover",
+    "default-webclient-action-desktop",
     "technical-list-desktop",
     "hash-route-desktop",
     "technical-form-desktop",

@@ -11646,8 +11646,14 @@ func TestFrontendDistAssetAndBootstrapScript(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `globalThis.__goerpTSWebClientAvailable = true`) || !strings.Contains(rec.Body.String(), `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`) || !strings.Contains(rec.Body.String(), `if (!tsWebClientOwnsPage)`) {
 		t.Fatalf("web bootstrap response %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web?legacy_webclient=1", nil))
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), `globalThis.__goerpTSWebClientAvailable = true`) || strings.Contains(rec.Body.String(), `/web/static/frontend/apps/webclient/src/main.js`) {
+		t.Fatalf("legacy web bootstrap response %d %s", rec.Code, rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()

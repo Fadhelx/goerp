@@ -71,7 +71,16 @@ const normalized = createControlPanelState({
   views: [{ type: "list", active: true }, { type: "form" }],
   search: {
     query: "azure",
-    facets: [{ id: "customers", type: "filter", label: "Customers" }]
+    facets: [
+      { id: "customers", type: "filter", label: "Customers" },
+      {
+        id: "stage",
+        type: "filter",
+        label: "Stage",
+        categoryLabel: "Pipeline Stage",
+        valueLabels: ["New", "Won"]
+      }
+    ]
   },
   filters: [{ id: "customers", label: "Customers", active: true }],
   groupBys: [
@@ -130,6 +139,14 @@ assert.ok(facet);
 assert.equal(findAll(facet, (node) => String(node.className).includes("o_searchview_facet_label"))[0].textContent, "Filter");
 assert.equal(findAll(facet, (node) => String(node.className) === "o_facet_value")[0].textContent, "Customers");
 assert.equal(findAll(facet, (node) => String(node.className).includes("o_facet_remove")).length, 1);
+const stageFacet = findAll(root, (node) => node.dataset?.facetId === "stage")[0];
+assert.ok(stageFacet);
+assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_searchview_facet_label"))[0].textContent, "Pipeline Stage");
+assert.deepEqual(
+  findAll(stageFacet, (node) => String(node.className) === "o_facet_value").map((node) => node.textContent),
+  ["New", "Won"]
+);
+assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_facet_value_separator"))[0].textContent, "or");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
 

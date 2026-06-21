@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-21T14:08:47.410Z",
+  "generated_at": "2026-06-21T14:07:07.551Z",
   "base_url": "http://127.0.0.1:8073/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 263
+      "duration_ms": 281
     },
     {
       "name": "settings-desktop",
@@ -28,12 +28,12 @@
         "mobile": false
       },
       "screenshot": "settings-desktop.png",
-      "sha256": "c03074e6d7b5285e4ce467379ded94d38bf8700a09917ba7b04050fb71a9b416",
+      "sha256": "f0739cf31786a227235dd25009890052bc73932f9c71a4f4f03cf1620809d63b",
       "assertions": {
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 332
+      "duration_ms": 426
     },
     {
       "name": "default-webclient-takeover",
@@ -50,7 +50,7 @@
         "app_count": 4,
         "action_count": 1
       },
-      "duration_ms": 243
+      "duration_ms": 231
     },
     {
       "name": "default-webclient-action-desktop",
@@ -63,12 +63,12 @@
       "screenshot": "default-webclient-action-desktop.png",
       "sha256": "e8d38c874215a2a1aaa7a1c804606a5a8a9c9ebf843a8c3406d9975a72f83488",
       "assertions": {
-        "title": "Settings",
+        "title": "",
         "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
         "window_count": 1,
         "control_panel_count": 1
       },
-      "duration_ms": 399
+      "duration_ms": 389
     },
     {
       "name": "technical-list-desktop",
@@ -84,7 +84,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 437
+      "duration_ms": 440
     },
     {
       "name": "hash-route-desktop",
@@ -101,7 +101,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 736
+      "duration_ms": 651
     },
     {
       "name": "technical-form-desktop",
@@ -121,7 +121,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 528
+      "duration_ms": 555
     },
     {
       "name": "search-menu-desktop",
@@ -138,7 +138,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 439
+      "duration_ms": 449
     },
     {
       "name": "launcher-mobile",
@@ -155,7 +155,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 236
+      "duration_ms": 245
     },
     {
       "name": "technical-list-mobile",
@@ -166,12 +166,12 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "a0d97c35d563f0f748924725d65f31391e2434f73c5519ac6ced92adf27ba1dc",
+      "sha256": "a0d0d685bfea363cfcf65eaf3f6d5505f202cf0eda468eebd15f286e89cd3dcf",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 414
+      "duration_ms": 409
     },
     {
       "name": "technical-form-mobile",
@@ -192,8 +192,8 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 470
+      "duration_ms": 472
     }
   ],
-  "duration_ms": 4618
+  "duration_ms": 4687
 }

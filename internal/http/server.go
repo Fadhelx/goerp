@@ -4981,16 +4981,22 @@ func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = io.WriteString(w, s.webClientShellHTML())
+	_, _ = io.WriteString(w, s.webClientShellHTML(r))
 }
 
-func (s Server) webClientShellHTML() string {
+func (s Server) webClientShellHTML(r *http.Request) string {
 	entry := "apps/webclient/src/main.js"
-	if _, ok := s.frontendDistFile(entry); !ok {
+	if _, ok := s.frontendDistFile(entry); !ok || legacyWebClientRequested(r) {
 		return webClientShellHTML
 	}
-	script := `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`
+	script := `<script>globalThis.__goerpTSWebClientAvailable = true;</script>` + "\n" +
+		`<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`
 	return strings.Replace(webClientShellHTML, "</body>", script+"\n</body>", 1)
+}
+
+func legacyWebClientRequested(r *http.Request) bool {
+	query := r.URL.Query()
+	return query.Get("legacy_webclient") == "1" || query.Get("ts_webclient") == "0"
 }
 
 func (s Server) frontendAsset(w http.ResponseWriter, r *http.Request) {
@@ -8443,6 +8449,7 @@ const webClientShellHTML = `<!doctype html>
       runtimeStatus.className = "status-ok";
     }
 
+    const tsWebClientOwnsPage = Boolean(globalThis.__goerpTSWebClientAvailable);
     buildWorkbenchPanels();
     setView("apps");
     document.getElementById("loadRows").addEventListener("click", loadRows);
@@ -8473,12 +8480,14 @@ const webClientShellHTML = `<!doctype html>
     });
     document.getElementById("loginButton").addEventListener("click", login);
     window.addEventListener("popstate", () => {
+      if (tsWebClientOwnsPage) return;
       restoreRouteFromHash().catch((error) => {
         runtimeStatus.textContent = "Route error: " + error.message;
         runtimeStatus.className = "status-error";
       });
     });
     window.addEventListener("hashchange", () => {
+      if (tsWebClientOwnsPage) return;
       restoreRouteFromHash().catch((error) => {
         runtimeStatus.textContent = "Route error: " + error.message;
         runtimeStatus.className = "status-error";
@@ -8486,12 +8495,14 @@ const webClientShellHTML = `<!doctype html>
     });
     renderSearchFacets();
     renderSearchMenu();
-    loadRuntime().then(async () => {
-      if (!(await restoreRouteFromHash())) await loadRows();
-    }).catch((error) => {
-      runtimeStatus.textContent = "Startup error: " + error.message;
-      runtimeStatus.className = "status-error";
-    });
+    if (!tsWebClientOwnsPage) {
+      loadRuntime().then(async () => {
+        if (!(await restoreRouteFromHash())) await loadRows();
+      }).catch((error) => {
+        runtimeStatus.textContent = "Startup error: " + error.message;
+        runtimeStatus.className = "status-error";
+      });
+    }
   </script>
 </body>
 </html>`

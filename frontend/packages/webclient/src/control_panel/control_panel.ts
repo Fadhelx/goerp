@@ -1,5 +1,5 @@
 import type { ActionBreadcrumb } from "../services/action_stack.js";
-import type { SearchFacet } from "../search/search_model.js";
+import { searchFacetDisplay, type SearchFacet } from "../search/search_model.js";
 
 export interface ControlPanelPager {
   offset: number;
@@ -184,22 +184,31 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
 }
 
 function renderSearchFacet(facet: SearchFacet, callbacks: ControlPanelCallbacks): HTMLElement {
+  const display = searchFacetDisplay(facet);
   const tag = document.createElement("span");
   tag.className = `o_searchview_facet o_searchview_facet_${facet.type} position-relative d-inline-flex align-items-stretch rounded-2 bg-200 text-nowrap`;
   tag.dataset.facetId = facet.id;
   const label = document.createElement("span");
   label.className = "o_searchview_facet_label";
-  label.textContent = facet.type === "groupBy" ? "Group By" : facet.type === "favorite" ? "Favorite" : "Filter";
+  label.textContent = display.categoryLabel;
   const value = document.createElement("span");
   value.className = "o_facet_values";
-  const valueText = document.createElement("span");
-  valueText.className = "o_facet_value";
-  valueText.textContent = facet.label;
-  value.append(valueText);
+  for (const [index, valueLabel] of display.valueLabels.entries()) {
+    if (index > 0) {
+      const separator = document.createElement("span");
+      separator.className = "o_facet_value_separator";
+      separator.textContent = "or";
+      value.append(separator);
+    }
+    const valueText = document.createElement("span");
+    valueText.className = "o_facet_value";
+    valueText.textContent = valueLabel;
+    value.append(valueText);
+  }
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "o_facet_remove";
-  remove.setAttribute("aria-label", `Remove ${facet.label}`);
+  remove.setAttribute("aria-label", `Remove ${display.valueLabels.join(" or ") || display.categoryLabel}`);
   remove.textContent = "x";
   remove.addEventListener("click", () => callbacks.onFacetRemove?.(facet));
   tag.append(label, value, remove);

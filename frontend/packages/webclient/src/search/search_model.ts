@@ -5,6 +5,8 @@ export interface SearchFacet {
   id: string;
   type: SearchFacetType;
   label: string;
+  categoryLabel?: string;
+  valueLabels?: readonly string[];
   field?: string;
   operator?: string;
   value?: unknown;
@@ -21,6 +23,11 @@ export interface SearchModelState {
   domain: readonly unknown[];
   context: Record<string, unknown>;
   groupBy: readonly string[];
+}
+
+export interface SearchFacetDisplay {
+  categoryLabel: string;
+  valueLabels: readonly string[];
 }
 
 export interface SearchModel {
@@ -140,7 +147,15 @@ export function buildSearchState(
 }
 
 export function searchFacetLabel(facet: SearchFacet): string {
-  return facet.label || facet.field || String(facet.value ?? "");
+  return searchFacetDisplay(facet).valueLabels.join(" or ");
+}
+
+export function searchFacetDisplay(facet: SearchFacet): SearchFacetDisplay {
+  const valueLabels = normalizedValueLabels(facet);
+  return {
+    categoryLabel: cleanText(facet.categoryLabel) || defaultFacetCategoryLabel(facet),
+    valueLabels: valueLabels.length ? valueLabels : [facet.label || facet.field || String(facet.value ?? "")]
+  };
 }
 
 export function createDateGroupByFacet(
@@ -178,10 +193,14 @@ export function groupByDescriptor(field: string, interval?: SearchDateInterval):
 }
 
 function normalizeFacet(facet: Omit<SearchFacet, "id"> & { id?: string }): SearchFacet {
+  const categoryLabel = cleanText(facet.categoryLabel);
+  const valueLabels = cleanStringList(facet.valueLabels);
   return {
     ...facet,
     id: facet.id || `facet-${++nextFacetID}`,
-    label: facet.label || facet.field || String(facet.value ?? "")
+    label: cleanText(facet.label) || facet.field || String(facet.value ?? ""),
+    categoryLabel: categoryLabel || undefined,
+    valueLabels: valueLabels.length ? valueLabels : undefined
   };
 }
 
@@ -239,6 +258,25 @@ function isEmptyDomain(value: unknown): boolean {
 
 function cleanQuery(query: string): string {
   return String(query ?? "").trim();
+}
+
+function cleanText(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function cleanStringList(values: readonly unknown[] | undefined): string[] {
+  return [...(values ?? [])].map(cleanText).filter(Boolean);
+}
+
+function normalizedValueLabels(facet: SearchFacet): string[] {
+  return cleanStringList(facet.valueLabels);
+}
+
+function defaultFacetCategoryLabel(facet: SearchFacet): string {
+  if (facet.type === "groupBy") return "Group By";
+  if (facet.type === "favorite") return "Favorite";
+  if (facet.type === "text") return facet.field || "Search";
+  return "Filter";
 }
 
 function queryDomain(searchFields: readonly string[], query: string): unknown {
