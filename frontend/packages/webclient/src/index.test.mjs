@@ -736,6 +736,28 @@ assert.equal(renderedWindow.dataset.view, "list");
 assert.equal(renderedWindow.children[1].className, "gorp-list-view");
 assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
 assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+const createActionCalls = [];
+const createActionWindow = renderWindowAction(windowResult, {
+  context: { active_id: 42 },
+  services: {
+    action: {
+      doAction(action, options) {
+        createActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const newRecordButton = findAll(createActionWindow, (node) => node.dataset?.createAction === "true")[0];
+assert.ok(newRecordButton.className.includes("o_list_button_add"));
+assert.equal(newRecordButton.textContent, "New");
+newRecordButton.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(createActionCalls.length, 1);
+assert.deepEqual(createActionCalls[0].action.views, [[false, "form"]]);
+assert.equal(createActionCalls[0].action.view_mode, "form");
+assert.equal("res_id" in createActionCalls[0].action, false);
+assert.deepEqual(createActionCalls[0].options, { additionalContext: { active_id: 42 }, replaceLastAction: true });
 
 const delegationWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -2703,6 +2725,48 @@ assert.deepEqual(formActionRequests[1].params.kwargs.specification, {
   company_id: { fields: { display_name: {} } }
 });
 assert.deepEqual(formActionRequests[1].params.kwargs.context, { bin_size: true, lang: "en_US" });
+
+const newFormActionRequests = [];
+const newFormServices = createWebClientServices({
+  transport(request) {
+    newFormActionRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/ir.actions.server/get_views") {
+      return Promise.resolve({
+        views: {
+          form: { arch: "<form><sheet><field name=\"name\"/><field name=\"state\"/><field name=\"active\"/></sheet></form>", id: 12 }
+        },
+        models: {
+          "ir.actions.server": {
+            fields: {
+              name: { type: "char", string: "Name" },
+              state: { type: "selection", string: "Action To Do" },
+              active: { type: "boolean", string: "Active" }
+            }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/ir.actions.server/default_get") {
+      return Promise.resolve({ state: "code", active: true });
+    }
+    return Promise.resolve({});
+  }
+});
+const newServerActionResult = await newFormServices.action.doAction({
+  id: 91,
+  type: "ir.actions.act_window",
+  name: "New Server Action",
+  res_model: "ir.actions.server",
+  views: [[12, "form"]],
+  target: "current",
+  context: { default_state: "code" }
+});
+assert.equal(newServerActionResult.activeView, "form");
+assert.equal(newServerActionResult.length, 0);
+assert.deepEqual(newServerActionResult.records, [{ state: "code", active: true }]);
+assert.equal(newFormActionRequests[1].route, "/web/dataset/call_kw/ir.actions.server/default_get");
+assert.deepEqual(newFormActionRequests[1].params.args, [["name", "state", "active"]]);
+assert.deepEqual(newFormActionRequests[1].params.kwargs.context, { default_state: "code" });
 
 const workflowSelectionRequests = [];
 const workflowSelectionServices = createWebClientServices({

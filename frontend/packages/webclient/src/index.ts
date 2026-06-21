@@ -119,6 +119,7 @@ export interface ORMService {
   search<T = unknown>(model: string, domain: DomainExpression, kwargs?: Record<string, unknown>): Promise<T>;
   searchRead<T = unknown>(model: string, domain: DomainExpression, fields?: readonly string[], kwargs?: Record<string, unknown>): Promise<T>;
   searchCount<T = unknown>(model: string, domain: DomainExpression, kwargs?: Record<string, unknown>): Promise<T>;
+  defaultGet<T = unknown>(model: string, fields: readonly string[], kwargs?: Record<string, unknown>): Promise<T>;
   unlink<T = unknown>(model: string, ids: readonly number[], kwargs?: Record<string, unknown>): Promise<T>;
   webRead<T = unknown>(model: string, ids: readonly number[], kwargs?: Record<string, unknown>): Promise<T>;
   webReadGroup<T = unknown>(
@@ -1055,6 +1056,11 @@ export class ORM implements ORMService {
     return this.call<T>(model, "search_count", [[...domain]], kwargs);
   }
 
+  defaultGet<T = unknown>(model: string, fields: readonly string[], kwargs: Record<string, unknown> = {}): Promise<T> {
+    validatePrimitiveList("fields", "string", fields);
+    return this.call<T>(model, "default_get", [[...fields]], kwargs);
+  }
+
   unlink<T = unknown>(model: string, ids: readonly number[], kwargs: Record<string, unknown> = {}): Promise<T> {
     validatePrimitiveList("ids", "number", ids);
     return ids.length ? this.call<T>(model, "unlink", [[...ids]], kwargs) : Promise.resolve(true as T);
@@ -1552,6 +1558,8 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   const title = document.createElement("h1");
   title.className = "gorp-window-action-title";
   title.textContent = typeof result.action.name === "string" ? result.action.name : result.resModel;
+  const createButton = renderWindowActionCreateButton(result, root, options);
+  if (createButton) title.append(createButton);
   const viewDescription = result.viewDescriptions.views[result.activeView];
   const fields = result.viewDescriptions.fields;
   const body = result.activeView === "form"
@@ -1559,6 +1567,54 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     : renderListView(viewDescription, fields, options.records ?? result.records, result.resModel, options);
   root.append(title, body);
   return root;
+}
+
+function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement | null {
+  if (result.activeView === "form" || actionCreateDisabled(result.action)) return null;
+  const formView = formViewRef(result.action);
+  if (!formView) return null;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-primary o_list_button_add";
+  button.dataset.createAction = "true";
+  button.textContent = "New";
+  button.addEventListener("click", async () => {
+    const action = createFormAction(result.action, formView);
+    if (options.services?.action) {
+      await options.services.action.doAction(action, {
+        additionalContext: { ...(options.context ?? {}) },
+        replaceLastAction: true
+      });
+      return;
+    }
+    root.dispatchEvent(new CustomEvent("action:create", {
+      bubbles: true,
+      detail: { action, model: result.resModel }
+    }));
+  });
+  return button;
+}
+
+function actionCreateDisabled(action: Record<string, unknown>): boolean {
+  const context = isRecord(action.context) ? action.context : {};
+  return context.create === false;
+}
+
+function formViewRef(action: Record<string, unknown>): ViewRef | null {
+  for (const ref of normalizeActionViews(action)) {
+    if (ref[1] === "form") return ref;
+  }
+  return null;
+}
+
+function createFormAction(action: Record<string, unknown>, formView: ViewRef): Record<string, unknown> {
+  const nextAction: Record<string, unknown> = {
+    ...action,
+    view_mode: "form",
+    views: [[formView[0], "form"]]
+  };
+  delete nextAction.res_id;
+  return nextAction;
 }
 
 function renderListView(
@@ -4372,7 +4428,11 @@ async function loadWindowActionRecords(
     return { records, length: records.length };
   }
   if (activeView === "form") {
-    return { records: [], length: 0 };
+    const fieldNames = Object.keys(specification);
+    const defaults = fieldNames.length
+      ? await orm.defaultGet<Record<string, unknown>>(resModel, fieldNames, { context })
+      : {};
+    return { records: [isRecord(defaults) ? defaults : {}], length: 0 };
   }
   const result = await orm.webSearchRead<{ records?: Record<string, unknown>[]; length?: number }>(
     resModel,

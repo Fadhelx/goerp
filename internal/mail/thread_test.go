@@ -70,6 +70,44 @@ func TestPostMessageCreatesThreadMessageWithDefaults(t *testing.T) {
 	}
 }
 
+func TestSubscribeUpdatesExistingFollowerSubtypes(t *testing.T) {
+	env, ids := threadEnv(t)
+	partnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Follower", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordID, err := env.Model("res.partner").Create(map[string]any{"name": "Thread", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentID := ids["mail.mt_comment"].ResID
+	noteID := ids["mail.mt_note"].ResID
+	if err := Subscribe(env, "res.partner", recordID, []int64{partnerID}, []int64{commentID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Subscribe(env, "res.partner", recordID, []int64{partnerID}, []int64{noteID}); err != nil {
+		t.Fatal(err)
+	}
+	followers, err := env.Model("mail.followers").Search(domain.And(
+		domain.Cond("res_model", "=", "res.partner"),
+		domain.Cond("res_id", "=", recordID),
+		domain.Cond("partner_id", "=", partnerID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if followers.Len() != 1 {
+		t.Fatalf("followers = %d", followers.Len())
+	}
+	rows, err := followers.Read("subtype_ids")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := int64SliceFromAny(rows[0]["subtype_ids"]); len(got) != 1 || got[0] != noteID {
+		t.Fatalf("subtype_ids = %+v", rows[0]["subtype_ids"])
+	}
+}
+
 func TestPostMessageStoresRecordCompanyAndAliasDomain(t *testing.T) {
 	env, _ := threadEnv(t)
 	contextAliasDomainID, err := env.Model("mail.alias.domain").Create(map[string]any{

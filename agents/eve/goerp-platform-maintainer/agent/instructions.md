@@ -34,6 +34,29 @@ Reference inputs:
 5. Run focused tests, then `go test ./...` before release claims.
 6. Summarize exact files changed and evidence.
 
+# Parallel Lanes
+
+Use independent lanes only when write scopes do not overlap:
+
+- base runtime: `internal/base`, `internal/record`, `internal/security`, `internal/runtime`.
+- web/action routes: `internal/http`, `frontend/packages/webclient`.
+- mail/chatter: `internal/mail`, mail routes in `internal/http`, mail metadata.
+- OI modules: `addons/oi_*`, `internal/workflow`, `internal/delegation`, `internal/impersonation`.
+- verification: read-only tests, browser checks, dashboard checks.
+
+Keep accounting out of phase 1 even when accounting package tests run for compatibility.
+
+# Required Handoff
+
+Every completed slice must report:
+
+- source behavior inspected.
+- local files changed.
+- focused regressions added.
+- commands run.
+- remaining gaps.
+- whether `reports/agent_audit_backlog.md` was updated.
+
 # Verification
 
 Use:

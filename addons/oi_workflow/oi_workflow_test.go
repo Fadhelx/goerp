@@ -15,6 +15,7 @@ import (
 	"gorp/internal/base"
 	"gorp/internal/data"
 	"gorp/internal/domain"
+	"gorp/internal/model"
 	"gorp/internal/module"
 	"gorp/internal/record"
 	"gorp/internal/registry"
@@ -94,6 +95,16 @@ func TestWorkflowCoreManifestAndModels(t *testing.T) {
 			t.Fatalf("missing model %s", name)
 		}
 	}
+	extensions := modelMap(ExtensionModels())
+	settingsExtension := extensions["res.config.settings"]
+	if !settingsExtension.Transient || !reflect.DeepEqual(settingsExtension.Inherit, []string{"res.config.settings"}) {
+		t.Fatalf("res.config.settings extension = %+v", settingsExtension)
+	}
+	for _, fieldName := range workflowSettingsToggleFields() {
+		if _, ok := settingsExtension.Fields[fieldName]; !ok {
+			t.Fatalf("res.config.settings missing workflow toggle %s", fieldName)
+		}
+	}
 	button := reg.Models[workflow.ModelButton]
 	for _, fieldName := range []string{"action_type", "visible_domain", "server_action_id", "email_template_id", "email_wizard_form_id", "email_next_action", "comment", "context", "icon", "hotkey", "validate_form", "voting_type", "vote_threshold"} {
 		if _, ok := button.Fields[fieldName]; !ok {
@@ -149,6 +160,7 @@ func TestWorkflowManifestDataFilesLoad(t *testing.T) {
 		"view_model_expression_editor_form",
 		"view_workflow_templates",
 		"view_approval_record_template_form",
+		"res_config_settings_view_form",
 		"act_approval_settings",
 		"act_approval_logs",
 		"menu_approval_root",
@@ -254,6 +266,23 @@ func TestWorkflowManifestDataFilesLoad(t *testing.T) {
 	recordTemplateArch, _ := recordTemplateRows[0]["arch"].(string)
 	if recordTemplateRows[0]["model"] != workflow.ModelApprovalRecord || !strings.Contains(recordTemplateArch, `field name="user_can_approve"`) {
 		t.Fatalf("approval record template view = %+v", recordTemplateRows[0])
+	}
+	settingsViewRows, err := env.Model("ir.ui.view").Browse(ids[ModuleName+".res_config_settings_view_form"].ResID).Read("model", "priority", "inherit_id", "arch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsArch, _ := settingsViewRows[0]["arch"].(string)
+	if settingsViewRows[0]["model"] != "res.config.settings" ||
+		settingsViewRows[0]["priority"] != int64(100) ||
+		settingsViewRows[0]["inherit_id"] != ids["base.res_config_settings_view_form"].ResID ||
+		!strings.Contains(settingsArch, `<app name="oi_workflow"`) ||
+		!strings.Contains(settingsArch, `name="oi_workflow_setting_container"`) {
+		t.Fatalf("workflow settings view = %+v", settingsViewRows[0])
+	}
+	for _, fieldName := range workflowSettingsToggleFields() {
+		if !strings.Contains(settingsArch, `field name="`+fieldName+`"`) {
+			t.Fatalf("workflow settings view missing %s: %s", fieldName, settingsArch)
+		}
 	}
 	engine := security.NewEngine()
 	if err := engine.LoadPersistedSecurity(env); err != nil {
@@ -381,6 +410,33 @@ func assertManifestHasData(t *testing.T, paths []string, want string) {
 	t.Fatalf("manifest data missing %s in %+v", want, paths)
 }
 
+func modelMap(models []model.Model) map[string]model.Model {
+	out := map[string]model.Model{}
+	for _, m := range models {
+		out[m.Name] = m
+	}
+	return out
+}
+
+func workflowSettingsToggleFields() []string {
+	return []string{
+		"module_oi_workflow_expense",
+		"module_oi_workflow_hr_contract",
+		"module_oi_workflow_hr_holidays",
+		"module_oi_workflow_hr_holidays_manager",
+		"module_oi_workflow_hr_payslip_run",
+		"module_oi_workflow_hr_payslip_run_e",
+		"module_oi_workflow_purchase_order",
+		"module_oi_workflow_purchase_requisition",
+		"module_oi_workflow_sale_order",
+		"module_oi_workflow_account_payment",
+		"module_oi_workflow_crm_lead",
+		"module_oi_workflow_invoice",
+		"module_oi_workflow_project",
+		"module_oi_workflow_project_task",
+	}
+}
+
 func assertWorkflowAssetFile(t *testing.T, path string) {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Clean(path))
@@ -417,14 +473,28 @@ func assertWorkflowAssetFile(t *testing.T, path string) {
 
 func workflowFixtureEnv(t *testing.T) *record.Env {
 	t.Helper()
-	reg := record.NewRegistry()
-	for _, m := range base.Models() {
-		if err := reg.Register(m); err != nil {
-			t.Fatal(err)
+	models := map[string]model.Model{}
+	var order []string
+	add := func(m model.Model) {
+		if existing, ok := models[m.Name]; ok {
+			models[m.Name] = m.Compose(existing)
+			return
 		}
+		models[m.Name] = m
+		order = append(order, m.Name)
+	}
+	for _, m := range base.Models() {
+		add(m)
 	}
 	for _, m := range workflow.Models() {
-		if err := reg.Register(m); err != nil {
+		add(m)
+	}
+	for _, m := range workflow.ExtensionModels() {
+		add(m)
+	}
+	reg := record.NewRegistry()
+	for _, name := range order {
+		if err := reg.Register(models[name]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -442,6 +512,12 @@ func workflowFixtureLoader(t *testing.T, env *record.Env) *data.Loader {
   <record id="group_system" model="res.groups">
     <field name="name">Settings</field>
     <field name="implied_ids" eval="[(4, ref('group_user'))]"/>
+  </record>
+  <record id="res_config_settings_view_form" model="ir.ui.view">
+    <field name="name">res.config.settings.view.form</field>
+    <field name="model">res.config.settings</field>
+    <field name="type">form</field>
+    <field name="arch" type="xml"><form/></field>
   </record>
 </odoo>`))
 	if err != nil {

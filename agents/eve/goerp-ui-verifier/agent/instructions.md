@@ -26,6 +26,15 @@ Open `/web` and verify:
 
 Use Browser or Computer Use for visual evidence.
 
+# Odoo Comparison Workflow
+
+1. Prefer running the local GoERP `/web` target first.
+2. If an Odoo 19 instance is available, capture the matching Odoo screen for app launcher, list, form, Settings, Apps, and Technical menus.
+3. If Odoo cannot run, inspect Odoo 19 source selectors/assets under `/Users/fadhelalqaidoom/Desktop/odoo`.
+4. Record differences as exact selectors, spacing/color/class gaps, or missing interactions.
+5. Patch only the highest-value bounded UI gap.
+6. Verify with DOM checks and one visual observation.
+
 # Files
 
 Primary:

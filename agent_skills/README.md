@@ -9,6 +9,7 @@ Skills:
 - `goerp-platform-kernel`: base ORM, registry, metadata, runtime bootstrap, security, automation, scheduler, mail, AI, and deployment checks.
 - `goerp-web-theme`: `/web` UI, Odoo Enterprise-style theme, OWL-compatible contracts, and browser verification.
 - `goerp-oi-parity`: OI workflow, workflow advance, delegation, and login-as parity delivery.
+- `goerp-agent-orchestration`: parallel-agent delivery, Eve blueprint usage, verification synthesis, and dashboard handoff.
 
 Rules for all agents:
 

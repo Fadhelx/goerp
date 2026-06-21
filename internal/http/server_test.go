@@ -3156,6 +3156,113 @@ func TestMailDataAndActionStoreBootstrap(t *testing.T) {
 	}
 }
 
+func TestMailSubscriptionRoutesReturnStorePayloads(t *testing.T) {
+	server := testMailThreadServer(t)
+	threadID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Subscription Thread", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	followerPartnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Follower", "email": "follower-sub@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	subscriberPartnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Subscriber", "email": "subscriber@example.test", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commentSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Route Comment", "description": "Route Discussions", "default": true, "internal": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Partner Route", "res_model": "res.partner", "default": false, "internal": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherSubtypeID, err := server.Env.Model("mail.message.subtype").Create(map[string]any{"name": "Other Route", "res_model": "crm.lead", "default": true, "internal": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	followerID, err := server.Env.Model("mail.followers").Create(map[string]any{"res_model": "res.partner", "res_id": threadID, "partner_id": followerPartnerID, "subtype_ids": []int64{modelSubtypeID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := server.Handler()
+	post := func(path string, payload map[string]any) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(mustJSON(t, payload))))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s response %d %s", path, rec.Code, rec.Body.String())
+		}
+		return decodeJSON(t, rec.Body.Bytes())
+	}
+
+	subscription := post("/mail/read_subscription_data", map[string]any{"follower_id": followerID})
+	subtypeIDs := int64Slice(subscription["subtype_ids"])
+	if !containsHTTPInt64(subtypeIDs, commentSubtypeID) || !containsHTTPInt64(subtypeIDs, modelSubtypeID) || containsHTTPInt64(subtypeIDs, otherSubtypeID) {
+		t.Fatalf("subscription subtype_ids = %+v", subtypeIDs)
+	}
+	store := subscription["store_data"].(map[string]any)
+	followerRows := store["mail.followers"].([]any)
+	if len(followerRows) != 1 || int64Value(followerRows[0].(map[string]any)["id"]) != followerID {
+		t.Fatalf("subscription follower rows = %+v", followerRows)
+	}
+	if got := int64Slice(followerRows[0].(map[string]any)["subtype_ids"]); len(got) != 1 || got[0] != modelSubtypeID {
+		t.Fatalf("subscription follower subtype_ids = %+v", followerRows[0])
+	}
+	subtypeRows := store["mail.message.subtype"].([]any)
+	if len(subtypeRows) == 0 {
+		t.Fatalf("subscription subtype rows = %+v", subtypeRows)
+	}
+
+	subscribed := post("/mail/thread/subscribe", map[string]any{
+		"res_model":   "res.partner",
+		"res_id":      threadID,
+		"partner_ids": []int64{subscriberPartnerID},
+	})
+	created, err := server.Env.Model("mail.followers").Search(domain.And(
+		domain.Cond("res_model", "=", "res.partner"),
+		domain.Cond("res_id", "=", threadID),
+		domain.Cond("partner_id", "=", subscriberPartnerID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Len() != 1 {
+		t.Fatalf("created followers = %d", created.Len())
+	}
+	rows, err := created.Read("subtype_ids")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsHTTPInt64(int64Slice(rows[0]["subtype_ids"]), commentSubtypeID) {
+		t.Fatalf("created follower subtype_ids = %+v", rows[0]["subtype_ids"])
+	}
+	if threadRows := subscribed["mail.thread"].([]any); len(threadRows) != 1 || int64Value(threadRows[0].(map[string]any)["followersCount"]) < 2 {
+		t.Fatalf("subscribed thread rows = %+v", threadRows)
+	}
+
+	unsubscribed := post("/mail/thread/unsubscribe", map[string]any{
+		"res_model":   "res.partner",
+		"res_id":      threadID,
+		"partner_ids": []int64{subscriberPartnerID},
+	})
+	created, err = server.Env.Model("mail.followers").Search(domain.And(
+		domain.Cond("res_model", "=", "res.partner"),
+		domain.Cond("res_id", "=", threadID),
+		domain.Cond("partner_id", "=", subscriberPartnerID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Len() != 0 {
+		t.Fatalf("remaining followers = %d", created.Len())
+	}
+	if threadRows := unsubscribed["mail.thread"].([]any); len(threadRows) != 1 || int64Value(threadRows[0].(map[string]any)["followersCount"]) != 1 {
+		t.Fatalf("unsubscribed thread rows = %+v", threadRows)
+	}
+}
+
 func TestMailPartnerFromEmailRequiresPartnerManagerToCreate(t *testing.T) {
 	server := testMailThreadServer(t)
 	if _, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Existing", "email": "existing-route@example.com", "email_normalized": "existing-route@example.com", "active": true}); err != nil {
@@ -11270,6 +11377,18 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`class="o_main_navbar"`,
 		`class="o_action_manager"`,
 		`o_control_panel`,
+		`o_control_panel_main`,
+		`o_control_panel_main_buttons`,
+		`o_control_panel_breadcrumbs`,
+		`o_control_panel_actions`,
+		`o_control_panel_navigation`,
+		`o_cp_pager o_pager`,
+		`o_searchview_input_container`,
+		`o_searchview_dropdown_toggler`,
+		`.o_cp_searchview`,
+		`.o_searchview_input_container .field`,
+		`.o_searchview_icon::before`,
+		`.o_searchview_dropdown_toggler::before`,
 		`o_app_launcher`,
 		`button.className = "app-card o_app has-icon"`,
 		`recordPanel.className = "panel record-panel o_form_view"`,
@@ -11277,15 +11396,19 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`table.className = "o_list_renderer o_list_table"`,
 		`id="recordSearch"`,
 		`applyTheme(requestedTheme || storedTheme || document.body.dataset.theme)`,
-		`id="navApps" class="o-launcher-button" data-view="apps" aria-label="Apps"`,
+		`id="navApps" class="o_menu_toggle o-launcher-button border-0" data-view="apps" aria-label="Apps" accesskey="h"`,
+		`class="o_menu_toggle_icon o-launcher"`,
+		`class="o_navbar_apps_menu o-brand"`,
 		`id="mobileMenu" class="o-mobile-menu-toggle" aria-label="Menu" aria-expanded="false"`,
 		`id="topMenu" aria-label="Application"`,
-		`class="o-menu-systray o_menu_systray"`,
-		`class="o-systray-item o_mail_systray_item"`,
-		`class="o-systray-item o_activity_menu"`,
-		`class="o-systray-item o_switch_company_menu o-company-switcher"`,
-		`class="o-systray-item o_debug_manager" id="debugIndicator" hidden`,
-		`class="o-systray-item o_user_menu o-user-menu-button"`,
+		`class="o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit" role="menu" aria-label="Systray"`,
+		`class="o-systray-item o_mail_systray_item dropdown-toggle"`,
+		`class="o-systray-item o_activity_menu dropdown-toggle"`,
+		`class="o-systray-item o_switch_company_menu o-company-switcher dropdown-toggle"`,
+		`class="o-systray-item o_debug_manager dropdown-toggle" id="debugIndicator" role="menuitem" hidden`,
+		`class="o-systray-item o_user_menu o-user-menu-button dropdown-toggle"`,
+		`class="oe_topbar_name"`,
+		`topButton.className = "o_nav_entry";`,
 		`function normalizedApps(payload)`,
 		`const seen = new Map();`,
 		`button.dataset.appName = name;`,
@@ -11336,6 +11459,10 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`td.append(renderFieldValue(field, row[field], row, workbench.listFieldAttrs[field] || {}));`,
 		`mobileCards.className = "o_mobile_list_cards";`,
 		`card.className = "o_mobile_record_card";`,
+		`id="createPartner" class="btn btn-primary o_list_button_add"`,
+		`id="saveRecord" class="btn btn-primary o_form_button_save"`,
+		`id="readRecord" class="btn btn-secondary o_form_button_cancel"`,
+		`if (pager) pager.textContent = "1-" + rows.length + " / " + rows.length;`,
 		`@media (max-width: 620px)`,
 		`overflow-x: hidden`,
 		`return label && label !== field ? label : humanFieldLabel(field);`,

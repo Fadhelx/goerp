@@ -2,6 +2,7 @@ package oi_workflow
 
 import (
 	"gorp/addons/oi_base"
+	"gorp/internal/model"
 	"gorp/internal/module"
 	"gorp/internal/record"
 	"gorp/internal/registry"
@@ -131,6 +132,10 @@ func DependencyManifests() []module.Manifest {
 
 func RegisterModels(reg *registry.Registry) error {
 	return workflow.RegisterModels(reg)
+}
+
+func ExtensionModels() []model.Model {
+	return workflow.ExtensionModels()
 }
 
 func RegisterRecordModels(reg *record.Registry) error {

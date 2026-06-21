@@ -81,20 +81,26 @@ const root = renderControlPanel(normalized, {
   onPagerNext: () => events.push(["next"])
 });
 
-assert.equal(root.className, "o_control_panel");
+assert.ok(String(root.className).includes("o_control_panel"));
+assert.equal(findAll(root, (node) => String(node.className).startsWith("o_control_panel_main ")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_control_panel_breadcrumbs")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_control_panel_actions")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_control_panel_navigation")).length, 1);
 assert.equal(findAll(root, (node) => node.className === "breadcrumb-item").length, 1);
 assert.equal(findAll(root, (node) => node.className === "breadcrumb-item active").length, 1);
-assert.equal(findAll(root, (node) => node.className === "o_searchview_facet o_searchview_facet_filter")[0].textContent, "Customers");
-assert.equal(findAll(root, (node) => node.className === "o_pager_value")[0].textContent, "21-40");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_input_container")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_dropdown_toggler")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_facet_filter"))[0].textContent, "Customers");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
 
-const input = findAll(root, (node) => node.className === "o_searchview_input")[0];
+const input = findAll(root, (node) => String(node.className).includes("o_searchview_input") && node.attributes?.role === "searchbox")[0];
 input.value = "beta";
 input.dispatchEvent(new TestEvent("input"));
 
 findAll(root, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.breadcrumbId === "root")[0].dispatchEvent(new TestEvent("click"));
-findAll(root, (node) => node.className === "o_pager_next")[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].dispatchEvent(new TestEvent("click"));
 
 assert.deepEqual(events, [
   ["search", "beta"],

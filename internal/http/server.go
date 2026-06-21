@@ -125,6 +125,9 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/mail/thread/recipients", s.mailThreadRecipients)
 	mux.HandleFunc("/mail/thread/recipients/fields", s.mailThreadRecipientsFields)
 	mux.HandleFunc("/mail/thread/recipients/get_suggested_recipients", s.mailThreadRecipientsGetSuggestedRecipients)
+	mux.HandleFunc("/mail/read_subscription_data", s.mailReadSubscriptionData)
+	mux.HandleFunc("/mail/thread/subscribe", s.mailThreadSubscribe)
+	mux.HandleFunc("/mail/thread/unsubscribe", s.mailThreadUnsubscribe)
 	mux.HandleFunc("/mail/partner/from_email", s.mailPartnerFromEmail)
 	mux.HandleFunc("/mail/track/", s.mailTrackOpenPixel)
 	mux.HandleFunc("/unsubscribe_from_list", s.mailingUnsubscribePlaceholder)
@@ -1500,6 +1503,54 @@ func mailStoreFollowerPartnerIDs(rows []map[string]any) []int64 {
 	return uniqueInt64Slice(ids)
 }
 
+func mailDefaultSubscriptionSubtypeIDs(env *record.Env, modelName string) []int64 {
+	rows := mailSubscriptionSubtypeRows(env, modelName, true)
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, int64Value(row["id"]))
+	}
+	return ids
+}
+
+func mailSubscriptionSubtypeRows(env *record.Env, modelName string, defaultOnly bool) []map[string]any {
+	if env == nil || !modelHasField(env, "mail.message.subtype", "name") {
+		return nil
+	}
+	found, err := env.Model("mail.message.subtype").Search(domain.Cond("id", "!=", int64(0)))
+	if err != nil || found.Len() == 0 {
+		return nil
+	}
+	rows, err := found.Read(availableModelFields(env, "mail.message.subtype", "id", "name", "description", "res_model", "default", "internal")...)
+	if err != nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		resModel := stringValue(row["res_model"])
+		if resModel != "" && resModel != modelName {
+			continue
+		}
+		if defaultOnly && !accountingBoolValue(row["default"]) {
+			continue
+		}
+		out = append(out, row)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		leftModel := stringValue(out[i]["res_model"])
+		rightModel := stringValue(out[j]["res_model"])
+		if leftModel != rightModel {
+			return leftModel < rightModel
+		}
+		leftInternal := accountingBoolValue(out[i]["internal"])
+		rightInternal := accountingBoolValue(out[j]["internal"])
+		if leftInternal != rightInternal {
+			return !leftInternal
+		}
+		return int64Value(out[i]["id"]) < int64Value(out[j]["id"])
+	})
+	return out
+}
+
 func mailStoreScheduledMessageIDs(env *record.Env, modelName string, id int64) []int64 {
 	if env == nil || !modelHasField(env, "mail.scheduled.message", "model") {
 		return nil
@@ -2059,6 +2110,109 @@ func oldSuggestedCustomerIDs(env *record.Env, modelName string, resID int64, new
 		}
 	}
 	return out
+}
+
+func (s Server) mailReadSubscriptionData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		FollowerID int64 `json:"follower_id"`
+	}
+	envelope, err := decodeRPCParams(r, &req)
+	if err != nil {
+		writeRPCError(w, nil, http.StatusBadRequest, err)
+		return
+	}
+	env, ok := s.requireWebSession(w, r, envelope)
+	if !ok {
+		return
+	}
+	followerRows, err := env.Model("mail.followers").Browse(req.FollowerID).Read(availableModelFields(env, "mail.followers", "id", "res_model", "res_id", "partner_id", "subtype_ids")...)
+	if err != nil {
+		writeRPCError(w, envelope, http.StatusForbidden, err)
+		return
+	}
+	if len(followerRows) == 0 {
+		writeRPCError(w, envelope, http.StatusNotFound, fmt.Errorf("mail.followers:%d not found", req.FollowerID))
+		return
+	}
+	modelName := stringValue(followerRows[0]["res_model"])
+	resID := int64Value(followerRows[0]["res_id"])
+	if !mailStoreRecordExists(env, modelName, resID) {
+		writeRPCError(w, envelope, http.StatusNotFound, fmt.Errorf("%s:%d not found", modelName, resID))
+		return
+	}
+	subtypes := mailSubscriptionSubtypeRows(env, modelName, false)
+	subtypeIDs := make([]int64, 0, len(subtypes))
+	for _, subtype := range subtypes {
+		subtypeIDs = append(subtypeIDs, int64Value(subtype["id"]))
+	}
+	store := map[string]any{}
+	mailStoreMergeRecords(store, "mail.message.subtype", subtypes, "id")
+	mailStoreMergeRecords(store, "mail.followers", mailStoreFollowerRows(env, []int64{req.FollowerID}), "id")
+	writeRPCOrJSON(w, envelope, map[string]any{
+		"store_data":  store,
+		"subtype_ids": subtypeIDs,
+	})
+}
+
+func (s Server) mailThreadSubscribe(w http.ResponseWriter, r *http.Request) {
+	s.mailThreadSubscriptionUpdate(w, r, true)
+}
+
+func (s Server) mailThreadUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	s.mailThreadSubscriptionUpdate(w, r, false)
+}
+
+func (s Server) mailThreadSubscriptionUpdate(w http.ResponseWriter, r *http.Request, subscribe bool) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ResModel   string `json:"res_model"`
+		ResID      int64  `json:"res_id"`
+		PartnerIDs any    `json:"partner_ids"`
+		SubtypeIDs any    `json:"subtype_ids"`
+	}
+	envelope, err := decodeRPCParams(r, &req)
+	if err != nil {
+		writeRPCError(w, nil, http.StatusBadRequest, err)
+		return
+	}
+	env, ok := s.requireWebSession(w, r, envelope)
+	if !ok {
+		return
+	}
+	if !mailStoreRecordExists(env, req.ResModel, req.ResID) {
+		writeRPCError(w, envelope, http.StatusNotFound, fmt.Errorf("%s:%d not found", req.ResModel, req.ResID))
+		return
+	}
+	partnerIDs := int64Slice(req.PartnerIDs)
+	if subscribe {
+		subtypeIDs := int64Slice(req.SubtypeIDs)
+		if len(subtypeIDs) == 0 {
+			subtypeIDs = mailDefaultSubscriptionSubtypeIDs(env, req.ResModel)
+		}
+		err = internalmail.Subscribe(env, req.ResModel, req.ResID, partnerIDs, subtypeIDs)
+	} else {
+		err = internalmail.Unsubscribe(env, req.ResModel, req.ResID, partnerIDs)
+	}
+	if err != nil {
+		writeRPCError(w, envelope, http.StatusForbidden, err)
+		return
+	}
+	payload := map[string]any{}
+	s.addMailStoreThread(payload, env, map[string]any{
+		"thread_model": req.ResModel,
+		"thread_id":    req.ResID,
+		"request_list": []string{"followers", "suggestedRecipients"},
+	})
+	writeRPCOrJSON(w, envelope, payload)
 }
 
 func (s Server) mailPartnerFromEmail(w http.ResponseWriter, r *http.Request) {
@@ -5238,6 +5392,10 @@ const webClientShellHTML = `<!doctype html>
 		border-radius: 0;
 		background: transparent;
 	}
+	.o_menu_toggle {
+		color: #fff;
+		text-decoration: none;
+	}
 	.o-launcher-button:hover,
 	.o-launcher-button.active {
 		background: rgba(0,0,0,.18);
@@ -5255,6 +5413,10 @@ const webClientShellHTML = `<!doctype html>
 		height: 4px;
 		background: rgba(255,255,255,.88);
 		border-radius: 1px;
+	}
+	.o_menu_brand {
+		display: inline-flex;
+		align-items: center;
 	}
 	.o-nav {
 		display: flex;
@@ -5312,9 +5474,10 @@ const webClientShellHTML = `<!doctype html>
 		place-items: center;
 		width: 18px;
 		height: 18px;
-		border: 1px solid rgba(255,255,255,.35);
-		border-radius: 50%;
-		font-size: 10px;
+		border: 0;
+		border-radius: 0;
+		font-style: normal;
+		font-size: 13px;
 		font-weight: 700;
 		line-height: 1;
 	}
@@ -5491,13 +5654,145 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-control-panel {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: stretch;
+		justify-content: center;
 		gap: 16px;
 		min-height: 66px;
 		padding: 10px 18px;
 		background: #fff;
 		border-bottom: 1px solid var(--line);
+	}
+	.o_control_panel_main {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 8px 16px;
+		width: 100%;
+	}
+	.o_control_panel_breadcrumbs,
+	.o_control_panel_actions,
+	.o_control_panel_navigation,
+	.o_control_panel_main_buttons {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+	.o_control_panel_breadcrumbs { flex: 1 1 260px; }
+	.o_control_panel_actions { flex: 3 1 420px; justify-content: flex-start; }
+	.o_control_panel_navigation { flex: 1 1 180px; justify-content: flex-end; }
+	.o_cp_pager,
+	.o_pager {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		white-space: nowrap;
+		color: var(--muted);
+	}
+	.o_cp_switch_buttons {
+		display: inline-flex;
+	}
+	.o_cp_searchview {
+		display: inline-flex;
+		align-items: stretch;
+		width: min(360px, 100%);
+		max-width: 100%;
+	}
+	.o_searchview {
+		display: inline-flex;
+		align-items: center;
+		flex: 1;
+		min-width: 0;
+		min-height: 32px;
+		border: 1px solid var(--line);
+		border-right: 0;
+		border-radius: 4px 0 0 4px;
+		background: #fff;
+	}
+	.o_searchview_input_container {
+		display: flex;
+		align-items: center;
+		flex: 1;
+		min-width: 0;
+	}
+	.o_searchview_input_container .field {
+		display: flex;
+		align-items: center;
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+	}
+	.o_searchview_input {
+		width: 100%;
+		min-width: 0;
+		height: 28px;
+		border: 0;
+		background: transparent;
+		outline: none;
+	}
+	.o_searchview_icon {
+		position: relative;
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		font-style: normal;
+		color: var(--muted);
+	}
+	.o_searchview_icon::before {
+		content: "";
+		position: absolute;
+		top: 1px;
+		left: 1px;
+		width: 8px;
+		height: 8px;
+		border: 2px solid currentColor;
+		border-radius: 50%;
+	}
+	.o_searchview_icon::after {
+		content: "";
+		position: absolute;
+		top: 10px;
+		left: 9px;
+		width: 6px;
+		height: 2px;
+		background: currentColor;
+		border-radius: 1px;
+		transform: rotate(45deg);
+		transform-origin: left center;
+	}
+	.o_searchview .btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	.o_searchview_dropdown_toggler {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		min-width: 32px;
+		padding: 0;
+		border: 1px solid var(--line);
+		background: #fff;
+		color: var(--muted);
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+	.o_searchview_dropdown_toggler::before {
+		content: "";
+		width: 0;
+		height: 0;
+		border-left: 4px solid transparent;
+		border-right: 4px solid transparent;
+		border-top: 5px solid currentColor;
 	}
 	.o-control-panel h2 {
 		margin: 0;
@@ -5797,12 +6092,12 @@ const webClientShellHTML = `<!doctype html>
 </head>
 <body class="o_web_client" data-theme="enterprise" data-view="apps" data-mobile-safe="true">
   <header class="o_main_navbar">
-    <div class="o-brand">
-      <button type="button" id="navApps" class="o-launcher-button" data-view="apps" aria-label="Apps"><span class="o-launcher" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button>
-      <h1>Odoo</h1>
+    <div class="o_navbar_apps_menu o-brand">
+      <button type="button" id="navApps" class="o_menu_toggle o-launcher-button border-0" data-view="apps" aria-label="Apps" accesskey="h"><span class="o_menu_toggle_icon o-launcher" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button>
+      <h1 class="o_menu_brand">Odoo</h1>
     </div>
     <button type="button" id="mobileMenu" class="o-mobile-menu-toggle" aria-label="Menu" aria-expanded="false"><span aria-hidden="true"></span></button>
-    <nav class="o-nav" id="topMenu" aria-label="Application"></nav>
+    <nav class="o-nav o_navbar_sections" id="topMenu" aria-label="Application"></nav>
     <label class="o-search">
       <span class="sr-only">Search</span>
       <input id="globalSearch" placeholder="Search records">
@@ -5814,20 +6109,20 @@ const webClientShellHTML = `<!doctype html>
         <option value="standard">Standard</option>
       </select>
     </label>
-    <div class="o-menu-systray o_menu_systray" role="toolbar" aria-label="Status">
-      <button type="button" class="o-systray-item o_mail_systray_item" id="messageSystray" aria-label="Messages">
-        <span class="o-systray-icon" aria-hidden="true">M</span>
+    <div class="o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit" role="menu" aria-label="Systray">
+      <button type="button" class="o-systray-item o_mail_systray_item dropdown-toggle" id="messageSystray" aria-label="Messages" role="menuitem">
+        <i class="o-systray-icon oi oi-discuss" aria-label="Messages" title="Messages"></i>
         <span class="o-systray-counter" id="messageCounter">0</span>
       </button>
-      <button type="button" class="o-systray-item o_activity_menu" id="activitySystray" aria-label="Activities">
-        <span class="o-systray-icon" aria-hidden="true">A</span>
+      <button type="button" class="o-systray-item o_activity_menu dropdown-toggle" id="activitySystray" aria-label="Activities" role="menuitem">
+        <i class="o-systray-icon oi oi-clock" aria-label="Activities" title="Activities"></i>
         <span class="o-systray-counter" id="activityCounter">0</span>
       </button>
-      <button type="button" class="o-systray-item o_switch_company_menu o-company-switcher" id="companySwitcher" aria-label="Company">
-        <span id="topCompany">My Company</span>
+      <button type="button" class="o-systray-item o_switch_company_menu o-company-switcher dropdown-toggle" id="companySwitcher" aria-label="Company" role="menuitem">
+        <span id="topCompany" class="oe_topbar_name">My Company</span>
       </button>
-      <button type="button" class="o-systray-item o_debug_manager" id="debugIndicator" hidden>Debug</button>
-      <button type="button" class="o-systray-item o_user_menu o-user-menu-button" id="topUser" aria-label="User menu"><span>Administrator</span></button>
+      <button type="button" class="o-systray-item o_debug_manager dropdown-toggle" id="debugIndicator" role="menuitem" hidden>Debug</button>
+      <button type="button" class="o-systray-item o_user_menu o-user-menu-button dropdown-toggle" id="topUser" aria-label="User menu" role="menuitem"><span>Administrator</span></button>
     </div>
   </header>
   <div class="layout o_web_client_content">
@@ -5860,26 +6155,49 @@ const webClientShellHTML = `<!doctype html>
 
       <section id="recordsView" class="panel view-panel o-list-view o_list_view" data-view="records">
         <div class="o-control-panel o_control_panel">
-          <h2>Records</h2>
-          <div class="toolbar">
-            <label class="field technical-field" hidden>
-              Model
-              <select id="model"></select>
-            </label>
-            <label class="field technical-field" hidden>
-              Fields
-              <input id="fields" value="id,display_name,name,email">
-            </label>
-            <label class="field small technical-field" hidden>
-              Limit
-              <input id="limit" type="number" min="1" max="200" value="20">
-            </label>
-            <label class="field">
-              Search
-              <input id="recordSearch" placeholder="Search">
-            </label>
-            <button id="loadRows" class="secondary o-debug-only" hidden>Load</button>
-            <button id="createPartner" class="secondary">New</button>
+          <div class="o_control_panel_main">
+            <div class="o_control_panel_breadcrumbs">
+              <div class="o_control_panel_main_buttons d-print-none">
+                <button id="createPartner" class="btn btn-primary o_list_button_add">New</button>
+              </div>
+              <h2 class="o_breadcrumb active">Records</h2>
+            </div>
+            <div class="o_control_panel_actions">
+              <div class="toolbar">
+                <label class="field technical-field" hidden>
+                  Model
+                  <select id="model"></select>
+                </label>
+                <label class="field technical-field" hidden>
+                  Fields
+                  <input id="fields" value="id,display_name,name,email">
+                </label>
+                <label class="field small technical-field" hidden>
+                  Limit
+                  <input id="limit" type="number" min="1" max="200" value="20">
+                </label>
+                <div class="o_cp_searchview d-flex input-group" role="search">
+                  <div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list">
+                    <button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button>
+                    <div class="o_searchview_input_container">
+                      <label class="field">
+                        <span class="sr-only">Search</span>
+                        <input id="recordSearch" class="o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0" placeholder="Search..." role="searchbox">
+                      </label>
+                    </div>
+                  </div>
+                  <button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button>
+                </div>
+                <button id="loadRows" class="secondary o-debug-only" hidden>Load</button>
+              </div>
+            </div>
+            <div class="o_control_panel_navigation">
+              <div class="o_cp_pager o_pager text-nowrap" id="recordPager"></div>
+              <nav class="o_cp_switch_buttons d-print-none d-inline-flex btn-group" aria-label="Views">
+                <button type="button" class="btn btn-secondary o_switch_view o_list active" aria-label="List View">List</button>
+                <button type="button" class="btn btn-secondary o_switch_view o_form" aria-label="Form View">Form</button>
+              </nav>
+            </div>
           </div>
         </div>
         <div class="o-list-content">
@@ -6308,21 +6626,21 @@ const webClientShellHTML = `<!doctype html>
       appPanel.id = "appsView";
       appPanel.className = "panel view-panel active o-app-launcher-view o_app_launcher";
       appPanel.dataset.view = "apps";
-      appPanel.innerHTML = '<div class="o-app-shell"><div class="o-app-search"><label><span class="sr-only">Search apps</span><input id="appSearch" placeholder="Search apps"></label></div><div id="appGrid" class="app-grid"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div>';
+      appPanel.innerHTML = '<div class="o-app-shell o_home_menu"><div class="o-app-search"><label><span class="sr-only">Search apps</span><input id="appSearch" class="o_searchview_input" placeholder="Search apps"></label></div><div id="appGrid" class="app-grid o_apps"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div>';
       main.insertBefore(appPanel, modelPanel);
 
       const modulePanel = document.createElement("section");
       modulePanel.id = "installView";
       modulePanel.className = "panel view-panel o-list-view";
       modulePanel.dataset.view = "install";
-      modulePanel.innerHTML = '<div class="o-control-panel o_control_panel"><h2>Apps</h2><div class="toolbar"><label class="field">Search<input id="moduleSearch" placeholder="Filter apps"></label><button id="reloadApps" class="secondary">Reload</button></div></div><div class="o-list-content"><div id="moduleGrid" class="module-grid"></div></div>';
+      modulePanel.innerHTML = '<div class="o-control-panel o_control_panel"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="reloadApps" class="btn btn-secondary">Reload</button></div><h2 class="o_breadcrumb active">Apps</h2></div><div class="o_control_panel_actions"><div class="toolbar"><div class="o_cp_searchview d-flex input-group" role="search"><div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list"><button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button><div class="o_searchview_input_container"><label class="field"><span class="sr-only">Search</span><input id="moduleSearch" class="o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0" placeholder="Search..." role="searchbox"></label></div></div><button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button></div></div></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap" id="modulePager"></div></div></div></div><div class="o-list-content"><div id="moduleGrid" class="module-grid o_apps"></div></div>';
       main.insertBefore(modulePanel, modelPanel.nextSibling);
 
       const recordPanel = document.createElement("section");
       recordPanel.className = "panel record-panel o_form_view";
       recordPanel.id = "recordPanel";
       recordPanel.hidden = true;
-      recordPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o-breadcrumbs"><button id="recordBack" type="button" class="secondary">Records</button><span>/</span><h2 id="recordTitle">Record</h2></div><div class="toolbar"><button id="saveRecord">Save</button><button id="readRecord" class="secondary">Reload</button><input id="recordModel" hidden><input id="recordID" hidden><input id="recordFields" hidden></div></div><div class="o-list-content o-form-content o_form_sheet_bg"><div id="recordForm" class="record-grid o-form-sheet o_form_sheet"></div><pre id="recordRaw" hidden></pre></div>';
+      recordPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="saveRecord" class="btn btn-primary o_form_button_save">Save</button><button id="readRecord" class="btn btn-secondary o_form_button_cancel">Discard</button></div><div class="o-breadcrumbs o_breadcrumb"><button id="recordBack" type="button" class="secondary">Records</button><span>/</span><h2 id="recordTitle" class="active">Record</h2></div></div><div class="o_control_panel_actions"></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap"></div></div><input id="recordModel" hidden><input id="recordID" hidden><input id="recordFields" hidden></div></div><div class="o-list-content o-form-content o_form_sheet_bg"><div id="recordForm" class="record-grid o-form-sheet o_form_sheet"></div><pre id="recordRaw" hidden></pre></div>';
       modelPanel.append(recordPanel);
 
       document.getElementById("reloadApps").addEventListener("click", loadInstallApps);
@@ -6408,6 +6726,7 @@ const webClientShellHTML = `<!doctype html>
         moduleHost.append(item);
         const topButton = document.createElement("button");
         topButton.type = "button";
+        topButton.className = "o_nav_entry";
         topButton.textContent = child.name || "Menu";
         topButton.addEventListener("click", () => openMenu(child.id));
         topMenu.append(topButton);
@@ -6621,6 +6940,8 @@ const webClientShellHTML = `<!doctype html>
           empty.textContent = "No apps found.";
           grid.append(empty);
         }
+        const pager = document.getElementById("modulePager");
+        if (pager) pager.textContent = grid.children.length ? "1-" + grid.children.length + " / " + grid.children.length : "0 / 0";
       } catch (error) {
         if (await ensureSession(error)) return loadInstallApps();
         grid.textContent = "Apps error: " + error.message;
@@ -6895,8 +7216,12 @@ const webClientShellHTML = `<!doctype html>
         empty.className = "muted";
         empty.textContent = "No rows.";
         host.append(empty);
+        const pager = document.getElementById("recordPager");
+        if (pager) pager.textContent = "0 / 0";
         return;
       }
+      const pager = document.getElementById("recordPager");
+      if (pager) pager.textContent = "1-" + rows.length + " / " + rows.length;
       const table = document.createElement("table");
       table.className = "o_list_renderer o_list_table";
       const thead = document.createElement("thead");
@@ -7033,6 +7358,7 @@ const webClientShellHTML = `<!doctype html>
       const userButton = document.getElementById("topUser");
       userButton.innerHTML = "";
       const userLabel = document.createElement("span");
+      userLabel.className = "oe_topbar_name";
       userLabel.textContent = userName;
       userButton.append(userLabel);
       document.getElementById("topCompany").textContent = sessionCompanyName(session);

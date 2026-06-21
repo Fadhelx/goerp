@@ -68,23 +68,36 @@ export function createControlPanelState(state: ControlPanelState): ControlPanelS
 export function renderControlPanel(state: ControlPanelState, callbacks: ControlPanelCallbacks = {}): HTMLElement {
   const normalized = createControlPanelState(state);
   const root = document.createElement("section");
-  root.className = "o_control_panel";
+  root.className = "o_control_panel d-flex flex-column gap-3 px-3 pt-2 pb-3";
 
-  const top = document.createElement("div");
-  top.className = "o_cp_top";
-  top.append(renderBreadcrumbs(normalized, callbacks), renderPager(normalized.pager, callbacks));
+  const main = document.createElement("div");
+  main.className = "o_control_panel_main d-flex flex-wrap flex-lg-nowrap justify-content-between align-items-lg-start gap-2 gap-lg-3 flex-grow-1";
 
-  const bottom = document.createElement("div");
-  bottom.className = "o_cp_bottom";
-  bottom.append(
+  const breadcrumbs = document.createElement("div");
+  breadcrumbs.className = "o_control_panel_breadcrumbs d-flex align-items-center gap-1 order-0 h-lg-100";
+  breadcrumbs.append(renderMainButtons(), renderBreadcrumbs(normalized, callbacks));
+
+  const actions = document.createElement("div");
+  actions.className = "o_control_panel_actions d-empty-none d-flex align-items-center justify-content-start justify-content-lg-around order-2 order-lg-1 w-100 mw-100 w-lg-auto";
+  actions.append(
     renderSearch(normalized.search, callbacks),
     renderMenuLane("o_filter_menu", "Filters", normalized.filters ?? [], callbacks.onFilter),
     renderMenuLane("o_group_by_menu", "Group By", normalized.groupBys ?? [], callbacks.onGroupBy),
-    renderMenuLane("o_favorites_menu", "Favorites", normalized.favorites ?? [], callbacks.onFavorite),
-    renderViewSwitcher(normalized.views ?? [], callbacks)
+    renderMenuLane("o_favorites_menu", "Favorites", normalized.favorites ?? [], callbacks.onFavorite)
   );
 
-  root.append(top, bottom);
+  const navigation = document.createElement("div");
+  navigation.className = "o_control_panel_navigation d-flex flex-wrap flex-md-nowrap justify-content-end gap-1 gap-xl-3 order-1 order-lg-2 flex-grow-1";
+  navigation.append(renderPager(normalized.pager, callbacks), renderViewSwitcher(normalized.views ?? [], callbacks));
+
+  main.append(breadcrumbs, actions, navigation);
+  root.append(main);
+  return root;
+}
+
+function renderMainButtons(): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "o_control_panel_main_buttons d-flex gap-1 d-empty-none d-print-none";
   return root;
 }
 
@@ -108,7 +121,7 @@ function renderBreadcrumbs(state: ControlPanelState, callbacks: ControlPanelCall
 
 function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPanelCallbacks): HTMLElement {
   const root = document.createElement("div");
-  root.className = "o_cp_pager";
+  root.className = "o_cp_pager o_pager text-nowrap";
   if (!pager) return root;
   const first = pager.total === 0 ? 0 : pager.offset + 1;
   const last = Math.min(pager.total, pager.offset + pager.limit);
@@ -126,21 +139,44 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
 
 function renderSearch(search: ControlPanelSearchState | undefined, callbacks: ControlPanelCallbacks): HTMLElement {
   const root = document.createElement("div");
-  root.className = "o_cp_searchview o_searchview";
+  root.className = "o_cp_searchview d-flex input-group";
+  root.setAttribute("role", "search");
+  const searchView = document.createElement("div");
+  searchView.className = "o_searchview form-control d-flex align-items-center py-1 border-end-0";
+  searchView.setAttribute("role", "search");
+  searchView.setAttribute("aria-autocomplete", "list");
+  const searchButton = document.createElement("button");
+  searchButton.type = "button";
+  searchButton.className = "d-print-none btn border-0 p-0";
+  searchButton.setAttribute("aria-label", "Search...");
+  searchButton.setAttribute("title", "Search...");
+  const icon = document.createElement("i");
+  icon.className = "o_searchview_icon oi oi-search me-2";
+  icon.setAttribute("role", "img");
+  searchButton.append(icon);
+  const inputContainer = document.createElement("div");
+  inputContainer.className = "o_searchview_input_container d-flex flex-grow-1 flex-wrap gap-1 mw-100";
   for (const facet of search?.facets ?? []) {
     const tag = document.createElement("span");
-    tag.className = `o_searchview_facet o_searchview_facet_${facet.type}`;
+    tag.className = `o_searchview_facet o_searchview_facet_${facet.type} position-relative d-inline-flex align-items-stretch rounded-2 bg-200 text-nowrap`;
     tag.textContent = facet.label;
     tag.dataset.facetId = facet.id;
-    root.append(tag);
+    inputContainer.append(tag);
   }
   const input = document.createElement("input");
-  input.className = "o_searchview_input";
-  input.type = "search";
+  input.className = "o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0";
+  input.type = "text";
   input.value = search?.query ?? "";
   input.placeholder = search?.placeholder ?? "Search...";
+  input.setAttribute("role", "searchbox");
   input.addEventListener("input", () => callbacks.onSearch?.(input.value));
-  root.append(input);
+  inputContainer.append(input);
+  searchView.append(searchButton, inputContainer);
+  const dropdown = document.createElement("button");
+  dropdown.type = "button";
+  dropdown.className = "o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0";
+  dropdown.setAttribute("aria-label", "Search options");
+  root.append(searchView, dropdown);
   return root;
 }
 
@@ -151,17 +187,17 @@ function renderMenuLane(
   callback: ((item: ControlPanelMenuItem) => void) | undefined
 ): HTMLElement {
   const root = document.createElement("div");
-  root.className = `o_cp_menu ${className}`;
+  root.className = `o_cp_menu ${className} o-dropdown`;
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "o_cp_menu_button";
+  button.className = "o_cp_menu_button btn btn-secondary o-dropdown-caret";
   button.textContent = label;
   button.disabled = items.length === 0;
   root.append(button);
   for (const item of items) {
     const menuItem = document.createElement("button");
     menuItem.type = "button";
-    menuItem.className = item.active ? "o_menu_item active" : "o_menu_item";
+    menuItem.className = item.active ? "o_menu_item o-dropdown-item dropdown-item active" : "o_menu_item o-dropdown-item dropdown-item";
     menuItem.textContent = item.label;
     menuItem.dataset.menuItemId = item.id;
     menuItem.disabled = item.disabled === true;
@@ -173,11 +209,11 @@ function renderMenuLane(
 
 function renderViewSwitcher(views: readonly ControlPanelView[], callbacks: ControlPanelCallbacks): HTMLElement {
   const root = document.createElement("div");
-  root.className = "o_cp_switch_buttons";
+  root.className = "o_cp_switch_buttons d-print-none d-inline-flex btn-group";
   for (const view of views) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = view.active ? "o_switch_view active" : "o_switch_view";
+    button.className = view.active ? `btn btn-secondary o_switch_view o_${view.type} active` : `btn btn-secondary o_switch_view o_${view.type}`;
     button.textContent = view.label || view.type;
     button.dataset.viewType = view.type;
     button.addEventListener("click", () => callbacks.onViewSwitch?.(view.type));
@@ -194,7 +230,7 @@ function pagerButton(
 ): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = `o_pager_${direction}`;
+  button.className = `btn btn-secondary o_pager_${direction}`;
   button.textContent = label;
   button.disabled = disabled;
   button.addEventListener("click", () => callback?.());

@@ -156,6 +156,7 @@ func loadFixtureMetadata(t *testing.T, env *record.Env, externalIDs map[string]d
 		{hr.ModuleName, hr.Models()},
 		{oi_base.ModuleName, oi_base.Models()},
 		{oi_workflow.ModuleName, internalworkflow.Models()},
+		{oi_workflow.ModuleName, internalworkflow.ExtensionModels()},
 		{oi_workflow_advance.ModuleName, internalworkflow.AdvancedModels()},
 		{oi_delegation.ModuleName, oi_delegation.Models()},
 		{oi_login_as.ModuleName, oi_login_as.Models()},
@@ -302,6 +303,9 @@ func oiFixtureEnv(t *testing.T) *record.Env {
 		add(m)
 	}
 	for _, m := range internalworkflow.Models() {
+		add(m)
+	}
+	for _, m := range internalworkflow.ExtensionModels() {
 		add(m)
 	}
 	for _, m := range internalworkflow.AdvancedModels() {

@@ -1075,15 +1075,24 @@ func Subscribe(env *record.Env, modelName string, resID int64, partnerIDs []int6
 	if modelName == "" || resID == 0 {
 		return fmt.Errorf("mail subscribe requires model and record id")
 	}
+	subtypeIDs = uniqueIDs(subtypeIDs)
 	for _, partnerID := range uniqueIDs(partnerIDs) {
-		if partnerID == 0 || followerExists(env, modelName, resID, partnerID) {
+		if partnerID == 0 {
+			continue
+		}
+		if followerID := followerIDForPartner(env, modelName, resID, partnerID); followerID != 0 {
+			if len(subtypeIDs) > 0 {
+				if err := env.Model("mail.followers").Browse(followerID).Write(map[string]any{"subtype_ids": subtypeIDs}); err != nil {
+					return err
+				}
+			}
 			continue
 		}
 		if _, err := env.Model("mail.followers").Create(map[string]any{
 			"res_model":   modelName,
 			"res_id":      resID,
 			"partner_id":  partnerID,
-			"subtype_ids": uniqueIDs(subtypeIDs),
+			"subtype_ids": subtypeIDs,
 		}); err != nil {
 			return err
 		}
@@ -1164,12 +1173,19 @@ func followerPartnerIDs(env *record.Env, modelName string, resID int64) []int64 
 }
 
 func followerExists(env *record.Env, modelName string, resID int64, partnerID int64) bool {
+	return followerIDForPartner(env, modelName, resID, partnerID) != 0
+}
+
+func followerIDForPartner(env *record.Env, modelName string, resID int64, partnerID int64) int64 {
 	found, err := env.Model("mail.followers").Search(domain.And(
 		domain.Cond("res_model", "=", modelName),
 		domain.Cond("res_id", "=", resID),
 		domain.Cond("partner_id", "=", partnerID),
 	))
-	return err == nil && found.Len() > 0
+	if err != nil || found.Len() == 0 {
+		return 0
+	}
+	return found.IDs()[0]
 }
 
 func createNotifications(env *record.Env, messageID int64, partnerIDs []int64) error {

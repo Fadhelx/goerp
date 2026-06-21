@@ -279,6 +279,29 @@ func ModelNames() []string {
 	return names
 }
 
+func ExtensionModels() []model.Model {
+	settings := workflowExtension("res.config.settings", "res_config_settings",
+		field.New("module_oi_workflow_expense", field.Bool),
+		field.New("module_oi_workflow_hr_contract", field.Bool),
+		field.New("module_oi_workflow_hr_holidays", field.Bool),
+		field.New("module_oi_workflow_hr_holidays_manager", field.Bool),
+		field.New("module_oi_workflow_hr_payslip_run", field.Bool),
+		field.New("module_oi_workflow_hr_payslip_run_e", field.Bool),
+		field.New("module_oi_workflow_purchase_order", field.Bool),
+		field.New("module_oi_workflow_purchase_requisition", field.Bool),
+		field.New("module_oi_workflow_sale_order", field.Bool),
+		field.New("module_oi_workflow_account_payment", field.Bool),
+		field.New("module_oi_workflow_crm_lead", field.Bool),
+		field.New("module_oi_workflow_invoice", field.Bool),
+		field.New("module_oi_workflow_project", field.Bool),
+		field.New("module_oi_workflow_project_task", field.Bool),
+	)
+	settings.Transient = true
+	return []model.Model{
+		settings,
+	}
+}
+
 func approvalRecord() model.Model {
 	m := model.New(ModelApprovalRecord, "")
 	m.Abstract = true
@@ -336,6 +359,18 @@ func simple(name, table string, fields ...field.Field) model.Model {
 func transient(name, table string, fields ...field.Field) model.Model {
 	m := simple(name, table, fields...)
 	m.Transient = true
+	return m
+}
+
+func workflowExtension(name string, table string, fields ...field.Field) model.Model {
+	m := model.New(name, table)
+	m.Inherit = []string{name}
+	if table == "" {
+		m.Abstract = true
+	}
+	for _, f := range fields {
+		m.AddField(f)
+	}
 	return m
 }
 

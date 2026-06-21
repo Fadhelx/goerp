@@ -14,6 +14,7 @@ func TestGoERPAgentSkillsHaveRequiredMetadata(t *testing.T) {
 		"agent_skills/goerp-platform-kernel/SKILL.md",
 		"agent_skills/goerp-web-theme/SKILL.md",
 		"agent_skills/goerp-oi-parity/SKILL.md",
+		"agent_skills/goerp-agent-orchestration/SKILL.md",
 	} {
 		text := readFile(t, filepath.Join(root, rel))
 		if !strings.HasPrefix(text, "---\n") || !strings.Contains(text, "\nname: ") || !strings.Contains(text, "\ndescription: ") {
@@ -47,6 +48,15 @@ func TestEveBlueprintsUseAgentDirectoryContract(t *testing.T) {
 		if entries := mustReadDir(t, filepath.Join(root, agent, "subagents")); len(entries) == 0 {
 			t.Fatalf("%s has no subagents", agent)
 		}
+		if entries := mustReadDir(t, filepath.Join(root, agent, "tools")); len(entries) == 0 {
+			t.Fatalf("%s has no tools", agent)
+		}
+		if entries := mustReadDir(t, filepath.Join(root, agent, "sandbox")); len(entries) == 0 {
+			t.Fatalf("%s has no sandbox config", agent)
+		}
+		if entries := mustReadDir(t, filepath.Join(root, agent, "schedules")); len(entries) == 0 {
+			t.Fatalf("%s has no schedules", agent)
+		}
 	}
 }
 
@@ -59,7 +69,7 @@ func TestAgentDocumentationIndexPointsToSkillsAndBlueprints(t *testing.T) {
 		}
 	}
 	index := readFile(t, filepath.Join(root, "agents/eve/README.md"))
-	for _, required := range []string{"instructions.md", "agent.ts", "skills/", "subagents/", "npx eve@latest init"} {
+	for _, required := range []string{"instructions.md", "agent.ts", "skills/", "subagents/", "tools/", "sandbox/", "schedules/", "npx eve@latest init"} {
 		if !strings.Contains(index, required) {
 			t.Fatalf("Eve index missing %q", required)
 		}
