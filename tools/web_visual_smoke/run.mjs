@@ -80,21 +80,42 @@ export const scenarios = [
     name: "default-technical-search-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      await setViewport(page, desktopViewport());
-      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
-      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
-      await setInput(page, ".o_web_client .o_app_search_input", "Server Actions");
-      const actionCardCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", 1, "TS technical search actions");
-      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Server Actions", ".o_app_name");
-      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
-      const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
-      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr", 1, "TS Server Actions rows");
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS technical action hash");
-      return { title, hash, action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount };
+      return { title, hash, ...opened };
+    }
+  },
+  {
+    name: "default-technical-form-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
+      const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
+      const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
+      })()`, "TS technical form hash");
+      return { title, hash, form_count: formCount, field_count: fieldCount };
+    }
+  },
+  {
+    name: "default-search-menu-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const filterItems = await waitForCount(page, ".o_web_client .o_action_manager .o_filter_menu .o_menu_item", 1, "TS filter items");
+      const groupItems = await waitForCount(page, ".o_web_client .o_action_manager .o_group_by_menu .o_menu_item", 1, "TS group by items");
+      const favoriteItems = await waitForCount(page, ".o_web_client .o_action_manager .o_favorite_menu .o_menu_item", 1, "TS favorite items");
+      return { filter_items: filterItems, group_by_items: groupItems, favorite_items: favoriteItems };
     }
   },
   {
@@ -487,6 +508,19 @@ async function openServerActionsList(page, config, viewport) {
   await clickExactText(page, "#appGrid .o_app", "Server Actions", ".o_app_name");
   await waitFor(page, `document.body.dataset.view === "records"`, "records view");
   await waitForCount(page, "#rows .o_list_renderer", 1, "technical list renderer");
+}
+
+async function openDefaultServerActionsList(page, config, viewport) {
+  await setViewport(page, viewport);
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+  await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
+  await setInput(page, ".o_web_client .o_app_search_input", "Server Actions");
+  const actionCardCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", 1, "TS technical search actions");
+  await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Server Actions", ".o_app_name");
+  await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
+  const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
+  const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS Server Actions rows");
+  return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount };
 }
 
 async function openWeb(page, config, viewport) {

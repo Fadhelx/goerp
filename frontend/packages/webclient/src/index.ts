@@ -1676,7 +1676,7 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
       ? renderFormView(viewDescription, fields, values, result.resModel, options)
       : result.activeView === "kanban"
         ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
-        : renderListView(viewDescription, fields, records, result.resModel, options);
+        : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
   const controlPanel = renderWindowActionControlPanel(result, root, options);
   if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
   root.append(controlPanel, body);
@@ -1948,7 +1948,10 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
         bubbles: true,
         detail: { facet, model: result.resModel }
       }));
-    }
+    },
+    onAddCustomFilter: () => dispatchSearchUtilityEvent(root, "action:search-custom-filter", result),
+    onAddCustomGroup: () => dispatchSearchUtilityEvent(root, "action:search-custom-group", result),
+    onAddFavorite: () => dispatchSearchUtilityEvent(root, "action:search-add-favorite", result)
   });
   const createButton = renderWindowActionCreateButton(result, root, options);
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
@@ -1960,6 +1963,13 @@ function dispatchSearchMenuEvent(root: HTMLElement, type: string, result: Window
   root.dispatchEvent(new CustomEvent(type, {
     bubbles: true,
     detail: { item, model: result.resModel }
+  }));
+}
+
+function dispatchSearchUtilityEvent(root: HTMLElement, type: string, result: WindowActionResult): void {
+  root.dispatchEvent(new CustomEvent(type, {
+    bubbles: true,
+    detail: { model: result.resModel }
   }));
 }
 
@@ -2040,6 +2050,7 @@ function renderListView(
   fields: Record<string, unknown>,
   records: readonly Record<string, unknown>[],
   model?: string,
+  action: Record<string, unknown> = {},
   options: RenderWindowActionOptions = {}
 ): HTMLElement {
   const arch = viewDescription?.arch ?? "";
@@ -2074,17 +2085,33 @@ function renderListView(
   const tbody = document.createElement("tbody");
   for (const record of records) {
     const row = document.createElement("tr");
+    const recordID = numberRecordID(record.id);
     row.className = listDecorationClassName(listAttrs, record);
+    if (model && recordID !== undefined) {
+      row.className = row.className ? `${row.className} o_data_row` : "o_data_row";
+      row.dataset.id = String(recordID);
+      row.dataset.model = model;
+      row.setAttribute("role", "link");
+      row.setAttribute("tabindex", "0");
+      row.addEventListener("click", async (event) => {
+        if (listRowClickIgnored(event)) return;
+        await openListRecord(model, recordID, action, options, table);
+      });
+      row.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") return;
+        await openListRecord(model, recordID, action, options, table);
+      });
+    }
     if (showToolbar) {
       const selectCell = document.createElement("td");
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      const recordID = numberRecordID(record.id);
       if (recordID !== undefined) {
         checkbox.dataset.recordId = String(recordID);
       } else {
         checkbox.disabled = true;
       }
+      checkbox.addEventListener("click", (event) => event.stopPropagation());
       checkbox.addEventListener("change", () => {
         if (recordID === undefined) return;
         if (checkbox.checked) selectedIds.add(recordID);
@@ -2123,6 +2150,12 @@ function renderListView(
     return shell;
   }
   return table;
+}
+
+function listRowClickIgnored(event: Event): boolean {
+  const target = event.target;
+  if (!target || typeof (target as { closest?: unknown }).closest !== "function") return false;
+  return Boolean((target as Element).closest("button, input, select, textarea, a, [role='button']"));
 }
 
 function renderKanbanView(
@@ -2201,6 +2234,26 @@ function kanbanTitleField(nodes: readonly ViewFieldNode[], fields: Record<string
 }
 
 async function openKanbanRecord(
+  model: string,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): Promise<void> {
+  await openRecordAction(model, id, action, options, root);
+}
+
+async function openListRecord(
+  model: string,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): Promise<void> {
+  await openRecordAction(model, id, action, options, root);
+}
+
+async function openRecordAction(
   model: string,
   id: number,
   action: Record<string, unknown>,

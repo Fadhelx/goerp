@@ -799,6 +799,26 @@ assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value
 assert.equal(renderedWindow.children[1].className, "gorp-list-view");
 assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
 assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+const listOpenCalls = [];
+const interactiveListWindow = renderWindowAction(windowResult, {
+  services: {
+    action: {
+      doAction(action, options) {
+        listOpenCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const interactiveListRow = findAll(interactiveListWindow, (node) => node.tag === "tr" && node.dataset?.id === "1")[0];
+assert.equal(interactiveListRow.attributes.role, "link");
+interactiveListRow.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(listOpenCalls.length, 1);
+assert.equal(listOpenCalls[0].action.res_id, 1);
+assert.equal(listOpenCalls[0].action.res_model, "res.partner");
+assert.equal(listOpenCalls[0].action.view_mode, "form");
+assert.deepEqual(listOpenCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 const dialogCloseEvents = [];
 const renderedDialog = renderWindowActionDialog({
   ...windowResult,

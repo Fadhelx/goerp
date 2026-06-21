@@ -108,7 +108,8 @@ const root = renderControlPanel(normalized, {
   onGroupBy: (item) => events.push(["groupBy", item.id]),
   onFacetRemove: (facet) => events.push(["remove", facet.id]),
   onAddCustomFilter: () => events.push(["customFilter"]),
-  onAddCustomGroup: () => events.push(["customGroup"])
+  onAddCustomGroup: () => events.push(["customGroup"]),
+  onAddFavorite: () => events.push(["addFavorite"])
 });
 
 assert.ok(String(root.className).includes("o_control_panel"));
@@ -128,6 +129,7 @@ assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite
 assert.equal(findAll(root, (node) => String(node.className).includes("selected"))[0].attributes["aria-checked"], "true");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_filter")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_add_favorite")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu_item")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item")).length, 1);
 assert.ok(findAll(root, (node) => String(node.className).includes("dropdown-divider")).length >= 2);
@@ -161,6 +163,7 @@ findAll(root, (node) => node.dataset?.menuItemId === "create_date:week")[0].disp
 findAll(root, (node) => String(node.className).includes("o_facet_remove"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
 
 assert.deepEqual(events, [
   ["search", "beta"],
@@ -170,5 +173,6 @@ assert.deepEqual(events, [
   ["groupBy", "create_date:week"],
   ["remove", "customers"],
   ["customFilter"],
-  ["customGroup"]
+  ["customGroup"],
+  ["addFavorite"]
 ]);

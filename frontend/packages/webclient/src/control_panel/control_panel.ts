@@ -51,6 +51,7 @@ export interface ControlPanelCallbacks {
   onFacetRemove?: (facet: SearchFacet) => void;
   onAddCustomFilter?: () => void;
   onAddCustomGroup?: () => void;
+  onAddFavorite?: () => void;
 }
 
 export function createControlPanelState(state: ControlPanelState): ControlPanelState {
@@ -177,7 +178,7 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   menu.append(
     renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter, { customFilter: callbacks.onAddCustomFilter }),
     renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy, { customGroup: callbacks.onAddCustomGroup }),
-    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite, { favorite: true })
+    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite, { favorite: true, addFavorite: callbacks.onAddFavorite })
   );
   root.append(searchView, dropdown, menu);
   return root;
@@ -220,7 +221,7 @@ function renderMenuLane(
   label: string,
   items: readonly ControlPanelMenuItem[],
   callback: ((item: ControlPanelMenuItem) => void) | undefined,
-  options: { customFilter?: () => void; customGroup?: () => void; favorite?: boolean } = {}
+  options: { customFilter?: () => void; customGroup?: () => void; favorite?: boolean; addFavorite?: () => void } = {}
 ): HTMLElement {
   const root = document.createElement("div");
   root.className = `o_dropdown_container ${className}`;
@@ -282,6 +283,15 @@ function renderMenuLane(
     button.className = "o_menu_item o_add_custom_group_menu o-dropdown-item dropdown-item";
     button.textContent = "Add Custom Group";
     button.addEventListener("click", () => options.customGroup?.());
+    root.append(button);
+  }
+  if (options.favorite) {
+    if (items.length) root.append(dropdownDivider());
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_menu_item o_add_favorite o-dropdown-item dropdown-item";
+    button.textContent = "Save current search";
+    button.addEventListener("click", () => options.addFavorite?.());
     root.append(button);
   }
   return root;
