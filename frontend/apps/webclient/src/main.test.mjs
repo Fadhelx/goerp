@@ -97,6 +97,18 @@ globalThis.fetch = async (route, options = {}) => {
     sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };
     return { ok: true, status: 200, async json() { return sessionResponse; } };
   }
+  if (route === "/mail/data") {
+    return { ok: true, status: 200, async json() { return {
+      Store: {
+        inbox: { counter: 2 },
+        starred: { counter: 1 },
+        activityCounter: 1,
+        activityGroups: [
+          { name: "Partners", model: "res.partner", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0 }
+        ]
+      }
+    }; } };
+  }
   if (route === "/web/webclient/load_menus") {
     return { ok: true, status: 200, async json() { return {
       all_menu_ids: [1, 2],
@@ -221,8 +233,11 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "2").length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Partners").length, 1);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
+  ["/mail/data", "POST"],
   ["/web/webclient/load_menus", "GET"]
 ]);
 
@@ -268,5 +283,6 @@ assert.equal(globalThis.document.body.children.length, 0);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/web/session/get_session_info", "GET"],
   ["/web/session/authenticate", "POST"],
+  ["/mail/data", "POST"],
   ["/web/webclient/load_menus", "GET"]
 ]);

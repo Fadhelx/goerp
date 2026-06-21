@@ -52,6 +52,7 @@ Existing Odoo screenshots were used as visual reference:
 - Direct `ir.module.module` lifecycle RPC calls now require admin/system-user context.
 - Default mobile `/web` smoke now opens Server Actions, renders mobile list cards, opens a form, verifies breadcrumbs/form sheet visibility, checks hash routing, and proves no horizontal overflow.
 - The TypeScript systray now opens message, activity, company, debug, and user dropdowns, closes on Escape/outside click, and stays out of the action manager state.
+- The default TypeScript systray now fetches live `/mail/data` Store metadata during bootstrap and renders backend inbox, starred, and activity counters, activity group rows, current-company state, Odoo-like systray order, and typed menu actions.
 
 ## Evidence
 
@@ -91,7 +92,7 @@ P0:
 P1:
 - Apps install flow has bounded method-backed install, upgrade, uninstall, cancel-state, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and confirmation/wizard behavior.
 - Dialogs need footer action mapping, stacked inactive state, confirmation dialogs, backdrop policy, draggable desktop, and mobile fullscreen/bottom-sheet behavior.
-- Systray dropdown shells now open and close for user/company/debug/mail/activity; real menu data, counters, and actions are still shallow.
+- Systray now uses real Store counters and activity groups; remaining work is full Discuss inbox/channels UI, activity edit/mark-done popovers, persistent company switching, and mobile burger relocation.
 - Kanban needs grouped columns, quick create, drag/drop, folded groups, progress bars, and load-more.
 - Mobile shell is usable without overflow, but still desktop-shaped.
 
@@ -107,7 +108,7 @@ P2:
 3. Implement list grouping/sorting/optional-columns/select-all.
 4. Implement form notebooks/groups/smart-buttons/x2many/onchange/dirty guards.
 5. Expand Apps catalog to categories, filters, module detail behavior, and confirmation/wizard flows.
-6. Implement real systray data/actions for user/company/debug/mail/activity.
+6. Expand systray from live Store counters/actions into full Discuss, activity popover, company switch, and mobile behavior.
 7. Implement kanban grouped columns and quick-create.
 8. Add production smoke after every deploy for `/web`, Settings, Server Actions, view switch, search filter, normal user, and mobile.
 

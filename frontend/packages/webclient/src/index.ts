@@ -26,6 +26,7 @@ import {
 import type { HomeMenuApp, HomeMenuPayload } from "./home_menu/app_metadata.js";
 import { renderSettingsView } from "./settings/settings_renderer.js";
 import { createWebClientShell } from "./webclient/shell.js";
+import type { NavbarSystrayAction, NavbarSystrayCompany, NavbarSystrayState } from "./webclient/navbar/navbar.js";
 
 export {
   actionBreadcrumbs,
@@ -94,8 +95,10 @@ export interface WebClientOptions {
   theme: ThemeTokens;
   menus?: HomeMenuPayload;
   session?: Record<string, unknown>;
+  systray?: NavbarSystrayState;
   onOpenApp?: (app: HomeMenuApp, outlet: HTMLElement) => unknown;
   onOpenAppsCatalog?: (outlet: HTMLElement) => unknown;
+  onSystrayAction?: (action: NavbarSystrayAction, outlet: HTMLElement) => unknown;
 }
 
 export interface RPCRequest {
@@ -457,6 +460,7 @@ export interface PortalMailService {
     access?: PortalAccessParams | null
   ): Promise<T>;
   starredMessages<T = unknown>(fetchParams?: Record<string, unknown>): Promise<T>;
+  storeData<T = unknown>(fetchParams?: readonly unknown[], context?: Record<string, unknown>): Promise<T>;
   toggleMessageStarred<T = unknown>(messageId: number): Promise<T>;
   unstarAllMessages<T = unknown>(): Promise<T>;
   uploadAttachment<T = unknown>(
@@ -998,6 +1002,12 @@ export function createPortalMailService(
     },
     starredMessages<T = unknown>(fetchParams: Record<string, unknown> = {}): Promise<T> {
       return rpc.call<T>("/mail/starred/messages", { fetch_params: { ...fetchParams } });
+    },
+    storeData<T = unknown>(fetchParams: readonly unknown[] = [], context: Record<string, unknown> = {}): Promise<T> {
+      return rpc.call<T>("/mail/data", {
+        fetch_params: [...fetchParams],
+        context: { ...context }
+      });
     },
     toggleMessageStarred<T = unknown>(messageId: number): Promise<T> {
       return rpc.call<T>("/web/dataset/call_kw/mail.message/toggle_message_starred", {
@@ -1641,8 +1651,10 @@ export function createWebClient(options: WebClientOptions) {
         menus: options.menus,
         userName: sessionUserName(options.session),
         companyName: sessionCompanyName(options.session),
+        systray: options.systray ?? sessionSystrayState(options.session),
         onOpenApp: options.onOpenApp,
-        onOpenAppsCatalog: options.onOpenAppsCatalog
+        onOpenAppsCatalog: options.onOpenAppsCatalog,
+        onSystrayAction: options.onSystrayAction
       });
     }
   };
@@ -1654,11 +1666,58 @@ function sessionUserName(sessionInfo: Record<string, unknown> | undefined): stri
 
 function sessionCompanyName(sessionInfo: Record<string, unknown> | undefined): string {
   const company = isRecord(sessionInfo?.company_id) ? sessionInfo.company_id : undefined;
+  const currentCompany = currentSessionCompany(sessionInfo);
   return firstText(
     sessionInfo?.company_name,
+    currentCompany?.name,
     company?.name,
     sessionInfo?.db
   ) ?? "My Company";
+}
+
+function sessionSystrayState(sessionInfo: Record<string, unknown> | undefined): NavbarSystrayState {
+  return {
+    store: isRecord(sessionInfo?.Store) ? sessionInfo.Store : undefined,
+    companies: sessionCompanies(sessionInfo),
+    currentCompanyId: sessionCurrentCompanyId(sessionInfo),
+    displaySwitchCompanyMenu: sessionInfo?.display_switch_company_menu === true
+  };
+}
+
+function currentSessionCompany(sessionInfo: Record<string, unknown> | undefined): NavbarSystrayCompany | undefined {
+  const companies = sessionCompanies(sessionInfo);
+  const current = sessionCurrentCompanyId(sessionInfo);
+  if (current === undefined) return undefined;
+  return companies.find((company) => String(company.id) === String(current));
+}
+
+function sessionCurrentCompanyId(sessionInfo: Record<string, unknown> | undefined): number | string | undefined {
+  const userCompanies = isRecord(sessionInfo?.user_companies) ? sessionInfo.user_companies : undefined;
+  const current = firstValue(userCompanies?.current_company);
+  if (typeof current === "number" || typeof current === "string") return current;
+  const company = isRecord(sessionInfo?.company_id) ? sessionInfo.company_id : undefined;
+  const companyID = firstValue(company?.id) ?? firstValue(sessionInfo?.company_id);
+  return typeof companyID === "number" || typeof companyID === "string" ? companyID : undefined;
+}
+
+function sessionCompanies(sessionInfo: Record<string, unknown> | undefined): NavbarSystrayCompany[] {
+  const userCompanies = isRecord(sessionInfo?.user_companies) ? sessionInfo.user_companies : undefined;
+  const allowed = isRecord(userCompanies?.allowed_companies) ? userCompanies.allowed_companies : undefined;
+  const current = sessionCurrentCompanyId(sessionInfo);
+  if (!allowed) return [];
+  return Object.values(allowed)
+    .filter(isRecord)
+    .map((company): NavbarSystrayCompany | undefined => {
+      const id = firstValue(company.id);
+      if (typeof id !== "number" && typeof id !== "string") return undefined;
+      return {
+        id,
+        name: firstText(company.name, `Company ${id}`) ?? `Company ${id}`,
+        current: current !== undefined && String(id) === String(current)
+      };
+    })
+    .filter((company): company is NavbarSystrayCompany => company !== undefined)
+    .sort((left, right) => String(left.name).localeCompare(String(right.name)));
 }
 
 export function renderWindowAction(result: WindowActionResult, options: RenderWindowActionOptions = {}): HTMLElement {

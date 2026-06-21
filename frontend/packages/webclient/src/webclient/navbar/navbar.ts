@@ -8,7 +8,35 @@ export interface SystrayItem {
   label: string;
   count?: number;
   className: string;
-  menuItems?: readonly string[];
+  menuItems?: readonly SystrayMenuEntry[];
+}
+
+export interface SystrayMenuItem {
+  label: string;
+  count?: number;
+  description?: string;
+  active?: boolean;
+  action?: NavbarSystrayAction;
+}
+
+export type SystrayMenuEntry = string | SystrayMenuItem;
+
+export interface NavbarSystrayAction {
+  type: string;
+  [key: string]: unknown;
+}
+
+export interface NavbarSystrayCompany {
+  id: number | string;
+  name: string;
+  current?: boolean;
+}
+
+export interface NavbarSystrayState {
+  store?: Record<string, unknown>;
+  companies?: readonly NavbarSystrayCompany[];
+  currentCompanyId?: number | string;
+  displaySwitchCompanyMenu?: boolean;
 }
 
 export interface NavbarOptions {
@@ -16,20 +44,42 @@ export interface NavbarOptions {
   userName?: string;
   companyName?: string;
   debug?: boolean;
+  systray?: NavbarSystrayState;
   activeAppId?: number | string;
   onOpenApps?: () => void;
   onOpenApp?: (app: NavbarApp) => void;
   onToggleMobileMenu?: (expanded: boolean) => void;
+  onSystrayAction?: (action: NavbarSystrayAction) => void;
 }
 
 export interface RenderedNavbar extends HTMLElement {
   setActiveApp: (appId?: number | string) => void;
 }
 
-export function defaultSystrayItems(): SystrayItem[] {
+export function defaultSystrayItems(store?: Record<string, unknown>): SystrayItem[] {
+  const inboxCount = mailboxCounter(recordValue(store?.inbox));
+  const starredCount = mailboxCounter(recordValue(store?.starred));
+  const activityCount = numberValue(store?.activityCounter);
+  const activityGroups = activityMenuItems(arrayValue(store?.activityGroups));
   return [
-    { key: "messages", label: "Messages", count: 0, className: "o_mail_systray_item", menuItems: ["Inbox", "Starred", "New Message"] },
-    { key: "activities", label: "Activities", count: 0, className: "o_activity_menu", menuItems: ["Activities", "Late", "Today"] }
+    {
+      key: "messages",
+      label: "Messages",
+      count: inboxCount,
+      className: "o_mail_systray_item",
+      menuItems: [
+        { label: "Inbox", count: inboxCount, action: { type: "open-mailbox", mailbox: "inbox" } },
+        { label: "Starred", count: starredCount, action: { type: "open-mailbox", mailbox: "starred" } },
+        { label: "New Message", action: { type: "new-message" } }
+      ]
+    },
+    {
+      key: "activities",
+      label: "Activities",
+      count: activityCount,
+      className: "o_activity_menu",
+      menuItems: activityGroups.length ? activityGroups : [{ label: "No activities", count: 0, action: { type: "open-activities" } }]
+    }
   ];
 }
 
@@ -91,10 +141,10 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   systray.className = "o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit";
   systray.setAttribute("role", "menu");
   systray.setAttribute("aria-label", "Systray");
-  for (const item of defaultSystrayItems()) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label]));
-  appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderSystrayMenu("company", [options.companyName ?? "My Company", "Switch Company"]));
-  if (options.debug) appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", ["Open Developer Tools", "View Metadata", "Become Superuser"]));
-  appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", ["Preferences", "My Profile", "Log out"]));
+  if (options.debug) appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
+  for (const item of defaultSystrayItems(options.systray?.store)) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label], options.onSystrayAction));
+  appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderSystrayMenu("company", companyMenuItems(options.systray, options.companyName ?? "My Company"), options.onSystrayAction));
+  appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
 
   header.append(brand, mobileMenu, nav, systray);
   bindSystrayAutoClose(header, closeDropdowns);
@@ -185,27 +235,67 @@ function renderSystrayItem(item: SystrayItem): HTMLElement {
   return button;
 }
 
-function renderSystrayMenu(key: string, items: readonly string[]): HTMLElement {
+function renderSystrayMenu(key: string, items: readonly SystrayMenuEntry[], onAction?: (action: NavbarSystrayAction) => void): HTMLElement {
   const menu = document.createElement("div");
-  menu.className = "dropdown-menu o-dropdown-menu";
+  menu.className = `dropdown-menu o-dropdown-menu ${systrayMenuClass(key)}`.trim();
   menu.dataset.systrayDropdown = key;
   menu.hidden = true;
   menu.setAttribute("role", "menu");
   for (const item of items) {
+    const entry = normalizeMenuEntry(item);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "dropdown-item";
+    button.className = entry.active ? "dropdown-item active" : "dropdown-item";
     button.setAttribute("role", "menuitem");
-    button.textContent = item;
+    button.dataset.systrayItem = entry.label;
+    if (entry.action) {
+      button.dataset.systrayAction = entry.action.type;
+      button.addEventListener("click", () => onAction?.(entry.action as NavbarSystrayAction));
+    }
+    const label = document.createElement("span");
+    label.className = "o_systray_menu_label";
+    label.textContent = entry.label;
+    button.append(label);
+    if (typeof entry.count === "number") {
+      const badge = document.createElement("span");
+      badge.className = "o_systray_menu_badge";
+      badge.textContent = String(entry.count);
+      button.append(badge);
+    }
+    if (entry.description) {
+      const description = document.createElement("span");
+      description.className = "o_systray_menu_description";
+      description.textContent = entry.description;
+      button.append(description);
+    }
     menu.append(button);
   }
   return menu;
 }
 
+function systrayMenuClass(key: string): string {
+  switch (key) {
+    case "messages":
+      return "o-mail-MessagingMenu";
+    case "activities":
+      return "o-mail-ActivityMenu";
+    case "company":
+      return "o_switch_company_menu_dropdown";
+    default:
+      return "";
+  }
+}
+
+function normalizeMenuEntry(entry: SystrayMenuEntry): SystrayMenuItem {
+  if (typeof entry === "string") return { label: entry };
+  return entry;
+}
+
 function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: boolean): void {
   if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
   menu.hidden = !open;
-  menu.className = open ? "dropdown-menu o-dropdown-menu show" : "dropdown-menu o-dropdown-menu";
+  const base = menu.dataset.systrayDropdown ? `dropdown-menu o-dropdown-menu ${systrayMenuClass(menu.dataset.systrayDropdown)}`.trim() : "dropdown-menu o-dropdown-menu";
+  menu.className = open ? `${base} show` : base;
 }
 
 function bindSystrayAutoClose(root: HTMLElement, closeDropdowns: () => void): void {
@@ -251,6 +341,102 @@ function renderUserMenu(userName: string): HTMLElement {
   label.textContent = userName;
   button.append(label);
   return button;
+}
+
+function userMenuItems(): SystrayMenuEntry[] {
+  return [
+    { label: "Help", action: { type: "open-help" } },
+    { label: "Shortcuts", action: { type: "open-shortcuts" } },
+    { label: "My Preferences", action: { type: "open-preferences" } },
+    { label: "My Profile", action: { type: "open-profile" } },
+    { label: "My Odoo.com Account", action: { type: "open-odoo-account" } },
+    { label: "Log out", action: { type: "logout" } }
+  ];
+}
+
+function debugMenuItems(): SystrayMenuEntry[] {
+  return [
+    { label: "Open Developer Tools", action: { type: "open-debug-tools" } },
+    { label: "Metadata", action: { type: "view-metadata" } },
+    { label: "Access Rights", action: { type: "view-access-rights" } },
+    { label: "Record Rules", action: { type: "view-record-rules" } },
+    { label: "Become Superuser", action: { type: "become-superuser" } },
+    { label: "Leave Debug Mode", action: { type: "leave-debug-mode" } }
+  ];
+}
+
+function companyMenuItems(systray: NavbarSystrayState | undefined, fallbackName: string): SystrayMenuEntry[] {
+  const companies = systray?.companies ?? [];
+  if (!companies.length) {
+    return [
+      { label: fallbackName, active: true, action: { type: "switch-company" } },
+      { label: "Switch Company", action: { type: "switch-company" } }
+    ];
+  }
+  const currentKey = systray?.currentCompanyId === undefined || systray?.currentCompanyId === null ? "" : String(systray.currentCompanyId);
+  const items = companies.map((company): SystrayMenuEntry => ({
+    label: company.name,
+    active: company.current || (!!currentKey && String(company.id) === currentKey),
+    action: { type: "switch-company", companyId: company.id }
+  }));
+  if (systray?.displaySwitchCompanyMenu !== false && companies.length > 1) {
+    items.push({ label: "Switch Company", action: { type: "switch-company" } });
+  }
+  return items;
+}
+
+function activityMenuItems(groups: unknown[]): SystrayMenuEntry[] {
+  return groups
+    .map((raw): SystrayMenuEntry | undefined => {
+      const group = recordValue(raw);
+      if (!group) return undefined;
+      const total = numberValue(group.total_count);
+      const overdue = numberValue(group.overdue_count);
+      const today = numberValue(group.today_count);
+      const planned = numberValue(group.planned_count);
+      const name = firstText(group.name, group.model, "Activities");
+      return {
+        label: name,
+        count: total,
+        description: `Late ${overdue} Today ${today} Future ${planned}`,
+        action: {
+          type: "open-activities",
+          model: firstText(group.model),
+          domain: group.domain,
+          viewType: firstText(group.view_type, "list")
+        }
+      };
+    })
+    .filter((item): item is SystrayMenuEntry => item !== undefined);
+}
+
+function mailboxCounter(mailbox: Record<string, unknown> | undefined): number {
+  return numberValue(mailbox?.counter);
+}
+
+function numberValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.trunc(value));
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed);
+  }
+  return 0;
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (text) return text;
+  }
+  return "";
 }
 
 function activeAppName(apps: readonly NavbarApp[], appId: number | string | undefined): string | undefined {

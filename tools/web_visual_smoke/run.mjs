@@ -124,7 +124,8 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS technical action hash");
-      return { title, hash, ...opened };
+      const themeAudit = await assertEnterprisePolishSnapshot(page);
+      return { title, hash, ...opened, ...themeAudit };
     }
   },
   {
@@ -586,6 +587,37 @@ export function auditSettingsLabelSnapshot(snapshot) {
 
 function normalizeText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+async function assertEnterprisePolishSnapshot(page) {
+  const snapshot = await evaluate(page, `(() => {
+    const styleValue = (selector, property) => {
+      const node = document.querySelector(selector);
+      return node ? getComputedStyle(node).getPropertyValue(property) : "";
+    };
+    const pixelValue = (selector, property) => {
+      const value = styleValue(selector, property);
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    return {
+      control_panel_bg: styleValue(".o_web_client .o_action_manager .o_control_panel", "background-color"),
+      control_panel_shadow: styleValue(".o_web_client .o_action_manager .o_control_panel", "box-shadow"),
+      control_panel_min_height_px: pixelValue(".o_web_client .o_action_manager .o_control_panel", "min-height"),
+      search_width_px: pixelValue(".o_web_client .o_action_manager .o_cp_searchview", "width"),
+      search_radius_px: pixelValue(".o_web_client .o_action_manager .o_searchview", "border-top-left-radius"),
+      list_header_bg: styleValue(".o_web_client .o_action_manager .gorp-list-view th", "background-color")
+    };
+  })()`);
+  const issues = [];
+  if (snapshot.control_panel_bg !== "rgb(255, 255, 255)") issues.push(`control panel bg ${snapshot.control_panel_bg}`);
+  if (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none") issues.push("control panel shadow missing");
+  if (snapshot.control_panel_min_height_px < 60 || snapshot.control_panel_min_height_px > 66) issues.push(`control panel min-height ${snapshot.control_panel_min_height_px}`);
+  if (snapshot.search_width_px < 400 || snapshot.search_width_px > 450) issues.push(`search width ${snapshot.search_width_px}`);
+  if (snapshot.search_radius_px !== 4) issues.push(`search radius ${snapshot.search_radius_px}`);
+  if (snapshot.list_header_bg !== "rgb(246, 247, 248)") issues.push(`list header bg ${snapshot.list_header_bg}`);
+  if (issues.length) throw new Error(`enterprise polish style audit failed: ${issues.join("; ")}`);
+  return snapshot;
 }
 
 async function main() {

@@ -378,6 +378,7 @@ await mail.postMessage(
 await mail.updateMessageContent(17, { body: "<p>Edit</p>" }, { hash: "hash-token", pid: 12 });
 await mail.reactMessage(17, "ok", "add", { token: "thread-token" });
 await mail.starredMessages({ limit: 5 });
+await mail.storeData(["init_messaging", ["systray_get_activities", {}]], { lang: "en_US" });
 await mail.toggleMessageStarred(17);
 await mail.unstarAllMessages();
 await mail.deleteAttachment(8, "own");
@@ -414,22 +415,27 @@ assert.equal(mailRequests[4].route, "/mail/message/reaction");
 assert.deepEqual(mailRequests[4].params, { message_id: 17, content: "ok", action: "add", token: "thread-token" });
 assert.equal(mailRequests[5].route, "/mail/starred/messages");
 assert.deepEqual(mailRequests[5].params, { fetch_params: { limit: 5 } });
-assert.equal(mailRequests[6].route, "/web/dataset/call_kw/mail.message/toggle_message_starred");
+assert.equal(mailRequests[6].route, "/mail/data");
 assert.deepEqual(mailRequests[6].params, {
+  fetch_params: ["init_messaging", ["systray_get_activities", {}]],
+  context: { lang: "en_US" }
+});
+assert.equal(mailRequests[7].route, "/web/dataset/call_kw/mail.message/toggle_message_starred");
+assert.deepEqual(mailRequests[7].params, {
   model: "mail.message",
   method: "toggle_message_starred",
   args: [[17]],
   kwargs: {}
 });
-assert.equal(mailRequests[7].route, "/web/dataset/call_kw/mail.message/unstar_all");
-assert.deepEqual(mailRequests[7].params, {
+assert.equal(mailRequests[8].route, "/web/dataset/call_kw/mail.message/unstar_all");
+assert.deepEqual(mailRequests[8].params, {
   model: "mail.message",
   method: "unstar_all",
   args: [],
   kwargs: {}
 });
-assert.equal(mailRequests[8].route, "/mail/attachment/delete");
-assert.deepEqual(mailRequests[8].params, { attachment_id: 8, access_token: "own" });
+assert.equal(mailRequests[9].route, "/mail/attachment/delete");
+assert.deepEqual(mailRequests[9].params, { attachment_id: 8, access_token: "own" });
 assert.equal(uploadRequests[0].route, "/mail/attachment/upload");
 assert.equal(uploadRequests[0].formData.get("thread_model"), "portal.thread");
 assert.equal(uploadRequests[0].formData.get("thread_id"), "4");

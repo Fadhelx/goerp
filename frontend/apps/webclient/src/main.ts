@@ -16,6 +16,7 @@ import {
   type WebClientServices,
   type WindowActionResult
 } from "../../../packages/webclient/src/index.js";
+import type { NavbarSystrayAction } from "../../../packages/webclient/src/webclient/navbar/navbar.js";
 import {
   appIconToken,
   appInitials,
@@ -48,6 +49,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
       password: "admin"
     });
   }
+  session = await loadSystraySession(session);
   const menus = await fetchJSON<Record<string, unknown>>("/web/webclient/load_menus");
   if (shouldTakeOverDOM()) {
     const target = ensureRoot();
@@ -58,6 +60,9 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
       menus,
       onOpenApp: (app, outlet) => {
         void openMenuApp(env, app, outlet).catch((error) => renderActionError(outlet, error));
+      },
+      onSystrayAction: (action, outlet) => {
+        void handleSystrayAction(env, action, outlet).catch((error) => renderActionError(outlet, error));
       }
     }).render();
     target.replaceChildren(shell);
@@ -189,6 +194,29 @@ async function rpcTransport(request: RPCRequest): Promise<unknown> {
   return fetchJSON(request.route, request.params);
 }
 
+async function loadSystraySession(session: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (!numericUserID(session.uid)) return session;
+  try {
+    const payload = await fetchJSON<Record<string, unknown>>("/mail/data", {
+      fetch_params: ["init_messaging", ["systray_get_activities", {}]],
+      context: sessionUserContext(session)
+    });
+    return {
+      ...session,
+      Store: {
+        ...(isRecord(session.Store) ? session.Store : {}),
+        ...(isRecord(payload.Store) ? payload.Store : {})
+      }
+    };
+  } catch {
+    return session;
+  }
+}
+
+function sessionUserContext(session: Record<string, unknown>): Record<string, unknown> {
+  return isRecord(session.user_context) ? { ...session.user_context } : {};
+}
+
 async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, outlet: HTMLElement): Promise<void> {
   if (isAppsCatalogApp(app)) {
     await renderAppsCatalog(env, outlet, app.name);
@@ -206,6 +234,123 @@ async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, ou
     additionalContext: { menu_id: app.id },
     stackPosition: "clear"
   });
+}
+
+async function handleSystrayAction(
+  env: ReturnType<typeof makeEnv>,
+  action: NavbarSystrayAction,
+  outlet: HTMLElement
+): Promise<void> {
+  switch (action.type) {
+    case "logout":
+      await fetchJSON("/web/session/logout", { logout: true });
+      globalThis.location.href = "/web/login";
+      return;
+    case "open-mailbox":
+      await openMailboxAction(env, action, outlet);
+      return;
+    case "open-activities":
+      await openActivitiesAction(action, outlet);
+      return;
+    case "open-debug-tools":
+    case "view-metadata":
+    case "view-access-rights":
+    case "view-record-rules":
+      renderSystrayAction(outlet, "Developer Tools", [
+        "Metadata",
+        "Access Rights",
+        "Record Rules",
+        "Become Superuser"
+      ]);
+      return;
+    case "become-superuser":
+      globalThis.location.href = `/web/become/debug?redirect=${encodeURIComponent("/web?debug=1")}`;
+      return;
+    case "leave-debug-mode":
+      globalThis.location.href = "/web";
+      return;
+    case "open-preferences":
+    case "open-profile":
+      renderSystrayAction(outlet, action.type === "open-profile" ? "My Profile" : "Preferences", [
+        "User preferences",
+        "Language",
+        "Timezone",
+        "Notifications"
+      ]);
+      return;
+    case "open-help":
+      renderSystrayAction(outlet, "Help", ["Documentation", "Support"]);
+      return;
+    case "open-shortcuts":
+      renderSystrayAction(outlet, "Shortcuts", ["Alt+Shift+A", "Search", "Create"]);
+      return;
+    case "open-odoo-account":
+      renderSystrayAction(outlet, "My Odoo.com Account", ["Account", "Subscription"]);
+      return;
+    case "new-message":
+      renderSystrayAction(outlet, "New Message", ["Compose", "Recipients", "Message"]);
+      return;
+    case "switch-company":
+      renderSystrayAction(outlet, "Companies", ["Switch company", "Confirm", "Reset"]);
+      return;
+    default:
+      renderSystrayAction(outlet, "Systray", [action.type]);
+  }
+}
+
+async function openMailboxAction(
+  env: ReturnType<typeof makeEnv>,
+  action: NavbarSystrayAction,
+  outlet: HTMLElement
+): Promise<void> {
+  const mailbox = firstText(action.mailbox, "inbox") || "inbox";
+  let rows: string[] = [];
+  if (mailbox === "starred") {
+    const mail = env.services.mail as WebClientServices["mail"];
+    const payload = await mail.starredMessages<Record<string, unknown>>({ limit: 20 });
+    rows = [`Starred messages`, `${arrayLength(payload.messages)} messages`];
+  } else {
+    rows = ["Inbox", "Unread messages are tracked from mail notifications"];
+  }
+  renderSystrayAction(outlet, mailbox === "starred" ? "Starred" : "Inbox", rows);
+}
+
+async function openActivitiesAction(action: NavbarSystrayAction, outlet: HTMLElement): Promise<void> {
+  const payload = await fetchJSON<Record<string, unknown>>("/mail/data", {
+    fetch_params: [["systray_get_activities", {}]],
+    context: {}
+  });
+  const store = isRecord(payload.Store) ? payload.Store : {};
+  const groups = Array.isArray(store.activityGroups) ? store.activityGroups : [];
+  const rows = groups
+    .filter(isRecord)
+    .map((group) => `${firstText(group.name, group.model, "Activities")}: ${numericUserID(group.total_count)} total`);
+  renderSystrayAction(outlet, firstText(action.model, "Activities") || "Activities", rows.length ? rows : ["No activities"]);
+}
+
+function renderSystrayAction(outlet: HTMLElement, titleText: string, rows: readonly string[]): void {
+  outlet.dataset.tsActionStatus = "ready";
+  const root = document.createElement("section");
+  root.className = "gorp-window-action o_systray_action";
+  const controlPanel = document.createElement("div");
+  controlPanel.className = "o-control-panel o_control_panel";
+  const breadcrumb = document.createElement("div");
+  breadcrumb.className = "o_breadcrumb";
+  const title = document.createElement("span");
+  title.className = "active";
+  title.textContent = titleText;
+  breadcrumb.append(title);
+  controlPanel.append(breadcrumb);
+  const body = document.createElement("div");
+  body.className = "o_systray_action_body";
+  for (const row of rows) {
+    const item = document.createElement("div");
+    item.className = "o_systray_action_row";
+    item.textContent = row;
+    body.append(item);
+  }
+  root.append(controlPanel, body);
+  outlet.replaceChildren(root);
 }
 
 interface ActionHostState {
@@ -652,6 +797,14 @@ function appsCatalogActions(module: AppsCatalogDisplayModule): AppsCatalogAction
 function moduleDisplayName(name: string): string {
   const cleaned = String(name || "").replace(/^oi_/, "").replace(/^base_/, "").replace(/_/g, " ").replace(/\s+/g, " ").trim();
   return cleaned ? cleaned.split(" ").map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join(" ") : "Module";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function arrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 function firstText(...values: unknown[]): string {

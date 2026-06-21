@@ -1,7 +1,7 @@
 import type { ThemeTokens } from "../../../theme-tokens/src/index";
 import { homeMenuAppsCatalogApp, normalizeHomeMenuApps, type HomeMenuApp, type HomeMenuPayload } from "../home_menu/app_metadata.js";
 import { renderHomeMenu } from "../home_menu/home_menu.js";
-import { renderNavbar, type NavbarApp, type RenderedNavbar } from "./navbar/navbar.js";
+import { renderNavbar, type NavbarApp, type NavbarSystrayAction, type NavbarSystrayState, type RenderedNavbar } from "./navbar/navbar.js";
 
 export interface WebClientShellOptions {
   theme: ThemeTokens;
@@ -9,9 +9,11 @@ export interface WebClientShellOptions {
   apps?: readonly NavbarApp[];
   userName?: string;
   companyName?: string;
+  systray?: NavbarSystrayState;
   menus?: HomeMenuPayload;
   onOpenApp?: (app: HomeMenuApp, outlet: HTMLElement) => unknown;
   onOpenAppsCatalog?: (outlet: HTMLElement) => unknown;
+  onSystrayAction?: (action: NavbarSystrayAction, outlet: HTMLElement) => unknown;
 }
 
 export function createWebClientShell(options: WebClientShellOptions): HTMLElement {
@@ -52,11 +54,16 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     userName: options.userName,
     companyName: options.companyName,
     debug: options.debug,
+    systray: options.systray,
     onOpenApps: renderApps,
     onToggleMobileMenu: setMobileMenuOpen,
     onOpenApp: (app) => {
       const menuApp = menuApps.find((item) => String(item.id) === String(app.id));
       if (menuApp) openApp(menuApp);
+    },
+    onSystrayAction: (systrayAction) => {
+      setMobileMenuOpen(false);
+      options.onSystrayAction?.(systrayAction, action);
     }
   });
   setNavbarActive = navbar.setActiveApp;

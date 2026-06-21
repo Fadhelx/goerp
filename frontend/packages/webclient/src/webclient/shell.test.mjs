@@ -51,6 +51,7 @@ function findAll(node, predicate, out = []) {
 }
 
 const opened = [];
+const systrayActions = [];
 const shell = createWebClientShell({
   theme: {
     name: "enterprise-like",
@@ -63,6 +64,13 @@ const shell = createWebClientShell({
   debug: false,
   userName: "Administrator",
   companyName: "My Company",
+  systray: {
+    store: {
+      inbox: { counter: 4 },
+      activityCounter: 1,
+      activityGroups: [{ name: "Tasks", model: "project.task", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0 }]
+    }
+  },
   menus: {
     root: { children: [1, 2] },
     1: { id: 1, name: "Settings", children: [], actionID: 9 },
@@ -70,6 +78,9 @@ const shell = createWebClientShell({
   },
   onOpenApp(app, outlet) {
     opened.push({ id: app.id, actionID: app.menu.actionID, outletClass: outlet.className });
+  },
+  onSystrayAction(action, outlet) {
+    systrayActions.push({ action, outletClass: outlet.className });
   }
 });
 
@@ -81,6 +92,8 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "4").length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Tasks").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.appKey === "apps").length, 0);
 assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
 assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp")).length, 0);
@@ -92,6 +105,9 @@ assert.deepEqual(opened, [
   { id: 1, actionID: 9, outletClass: "o_action_manager" },
   { id: 1, actionID: 9, outletClass: "o_action_manager" }
 ]);
+findAll(shell, (node) => node.dataset?.systrayItem === "Tasks")[0].listeners.click[0]();
+assert.equal(systrayActions.at(-1).action.type, "open-activities");
+assert.equal(systrayActions.at(-1).outletClass, "o_action_manager");
 
 const mobileMenu = findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle"))[0];
 mobileMenu.listeners.click[0]();

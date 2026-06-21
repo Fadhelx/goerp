@@ -3392,6 +3392,13 @@ func TestMailDataAndActionStoreBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	messageID, err := server.Env.Model("mail.message").Create(map[string]any{"subject": "Unread", "body": "<p>Unread</p>", "message_type": "comment", "model": "res.partner", "res_id": threadID, "author_id": userPartnerID, "starred_partner_ids": []int64{userPartnerID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("mail.notification").Create(map[string]any{"mail_message_id": messageID, "res_partner_id": userPartnerID, "notification_type": "inbox", "notification_status": "ready", "is_read": false, "author_id": userPartnerID}); err != nil {
+		t.Fatal(err)
+	}
 
 	handler := server.Handler()
 	request := map[string]any{
@@ -3424,7 +3431,7 @@ func TestMailDataAndActionStoreBootstrap(t *testing.T) {
 	}
 	starred := store["starred"].(map[string]any)
 	inbox := store["inbox"].(map[string]any)
-	if int64Value(starred["counter_bus_id"]) != 0 || int64Value(inbox["counter_bus_id"]) != 0 || int64Value(store["activityCounter"]) != 1 {
+	if int64Value(starred["counter"]) != 1 || int64Value(inbox["counter"]) != 1 || int64Value(starred["counter_bus_id"]) != 0 || int64Value(inbox["counter_bus_id"]) != 0 || int64Value(store["activityCounter"]) != 1 {
 		t.Fatalf("store counters = %+v", store)
 	}
 	groups := store["activityGroups"].([]any)
@@ -11732,6 +11739,13 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`id="recordSearchFacets" class="o_searchview_facet_container"`,
 		`id="recordSearchDropdown" class="o_searchview_dropdown_toggler`,
 		`id="recordSearchMenu" class="o_search_bar_menu o_search_options dropdown-menu o-dropdown--menu" hidden`,
+		`--control-bg: #ffffff;`,
+		`--dropdown-shadow: 0 12px 24px rgba(16,24,40,.14);`,
+		`box-shadow: var(--control-shadow);`,
+		`.o_cp_searchview:focus-within .o_searchview`,
+		`.o-menu-systray .dropdown-item.active`,
+		`.o_systray_menu_badge`,
+		`.o-list-view th`,
 		`id="recordFilterMenu"><h3>Filters</h3>`,
 		`id="recordGroupByMenu"><h3>Group By</h3>`,
 		`id="recordFavoriteMenu"><h3>Favorites</h3>`,
