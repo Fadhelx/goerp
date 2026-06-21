@@ -62,6 +62,9 @@ class TestEvent {
 }
 
 globalThis.document = {
+  createTextNode(text) {
+    return { tag: "#text", textContent: text, children: [] };
+  },
   createElement(tag) {
     return {
       tag,
@@ -690,7 +693,24 @@ const actionServices = createWebClientServices({
             toolbar: {}
           },
           form: { arch: "<form/>", id: 10 },
-          search: { arch: "<search/>", id: 9, filters: [] }
+          search: {
+            arch: `
+              <search>
+                <filter name="customer" string="Customers" domain="[('customer_rank', '>', 0)]" context="{'group_by': 'company_id', 'from_search': True}"/>
+                <filter name="group_company" string="Company" context="{'group_by': 'company_id'}"/>
+              </search>
+            `,
+            id: 9,
+            filters: [
+              {
+                id: 14,
+                name: "Partner Favorite",
+                domain: "[('supplier_rank', '>', 0)]",
+                context: "{'search_default_supplier': 1}",
+                group_by: ["user_id"]
+              }
+            ]
+          }
         },
         models: {
           "res.partner": {
@@ -728,11 +748,30 @@ assert.equal(windowResult.activeView, "list");
 assert.equal(windowResult.resModel, "res.partner");
 assert.equal(windowResult.viewDescriptions.views.list.id, 8);
 assert.equal(windowResult.length, 1);
+const windowSearchRead = windowActionRequests.find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.deepEqual(windowSearchRead.params.kwargs.domain, [
+  ["active", "=", true],
+  ["id", "in", [1, 2]],
+  ["customer_rank", ">", 0]
+]);
+assert.equal(windowSearchRead.params.kwargs.context.from_search, true);
+assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
+assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
+assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active]), [["filter-customer", true]]);
+assert.deepEqual(windowResult.search.groupBys.map((item) => item.id), ["group-by-group_company"]);
+assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorite-14"]);
 assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
 const renderedWindow = renderWindowAction(windowResult);
 assert.equal(renderedWindow.className, "gorp-window-action");
 assert.equal(renderedWindow.dataset.model, "res.partner");
 assert.equal(renderedWindow.dataset.view, "list");
+assert.ok(String(renderedWindow.children[0].className).includes("o_control_panel"));
+assert.deepEqual(findAll(renderedWindow, (node) => node.dataset?.menuItemId).map((node) => node.dataset.menuItemId), [
+  "filter-customer",
+  "group-by-group_company",
+  "favorite-14"
+]);
+assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value")[0].textContent, "Customers");
 assert.equal(renderedWindow.children[1].className, "gorp-list-view");
 assert.equal(renderedWindow.children[1].children[0].children[0].children[0].textContent, "Name");
 assert.equal(renderedWindow.children[1].children[1].children[0].children[0].children[0].textContent, "Azure Interior");
@@ -994,7 +1033,7 @@ assert.equal(approveAllButton.textContent, "Approve");
 assert.equal(approveAllButton.dataset.sequence, "110");
 assert.equal(approveAllButton.dataset.icon, "fa fa-thumbs-up");
 assert.equal(approveAllButton.disabled, true);
-const approveAllCheckboxes = findAll(approveAllShell, (node) => node.tag === "input");
+const approveAllCheckboxes = findAll(approveAllShell, (node) => node.tag === "input" && node.type === "checkbox");
 approveAllCheckboxes[0].checked = true;
 approveAllCheckboxes[0].dispatchEvent(new TestEvent("change"));
 assert.equal(approveAllButton.disabled, false);
@@ -1312,7 +1351,7 @@ const workflowListButtons = findAll(workflowListShell, (node) => node.dataset?.w
 assert.deepEqual(workflowListButtons.map((button) => button.dataset.workflowAction), ["update_status", "approve_log"]);
 assert.deepEqual(workflowListButtons.map((button) => [button.textContent, button.disabled, button.dataset.sequence, button.dataset.icon]), [["Update Status", true, "100", "fa fa-code"], ["Approval Log", true, "120", "fa fa-arrows-h"]]);
 assert.deepEqual(workflowListButtons.map((button) => button.children[0].className), ["fa fa-code", "fa fa-arrows-h"]);
-const workflowListCheckboxes = findAll(workflowListShell, (node) => node.tag === "input");
+const workflowListCheckboxes = findAll(workflowListShell, (node) => node.tag === "input" && node.type === "checkbox");
 workflowListCheckboxes[0].checked = true;
 workflowListCheckboxes[0].dispatchEvent(new TestEvent("change"));
 assert.deepEqual(workflowListButtons.map((button) => button.disabled), [false, false]);
@@ -1402,7 +1441,7 @@ const serverExportButton = findAll(serverActionMenu, (node) => node.dataset?.act
 const serverPrintToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "print")[0];
 assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
 assert.deepEqual([serverExportButton.disabled], [true]);
-const serverActionMenuCheckboxes = findAll(serverActionMenuShell, (node) => node.tag === "input");
+const serverActionMenuCheckboxes = findAll(serverActionMenuShell, (node) => node.tag === "input" && node.type === "checkbox");
 serverActionMenuCheckboxes[1].checked = true;
 serverActionMenuCheckboxes[1].dispatchEvent(new TestEvent("change"));
 assert.deepEqual([serverExportButton.disabled], [false]);
@@ -1468,7 +1507,7 @@ const actionMenuRunWindow = renderWindowAction({
   }
 });
 const actionMenuRunButton = findAll(actionMenuRunWindow, (node) => node.dataset?.actionId === "710")[0];
-const actionMenuRunCheckbox = findAll(actionMenuRunWindow, (node) => node.tag === "input")[0];
+const actionMenuRunCheckbox = findAll(actionMenuRunWindow, (node) => node.tag === "input" && node.type === "checkbox")[0];
 actionMenuRunCheckbox.checked = true;
 actionMenuRunCheckbox.dispatchEvent(new TestEvent("change"));
 actionMenuRunButton.dispatchEvent(new TestEvent("click"));
@@ -1607,7 +1646,7 @@ const reportDomainWindow = renderWindowAction({
 let printLoadedEvent;
 const reportDomainShell = reportDomainWindow.children[1];
 reportDomainShell.addEventListener("action-menu:print-loaded", (event) => { printLoadedEvent = event.detail; });
-const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input")[0];
+const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
 reportDomainCheckbox.checked = true;
 reportDomainCheckbox.dispatchEvent(new TestEvent("change"));
 const reportDomainToggle = findAll(reportDomainShell, (node) => node.dataset?.actionMenuToggle === "print")[0];
@@ -1750,7 +1789,7 @@ assert.deepEqual(staticButtons.map((button) => [button.dataset.staticAction, but
   ["delete", "50", "fa fa-trash-o", true]
 ]);
 assert.ok(String(staticButtons[4].className).includes("text-danger"));
-const staticCheckbox = findAll(staticActionShell, (node) => node.tag === "input")[0];
+const staticCheckbox = findAll(staticActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
 staticCheckbox.checked = true;
 staticCheckbox.dispatchEvent(new TestEvent("change"));
   assert.deepEqual(staticButtons.map((button) => button.disabled), [false, false, false, false, false]);
@@ -2065,8 +2104,8 @@ const parentTemplateWindow = renderWindowAction({
   debug: true
 });
 const parentTemplateShell = parentTemplateWindow.children[1];
-findAll(parentTemplateShell, (node) => node.tag === "input")[0].checked = true;
-findAll(parentTemplateShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
+findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
 findAll(parentTemplateShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const parentTemplateDialog = findAll(parentTemplateShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -2146,8 +2185,8 @@ const mobileActionWindow = renderWindowAction({
   }
 });
 const mobileActionShell = mobileActionWindow.children[1];
-findAll(mobileActionShell, (node) => node.tag === "input")[0].checked = true;
-findAll(mobileActionShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
+findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
 findAll(mobileActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const mobileExportDialog = findAll(mobileActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -2194,8 +2233,8 @@ const responsiveActionWindow = renderWindowAction({
 });
 const responsiveActionShell = responsiveActionWindow.children[1];
 const resizeListenerCount = (windowListeners.resize ?? []).length;
-findAll(responsiveActionShell, (node) => node.tag === "input")[0].checked = true;
-findAll(responsiveActionShell, (node) => node.tag === "input")[0].dispatchEvent(new TestEvent("change"));
+findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
+findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
 findAll(responsiveActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const responsiveExportDialog = findAll(responsiveActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -2266,7 +2305,7 @@ const accountantWindow = renderWindowAction({
   }
 });
 const accountantShell = accountantWindow.children[1];
-const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input")[0];
+const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
 accountantCheckbox.checked = true;
 accountantCheckbox.dispatchEvent(new TestEvent("change"));
 findAll(accountantShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
@@ -2712,7 +2751,7 @@ assert.equal(windowActionRequests[1].params.kwargs.options.load_filters, true);
 assert.equal(windowActionRequests[1].params.kwargs.options.toolbar, true);
 assert.deepEqual(windowActionRequests[1].params.kwargs.context, { lang: "en_US" });
 assert.equal(windowActionRequests[2].route, "/web/dataset/call_kw/res.partner/web_search_read");
-assert.deepEqual(windowActionRequests[2].params.kwargs.domain, [["active", "=", true], ["id", "in", [1, 2]]]);
+assert.deepEqual(windowActionRequests[2].params.kwargs.domain, [["active", "=", true], ["id", "in", [1, 2]], ["customer_rank", ">", 0]]);
 assert.deepEqual(windowActionRequests[2].params.kwargs.specification, {
   name: {},
   company_id: {
@@ -2732,7 +2771,17 @@ assert.deepEqual(windowActionRequests[2].params.kwargs.specification, {
   }
 });
 assert.equal(windowActionRequests[2].params.kwargs.limit, 25);
-assert.deepEqual(windowActionRequests[2].params.kwargs.context, { bin_size: true, lang: "en_US", search_default_customer: true, active_id: 42, active_ids: [1, 2], from_context: 7 });
+assert.deepEqual(windowActionRequests[2].params.kwargs.context, {
+  bin_size: true,
+  lang: "en_US",
+  search_default_customer: true,
+  active_id: 42,
+  active_ids: [1, 2],
+  from_context: 7,
+  group_by: "company_id",
+  from_search: true
+});
+assert.deepEqual(windowActionRequests[2].params.kwargs.groupby, ["company_id"]);
 
 const formActionRequests = [];
 const formServices = createWebClientServices({

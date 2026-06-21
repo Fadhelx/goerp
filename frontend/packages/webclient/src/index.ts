@@ -7,6 +7,21 @@ import {
   type ActionBreadcrumb,
   type ActionStackEntry
 } from "./services/action_stack.js";
+import {
+  createSearchModel as createActionSearchModel,
+  type SearchModelState
+} from "./search/search_model.js";
+import {
+  parseSearchArch as parseActionSearchArch,
+  searchItemFacet as parsedSearchItemFacet,
+  type ParsedSearchArch,
+  type ParsedSearchItem
+} from "./search/search_arch_parser.js";
+import {
+  renderControlPanel as renderActionControlPanel,
+  type ControlPanelMenuItem as ActionControlPanelMenuItem,
+  type ControlPanelView as ActionControlPanelView
+} from "./control_panel/control_panel.js";
 
 export {
   actionBreadcrumbs,
@@ -253,8 +268,17 @@ export interface WindowActionResult {
   activeView: string;
   resModel: string;
   viewDescriptions: ViewDescriptions;
+  search?: WindowActionSearchState;
   records: Record<string, unknown>[];
   length: number;
+}
+
+export interface WindowActionSearchState {
+  parsed: ParsedSearchArch;
+  state: SearchModelState;
+  filters: readonly ActionControlPanelMenuItem[];
+  groupBys: readonly ActionControlPanelMenuItem[];
+  favorites: readonly ActionControlPanelMenuItem[];
 }
 
 export interface RenderWindowActionOptions {
@@ -1379,8 +1403,9 @@ export function createWindowActionExecutor(
         loadIrFilters: views.some((view) => view[1] === "search")
       }
     );
+    const search = buildWindowActionSearch(action, context, viewDescriptions);
     const data = orm
-      ? await loadWindowActionRecords(orm, action, activeView, resModel, context, viewDescriptions)
+      ? await loadWindowActionRecords(orm, action, activeView, resModel, context, viewDescriptions, search.state)
       : { records: [], length: 0 };
     return {
       type: "ir.actions.act_window",
@@ -1388,6 +1413,7 @@ export function createWindowActionExecutor(
       activeView,
       resModel,
       viewDescriptions,
+      search,
       records: data.records,
       length: data.length
     } satisfies WindowActionResult;
@@ -1568,11 +1594,6 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   root.className = "gorp-window-action";
   root.dataset.model = result.resModel;
   root.dataset.view = result.activeView;
-  const title = document.createElement("h1");
-  title.className = "gorp-window-action-title";
-  title.textContent = typeof result.action.name === "string" ? result.action.name : result.resModel;
-  const createButton = renderWindowActionCreateButton(result, root, options);
-  if (createButton) title.append(createButton);
   const viewDescription = result.viewDescriptions.views[result.activeView];
   const fields = result.viewDescriptions.fields;
   const records = options.records ?? result.records;
@@ -1581,8 +1602,89 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     : result.activeView === "kanban"
       ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
       : renderListView(viewDescription, fields, records, result.resModel, options);
-  root.append(title, body);
+  const controlPanel = renderWindowActionControlPanel(result, root, options);
+  root.append(controlPanel, body);
   return root;
+}
+
+function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement {
+  const views = normalizeActionViews(result.action)
+    .filter((view) => view[1] !== "search")
+    .map<ActionControlPanelView>((view) => ({
+      type: view[1],
+      label: viewLabel(view[1]),
+      active: view[1] === result.activeView
+    }));
+  const controlPanel = renderActionControlPanel({
+    title: typeof result.action.name === "string" ? result.action.name : result.resModel,
+    pager: result.activeView === "form"
+      ? undefined
+      : { offset: 0, limit: numberActionValue(result.action.limit, 80), total: result.length },
+    views,
+    search: {
+      query: result.search?.state.query ?? "",
+      facets: result.search?.state.facets ?? []
+    },
+    filters: result.search?.filters ?? [],
+    groupBys: result.search?.groupBys ?? [],
+    favorites: result.search?.favorites ?? []
+  }, {
+    onViewSwitch: (viewType) => {
+      root.dispatchEvent(new CustomEvent("action:view-switch", {
+        bubbles: true,
+        detail: { viewType, model: result.resModel }
+      }));
+    },
+    onSearch: (query) => {
+      root.dispatchEvent(new CustomEvent("action:search", {
+        bubbles: true,
+        detail: { query, model: result.resModel }
+      }));
+    },
+    onFilter: (item) => dispatchSearchMenuEvent(root, "action:search-filter", result, item),
+    onGroupBy: (item) => dispatchSearchMenuEvent(root, "action:search-group-by", result, item),
+    onFavorite: (item) => dispatchSearchMenuEvent(root, "action:search-favorite", result, item),
+    onFacetRemove: (facet) => {
+      root.dispatchEvent(new CustomEvent("action:search-facet-remove", {
+        bubbles: true,
+        detail: { facet, model: result.resModel }
+      }));
+    }
+  });
+  const createButton = renderWindowActionCreateButton(result, root, options);
+  const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
+  if (createButton && mainButtons) mainButtons.append(createButton);
+  return controlPanel;
+}
+
+function dispatchSearchMenuEvent(root: HTMLElement, type: string, result: WindowActionResult, item: ActionControlPanelMenuItem): void {
+  root.dispatchEvent(new CustomEvent(type, {
+    bubbles: true,
+    detail: { item, model: result.resModel }
+  }));
+}
+
+function viewLabel(viewType: string): string {
+  if (viewType === "list") return "List";
+  if (viewType === "kanban") return "Kanban";
+  if (viewType === "form") return "Form";
+  if (viewType === "calendar") return "Calendar";
+  if (viewType === "pivot") return "Pivot";
+  if (viewType === "graph") return "Graph";
+  return viewType;
+}
+
+function findDescendantByClass(root: HTMLElement, className: string): HTMLElement | null {
+  if (classNameIncludes(root.className, className)) return root;
+  for (const child of Array.from(root.children)) {
+    const found = findDescendantByClass(child as HTMLElement, className);
+    if (found) return found;
+  }
+  return null;
+}
+
+function classNameIncludes(className: string, target: string): boolean {
+  return className.split(/\s+/).includes(target);
 }
 
 function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement | null {
@@ -4539,10 +4641,11 @@ async function loadWindowActionRecords(
   activeView: string,
   resModel: string,
   context: Record<string, unknown>,
-  viewDescriptions: ViewDescriptions
+  viewDescriptions: ViewDescriptions,
+  searchState?: SearchModelState
 ): Promise<{ records: Record<string, unknown>[]; length: number }> {
   const specification = readSpecification(viewDescriptions.views[activeView]?.arch ?? "", viewDescriptions, context);
-  const readContext = { bin_size: true, ...context };
+  const readContext = { bin_size: true, ...context, ...(searchState?.context ?? {}) };
   if (activeView === "form" && typeof action.res_id === "number" && Number.isFinite(action.res_id)) {
     const records = await orm.webRead<Record<string, unknown>[]>(resModel, [action.res_id], { context: readContext, specification });
     return { records, length: records.length };
@@ -4556,16 +4659,51 @@ async function loadWindowActionRecords(
   }
   const result = await orm.webSearchRead<{ records?: Record<string, unknown>[]; length?: number }>(
     resModel,
-    normalizeDomainExpression(action.domain, context),
+    searchState ? [...searchState.domain] : normalizeDomainExpression(action.domain, context),
     {
       context: readContext,
       specification,
       limit: numberActionValue(action.limit, 80),
+      ...(searchState?.groupBy.length ? { groupby: [...searchState.groupBy] } : {}),
       ...(typeof action.order === "string" ? { order: action.order } : {})
     }
   );
   const records = Array.isArray(result.records) ? result.records : [];
   return { records, length: typeof result.length === "number" ? result.length : records.length };
+}
+
+function buildWindowActionSearch(
+  action: Record<string, unknown>,
+  context: Record<string, unknown>,
+  viewDescriptions: ViewDescriptions
+): WindowActionSearchState {
+  const searchView = viewDescriptions.views.search;
+  const parsed = parseActionSearchArch(searchView?.arch ?? "", {
+    context,
+    irFilters: searchView?.irFilters ?? []
+  });
+  const model = createActionSearchModel({
+    facets: parsed.defaultFacets,
+    baseDomain: normalizeDomainExpression(action.domain, context),
+    baseContext: context
+  });
+  const state = model.state;
+  const activeFacetIDs = new Set(state.facets.map((facet) => facet.id));
+  return {
+    parsed,
+    state,
+    filters: searchMenuItems(parsed.filters, activeFacetIDs),
+    groupBys: searchMenuItems(parsed.groupBys, activeFacetIDs),
+    favorites: searchMenuItems(parsed.favorites, activeFacetIDs)
+  };
+}
+
+function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    label: item.label,
+    active: activeFacetIDs.has(parsedSearchItemFacet(item).id)
+  }));
 }
 
 function readSpecification(arch: string, viewDescriptions: ViewDescriptions, evalContext: Record<string, unknown>): ReadSpecification {

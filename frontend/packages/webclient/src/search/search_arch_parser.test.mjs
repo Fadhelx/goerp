@@ -53,7 +53,9 @@ assert.equal(groupFacet.field, "create_date");
 assert.equal(groupFacet.interval, "month");
 
 const noFavoriteDefaults = parseSearchArch(
-  `<search><filter name="active" string="Active" domain="[('active', '=', True)]"/></search>`,
+  `<search><filter name="active" string="Active" domain="[('active', '=', True)]" context="{'group_by': 'user_id'}"/></search>`,
   { context: { search_default_active: "1" } }
 );
 assert.deepEqual(noFavoriteDefaults.defaultFacets.map((facet) => [facet.id, facet.type]), [["filter-active", "filter"]]);
+assert.deepEqual(noFavoriteDefaults.defaultFacets[0].domain, [["active", "=", true]]);
+assert.deepEqual(noFavoriteDefaults.defaultFacets[0].groupBy, ["user_id"]);

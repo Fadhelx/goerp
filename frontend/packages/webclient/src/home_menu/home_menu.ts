@@ -15,13 +15,14 @@ export interface HomeMenuRenderOptions {
 export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRenderOptions = {}): HTMLElement {
   const section = document.createElement("section");
   section.className = "o-app-launcher-view o_app_launcher";
+  section.dataset.view = "apps";
   section.dataset.mobileSafe = "true";
 
   const shell = document.createElement("div");
-  shell.className = "o-app-shell";
+  shell.className = "o-app-shell o_home_menu";
 
   const grid = document.createElement("div");
-  grid.className = "app-grid";
+  grid.className = "app-grid o_apps";
 
   const query = (options.query ?? "").trim().toLowerCase();
   const apps = normalizeHomeMenuApps(payload);
@@ -61,6 +62,9 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   button.className = "app-card o_app has-icon";
   button.dataset.appName = app.name;
   button.dataset.appKey = app.key || appKey(app.name);
+  button.dataset.menuId = String(app.id);
+  button.title = app.name;
+  button.setAttribute("aria-label", app.name);
 
   const icon = document.createElement("span");
   icon.className = "app-icon o_app_icon";

@@ -1,0 +1,122 @@
+{
+  "generated_at": "2026-06-21T12:35:21.260Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "launcher-desktop.png",
+      "sha256": "ea86e2f94caef54a325cfc5a2c845239c25ce08299b249a6b31e9f4e7d9fd167",
+      "assertions": {
+        "app_count": 4,
+        "systray_count": 5
+      },
+      "duration_ms": 436
+    },
+    {
+      "name": "settings-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "settings-desktop.png",
+      "sha256": "f0739cf31786a227235dd25009890052bc73932f9c71a4f4f03cf1620809d63b",
+      "assertions": {
+        "settings_blocks": 3,
+        "setting_boxes": 14
+      },
+      "duration_ms": 435
+    },
+    {
+      "name": "technical-list-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "technical-list-desktop.png",
+      "sha256": "04ca1ee5bfb19875b060229e6b2179a23367a44f0fe82daf07743530c3ff95c0",
+      "assertions": {
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 426
+    },
+    {
+      "name": "technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "technical-form-desktop.png",
+      "sha256": "5e82b79cfe72ed8860d5504898a302e0b7a5c7e1bb2744aefe933cf772851366",
+      "assertions": {
+        "title": "Process Workflow Escalation",
+        "field_count": 6
+      },
+      "duration_ms": 556
+    },
+    {
+      "name": "search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "search-menu-desktop.png",
+      "sha256": "2ce20fd0b140fcd9b8189dd5e1f2eb9d1d3a4ba9139220ea41afddf44b5cb163",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 2
+      },
+      "duration_ms": 440
+    },
+    {
+      "name": "launcher-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "launcher-mobile.png",
+      "sha256": "c0e6691271273b134afd0d8986ed3ccfe8128d28fac14020cd17e80022e2ba7f",
+      "assertions": {
+        "app_count": 4,
+        "menu_toggle": true,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 253
+    },
+    {
+      "name": "technical-list-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "technical-list-mobile.png",
+      "sha256": "a0d97c35d563f0f748924725d65f31391e2434f73c5519ac6ced92adf27ba1dc",
+      "assertions": {
+        "card_count": 20,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 427
+    }
+  ],
+  "duration_ms": 3154
+}

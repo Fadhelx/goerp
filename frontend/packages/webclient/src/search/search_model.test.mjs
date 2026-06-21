@@ -99,3 +99,10 @@ assert.deepEqual(
     ["customer_rank", ">", 0]
   ]
 );
+
+assert.deepEqual(
+  buildSearchState("", [
+    { id: "customer", type: "filter", label: "Customer", domain: [["customer_rank", ">", 0]], groupBy: ["user_id"] }
+  ]).groupBy,
+  ["user_id"]
+);

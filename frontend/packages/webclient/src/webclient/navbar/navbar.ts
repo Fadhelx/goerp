@@ -39,6 +39,10 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
   launcher.dataset.view = "apps";
   launcher.setAttribute("aria-label", "Apps");
   launcher.setAttribute("accesskey", "h");
+  if (options.activeAppId == null) {
+    launcher.className = "o_menu_toggle o-launcher-button border-0 active";
+    launcher.setAttribute("aria-current", "page");
+  }
   launcher.append(renderLauncherIcon());
   launcher.addEventListener("click", () => options.onOpenApps?.());
   const title = document.createElement("h1");
@@ -54,7 +58,12 @@ export function renderNavbar(options: NavbarOptions = {}): HTMLElement {
     button.type = "button";
     button.textContent = app.name;
     button.className = "o_nav_entry";
-    if (String(app.id) === String(options.activeAppId ?? "")) button.className = "o_nav_entry active";
+    button.dataset.menuId = String(app.id);
+    button.title = app.name;
+    if (String(app.id) === String(options.activeAppId ?? "")) {
+      button.className = "o_nav_entry active";
+      button.setAttribute("aria-current", "page");
+    }
     button.addEventListener("click", () => options.onOpenApp?.(app));
     nav.append(button);
   }
@@ -93,6 +102,7 @@ function renderSystrayItem(item: SystrayItem): HTMLElement {
   const counter = document.createElement("span");
   counter.className = "o-systray-counter";
   counter.textContent = String(item.count ?? 0);
+  counter.hidden = (item.count ?? 0) <= 0;
   button.append(icon, counter);
   return button;
 }

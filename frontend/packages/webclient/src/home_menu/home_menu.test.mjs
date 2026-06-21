@@ -6,6 +6,9 @@ import {
 import { renderHomeMenu } from "../../../../dist/packages/webclient/src/home_menu/home_menu.js";
 
 globalThis.document = {
+  createTextNode(text) {
+    return { tag: "#text", textContent: text, children: [] };
+  },
   createElement(tag) {
     return {
       tag,
@@ -50,7 +53,11 @@ assert.equal(appInitials("Sales Orders"), "SO");
 
 const homeMenu = renderHomeMenu(payload, { query: "sales" });
 assert.match(homeMenu.className, /o_app_launcher/);
+assert.equal(homeMenu.dataset.view, "apps");
 assert.equal(homeMenu.dataset.mobileSafe, "true");
+assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu")).length, 1);
+assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_apps")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("app-card")).length, 1);
 assert.equal(findAll(homeMenu, (node) => node.dataset?.appName === "Sales Orders").length, 1);
+assert.equal(findAll(homeMenu, (node) => node.dataset?.menuId === "3" && node.attributes?.["aria-label"] === "Sales Orders").length, 1);
 assert.equal(findAll(homeMenu, (node) => node.tag === "img").length, 0);

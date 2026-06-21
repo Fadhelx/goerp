@@ -187,7 +187,7 @@ function normalizeFacet(facet: Omit<SearchFacet, "id"> & { id?: string }): Searc
 
 function facetGroupByDescriptors(facet: SearchFacet): string[] {
   const descriptors: string[] = [];
-  if (facet.type === "favorite" && Array.isArray(facet.groupBy)) {
+  if (Array.isArray(facet.groupBy)) {
     descriptors.push(...facet.groupBy.map((item) => String(item ?? "").trim()).filter(Boolean));
   }
   if (facet.type === "groupBy") {
