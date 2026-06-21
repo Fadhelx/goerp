@@ -421,6 +421,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
     logInto.className = "log_into";
     logInto.dataset.companyId = String(company.id);
     logInto.dataset.systrayAction = "switch-company";
+    logInto.setAttribute("role", "menuitem");
     logInto.textContent = "Log into";
     logInto.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -439,6 +440,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
   confirm.type = "button";
   confirm.className = "btn btn-primary o_switch_company_confirm";
   confirm.dataset.systrayAction = "switch-company";
+  confirm.setAttribute("role", "menuitem");
   confirm.textContent = "Confirm";
   confirm.addEventListener("click", () => {
     const action = confirmAction();
@@ -446,6 +448,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
   });
   reset.type = "button";
   reset.className = "btn btn-secondary o_switch_company_reset";
+  reset.setAttribute("role", "menuitem");
   reset.textContent = "Reset";
   reset.addEventListener("click", () => {
     primaryKey = initialPrimaryKey;
@@ -491,6 +494,7 @@ function renderFallbackCompanyMenu(fallbackName: string, onAction?: (action: Nav
   confirm.type = "button";
   confirm.className = "btn btn-primary o_switch_company_confirm";
   confirm.dataset.systrayAction = "switch-company";
+  confirm.setAttribute("role", "menuitem");
   confirm.textContent = "Confirm";
   confirm.addEventListener("click", () => onAction?.({ type: "switch-company" }));
   buttons.append(confirm);
