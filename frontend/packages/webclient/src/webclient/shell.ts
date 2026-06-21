@@ -1,5 +1,5 @@
 import type { ThemeTokens } from "../../../theme-tokens/src/index";
-import type { HomeMenuPayload } from "../home_menu/app_metadata.js";
+import { normalizeHomeMenuApps, type HomeMenuPayload } from "../home_menu/app_metadata.js";
 import { renderHomeMenu } from "../home_menu/home_menu.js";
 import { renderNavbar, type NavbarApp } from "./navbar/navbar.js";
 
@@ -17,9 +17,10 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   root.className = "o_web_client";
   root.dataset.theme = options.theme.name;
   root.dataset.mobileSafe = "true";
+  const apps = options.apps ?? navbarAppsFromMenus(options.menus);
 
   const navbar = renderNavbar({
-    apps: options.apps,
+    apps,
     userName: options.userName,
     companyName: options.companyName,
     debug: options.debug
@@ -38,4 +39,11 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
 
   root.append(navbar, action);
   return root;
+}
+
+function navbarAppsFromMenus(menus: HomeMenuPayload | undefined): NavbarApp[] {
+  return normalizeHomeMenuApps(menus).map((app) => ({
+    id: app.id,
+    name: app.name
+  }));
 }

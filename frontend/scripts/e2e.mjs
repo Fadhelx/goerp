@@ -126,7 +126,9 @@ document.body.append(target);
 mountDevShell(target);
 
 assert.equal(target.children.length, 1);
-assert.equal(target.children[0].className, "gorp-webclient");
+assert.equal(target.children[0].className, "o_web_client");
+assert.equal(target.children[0].querySelector(".o_main_navbar") !== null, true);
+assert.equal(target.children[0].querySelector(".o_action_manager") !== null, true);
 assert.equal(target.children[0].children.length, 2);
 
 const requests = [];

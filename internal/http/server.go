@@ -6659,7 +6659,10 @@ const webClientShellHTML = `<!doctype html>
 		}
 	}
 	for (const button of document.querySelectorAll("button[data-view]")) {
-		button.addEventListener("click", () => setView(button.dataset.view));
+		button.addEventListener("click", () => {
+			setView(button.dataset.view);
+			if (button.dataset.view === "apps") clearRouteState(false);
+		});
 	}
 	document.getElementById("mobileMenu").addEventListener("click", (event) => {
 		const open = !document.body.classList.contains("o-mobile-menu-open");
@@ -6692,6 +6695,7 @@ const webClientShellHTML = `<!doctype html>
 		fieldsInput.value = defaultFields[modelSelect.value] || "id,display_name";
 		renderSearchFacets();
 		renderSearchMenu();
+		writeRouteState(currentRouteState({action: null, menu_id: null, model: modelSelect.value, view_type: "list", id: null}), false);
     });
 
     async function requestJSON(path, options) {
@@ -6832,6 +6836,8 @@ const webClientShellHTML = `<!doctype html>
       modules: {},
       openedRecord: null,
       action: null,
+      currentMenuID: null,
+      restoringRoute: false,
       viewInfo: null,
       fields: [],
       fieldLabels: {},
@@ -6845,6 +6851,90 @@ const webClientShellHTML = `<!doctype html>
       searchFacets: [],
       activeView: "list"
     };
+
+    function parseRouteState() {
+      const params = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
+      const state = {};
+      for (const [key, value] of params.entries()) {
+        if (!value) continue;
+        state[key] = value;
+      }
+      return state;
+    }
+
+    function serializeRouteState(state) {
+      const keys = ["action", "model", "view_type", "id", "menu_id", "debug"];
+      const params = new URLSearchParams();
+      for (const key of keys) {
+        const value = state[key];
+        if (value === undefined || value === null || value === false || value === "") continue;
+        params.set(key, String(value));
+      }
+      const text = params.toString();
+      return text ? "#" + text : "";
+    }
+
+    function currentRouteState(extra) {
+      const state = {
+        action: workbench.action && workbench.action.id,
+        model: modelSelect.value,
+        view_type: workbench.openedRecord ? "form" : workbench.activeView,
+        id: workbench.openedRecord && workbench.openedRecord.id,
+        menu_id: workbench.currentMenuID
+      };
+      return Object.assign(state, extra || {});
+    }
+
+    function writeRouteState(state, replace) {
+      if (workbench.restoringRoute) return;
+      const hash = serializeRouteState(state || {});
+      const next = location.pathname + location.search + hash;
+      if (replace) history.replaceState({goerpRoute: true}, "", next);
+      else history.pushState({goerpRoute: true}, "", next);
+      document.body.dataset.routeHash = hash ? hash.slice(1) : "";
+    }
+
+    function clearRouteState(replace) {
+      writeRouteState({}, replace);
+    }
+
+    async function restoreRouteFromHash() {
+      const state = parseRouteState();
+      if (!state.action && !state.menu_id && !state.model) return false;
+      workbench.restoringRoute = true;
+      try {
+        if (state.action) {
+          await openAction(state.action, {menuID: state.menu_id, noRoute: true});
+          if (state.view_type && state.view_type !== "form") {
+            workbench.activeView = state.view_type === "kanban" ? "kanban" : "list";
+            updateViewSwitchButtons();
+            await loadRows();
+          }
+          if (state.id) await openRecord(state.model || modelSelect.value, state.id, {noRoute: true});
+          return true;
+        }
+        if (state.menu_id) {
+          await openMenu(state.menu_id, {noRoute: true});
+          return true;
+        }
+        if (state.model) {
+          ensureModelOption(state.model);
+          modelSelect.value = state.model;
+          fieldsInput.value = defaultFields[state.model] || "id,display_name";
+          setView("records");
+          await loadRows();
+          return true;
+        }
+        return false;
+      } finally {
+        workbench.restoringRoute = false;
+        if (!workbench.action && document.body.dataset.view === "apps") {
+          writeRouteState({menu_id: state.menu_id}, true);
+        } else {
+          writeRouteState(currentRouteState({view_type: state.view_type || (workbench.openedRecord ? "form" : workbench.activeView), id: state.id || (workbench.openedRecord && workbench.openedRecord.id)}), true);
+        }
+      }
+    }
 
     function currentSearchState(query) {
       return {
@@ -7297,7 +7387,10 @@ const webClientShellHTML = `<!doctype html>
       });
       document.getElementById("recordBack").addEventListener("click", () => {
         workbench.openedRecord = null;
+        if (workbench.activeView === "form") workbench.activeView = "list";
+        updateViewSwitchButtons();
         showRecordForm(false);
+        writeRouteState(currentRouteState({view_type: workbench.activeView === "form" ? "list" : workbench.activeView, id: null}), false);
       });
       document.getElementById("readRecord").addEventListener("click", () => {
         if (workbench.openedRecord) openRecord(workbench.openedRecord.model, workbench.openedRecord.id);
@@ -7670,9 +7763,11 @@ const webClientShellHTML = `<!doctype html>
       document.getElementById("menuStatus").textContent = found ? "" : "No menus loaded.";
     }
 
-    async function openMenu(menuID) {
+    async function openMenu(menuID, options) {
+      options = options || {};
       const menu = menuEntry(menuID);
       if (!menu) return;
+      workbench.currentMenuID = menu.id;
       document.getElementById("menuStatus").textContent = menu.name;
       const navigationMenu = navigationMenuFor(menu);
       renderSidebarMenu(navigationMenu);
@@ -7698,13 +7793,16 @@ const webClientShellHTML = `<!doctype html>
         appendMenuButton(childID, 0);
       }
       if (menuHasDirectAction(menu)) {
-        await openAction(menu.actionID);
+        await openAction(menu.actionID, {menuID: menu.id, noRoute: options.noRoute});
       } else if ((menu.children || []).length) {
         setView("apps");
+        if (!options.noRoute) writeRouteState({menu_id: menu.id}, false);
       }
     }
 
-    async function openAction(actionID) {
+    async function openAction(actionID, options) {
+      options = options || {};
+      if (options.menuID) workbench.currentMenuID = options.menuID;
       try {
         const action = await requestJSON("/web/action/load?id=" + encodeURIComponent(actionID));
         const model = action.res_model || "";
@@ -7718,6 +7816,7 @@ const webClientShellHTML = `<!doctype html>
           if (model === "res.config.settings") {
             renderSettingsView(action);
             setView("settings");
+            if (!options.noRoute) writeRouteState(currentRouteState({action: action.id || actionID, model, view_type: "form", id: null, menu_id: options.menuID || workbench.currentMenuID}), false);
             return;
           }
           ensureModelOption(model);
@@ -7729,9 +7828,10 @@ const webClientShellHTML = `<!doctype html>
           renderSearchMenu();
           await loadRows();
           setView("records");
+          if (!options.noRoute) writeRouteState(currentRouteState({action: action.id || actionID, model, view_type: workbench.activeView, id: null, menu_id: options.menuID || workbench.currentMenuID}), false);
         }
       } catch (error) {
-        if (await ensureSession(error)) return openAction(actionID);
+        if (await ensureSession(error)) return openAction(actionID, options);
         document.getElementById("menuStatus").textContent = "Action error: " + error.message;
       }
     }
@@ -8227,7 +8327,8 @@ const webClientShellHTML = `<!doctype html>
       host.append(renderer);
     }
 
-    async function openRecord(model, id) {
+    async function openRecord(model, id, options) {
+      options = options || {};
       const fieldText = document.getElementById("recordFields").value || fieldsInput.value || defaultFields[model] || "id,display_name,name";
       const fields = fieldText.split(",").map((field) => field.trim()).filter(Boolean);
       workbench.openedRecord = {model, id};
@@ -8265,8 +8366,9 @@ const webClientShellHTML = `<!doctype html>
         }
         if (viewHasChatter()) form.append(renderChatter(model, id));
         document.getElementById("recordRaw").textContent = pretty(row);
+        if (!options.noRoute) writeRouteState(currentRouteState({model, view_type: "form", id}), false);
       } catch (error) {
-        if (await ensureSession(error)) return openRecord(model, id);
+        if (await ensureSession(error)) return openRecord(model, id, options);
         form.textContent = "Record error: " + error.message;
       }
     }
@@ -8363,15 +8465,30 @@ const webClientShellHTML = `<!doctype html>
         workbench.activeView = button.classList.contains("o_kanban") ? "kanban" : "list";
         updateViewSwitchButtons();
         await loadRows();
+        writeRouteState(currentRouteState({view_type: workbench.activeView, id: null}), false);
       });
     }
     document.getElementById("recordSearch").addEventListener("keydown", (event) => {
       if (event.key === "Enter") searchRows(event.currentTarget.value);
     });
     document.getElementById("loginButton").addEventListener("click", login);
+    window.addEventListener("popstate", () => {
+      restoreRouteFromHash().catch((error) => {
+        runtimeStatus.textContent = "Route error: " + error.message;
+        runtimeStatus.className = "status-error";
+      });
+    });
+    window.addEventListener("hashchange", () => {
+      restoreRouteFromHash().catch((error) => {
+        runtimeStatus.textContent = "Route error: " + error.message;
+        runtimeStatus.className = "status-error";
+      });
+    });
     renderSearchFacets();
     renderSearchMenu();
-    loadRuntime().then(loadRows).catch((error) => {
+    loadRuntime().then(async () => {
+      if (!(await restoreRouteFromHash())) await loadRows();
+    }).catch((error) => {
       runtimeStatus.textContent = "Startup error: " + error.message;
       runtimeStatus.className = "status-error";
     });

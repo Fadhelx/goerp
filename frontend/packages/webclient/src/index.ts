@@ -22,6 +22,8 @@ import {
   type ControlPanelMenuItem as ActionControlPanelMenuItem,
   type ControlPanelView as ActionControlPanelView
 } from "./control_panel/control_panel.js";
+import type { HomeMenuPayload } from "./home_menu/app_metadata.js";
+import { createWebClientShell } from "./webclient/shell.js";
 
 export {
   actionBreadcrumbs,
@@ -85,6 +87,8 @@ export {
 export interface WebClientOptions {
   env: Env;
   theme: ThemeTokens;
+  menus?: HomeMenuPayload;
+  session?: Record<string, unknown>;
 }
 
 export interface RPCRequest {
@@ -1574,19 +1578,28 @@ serviceRegistry
 export function createWebClient(options: WebClientOptions) {
   return {
     render(): HTMLElement {
-      const root = document.createElement("main");
-      root.className = "gorp-webclient";
-      root.dataset.theme = options.theme.name;
-      const nav = document.createElement("nav");
-      nav.className = "o_main_navbar gorp-navbar";
-      nav.textContent = "Odoo";
-      const action = document.createElement("section");
-      action.className = "o_action_manager gorp-action";
-      action.textContent = options.env.debug ? "Debug" : "Ready";
-      root.append(nav, action);
-      return root;
+      return createWebClientShell({
+        theme: options.theme,
+        debug: Boolean(options.env.debug),
+        menus: options.menus,
+        userName: sessionUserName(options.session),
+        companyName: sessionCompanyName(options.session)
+      });
     }
   };
+}
+
+function sessionUserName(sessionInfo: Record<string, unknown> | undefined): string {
+  return firstText(sessionInfo?.name, sessionInfo?.display_name, sessionInfo?.username) ?? "Administrator";
+}
+
+function sessionCompanyName(sessionInfo: Record<string, unknown> | undefined): string {
+  const company = isRecord(sessionInfo?.company_id) ? sessionInfo.company_id : undefined;
+  return firstText(
+    sessionInfo?.company_name,
+    company?.name,
+    sessionInfo?.db
+  ) ?? "My Company";
 }
 
 export function renderWindowAction(result: WindowActionResult, options: RenderWindowActionOptions = {}): HTMLElement {

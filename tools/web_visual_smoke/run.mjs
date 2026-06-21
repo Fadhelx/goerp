@@ -37,6 +37,22 @@ export const scenarios = [
     }
   },
   {
+    name: "ts-webclient-takeover",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?ts_webclient=1&smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "TS takeover document ready");
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
+      const navCount = await waitForCount(page, ".o_web_client .o_main_navbar", 1, "TS navbar");
+      const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
+      const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
+      const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
+      if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
+      return { nav_count: navCount, app_count: appCount, action_count: actionCount };
+    }
+  },
+  {
     name: "technical-list-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -44,6 +60,24 @@ export const scenarios = [
       const rowCount = await waitForCount(page, "#rows .o_list_table tbody tr", 1, "technical list rows");
       const title = await textContent(page, "#recordsView .o_breadcrumb.active");
       return { title, row_count: rowCount };
+    }
+  },
+  {
+    name: "hash-route-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openServerActionsList(page, config, desktopViewport());
+      const hash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
+      })()`, "action route hash");
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web${hash}`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "document ready after hash reload");
+      await waitFor(page, `Boolean(document.querySelector(".o_web_client .o_action_manager"))`, "web client shell after hash reload");
+      await waitFor(page, `document.body.dataset.view === "records"`, "records view after hash reload");
+      const rowCount = await waitForCount(page, "#rows .o_list_table tbody tr", 1, "restored technical list rows");
+      const title = await textContent(page, "#recordsView .o_breadcrumb.active");
+      return { hash, title, row_count: rowCount };
     }
   },
   {

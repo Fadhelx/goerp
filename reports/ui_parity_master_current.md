@@ -12,7 +12,7 @@ GoERP `/web` is usable for testing.
 
 Current parity estimate: 40-50%.
 
-This slice fixed the highest visible form-header issue and added a passive frontend bootstrap path. It does not complete full Odoo parity because the default `/web` runtime still uses the inline Go shell.
+Current slices fixed the highest visible form-header issue, added a passive frontend bootstrap path, and added Odoo-style hash route restore for list/form navigation. Full Odoo parity is still incomplete because the default `/web` runtime still uses the inline Go shell.
 
 ## Implemented This Slice
 
@@ -26,6 +26,10 @@ This slice fixed the highest visible form-header issue and added a passive front
 - Added form-header bounding-box assertions to visual smoke.
 - Fixed visual smoke navigation reset with a per-scenario cache-busted `/web?smoke=N` URL.
 - Integrated a small `res.users` read-mutation guard after local smoke exposed a concurrent derived-field map mutation crash during session-info reads.
+- Added hash route writing/restoration for menu, action, model, list, kanban, and form record state.
+- Added browser back/forward route restoration hooks.
+- Improved `?ts_webclient=1` takeover to render the shared Odoo-like shell from session/menu data.
+- Added `hash-route-desktop` and `ts-webclient-takeover` visual smoke coverage.
 
 ## Changed Files
 
@@ -51,24 +55,28 @@ This slice fixed the highest visible form-header issue and added a passive front
 ## Local Evidence
 
 GoERP local:
-- URL: `http://127.0.0.1:8075/web`
-- Visual smoke: 8/8 passed.
-- Manifest: `tmp/verification/web_visual_smoke_local/manifest.json`
+- URL: `http://127.0.0.1:8073/web`
+- Visual smoke: 10/10 passed.
+- Manifest: `reports/web_visual_smoke/manifest.json`
 
 Screenshots:
-- `tmp/verification/web_visual_smoke_local/launcher-desktop.png`
-- `tmp/verification/web_visual_smoke_local/settings-desktop.png`
-- `tmp/verification/web_visual_smoke_local/technical-list-desktop.png`
-- `tmp/verification/web_visual_smoke_local/technical-form-desktop.png`
-- `tmp/verification/web_visual_smoke_local/search-menu-desktop.png`
-- `tmp/verification/web_visual_smoke_local/launcher-mobile.png`
-- `tmp/verification/web_visual_smoke_local/technical-list-mobile.png`
-- `tmp/verification/web_visual_smoke_local/technical-form-mobile.png`
+- `reports/web_visual_smoke/launcher-desktop.png`
+- `reports/web_visual_smoke/settings-desktop.png`
+- `reports/web_visual_smoke/ts-webclient-takeover.png`
+- `reports/web_visual_smoke/technical-list-desktop.png`
+- `reports/web_visual_smoke/hash-route-desktop.png`
+- `reports/web_visual_smoke/technical-form-desktop.png`
+- `reports/web_visual_smoke/search-menu-desktop.png`
+- `reports/web_visual_smoke/launcher-mobile.png`
+- `reports/web_visual_smoke/technical-list-mobile.png`
+- `reports/web_visual_smoke/technical-form-mobile.png`
 
 Smoke assertions:
 - Launcher desktop: 4 app tiles, 5 systray entries.
 - Settings desktop: 3 settings blocks, 14 settings boxes.
+- TS takeover desktop: Odoo shell, navbar, action manager, and app launcher render from loaded session/menu data.
 - Technical list desktop: Server Actions, 20 rows.
+- Hash route desktop: Server Actions writes `#action`, `model`, `view_type`, and `menu_id`, then reloads back into the list.
 - Technical form desktop: 6 fields, no header overlap.
 - Search menu desktop: 3 filters, 4 group-by entries, 2 favorites.
 - Launcher mobile: 4 app tiles, menu toggle, 0 px horizontal overflow.
@@ -82,7 +90,8 @@ Smoke assertions:
 - `pnpm -C frontend test apps/webclient/src/main.test.mjs packages/webclient/src/index.test.mjs`
 - `pnpm -C frontend build`
 - `node --test tools/web_visual_smoke/run.test.mjs`
-- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8075 --out=tmp/verification/web_visual_smoke_local --timeout-ms=30000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --out=tmp/verification/local_runtime_slice_smoke --timeout-ms=30000`
+- `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8073 --timeout-ms=30000`
 - `make ci`
 
 ## P0 Mismatches
@@ -91,7 +100,8 @@ Smoke assertions:
    - Required: bundled TS/OWL runtime owns shell, action manager, services, menus, dialogs, and routing.
 
 2. Action stack is incomplete.
-   - Required: menu action stack, breadcrumbs, form/list restore, dialog target `new`, router hash/state, stale-panel cleanup.
+   - Improved: basic hash state now covers menu/action/model/list/kanban/form record restore.
+   - Required: dialog target `new`, deeper breadcrumb stack behavior, multi-action stack history, and stale-panel cleanup.
 
 3. Settings is not full Odoo Settings.
    - Required: typed settings fields, dirty save/discard, module sections, Technical settings depth, search, and company/user scoped controls.

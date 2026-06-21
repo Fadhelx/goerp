@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-21T13:04:43.260Z",
+  "generated_at": "2026-06-21T13:41:32.364Z",
   "base_url": "http://127.0.0.1:8073/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 296
+      "duration_ms": 268
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,24 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 434
+      "duration_ms": 431
+    },
+    {
+      "name": "ts-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "ts-webclient-takeover.png",
+      "sha256": "6981e43f22700898b064eba45ee530be94519ec5ec1a6eaace505149f38fdd4f",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "action_count": 2
+      },
+      "duration_ms": 233
     },
     {
       "name": "technical-list-desktop",
@@ -49,7 +66,24 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 431
+      "duration_ms": 429
+    },
+    {
+      "name": "hash-route-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "hash-route-desktop.png",
+      "sha256": "67c4efe116855f0bb1c5558fbe5ecb7cc958af49edabe2ce9e7af461c143d544",
+      "assertions": {
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 635
     },
     {
       "name": "technical-form-desktop",
@@ -69,7 +103,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 422
+      "duration_ms": 587
     },
     {
       "name": "search-menu-desktop",
@@ -86,7 +120,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 431
+      "duration_ms": 420
     },
     {
       "name": "launcher-mobile",
@@ -103,7 +137,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 240
+      "duration_ms": 239
     },
     {
       "name": "technical-list-mobile",
@@ -119,7 +153,7 @@
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 409
+      "duration_ms": 411
     },
     {
       "name": "technical-form-mobile",
@@ -140,8 +174,8 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 614
+      "duration_ms": 566
     }
   ],
-  "duration_ms": 3440
+  "duration_ms": 4343
 }

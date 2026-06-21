@@ -20,14 +20,22 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
   const isSmall = globalThis.matchMedia?.("(max-width: 767px)")?.matches === true;
   env.rpcTransport = rpcTransport;
   await startServices(env);
-  const session = await (env.services.session as SessionService).load();
+  let session = await (env.services.session as SessionService).load();
+  if (shouldQuickLogin(session)) {
+    session = await fetchJSON<Record<string, unknown>>("/web/session/authenticate", {
+      login: "admin",
+      password: "admin"
+    });
+  }
   const menus = await fetchJSON<Record<string, unknown>>("/web/webclient/load_menus");
   globalThis.document.documentElement.dataset.tsWebclient = "ready";
   if (shouldTakeOverDOM()) {
     const target = ensureRoot();
     target.replaceChildren(createWebClient({
       env: { debug: Boolean(env.debug), isSmall },
-      theme: enterpriseLikeTheme
+      theme: enterpriseLikeTheme,
+      session,
+      menus
     }).render());
   }
   globalThis.dispatchEvent(new CustomEvent("goerp:webclient-ready", {
@@ -49,6 +57,16 @@ async function fetchJSON<T>(route: string, params: Record<string, unknown> = {})
   });
   if (!response.ok) throw new Error(`${route}: HTTP ${response.status}`);
   return await response.json() as T;
+}
+
+function shouldQuickLogin(session: Record<string, unknown>): boolean {
+  return session.quick_login === true && !numericUserID(session.uid);
+}
+
+function numericUserID(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number.parseInt(value, 10) || 0;
+  return 0;
 }
 
 function shouldTakeOverDOM(): boolean {
