@@ -5106,7 +5106,7 @@ const webClientShellHTML = `<!doctype html>
 		--line: #3c404e;
 		--line-soft: #303440;
 		--hover-bg: #353846;
-		--control-bg: #1f222c;
+		--control-bg: #282a35;
 		--control-shadow: 0 1px 0 rgba(0,0,0,.18);
 		--dropdown-shadow: 0 14px 28px rgba(0,0,0,.46);
 		--list-head: #1b1d27;
@@ -6329,6 +6329,17 @@ const webClientShellHTML = `<!doctype html>
 		min-width: 0;
 		overflow: hidden;
 	}
+	.o_control_panel_breadcrumbs .breadcrumb-item {
+		border: 0;
+		background: transparent;
+		color: var(--text);
+		padding: 0;
+		font-weight: 500;
+	}
+	.o_control_panel_breadcrumbs .breadcrumb-item.active {
+		background: transparent !important;
+		color: var(--text);
+	}
 	.o_cp_pager,
 	.o_pager {
 		display: inline-flex;
@@ -6977,6 +6988,11 @@ const webClientShellHTML = `<!doctype html>
 		gap: 8px;
 		margin: 0 0 8px;
 	}
+	.o_control_panel_main_buttons .gorp-list-toolbar.gorp-action-menus {
+		flex-wrap: nowrap;
+		gap: 4px;
+		margin: 0;
+	}
 	.gorp-action-menu-section {
 		position: relative;
 		display: inline-flex;
@@ -6995,6 +7011,25 @@ const webClientShellHTML = `<!doctype html>
 	.gorp-action-menu-toggle:hover {
 		background: var(--hover-bg);
 		color: var(--accent);
+	}
+	.o_control_panel_main_buttons .gorp-list-toolbar .gorp-action-menu-toggle {
+		justify-content: center;
+		width: 34px;
+		min-width: 34px;
+		min-height: 34px;
+		padding: 0;
+		font-size: 0;
+	}
+	.o_control_panel_main_buttons .gorp-list-toolbar .gorp-action-menu-toggle i {
+		font-size: 14px;
+	}
+	.o_control_panel_main_buttons .gorp-list-toolbar .gorp-action-menu-toggle::before {
+		content: "\2699";
+		font-size: 15px;
+		line-height: 1;
+	}
+	.o_control_panel_main_buttons .gorp-list-toolbar .gorp-action-menu-toggle i {
+		display: none;
 	}
 	.gorp-action-menu-items {
 		display: none;
@@ -8638,7 +8673,7 @@ const webClientShellHTML = `<!doctype html>
 		--line: #3c404e;
 		--line-soft: #303440;
 		--hover-bg: #353846;
-		--control-bg: #1f222c;
+		--control-bg: #282a35;
 		--control-shadow: 0 1px 0 rgba(0,0,0,.18);
 		--dropdown-shadow: 0 14px 28px rgba(0,0,0,.46);
 		--list-head: #1b1d27;
@@ -8992,8 +9027,7 @@ const webClientShellHTML = `<!doctype html>
 		color: #1f2933;
 		box-shadow: 0 8px 18px rgba(16,24,40,.08);
 	}
-	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner,
-	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_close {
+	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner {
 		display: none !important;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_app {
@@ -9044,6 +9078,12 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--home-text);
 		text-shadow: none;
 	}
+	@media (min-width: 621px) {
+		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_mail_systray_item,
+		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_activity_menu {
+			display: none !important;
+		}
+	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:hover,
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:focus-visible,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:hover,
@@ -9057,56 +9097,56 @@ const webClientShellHTML = `<!doctype html>
 	}
 	main.o_web_client[data-theme="enterprise-like"],
 	body[data-theme="enterprise"] {
-		--bg: #f4f5f7;
-		--panel: #ffffff;
-		--panel-soft: #f8f8f8;
-		--text: #1f2933;
-		--muted: #6f7682;
-		--line: #d9dce1;
-		--line-soft: #e8eaee;
-		--hover-bg: #f2f7f7;
-		--control-bg: #ffffff;
-		--dropdown-shadow: 0 12px 24px rgba(16,24,40,.14);
-		--list-head: #f6f7f8;
-		--btn-secondary-bg: #ffffff;
-		--btn-secondary-hover: #f5f6f7;
-		--accent: #714b67;
-		--accent-2: #017e84;
-		--topbar: #714b67;
-		--topbar-hover: #604058;
-		--sidebar: #f7f7f7;
+		--bg: #1b1d27;
+		--panel: #282a35;
+		--panel-soft: #343743;
+		--text: #f5f5f7;
+		--muted: #b0b5c4;
+		--line: #3c404e;
+		--line-soft: #303440;
+		--hover-bg: #353846;
+		--control-bg: #282a35;
+		--dropdown-shadow: 0 14px 28px rgba(0,0,0,.46);
+		--list-head: #1b1d27;
+		--btn-secondary-bg: #333744;
+		--btn-secondary-hover: #414454;
+		--accent: #875a7b;
+		--accent-2: #00a09d;
+		--topbar: #282a35;
+		--topbar-hover: #353846;
+		--sidebar: #1b1d27;
 		color: var(--text);
 		background: var(--bg);
 	}
 	:root,
 	main.o_web_client[data-theme="enterprise-like"],
 	body[data-theme="enterprise"] {
-		--bg: #f4f5f7;
-		--panel: #ffffff;
-		--panel-soft: #f8f8f8;
-		--text: #1f2933;
-		--muted: #6f7682;
-		--line: #d9dce1;
-		--line-soft: #e8eaee;
-		--hover-bg: #f2f7f7;
-		--control-bg: #ffffff;
-		--control-shadow: 0 1px 0 rgba(16,24,40,.04);
-		--dropdown-shadow: 0 12px 24px rgba(16,24,40,.14);
-		--list-head: #f6f7f8;
-		--btn-secondary-bg: #ffffff;
-		--btn-secondary-hover: #f5f6f7;
-		--accent: #714b67;
-		--accent-2: #017e84;
+		--bg: #1b1d27;
+		--panel: #282a35;
+		--panel-soft: #343743;
+		--text: #f5f5f7;
+		--muted: #b0b5c4;
+		--line: #3c404e;
+		--line-soft: #303440;
+		--hover-bg: #353846;
+		--control-bg: #282a35;
+		--control-shadow: 0 1px 0 rgba(0,0,0,.18);
+		--dropdown-shadow: 0 14px 28px rgba(0,0,0,.46);
+		--list-head: #1b1d27;
+		--btn-secondary-bg: #333744;
+		--btn-secondary-hover: #414454;
+		--accent: #875a7b;
+		--accent-2: #00a09d;
 		--accent-text: #ffffff;
-		--topbar: #714b67;
-		--topbar-hover: #604058;
-		--sidebar: #f7f7f7;
-		--home-bg: #eef0f3;
-		--home-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='xMidYMid slice'%3E%3Crect width='1920' height='1080' fill='%23eef0f3'/%3E%3Cg opacity='.52'%3E%3Cpath d='M-180 200 C270 40 520 170 900 120 C1260 75 1530 -35 2100 95 L2100 -120 L-180 -120 Z' fill='%23e4e6eb'/%3E%3Cpath d='M-220 900 C190 760 520 820 910 955 C1245 1070 1590 965 2100 880 L2100 1200 L-220 1200 Z' fill='%23e7eaef'/%3E%3Cpath d='M1180 -140 C1390 110 1570 270 2100 380' fill='none' stroke='%23d9dde5' stroke-width='190' opacity='.4'/%3E%3Cpath d='M-120 480 C310 340 690 360 1080 520 C1440 665 1700 545 2100 460' fill='none' stroke='%23f7f8fa' stroke-width='170' opacity='.65'/%3E%3C/g%3E%3C/svg%3E");
-		--home-panel: #ffffff;
-		--home-line: #cfd4dc;
-		--home-text: #1f2933;
-		--home-muted: #4b5563;
+		--topbar: #282a35;
+		--topbar-hover: #353846;
+		--sidebar: #1b1d27;
+		--home-bg: #070b12;
+		--home-bg-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIwIDEwODAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIHNsaWNlIj48cmVjdCB3aWR0aD0iMTkyMCIgaGVpZ2h0PSIxMDgwIiBmaWxsPSIjMDcwYjEyIi8+PHBhdGggZD0iTS0xMjAgMCBDMzIwIDcwIDY0MCAyMTAgOTQwIDQyMCBDMTI0MCA2MzAgMTU0MCA1NjAgMjA0MCAzNDAgTDIwNDAgLTEyMCBMLTEyMCAtMTIwIFoiIGZpbGw9IiMxNzMxM2QiIG9wYWNpdHk9Ii40NiIvPjxwYXRoIGQ9Ik0tMjIwIDkwMCBDMjYwIDc0MCA2NzAgODgwIDEwNDAgMTAxMCBDMTM5MCAxMTMyIDE2NTAgOTgwIDIwNDAgOTIwIEwyMDQwIDEyMDAgTC0yMjAgMTIwMCBaIiBmaWxsPSIjMGUyNjM0IiBvcGFjaXR5PSIuNjIiLz48cGF0aCBkPSJNMTM0MCAtMTYwIEMxNTEwIDEzMCAxNjAwIDM0MCAxOTIwIDQ3MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQyMzM3IiBzdHJva2Utd2lkdGg9IjE5MCIgb3BhY2l0eT0iLjMyIi8+PHBhdGggZD0iTS0xMjAgNDQwIEMzNDAgMzAwIDc2MCAzODAgMTEyMCA1MjAgQzE0NjAgNjUwIDE3MjAgNTIwIDIwNDAgNDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiMxMTE4MjciIHN0cm9rZS13aWR0aD0iMTgwIiBvcGFjaXR5PSIuMzgiLz48ZyBmaWxsPSIjMzM0MTU1IiBvcGFjaXR5PSIuNDIiPjxjaXJjbGUgY3g9IjIyNSIgY3k9IjI2MCIgcj0iMTAiLz48Y2lyY2xlIGN4PSI1NzAiIGN5PSI4MzUiIHI9IjciLz48Y2lyY2xlIGN4PSIxMTI1IiBjeT0iMzk1IiByPSI4Ii8+PGNpcmNsZSBjeD0iMTcyMCIgY3k9IjIyNSIgcj0iNyIvPjxjaXJjbGUgY3g9IjE4MzAiIGN5PSI3OTAiIHI9IjEyIi8+PC9nPjwvc3ZnPg==");
+		--home-panel: rgba(255,255,255,.08);
+		--home-line: rgba(255,255,255,.14);
+		--home-text: #ffffff;
+		--home-muted: #d7dce6;
 	}
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) > .o_navbar > .o_main_navbar {
 		background: var(--topbar);
@@ -9546,24 +9586,24 @@ const webClientShellHTML = `<!doctype html>
 			min-width: 34px;
 			padding: 0 7px;
 		}
-		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-counter {
-			position: absolute;
-			top: 7px;
-			right: 2px;
-			display: inline-grid;
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-counter {
+		position: absolute;
+		top: 7px;
+		right: 2px;
+		display: inline-grid;
 			place-items: center;
 			min-width: 16px;
 			height: 16px;
 			padding: 0 4px;
 			background: #ba4a55;
 			color: #fff;
-			font-size: 10px;
-			line-height: 16px;
-		}
-		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-user-menu-button {
-			display: inline-grid;
-			place-items: center;
-			width: 36px;
+		font-size: 10px;
+		line-height: 16px;
+	}
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-user-menu-button {
+		display: inline-grid;
+		place-items: center;
+		width: 36px;
 			min-width: 36px;
 			padding: 0 4px;
 		}

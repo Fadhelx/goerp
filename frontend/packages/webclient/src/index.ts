@@ -140,6 +140,7 @@ const DEFAULT_VIEW_FIELD_LIMIT = 6;
 const DEFAULT_KANBAN_GROUP_LIMIT = 10;
 
 const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
+  "ir.actions.server": ["name", "model_id", "state", "usage"],
   "res.users": ["name", "login", "email", "company_id", "groups_count", "active"]
 };
 
@@ -1852,6 +1853,7 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
         })
       : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
     if (result.activeView === "form") moveFormActionMenuToControlPanel(controlPanel, body);
+    if (result.activeView === "list") moveListActionMenuToControlPanel(controlPanel, body);
   }
   root.append(controlPanel, body);
   return root;
@@ -1867,6 +1869,17 @@ function moveFormActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLE
   if (!target) return;
   actionMenu.dataset.controlPanelPlacement = actions ? "actions" : "main_buttons";
   target.append(actionMenu);
+}
+
+function moveListActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLElement): void {
+  const actionMenu = findDescendantByClass(body, "gorp-list-toolbar");
+  if (!actionMenu) return;
+  for (const existing of findDescendantsByClass(controlPanel, "gorp-list-toolbar")) removeDescendant(controlPanel, existing);
+  const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
+  if (!mainButtons) return;
+  removeDescendant(body, actionMenu);
+  actionMenu.dataset.controlPanelPlacement = "main_buttons";
+  mainButtons.append(actionMenu);
 }
 
 function removeDescendant(root: HTMLElement, target: HTMLElement): void {
@@ -3058,8 +3071,8 @@ function findDescendantsByClass(root: HTMLElement, className: string, out: HTMLE
   return out;
 }
 
-function classNameIncludes(className: string, target: string): boolean {
-  return className.split(/\s+/).includes(target);
+function classNameIncludes(className: unknown, target: string): boolean {
+  return String(className ?? "").split(/\s+/).includes(target);
 }
 
 function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement | null {
@@ -3239,6 +3252,7 @@ function renderListView(
       root: shell,
       options
     });
+    (shell as ListToolbarHost).__gorpListToolbar = toolbar;
     shell.append(toolbar, table, renderMobileListCards(fieldNodes, fields, records, model, action, options));
     return shell;
   }
@@ -6484,8 +6498,10 @@ function listShowsActionApproveAll(arch: string): boolean {
   return /<list\b[^>]*\bshow_action_approve_all=(["'])true\1/.test(arch);
 }
 
+type ListToolbarHost = HTMLElement & { __gorpListToolbar?: HTMLElement };
+
 function updateListToolbarButtons(root: HTMLElement, selectedIds: ReadonlySet<number>) {
-  const toolbar = root.children[0] as HTMLElement | undefined;
+  const toolbar = (root as ListToolbarHost).__gorpListToolbar ?? findDescendantByClass(root, "gorp-list-toolbar") ?? root.children[0] as HTMLElement | undefined;
   updateSelectionButtons(toolbar, selectedIds.size > 0);
   clearLoadedPrintMenus(toolbar);
 }
@@ -7468,10 +7484,92 @@ function one2ManyEditorColumns(
   return [...keys].slice(0, 4).map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
 }
 
+interface One2ManyListConfig {
+  canCreate: boolean;
+  canDelete: boolean;
+  inlineEditable: boolean;
+  openFormView: boolean;
+}
+
+function one2ManyListConfig(node: ViewFieldNode): One2ManyListConfig {
+  return {
+    canCreate: mergedXMLBooleanAttribute(node, "create", true),
+    canDelete: mergedXMLBooleanAttribute(node, "delete", true),
+    inlineEditable: listEditableAttribute(node.childViewAttrs.editable ?? node.attrs.editable, true),
+    openFormView: xmlBooleanAttribute(node.childViewAttrs.open_form_view) ?? false
+  };
+}
+
+function mergedXMLBooleanAttribute(node: ViewFieldNode, name: string, fallback: boolean): boolean {
+  const fieldValue = xmlBooleanAttribute(node.attrs[name]);
+  const childValue = xmlBooleanAttribute(node.childViewAttrs[name]);
+  if (fieldValue === false || childValue === false) return false;
+  if (childValue !== undefined) return childValue;
+  if (fieldValue !== undefined) return fieldValue;
+  return fallback;
+}
+
+function xmlBooleanAttribute(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  return undefined;
+}
+
+function listEditableAttribute(value: unknown, fallback: boolean): boolean {
+  const booleanValue = xmlBooleanAttribute(value);
+  if (booleanValue !== undefined) return booleanValue;
+  if (typeof value === "string" && value.trim()) return true;
+  return fallback;
+}
+
 function one2ManyEmptyRowValues(columns: readonly ViewFieldNode[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const column of columns) values[column.name] = "";
   return values;
+}
+
+function one2ManyOpenFormAction(
+  relation: string,
+  row: One2ManyEditorRow,
+  columns: readonly ViewFieldNode[],
+  childFields: Record<string, unknown>,
+  options: RenderWindowActionOptions
+): Record<string, unknown> {
+  const action: Record<string, unknown> = {
+    type: "ir.actions.act_window",
+    name: firstText(row.values.display_name, row.values.name) ?? relation,
+    res_model: relation,
+    views: [[false, "form"]],
+    view_mode: "form",
+    target: "new",
+    context: { ...(options.context ?? {}) }
+  };
+  if (row.id !== undefined) {
+    action.res_id = row.id;
+  } else {
+    action.context = {
+      ...(options.context ?? {}),
+      ...one2ManyDefaultContext(row.values, columns, childFields)
+    };
+  }
+  return action;
+}
+
+function one2ManyDefaultContext(
+  values: Record<string, unknown>,
+  columns: readonly ViewFieldNode[],
+  childFields: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(one2ManyCommandValues(values, columns, childFields))) {
+    if (value !== false && value !== undefined && value !== "") out[`default_${name}`] = value;
+  }
+  return out;
 }
 
 function renderOne2ManyCellEditor(
@@ -7479,9 +7577,17 @@ function renderOne2ManyCellEditor(
   description: unknown,
   row: One2ManyEditorRow,
   options: RenderWindowActionOptions,
-  onChange: () => void
+  onChange: () => void,
+  editable = true
 ): HTMLElement {
   const fieldType = fieldTypeValue(description);
+  if (!editable) {
+    const output = document.createElement("output");
+    output.className = "gorp-one2many-readonly o_field_widget o_readonly_modifier";
+    output.dataset.field = column.name;
+    output.textContent = fieldDisplayText(description, row.values[column.name]);
+    return output;
+  }
   if (fieldType === "boolean") {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -9215,6 +9321,7 @@ function renderOne2ManyListEditor(
   const childFields = relation ? relatedModelFields(relatedModels, relation) : {};
   let virtualID = 0;
   const rows = one2ManyEditorRows(values[node.name]);
+  const config = one2ManyListConfig(node);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("div");
   root.className = "gorp-one2many-editor o_field_widget o_field_one2many";
@@ -9222,8 +9329,14 @@ function renderOne2ManyListEditor(
   root.dataset.fieldType = "one2many";
   root.dataset.mobileWidget = "one2many_list";
   root.dataset.mobileLayout = "cards";
+  root.dataset.canCreate = String(config.canCreate);
+  root.dataset.canDelete = String(config.canDelete);
+  root.dataset.inlineEditable = String(config.inlineEditable);
+  root.dataset.openFormView = String(config.openFormView);
   if (relation) root.dataset.relation = relation;
   root.setAttribute("aria-label", fieldDisplayName);
+  const showOpenForm = Boolean(relation && config.inlineEditable && config.openFormView);
+  const showActionColumn = config.canDelete || showOpenForm;
   const table = document.createElement("table");
   table.className = "gorp-one2many-table o_list_table table table-sm";
   table.dataset.mobileLayout = "cards";
@@ -9238,10 +9351,12 @@ function renderOne2ManyListEditor(
     th.textContent = columnLabels.get(column.name) || fieldLabel(childFields, column.name, relation);
     headerRow.append(th);
   }
-  const actionHeader = document.createElement("th");
-  actionHeader.scope = "col";
-  actionHeader.className = "gorp-one2many-actions-head";
-  headerRow.append(actionHeader);
+  if (showActionColumn) {
+    const actionHeader = document.createElement("th");
+    actionHeader.scope = "col";
+    actionHeader.className = "gorp-one2many-actions-head";
+    headerRow.append(actionHeader);
+  }
   thead.append(headerRow);
   const tbody = document.createElement("tbody");
   table.append(thead, tbody);
@@ -9266,7 +9381,7 @@ function renderOne2ManyListEditor(
       const emptyRow = document.createElement("tr");
       emptyRow.className = "gorp-one2many-empty-row";
       const empty = document.createElement("td");
-      empty.colSpan = columns.length + 1;
+      empty.colSpan = columns.length + (showActionColumn ? 1 : 0);
       empty.className = "text-muted";
       empty.textContent = "No records";
       emptyRow.append(empty);
@@ -9285,25 +9400,49 @@ function renderOne2ManyListEditor(
         td.append(renderOne2ManyCellEditor(column, childFields[column.name], row, options, () => {
           row.dirty = true;
           syncValue();
-        }));
+        }, config.inlineEditable));
         tr.append(td);
       }
-      const actionCell = document.createElement("td");
-      actionCell.className = "gorp-one2many-actions";
-      actionCell.dataset.label = "";
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "gorp-one2many-remove btn btn-link";
-      remove.dataset.one2manyAction = "remove";
-      remove.textContent = "Remove";
-      remove.addEventListener("click", () => {
-        row.removed = true;
-        row.dirty = true;
-        renderRows();
-        syncValue();
-      });
-      actionCell.append(remove);
-      tr.append(actionCell);
+      if (showActionColumn) {
+        const actionCell = document.createElement("td");
+        actionCell.className = "gorp-one2many-actions";
+        actionCell.dataset.label = "";
+        if (showOpenForm && relation) {
+          const open = document.createElement("button");
+          open.type = "button";
+          open.className = "gorp-one2many-open btn btn-link";
+          open.dataset.one2manyAction = "open";
+          if (row.id !== undefined) open.dataset.resId = String(row.id);
+          open.setAttribute("aria-label", `Open ${fieldDisplayName}`);
+          open.textContent = "Open";
+          open.addEventListener("click", () => {
+            const action = one2ManyOpenFormAction(relation, row, columns, childFields, options);
+            if (options.services?.action) {
+              void options.services.action.doAction(action, replaceActionOptions(options));
+            }
+            root.dispatchEvent(new CustomEvent("one2many:open-form", {
+              bubbles: true,
+              detail: { field: node.name, relation, id: row.id, values: { ...row.values }, action }
+            }));
+          });
+          actionCell.append(open);
+        }
+        if (config.canDelete) {
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "gorp-one2many-remove btn btn-link";
+          remove.dataset.one2manyAction = "remove";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", () => {
+            row.removed = true;
+            row.dirty = true;
+            renderRows();
+            syncValue();
+          });
+          actionCell.append(remove);
+        }
+        tr.append(actionCell);
+      }
       tbody.append(tr);
     }
   };
@@ -9319,7 +9458,8 @@ function renderOne2ManyListEditor(
     renderRows();
   });
   renderRows();
-  root.append(table, add);
+  root.append(table);
+  if (config.canCreate) root.append(add);
   return root;
 }
 
@@ -10286,6 +10426,7 @@ function shouldUseDefaultModelFieldNodes(model: string | undefined, nodes: reado
 }
 
 function shouldUseDefaultModelFieldNames(model: string | undefined, names: readonly string[], viewType?: string): boolean {
+  if (model === "ir.actions.server" && viewType === "list") return true;
   if (model !== "res.users" || !names.length) return false;
   const set = new Set(names);
   if (viewType === "list") return !set.has("name") && !set.has("login");

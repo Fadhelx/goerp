@@ -2018,6 +2018,127 @@ assert.equal(genericRestoredName.value, "Send Follow-up");
 assert.equal(genericFormSaveCalls.length, 1);
 assert.equal(genericFormDiscardEvents.length, 1);
 
+const lockedOne2ManyWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Locked Lines" },
+  activeView: "form",
+  resModel: "x.locked.parent",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      line_ids: { type: "one2many", relation: "x.locked.line", string: "Lines" }
+    },
+    relatedModels: {
+      "x.locked.line": {
+        fields: {
+          description: { type: "char", string: "Description" },
+          owner_id: { type: "many2one", relation: "res.users", string: "Owner" }
+        }
+      }
+    },
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="line_ids" create="false"><list delete="false" editable="false" open_form_view="1"><field name="description"/><field name="owner_id"/></list></field></sheet></form>`,
+        id: 810
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 31,
+    name: "Parent",
+    line_ids: [
+      { id: 401, description: "Locked", owner_id: [7, "Administrator"] }
+    ]
+  }
+});
+findAll(lockedOne2ManyWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+const lockedOne2Many = findAll(lockedOne2ManyWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-editor"))[0];
+assert.equal(lockedOne2Many.dataset.canCreate, "false");
+assert.equal(lockedOne2Many.dataset.canDelete, "false");
+assert.equal(lockedOne2Many.dataset.inlineEditable, "false");
+assert.equal(lockedOne2Many.dataset.openFormView, "true");
+assert.equal(findAll(lockedOne2Many, (node) => node.dataset?.one2manyAction === "add").length, 0);
+assert.equal(findAll(lockedOne2Many, (node) => node.dataset?.one2manyAction === "remove").length, 0);
+assert.equal(findAll(lockedOne2Many, (node) => String(node.className ?? "").includes("gorp-one2many-actions-head")).length, 0);
+assert.deepEqual(findAll(lockedOne2Many, (node) => String(node.className ?? "").includes("gorp-one2many-readonly")).map((node) => node.textContent), ["Locked", "Administrator"]);
+assert.equal(findAll(lockedOne2Many, (node) => String(node.className ?? "").includes("gorp-one2many-input")).length, 0);
+
+const openOne2ManyActions = [];
+const openOne2ManyEvents = [];
+const openOne2ManyWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Open Lines" },
+  activeView: "form",
+  resModel: "x.open.parent",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      line_ids: { type: "one2many", relation: "x.open.line", string: "Lines" }
+    },
+    relatedModels: {
+      "x.open.line": {
+        fields: {
+          description: { type: "char", string: "Description" },
+          owner_id: { type: "many2one", relation: "res.users", string: "Owner" }
+        }
+      }
+    },
+    views: {
+      form: {
+        arch: `<form><sheet><field name="line_ids"><list delete="false" editable="bottom" open_form_view="1"><field name="description"/><field name="owner_id"/></list></field></sheet></form>`,
+        id: 811
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 32,
+    name: "Parent",
+    line_ids: [
+      { id: 402, description: "Open me", owner_id: [8, "Demo User"] }
+    ]
+  },
+  context: { lang: "en_US" },
+  services: {
+    action: {
+      doAction(action, options) {
+        openOne2ManyActions.push({ action, options });
+        return Promise.resolve(action);
+      }
+    }
+  }
+});
+findAll(openOne2ManyWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+const openOne2Many = findAll(openOne2ManyWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-editor"))[0];
+openOne2Many.addEventListener("one2many:open-form", (event) => openOne2ManyEvents.push(event.detail));
+assert.equal(openOne2Many.dataset.canCreate, "true");
+assert.equal(openOne2Many.dataset.canDelete, "false");
+assert.equal(openOne2Many.dataset.inlineEditable, "true");
+assert.equal(openOne2Many.dataset.openFormView, "true");
+const openOne2ManyButton = findAll(openOne2Many, (node) => node.dataset?.one2manyAction === "open")[0];
+assert.equal(openOne2ManyButton.dataset.resId, "402");
+assert.equal(findAll(openOne2Many, (node) => node.dataset?.one2manyAction === "remove").length, 0);
+openOne2ManyButton.dispatchEvent(new TestEvent("click"));
+assert.equal(openOne2ManyActions.length, 1);
+assert.deepEqual(openOne2ManyActions[0].action, {
+  type: "ir.actions.act_window",
+  name: "x.open.line",
+  res_model: "x.open.line",
+  views: [[false, "form"]],
+  view_mode: "form",
+  target: "new",
+  context: { lang: "en_US" },
+  res_id: 402
+});
+assert.equal(openOne2ManyEvents.length, 1);
+assert.equal(openOne2ManyEvents[0].relation, "x.open.line");
+assert.equal(openOne2ManyEvents[0].id, 402);
+
 const cronWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Scheduled Actions" },
@@ -2165,8 +2286,10 @@ const serverActionListWindow = renderWindowAction({
   viewDescriptions: {
     fields: {
       name: { type: "char", string: "name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "model_id" },
       state: { type: "selection", string: "state" },
       model_name: { type: "char", string: "model_name" },
+      usage: { type: "selection", string: "usage" },
       active: { type: "boolean", string: "active" }
     },
     relatedModels: {},
@@ -2177,11 +2300,11 @@ const serverActionListWindow = renderWindowAction({
       }
     }
   },
-  records: [{ id: 31, name: "Mail: Email Queue Manager", state: "code", model_name: "mail.mail", active: true }],
+  records: [{ id: 31, name: "Mail: Email Queue Manager", model_id: [12, "Mail"], state: "code", model_name: "mail.mail", usage: "ir_cron", active: true }],
   length: 1
 });
 const serverActionListTable = findAll(serverActionListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
-assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Type", "Model", "Active"]);
+assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Model", "Type", "Usage"]);
 const serverActionStateCell = findAll(serverActionListTable, (node) => node.dataset?.field === "state")[0];
 assert.equal(findAll(serverActionStateCell, (node) => node.tag === "output")[0].textContent, "Execute Code");
 const serverActionCustomFilterCalls = [];
@@ -3549,7 +3672,7 @@ const approveAllShell = approveAllWindow.children[1];
 approveAllShell.addEventListener("workflow:approve-all", (event) => { approveAllEvent = event.detail; });
 assert.ok(String(approveAllShell.className).includes("gorp-list-shell"));
 assert.ok(String(approveAllShell.className).includes("o-list-view"));
-const approveAllButton = findAll(approveAllShell, (node) => node.dataset?.workflowAction === "approve")[0];
+const approveAllButton = findAll(approveAllWindow, (node) => node.dataset?.workflowAction === "approve")[0];
 assert.equal(approveAllButton.textContent, "Approve");
 assert.equal(approveAllButton.dataset.sequence, "110");
 assert.equal(approveAllButton.dataset.icon, "fa fa-thumbs-up");
@@ -3868,7 +3991,7 @@ const workflowListWindow = renderWindowAction({
   }
 });
 const workflowListShell = workflowListWindow.children[1];
-const workflowListButtons = findAll(workflowListShell, (node) => node.dataset?.workflowAction === "update_status" || node.dataset?.workflowAction === "approve_log");
+const workflowListButtons = findAll(workflowListWindow, (node) => node.dataset?.workflowAction === "update_status" || node.dataset?.workflowAction === "approve_log");
 assert.deepEqual(workflowListButtons.map((button) => button.dataset.workflowAction), ["update_status", "approve_log"]);
 assert.deepEqual(workflowListButtons.map((button) => [button.textContent, button.disabled, button.dataset.sequence, button.dataset.icon]), [["Update Status", true, "100", "fa fa-code"], ["Approval Log", true, "120", "fa fa-arrows-h"]]);
 assert.deepEqual(workflowListButtons.map((button) => button.children[0].className), ["fa fa-code", "fa fa-arrows-h"]);
@@ -3905,7 +4028,7 @@ const workflowFullToolbarWindow = renderWindowAction({
   records: [{ id: 63, name: "PO063", state: "pending", user_can_approve: true }],
   length: 1
 });
-const workflowFullToolbar = workflowFullToolbarWindow.children[1].children[0];
+const workflowFullToolbar = findAll(workflowFullToolbarWindow, (node) => String(node.className ?? "").includes("gorp-list-toolbar"))[0];
 const workflowFullButtons = findAll(workflowFullToolbar, (node) => node.dataset?.workflowAction);
 assert.deepEqual(workflowFullButtons.map((button) => [button.dataset.workflowAction, button.dataset.sequence, button.dataset.icon, button.textContent]), [
   ["update_status", "100", "fa fa-code", "Update Status"],
@@ -3956,7 +4079,7 @@ const serverActionMenuWindow = renderWindowAction({
   }
 });
 const serverActionMenuShell = serverActionMenuWindow.children[1];
-const serverActionMenu = findAll(serverActionMenuShell, (node) => String(node.className ?? "").includes("gorp-action-menus"))[0];
+const serverActionMenu = findAll(serverActionMenuWindow, (node) => String(node.className ?? "").includes("gorp-action-menus"))[0];
 assert.deepEqual(findAll(serverActionMenu, (node) => node.dataset?.menu).map((node) => node.dataset.menu), ["print", "action"]);
 const serverPrintSection = findAll(serverActionMenu, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "print")[0];
 const serverActionSection = findAll(serverActionMenu, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
@@ -4134,7 +4257,7 @@ const domainSelectedWindow = renderWindowAction({
     }
   }
 });
-const domainSelectedButton = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionId === "315")[0];
+const domainSelectedButton = findAll(domainSelectedWindow, (node) => node.dataset?.actionId === "315")[0];
 assert.equal(domainSelectedButton.disabled, false);
 domainSelectedButton.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4146,7 +4269,7 @@ assert.deepEqual(domainSelectedActions[0].options.additionalContext, {
   active_model: "res.partner",
   active_domain: [["active", "=", true]]
 });
-const domainSelectedPrintToggle = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionMenuToggle === "print")[0];
+const domainSelectedPrintToggle = findAll(domainSelectedWindow, (node) => node.dataset?.actionMenuToggle === "print")[0];
 domainSelectedPrintToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(domainSelectedSearches[1], { model: "res.partner", domain: [["active", "=", true]], kwargs: { limit: 500, context: { lang: "en_US" } } });
@@ -4155,7 +4278,7 @@ assert.deepEqual(domainSelectedReportCalls[0], {
   method: "get_valid_action_reports",
   args: [[domainSelectedReportID], "res.partner", [81, 82]]
 });
-const domainSelectedPrintButton = findAll(domainSelectedWindow.children[1], (node) => node.dataset?.actionId === domainSelectedReportID)[0];
+const domainSelectedPrintButton = findAll(domainSelectedWindow, (node) => node.dataset?.actionId === domainSelectedReportID)[0];
 assert.equal(domainSelectedPrintButton.disabled, false);
 const reportDomainCalls = [];
 const reportDomainActionCalls = [];
@@ -4208,7 +4331,7 @@ reportDomainShell.addEventListener("action-menu:print-loaded", (event) => { prin
 const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
 reportDomainCheckbox.checked = true;
 reportDomainCheckbox.dispatchEvent(new TestEvent("change"));
-const reportDomainToggle = findAll(reportDomainShell, (node) => node.dataset?.actionMenuToggle === "print")[0];
+const reportDomainToggle = findAll(reportDomainWindow, (node) => node.dataset?.actionMenuToggle === "print")[0];
 assert.equal(reportDomainCalls.length, 0);
 reportDomainToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4216,10 +4339,10 @@ assert.deepEqual(reportDomainCalls[0], { model: "ir.actions.report", method: "ge
 assert.equal(reportDomainCalls.length, 1);
 assert.equal(reportDomainActionCalls.length, 0);
 assert.deepEqual(printLoadedEvent.availableIds, []);
-const emptyPrintItem = findAll(reportDomainShell, (node) => node.dataset?.actionMenuEmpty === "print")[0];
+const emptyPrintItem = findAll(reportDomainWindow, (node) => node.dataset?.actionMenuEmpty === "print")[0];
 assert.equal(emptyPrintItem.textContent, "No report available.");
 assert.equal(emptyPrintItem.disabled, true);
-const reportDomainPrintSection = findAll(reportDomainShell, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "print")[0];
+const reportDomainPrintSection = findAll(reportDomainWindow, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "print")[0];
 const reportDomainPrintItems = findAll(reportDomainPrintSection, (node) => node.dataset?.actionMenuItems === "print")[0];
 reportDomainPrintItems.dispatchEvent(new TestEvent("keydown", { key: "ArrowDown" }));
 assert.notEqual(globalThis.document.activeElement, emptyPrintItem);
@@ -4240,7 +4363,7 @@ reportDomainToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(reportDomainCalls[2], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
 assert.equal(reportDomainCalls.length, 3);
-const reportDomainButton = findAll(reportDomainShell, (node) => node.dataset?.actionId === domainReportID)[0];
+const reportDomainButton = findAll(reportDomainWindow, (node) => node.dataset?.actionId === domainReportID)[0];
 assert.deepEqual(printLoadedEvent.availableIds, [domainReportID]);
 reportDomainButton.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -4359,7 +4482,7 @@ const staticActionShell = staticActionWindow.children[1];
 for (const eventName of ["action-menu:export", "action-menu:duplicate", "action-menu:archive", "action-menu:unarchive", "action-menu:delete"]) {
   staticActionShell.addEventListener(eventName, (event) => staticActionEvents.push({ type: event.type, detail: event.detail }));
 }
-const staticButtons = findAll(staticActionShell, (node) => node.dataset?.staticAction);
+const staticButtons = findAll(staticActionWindow, (node) => node.dataset?.staticAction);
 assert.deepEqual(staticButtons.map((button) => [button.dataset.staticAction, button.dataset.sequence, button.dataset.icon, button.disabled]), [
   ["export", "10", "fa fa-upload", true],
   ["duplicate", "30", "fa fa-clone", true],
@@ -4685,7 +4808,7 @@ const parentTemplateWindow = renderWindowAction({
 const parentTemplateShell = parentTemplateWindow.children[1];
 findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
 findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
-findAll(parentTemplateShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+findAll(parentTemplateWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const parentTemplateDialog = findAll(parentTemplateShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
 findAll(parentTemplateDialog, (node) => node.dataset?.exportTemplateSelect)[0].value = "601";
@@ -4766,7 +4889,7 @@ const mobileActionWindow = renderWindowAction({
 const mobileActionShell = mobileActionWindow.children[1];
 findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
 findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
-findAll(mobileActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+findAll(mobileActionWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const mobileExportDialog = findAll(mobileActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
 assert.equal(findAll(mobileExportDialog, (node) => String(node.className).includes("o_export_field_sortable")).length, 0);
@@ -4814,7 +4937,7 @@ const responsiveActionShell = responsiveActionWindow.children[1];
 const resizeListenerCount = (windowListeners.resize ?? []).length;
 findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
 findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
-findAll(responsiveActionShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+findAll(responsiveActionWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const responsiveExportDialog = findAll(responsiveActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
 assert.equal((windowListeners.resize ?? []).length, resizeListenerCount + 1);
@@ -4887,7 +5010,7 @@ const accountantShell = accountantWindow.children[1];
 const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
 accountantCheckbox.checked = true;
 accountantCheckbox.dispatchEvent(new TestEvent("change"));
-findAll(accountantShell, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
+findAll(accountantWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const accountantDialog = findAll(accountantShell, (node) => node.dataset?.exportDialog === "account.move.line").at(-1);
 assert.ok(accountantDialog);

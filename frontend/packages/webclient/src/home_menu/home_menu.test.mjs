@@ -110,8 +110,11 @@ const liveContainer = findAll(liveShell, (node) => String(node.className).split(
 assert.deepEqual(liveContainer.children.map((node) => String(node.className).split(/\s+/)[0]), ["o_home_menu_registration_banner", "o-app-search", "o_apps"]);
 assert.equal(findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner")).length, 1);
 const registrationClose = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_close"))[0];
-registrationClose.listeners.click[0]();
 const registrationBanner = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner"))[0];
+const registrationText = findAll(registrationBanner, (node) => String(node.className).includes("o_home_menu_registration_text"))[0];
+assert.equal(registrationClose.textContent, "\u00d7");
+assert.match(registrationText.textContent, /register your database once you have installed your first app/);
+registrationClose.listeners.click[0]();
 assert.equal(registrationBanner.hidden, true);
 assert.equal(registrationBanner.dataset.dismissed, "true");
 const liveCatalogCard = findAll(liveMenu, (node) => node.dataset?.menuId === "42")[0];

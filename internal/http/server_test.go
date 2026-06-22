@@ -11958,7 +11958,7 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`id="recordSearchFacets" class="o_searchview_facet_container"`,
 		`id="recordSearchDropdown" class="o_searchview_dropdown_toggler`,
 		`id="recordSearchMenu" class="o_search_bar_menu o_search_options dropdown-menu o-dropdown--menu" hidden`,
-		`--control-bg: #1f222c;`,
+		`--control-bg: #282a35;`,
 		`--dropdown-shadow: 0 14px 28px rgba(0,0,0,.46);`,
 		`box-shadow: var(--control-shadow);`,
 		`.o_cp_searchview:focus-within .o_searchview`,

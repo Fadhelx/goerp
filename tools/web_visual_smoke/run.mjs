@@ -316,7 +316,7 @@ export const scenarios = [
           systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
         };
       })()`);
-      const allowedTopbarBackgrounds = new Set(["rgb(255, 255, 255)", "rgba(0, 0, 0, 0)", "transparent", "rgb(113, 75, 103)", "rgb(135, 90, 123)"]);
+      const allowedTopbarBackgrounds = new Set(["rgb(40, 42, 53)"]);
       if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || !allowedTopbarBackgrounds.has(topbarState.background) || topbarState.launcher_width < 30 || !["rgb(113, 75, 103)", "rgb(135, 90, 123)"].includes(topbarState.launcher_dot) || topbarState.systray_count < 4) {
         throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
       }
@@ -483,7 +483,7 @@ export const scenarios = [
         const state = document.querySelector(".o_web_client .o_action_manager .gorp-list-view td[data-field='state']")?.textContent?.trim() || "";
         return { headers, state };
       })()`);
-      for (const label of ["Name", "Type", "Model", "Active"]) {
+      for (const label of ["Name", "Model", "Type", "Usage"]) {
         if (!labelState.headers.includes(label)) throw new Error(`TS technical list missing header ${label}: ${JSON.stringify(labelState)}`);
       }
       if (labelState.state === "code") throw new Error(`TS technical list shows raw state value: ${JSON.stringify(labelState)}`);
@@ -2537,7 +2537,12 @@ async function assertEnterprisePolishSnapshot(page) {
       control_panel_min_height_px: pixelValue(".o_web_client .o_action_manager .o_control_panel", "min-height"),
       search_width_px: pixelValue(".o_web_client .o_action_manager .o_cp_searchview", "width"),
       search_radius_px: pixelValue(".o_web_client .o_action_manager .o_searchview", "border-top-left-radius"),
-      list_header_bg: styleValue(".o_web_client .o_action_manager .gorp-list-view th", "background-color")
+      list_header_bg: styleValue(".o_web_client .o_action_manager .gorp-list-view th", "background-color"),
+      list_headers: [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view th")]
+        .slice(0, 5)
+        .map((node) => node.textContent.replace(/\\s+/g, " ").trim()),
+      body_action_toolbar_count: document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-shell > .gorp-list-toolbar").length,
+      control_panel_action_toolbar_count: document.querySelectorAll(".o_web_client .o_action_manager .o_control_panel_main_buttons .gorp-list-toolbar").length
     };
   })()`);
   const issues = [];
@@ -2549,6 +2554,9 @@ async function assertEnterprisePolishSnapshot(page) {
   if (snapshot.search_width_px < 400 || snapshot.search_width_px > 450) issues.push(`search width ${snapshot.search_width_px}`);
   if (snapshot.search_radius_px !== 4) issues.push(`search radius ${snapshot.search_radius_px}`);
   if (!acceptedListHeaderBG.has(snapshot.list_header_bg)) issues.push(`list header bg ${snapshot.list_header_bg}`);
+  if (JSON.stringify(snapshot.list_headers) !== JSON.stringify(["", "Name", "Model", "Type", "Usage"])) issues.push(`list headers ${JSON.stringify(snapshot.list_headers)}`);
+  if (snapshot.body_action_toolbar_count !== 0) issues.push(`body action toolbar count ${snapshot.body_action_toolbar_count}`);
+  if (snapshot.control_panel_action_toolbar_count < 1) issues.push(`control panel action toolbar count ${snapshot.control_panel_action_toolbar_count}`);
   if (issues.length) throw new Error(`enterprise polish style audit failed: ${issues.join("; ")}`);
   return snapshot;
 }
@@ -2657,6 +2665,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
     const launcher = document.querySelector(".o_web_client .o-app-launcher-view");
 	    const search = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
 	    const banner = document.querySelector(".o_web_client .o_home_menu_registration_banner");
+	    const bannerClose = document.querySelector(".o_web_client .o_home_menu_registration_close");
 	    const userName = document.querySelector(".o_web_client .o_user_menu_name");
 	    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
 	    const wrapper = document.querySelector(".o_web_client .o_home_menu .o_draggable");
@@ -2666,6 +2675,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
     const homeStyle = home ? getComputedStyle(home.closest(".o-app-launcher-view") || home) : null;
     const searchStyle = search ? getComputedStyle(search) : null;
     const bannerStyle = banner ? getComputedStyle(banner) : null;
+    const bannerCloseStyle = bannerClose ? getComputedStyle(bannerClose) : null;
     const userNameStyle = userName ? getComputedStyle(userName) : null;
     const cardStyle = card ? getComputedStyle(card) : null;
     const iconStyle = icon ? getComputedStyle(icon) : null;
@@ -2673,6 +2683,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
     const launcherRect = launcher?.getBoundingClientRect();
     const searchRect = search?.getBoundingClientRect();
 	    const bannerRect = banner?.getBoundingClientRect();
+	    const bannerCloseRect = bannerClose?.getBoundingClientRect();
 	    const rect = card?.getBoundingClientRect();
 	    const wrapperRect = wrapper?.getBoundingClientRect();
 	    const iconRect = icon?.getBoundingClientRect();
@@ -2697,8 +2708,17 @@ async function assertEnterpriseLauncherSnapshot(page) {
       search_margin_bottom_px: searchStyle ? Math.round(Number.parseFloat(searchStyle.marginBottom) || 0) : -1,
 	      banner_visible: Boolean(banner) && !banner.hidden && bannerStyle?.display !== "none" && (bannerRect?.width || 0) > 400,
 	      banner_count: document.querySelectorAll(".o_web_client .o_home_menu_registration_banner").length,
+	      banner_text: banner?.textContent?.replace(/\\s+/g, " ").trim() || "",
+	      banner_close_text: bannerClose?.textContent?.trim() || "",
+	      banner_close_visible: Boolean(bannerClose) && bannerCloseStyle?.display !== "none" && bannerCloseStyle?.visibility !== "hidden" && (bannerCloseRect?.width || 0) >= 20 && (bannerCloseRect?.height || 0) >= 20,
 	      banner_top_px: bannerRect ? Math.round(bannerRect.top) : 0,
 	      banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
+	      launcher_mail_activity_visible_count: [...document.querySelectorAll(".o_web_client[data-view='apps'] .o_mail_systray_item, .o_web_client[data-view='apps'] .o_activity_menu")]
+	        .filter((node) => {
+	          const style = getComputedStyle(node);
+	          const rect = node.getBoundingClientRect();
+	          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+	        }).length,
 	      user_name_display: userNameStyle?.display || "",
 	      app_card_left_px: wrapperRect ? Math.round(wrapperRect.left) : rect ? Math.round(rect.left) : 0,
 	      app_card_top_px: wrapperRect ? Math.round(wrapperRect.top) : rect ? Math.round(rect.top) : 0,
@@ -2732,6 +2752,10 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
 	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
 	  if (snapshot.banner_count !== 1 || !snapshot.banner_visible) issues.push(`registration banner missing ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);
+	  if (!snapshot.banner_text.includes("You will be able to register your database once you have installed your first app.")) issues.push(`registration banner text ${snapshot.banner_text}`);
+	  if (snapshot.banner_close_text !== "\u00d7") issues.push(`registration close text ${snapshot.banner_close_text}`);
+	  if (!snapshot.banner_close_visible) issues.push("registration close hidden");
+	  if (snapshot.launcher_mail_activity_visible_count !== 0) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
 	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
 	  if (snapshot.app_card_top_px < 165 || snapshot.app_card_top_px > 230) issues.push(`app card top ${snapshot.app_card_top_px}`);
 	  if (snapshot.app_card_width_px < 120 || snapshot.app_card_width_px > 150) issues.push(`app card width ${snapshot.app_card_width_px}`);

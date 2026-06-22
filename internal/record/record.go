@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -95,6 +96,7 @@ type Env struct {
 	registry          *Registry
 	context           Context
 	stores            map[string]*store
+	storeMu           *sync.RWMutex
 	policy            Policy
 	sequenceNamespace string
 	afterCreateHooks  []AfterCreateHook
@@ -123,6 +125,7 @@ func NewEnv(registry *Registry, context Context) *Env {
 		registry:          registry,
 		context:           context,
 		stores:            map[string]*store{},
+		storeMu:           &sync.RWMutex{},
 		sequenceNamespace: fmt.Sprintf("env:%d", envSequenceNamespaceCounter.Add(1)),
 	}
 }
@@ -140,6 +143,7 @@ func (e *Env) WithContext(context Context) *Env {
 		registry:          e.registry,
 		context:           context,
 		stores:            e.stores,
+		storeMu:           e.storeMu,
 		policy:            e.policy,
 		sequenceNamespace: e.sequenceNamespace,
 		afterCreateHooks:  e.afterCreateHooks,
@@ -157,6 +161,7 @@ func (e *Env) WithSequenceNamespace(namespace string) *Env {
 		registry:          e.registry,
 		context:           e.context,
 		stores:            e.stores,
+		storeMu:           e.storeMu,
 		policy:            e.policy,
 		sequenceNamespace: namespace,
 		afterCreateHooks:  e.afterCreateHooks,
@@ -171,6 +176,7 @@ func (e *Env) WithAccountMovePost() *Env {
 		registry:          e.registry,
 		context:           e.context,
 		stores:            e.stores,
+		storeMu:           e.storeMu,
 		policy:            e.policy,
 		sequenceNamespace: e.sequenceNamespace,
 		afterCreateHooks:  e.afterCreateHooks,
@@ -218,6 +224,10 @@ func (e *Env) Model(name string) ModelSet {
 	meta, ok := e.registry.Model(name)
 	if !ok {
 		return ModelSet{err: fmt.Errorf("unknown model %s", name)}
+	}
+	if e.storeMu != nil {
+		e.storeMu.Lock()
+		defer e.storeMu.Unlock()
 	}
 	s, ok := e.stores[name]
 	if !ok {

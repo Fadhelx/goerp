@@ -32,12 +32,12 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   registrationBanner.setAttribute("role", "status");
   const registrationText = document.createElement("span");
   registrationText.className = "o_home_menu_registration_text";
-  registrationText.textContent = "Database registration is available after the first app is installed.";
+  registrationText.textContent = "You will be able to register your database once you have installed your first app.";
   const registrationClose = document.createElement("button");
   registrationClose.type = "button";
   registrationClose.className = "o_home_menu_registration_close";
   registrationClose.setAttribute("aria-label", "Close");
-  registrationClose.textContent = "x";
+  registrationClose.textContent = "\u00d7";
   registrationClose.addEventListener("click", () => {
     registrationBanner.hidden = true;
     registrationBanner.dataset.dismissed = "true";
