@@ -137,6 +137,7 @@ export type DomainListRepr = readonly (readonly [string | number, string, unknow
 export type DomainRepr = DomainListRepr | string | Domain;
 const DEFAULT_PAGER_COUNT_LIMIT = 10000;
 const DEFAULT_VIEW_FIELD_LIMIT = 6;
+const DEFAULT_KANBAN_GROUP_LIMIT = 10;
 
 const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
   "res.users": ["name", "login", "email", "company_id", "groups_count", "active"]
@@ -324,6 +325,12 @@ interface KanbanProgressBarNode {
   field: string;
   sumField?: string;
   colors: Record<string, string>;
+}
+
+interface KanbanDragContext {
+  groupField: string;
+  groupKey: string;
+  groupRaw: unknown;
 }
 
 export interface RenderWindowActionOptions {
@@ -3206,6 +3213,7 @@ function renderKanbanView(
     return renderer;
   }
   if (grouped) {
+    const groupLimit = kanbanGroupInitialLimit(action);
     for (const group of kanbanRecordGroups(records, fields, groupField, model)) {
       const column = document.createElement("section");
       column.className = "o_kanban_group";
@@ -3229,9 +3237,18 @@ function renderKanbanView(
       foldToggle.textContent = "‹";
       const body = document.createElement("div");
       body.className = "o_kanban_records";
-      for (const record of group.records) {
-        body.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer));
-      }
+      group.records.forEach((record, index) => {
+        const card = renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer, viewDescription?.actionMenus, {
+          groupField,
+          groupKey: group.key,
+          groupRaw: group.raw
+        });
+        if (index >= groupLimit) setKanbanGroupRecordHidden(card, true);
+        body.append(card);
+      });
+      const groupLoadMore = renderKanbanGroupLoadMore(body, renderer, group.key, group.records.length, groupLimit);
+      if (groupLoadMore) body.append(groupLoadMore);
+      configureKanbanGroupDrop(column, body, renderer, model, groupField, group.key, group.raw, options);
       const quickCreate = renderKanbanQuickCreate(action, options, renderer, {
         groupField,
         groupValue: group.raw
@@ -3271,7 +3288,7 @@ function renderKanbanView(
   const progress = renderKanbanProgressBar(progressBar, records, fields, model);
   if (progress) renderer.append(progress);
   for (const record of records) {
-    renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer));
+    renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer, viewDescription?.actionMenus));
   }
   const quickCreate = renderKanbanQuickCreate(action, options, renderer);
   if (quickCreate) renderer.append(quickCreate);
@@ -3442,6 +3459,73 @@ function renderKanbanLoadMore(
   return wrapper;
 }
 
+function kanbanGroupInitialLimit(action: Record<string, unknown>): number {
+  return Math.max(1, Math.trunc(numberActionValue(action.kanban_group_limit ?? action.__kanban_group_limit, DEFAULT_KANBAN_GROUP_LIMIT)));
+}
+
+function renderKanbanGroupLoadMore(
+  body: HTMLElement,
+  renderer: HTMLElement,
+  groupKey: string,
+  total: number,
+  limit: number
+): HTMLElement | null {
+  if (total <= limit) return null;
+  let loaded = Math.min(limit, total);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o_kanban_group_load_more o_kanban_load_more btn btn-link";
+  button.dataset.kanbanGroupLoadMore = "true";
+  button.dataset.groupKey = groupKey;
+  button.dataset.loaded = String(loaded);
+  button.dataset.total = String(total);
+  button.dataset.limit = String(limit);
+  button.setAttribute("aria-label", "Load more records in column");
+  button.textContent = "Load more";
+  button.addEventListener("click", (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    const hiddenRecords = kanbanGroupHiddenRecordNodes(body);
+    const reveal = hiddenRecords.slice(0, limit);
+    for (const record of reveal) setKanbanGroupRecordHidden(record, false);
+    loaded = Math.min(total, loaded + reveal.length);
+    button.dataset.loaded = String(loaded);
+    button.dataset.remaining = String(Math.max(0, total - loaded));
+    const complete = loaded >= total;
+    button.hidden = complete;
+    if (complete) button.setAttribute("hidden", "hidden");
+    renderer.dispatchEvent(new CustomEvent("action:kanban-group-load-more", {
+      bubbles: true,
+      detail: {
+        groupKey,
+        loaded,
+        total,
+        revealed: reveal.length,
+        remaining: Math.max(0, total - loaded)
+      }
+    }));
+  });
+  button.dataset.remaining = String(total - loaded);
+  return button;
+}
+
+function kanbanGroupHiddenRecordNodes(body: HTMLElement): HTMLElement[] {
+  return Array.from(body.children)
+    .filter((node): node is HTMLElement => Boolean((node as HTMLElement).dataset))
+    .filter((node) => (node as HTMLElement).dataset.kanbanGroupHidden === "true");
+}
+
+function setKanbanGroupRecordHidden(card: HTMLElement, hidden: boolean): void {
+  card.hidden = hidden;
+  if (hidden) {
+    card.setAttribute("hidden", "hidden");
+    card.dataset.kanbanGroupHidden = "true";
+  } else {
+    card.removeAttribute("hidden");
+    delete card.dataset.kanbanGroupHidden;
+  }
+}
+
 function kanbanNextLoadLimit(currentLimit: number, loaded: number, offset: number, total: number, countLimited: boolean): number {
   const step = Math.max(1, currentLimit);
   const target = Math.max(currentLimit + step, loaded + step);
@@ -3475,7 +3559,9 @@ function renderKanbanRecordCard(
   model: string,
   action: Record<string, unknown>,
   options: RenderWindowActionOptions,
-  renderer: HTMLElement
+  renderer: HTMLElement,
+  actionMenus?: Record<string, unknown>,
+  dragContext?: KanbanDragContext
 ): HTMLElement {
   const card = document.createElement("article");
   card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
@@ -3488,6 +3574,9 @@ function renderKanbanRecordCard(
   const colorValue = kanbanRecordColorValue(record);
   if (colorValue !== undefined) card.dataset.kanbanColor = String(colorValue);
   card.dataset.model = model;
+  if (recordID !== undefined && dragContext) {
+    configureKanbanRecordDrag(card, recordID, model, renderer, dragContext);
+  }
   card.addEventListener("click", async () => {
     if (recordID === undefined) return;
     await openKanbanRecord(model, recordID, action, options, renderer);
@@ -3522,7 +3611,7 @@ function renderKanbanRecordCard(
     main.append(renderModuleInfoButton(record, recordID, action, options, renderer));
   }
   if (recordID !== undefined) {
-    card.append(renderKanbanRecordMenu(model, recordID, action, options, renderer));
+    card.append(renderKanbanRecordMenu(model, recordID, action, options, renderer, actionMenus));
   }
   card.append(main);
   return card;
@@ -3545,12 +3634,140 @@ function kanbanColorIndex(value: unknown): number | undefined {
   return undefined;
 }
 
+function configureKanbanRecordDrag(
+  card: HTMLElement,
+  id: number,
+  model: string,
+  renderer: HTMLElement,
+  context: KanbanDragContext
+): void {
+  card.draggable = true;
+  card.setAttribute("draggable", "true");
+  card.dataset.kanbanDraggable = "true";
+  card.dataset.groupField = context.groupField;
+  card.dataset.groupValue = context.groupKey;
+  card.addEventListener("dragstart", (event) => {
+    const dragEvent = event as DragEvent;
+    dragEvent.dataTransfer?.setData("text/plain", String(id));
+    dragEvent.dataTransfer?.setData("application/x-gorp-kanban-record", JSON.stringify({
+      id,
+      model,
+      groupField: context.groupField,
+      groupValue: context.groupKey
+    }));
+    if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = "move";
+    renderer.dataset.kanbanDraggingId = String(id);
+    renderer.dataset.kanbanDraggingGroup = context.groupKey;
+    card.className = toggleClassToken(String(card.className ?? ""), "o_kanban_record_dragging", true);
+    renderer.className = toggleClassToken(String(renderer.className ?? ""), "o_kanban_dragging", true);
+  });
+  card.addEventListener("dragend", () => {
+    delete renderer.dataset.kanbanDraggingId;
+    delete renderer.dataset.kanbanDraggingGroup;
+    delete renderer.dataset.kanbanDroppingId;
+    card.className = toggleClassToken(String(card.className ?? ""), "o_kanban_record_dragging", false);
+    renderer.className = toggleClassToken(String(renderer.className ?? ""), "o_kanban_dragging", false);
+  });
+}
+
+function configureKanbanGroupDrop(
+  column: HTMLElement,
+  body: HTMLElement,
+  renderer: HTMLElement,
+  model: string,
+  groupField: string,
+  groupKey: string,
+  groupRaw: unknown,
+  options: RenderWindowActionOptions
+): void {
+  column.dataset.kanbanDropTarget = "true";
+  column.addEventListener("dragover", (event) => {
+    const dragEvent = event as DragEvent;
+    const recordID = kanbanDraggedRecordID(dragEvent, renderer);
+    if (recordID === undefined) return;
+    event.preventDefault?.();
+    if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = "move";
+    setKanbanGroupDropTarget(column, body, true);
+  });
+  column.addEventListener("dragleave", (event) => {
+    const related = (event as DragEvent).relatedTarget;
+    if (related instanceof Node && column.contains(related)) return;
+    setKanbanGroupDropTarget(column, body, false);
+  });
+  column.addEventListener("drop", async (event) => {
+    const dragEvent = event as DragEvent;
+    const recordID = kanbanDraggedRecordID(dragEvent, renderer);
+    if (recordID === undefined) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    setKanbanGroupDropTarget(column, body, false);
+    const sourceGroup = kanbanDraggedGroupKey(dragEvent, renderer);
+    if (sourceGroup === groupKey) return;
+    const value = kanbanGroupWriteValue(groupRaw);
+    renderer.dataset.kanbanDroppingId = String(recordID);
+    renderer.dataset.kanbanDropField = groupField;
+    renderer.dataset.kanbanDropValue = String(value ?? "");
+    if (options.services?.orm) {
+      await options.services.orm.write(model, [recordID], { [groupField]: value }, { context: options.context ?? {} });
+      await options.onRefresh?.();
+    }
+    renderer.dispatchEvent(new CustomEvent("action:kanban-record-drop", {
+      bubbles: true,
+      detail: {
+        model,
+        id: recordID,
+        field: groupField,
+        value,
+        groupKey,
+        previousGroupKey: sourceGroup
+      }
+    }));
+    delete renderer.dataset.kanbanDroppingId;
+  });
+}
+
+function setKanbanGroupDropTarget(column: HTMLElement, body: HTMLElement, active: boolean): void {
+  column.className = toggleClassToken(String(column.className ?? ""), "o_kanban_group_drop_target", active);
+  body.className = toggleClassToken(String(body.className ?? ""), "o_kanban_records_drop_target", active);
+  column.dataset.dropTargetActive = active ? "true" : "false";
+}
+
+function kanbanDraggedRecordID(event: DragEvent, renderer: HTMLElement): number | undefined {
+  const payload = event.dataTransfer?.getData("application/x-gorp-kanban-record");
+  if (payload) {
+    try {
+      const parsed = JSON.parse(payload);
+      const parsedID = numberRecordID(parsed?.id);
+      if (parsedID !== undefined) return parsedID;
+    } catch {}
+  }
+  return numberRecordID(event.dataTransfer?.getData("text/plain")) ?? numberRecordID(renderer.dataset.kanbanDraggingId);
+}
+
+function kanbanDraggedGroupKey(event: DragEvent, renderer: HTMLElement): string | undefined {
+  const payload = event.dataTransfer?.getData("application/x-gorp-kanban-record");
+  if (payload) {
+    try {
+      const parsed = JSON.parse(payload);
+      if (parsed && typeof parsed.groupValue === "string") return parsed.groupValue;
+    } catch {}
+  }
+  return renderer.dataset.kanbanDraggingGroup;
+}
+
+function kanbanGroupWriteValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.length ? value[0] : false;
+  if (value === undefined || value === null || value === "") return false;
+  return value;
+}
+
 function renderKanbanRecordMenu(
   model: string,
   id: number,
   action: Record<string, unknown>,
   options: RenderWindowActionOptions,
-  root: HTMLElement
+  root: HTMLElement,
+  actionMenus?: Record<string, unknown>
 ): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "o_kanban_record_menu dropdown";
@@ -3649,7 +3866,69 @@ function renderKanbanRecordMenu(
   });
   wrapper.append(toggle, menu);
   menu.append(open, duplicate, remove);
+  const serverItems = renderKanbanRecordServerActionMenuItems(model, id, actionMenus, options, root, () => setOpen(false));
+  if (serverItems.length) {
+    const separator = document.createElement("div");
+    separator.className = "dropdown-divider o_kanban_record_menu_separator";
+    separator.setAttribute("role", "separator");
+    menu.append(separator, ...serverItems);
+  }
   return wrapper;
+}
+
+function renderKanbanRecordServerActionMenuItems(
+  model: string,
+  id: number,
+  actionMenus: Record<string, unknown> | undefined,
+  options: RenderWindowActionOptions,
+  root: HTMLElement,
+  closeMenu: () => void
+): HTMLElement[] {
+  const items: HTMLElement[] = [];
+  const printItems = actionMenuRecords(actionMenus, "print").map((item) =>
+    renderKanbanRecordServerActionMenuButton("print", model, id, item, options, root, closeMenu)
+  );
+  const actionItems = actionMenuRecords(actionMenus, "action").map((item) =>
+    renderKanbanRecordServerActionMenuButton("action", model, id, item, options, root, closeMenu)
+  );
+  if (printItems.length) {
+    items.push(renderKanbanRecordMenuSectionLabel("Print"), ...printItems.sort(compareActionMenuButtons));
+  }
+  if (actionItems.length) {
+    items.push(renderKanbanRecordMenuSectionLabel("Actions"), ...actionItems.sort(compareActionMenuButtons));
+  }
+  return items;
+}
+
+function renderKanbanRecordServerActionMenuButton(
+  kind: "action" | "print",
+  model: string,
+  id: number,
+  item: ActionMenuRecord,
+  options: RenderWindowActionOptions,
+  root: HTMLElement,
+  closeMenu: () => void
+): HTMLElement {
+  const button = renderServerActionMenuButton(kind, model, item, () => [id], false, root, options);
+  button.className = "dropdown-item o_kanban_record_menu_item gorp-action-menu-item";
+  button.dataset.kanbanRecordMenuAction = kind;
+  button.dataset.kanbanRecordServerAction = "true";
+  button.dataset.recordId = String(id);
+  button.addEventListener("click", (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    closeMenu();
+  });
+  return button;
+}
+
+function renderKanbanRecordMenuSectionLabel(label: string): HTMLElement {
+  const section = document.createElement("div");
+  section.className = "o_kanban_record_menu_section";
+  section.dataset.kanbanRecordMenuSection = label.toLowerCase();
+  section.setAttribute("role", "presentation");
+  section.textContent = label;
+  return section;
 }
 
 function renderKanbanQuickCreate(

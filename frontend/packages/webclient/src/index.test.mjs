@@ -61,6 +61,20 @@ class TestEvent {
   }
 }
 
+function testDataTransfer() {
+  const data = new Map();
+  return {
+    dropEffect: "",
+    effectAllowed: "",
+    setData(type, value) {
+      data.set(type, String(value));
+    },
+    getData(type) {
+      return data.get(type) ?? "";
+    }
+  };
+}
+
 globalThis.document = {
   implementation: {
     createDocument() {
@@ -2427,6 +2441,87 @@ assert.deepEqual(kanbanActionCalls[1], { model: "res.partner", method: "unlink",
 assert.deepEqual(kanbanActionEvents[1], ["delete", { model: "res.partner", ids: [15] }]);
 assert.equal(kanbanRefreshCount, 2);
 
+const kanbanServerActionCalls = [];
+const kanbanServerActionEvents = [];
+const kanbanServerMenuWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><field name="display_name"/><field name="email"/></kanban>`,
+        id: 26,
+        actionMenus: {
+          print: [{ id: 720, name: "Print Card", description: "Print Card", sequence: 2, groupNumber: 1 }],
+          action: [{ id: 710, name: "Run Card Action", sequence: 5, groupNumber: 2 }]
+        }
+      },
+      form: { arch: `<form><field name="display_name"/></form>`, id: 27 }
+    }
+  },
+  records: [{ id: 21, display_name: "Action Partner", email: "action@example.test" }],
+  length: 1
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        kanbanServerActionCalls.push({ action, additionalContext: options.additionalContext });
+        return Promise.resolve(true);
+      }
+    }
+  }
+});
+const kanbanServerMenuRenderer = findAll(kanbanServerMenuWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+kanbanServerMenuRenderer.addEventListener("action-menu:execute", (event) => kanbanServerActionEvents.push(event.detail));
+const kanbanServerMenuCard = findAll(kanbanServerMenuRenderer, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
+const kanbanServerMenuToggle = findAll(kanbanServerMenuCard, (node) => node.dataset?.kanbanRecordMenu === "true")[0];
+const kanbanServerMenuDropdown = findAll(kanbanServerMenuCard, (node) => String(node.className ?? "").includes("o_kanban_record_menu_dropdown"))[0];
+kanbanServerMenuToggle.dispatchEvent(new TestEvent("click"));
+assert.deepEqual(findAll(kanbanServerMenuDropdown, (node) => node.dataset?.kanbanRecordMenuSection).map((node) => node.textContent), ["Print", "Actions"]);
+const kanbanServerMenuItems = findAll(kanbanServerMenuDropdown, (node) => node.dataset?.kanbanRecordServerAction === "true");
+assert.deepEqual(kanbanServerMenuItems.map((node) => [node.dataset.kanbanRecordMenuAction, node.dataset.actionId, node.dataset.recordId, node.textContent]), [
+  ["print", "720", "21", "Print Card"],
+  ["action", "710", "21", "Run Card Action"]
+]);
+kanbanServerMenuItems[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(kanbanServerMenuToggle.attributes["aria-expanded"], "false");
+assert.deepEqual(kanbanServerActionCalls[0], {
+  action: 720,
+  additionalContext: { active_id: 21, active_ids: [21], active_model: "res.partner", active_domain: [] }
+});
+assert.deepEqual(kanbanServerActionEvents[0], {
+  model: "res.partner",
+  ids: [21],
+  action: { id: 720, name: "Print Card", description: "Print Card", sequence: 2, groupNumber: 1 },
+  type: "print"
+});
+kanbanServerMenuToggle.dispatchEvent(new TestEvent("click"));
+kanbanServerMenuItems[1].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(kanbanServerActionCalls[1], {
+  action: 710,
+  additionalContext: { active_id: 21, active_ids: [21], active_model: "res.partner", active_domain: [] }
+});
+assert.deepEqual(kanbanServerActionEvents[1], {
+  model: "res.partner",
+  ids: [21],
+  action: { id: 710, name: "Run Card Action", sequence: 5, groupNumber: 2 },
+  type: "action"
+});
+
 const kanbanLoadMoreActions = [];
 const kanbanLoadMoreWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -2539,6 +2634,9 @@ assert.ok(String(kanbanProgressCards[0].className).includes("o_kanban_color_2"))
 assert.ok(String(kanbanProgressCards[1].className).includes("o_kanban_color_5"));
 
 const groupedKanbanCreateCalls = [];
+const groupedKanbanWriteCalls = [];
+const groupedKanbanDropEvents = [];
+let groupedKanbanRefreshCount = 0;
 const groupedKanbanWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: {
@@ -2582,16 +2680,26 @@ const groupedKanbanWindow = renderWindowAction({
   length: 3
 }, {
   context: { active_id: 77 },
+  onRefresh() {
+    groupedKanbanRefreshCount += 1;
+  },
   services: {
     action: {
       doAction(action, options) {
         groupedKanbanCreateCalls.push({ action, options });
         return Promise.resolve({});
       }
+    },
+    orm: {
+      write(model, ids, data, kwargs) {
+        groupedKanbanWriteCalls.push({ model, ids, data, kwargs });
+        return Promise.resolve(true);
+      }
     }
   }
 });
 const groupedKanbanRenderer = findAll(groupedKanbanWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+groupedKanbanRenderer.addEventListener("action:kanban-record-drop", (event) => groupedKanbanDropEvents.push(event.detail));
 assert.ok(String(groupedKanbanRenderer.className).includes("o_kanban_grouped"));
 assert.equal(groupedKanbanRenderer.dataset.groupby, "company_id");
 const groupedKanbanGroups = findAll(groupedKanbanRenderer, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_group"));
@@ -2622,6 +2730,125 @@ await Promise.resolve();
 assert.equal(groupedKanbanCreateCalls.length, 1);
 assert.deepEqual(groupedKanbanCreateCalls[0].action.views, [[false, "form"]]);
 assert.deepEqual(groupedKanbanCreateCalls[0].options, { additionalContext: { active_id: 77, default_company_id: 3 }, replaceLastAction: true });
+const groupedFirstCard = findAll(groupedKanbanGroups[0], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
+const groupedSecondRecords = findAll(groupedKanbanGroups[1], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_records"))[0];
+const groupedDragData = testDataTransfer();
+assert.equal(groupedFirstCard.getAttribute("draggable"), "true");
+assert.equal(groupedFirstCard.dataset.kanbanDraggable, "true");
+assert.equal(groupedFirstCard.dataset.groupField, "company_id");
+assert.equal(groupedFirstCard.dataset.groupValue, "3");
+groupedFirstCard.dispatchEvent(new TestEvent("dragstart", { dataTransfer: groupedDragData }));
+assert.equal(groupedKanbanRenderer.dataset.kanbanDraggingId, "12");
+assert.equal(groupedDragData.getData("text/plain"), "12");
+const groupedDragOver = new TestEvent("dragover", { dataTransfer: groupedDragData });
+groupedKanbanGroups[1].dispatchEvent(groupedDragOver);
+assert.equal(groupedDragOver.defaultPrevented, true);
+assert.equal(groupedKanbanGroups[1].dataset.dropTargetActive, "true");
+assert.ok(String(groupedKanbanGroups[1].className).includes("o_kanban_group_drop_target"));
+assert.ok(String(groupedSecondRecords.className).includes("o_kanban_records_drop_target"));
+groupedKanbanGroups[1].dispatchEvent(new TestEvent("drop", { dataTransfer: groupedDragData }));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(groupedKanbanWriteCalls, [{
+  model: "res.partner",
+  ids: [12],
+  data: { company_id: 4 },
+  kwargs: { context: { active_id: 77 } }
+}]);
+assert.equal(groupedKanbanRefreshCount, 1);
+assert.deepEqual(groupedKanbanDropEvents, [{
+  model: "res.partner",
+  id: 12,
+  field: "company_id",
+  value: 4,
+  groupKey: "4",
+  previousGroupKey: "3"
+}]);
+assert.equal(groupedKanbanGroups[1].dataset.dropTargetActive, "false");
+assert.equal(groupedKanbanRenderer.dataset.kanbanDropField, "company_id");
+assert.equal(groupedKanbanRenderer.dataset.kanbanDropValue, "4");
+assert.equal(groupedKanbanRenderer.dataset.kanbanDroppingId, undefined);
+groupedFirstCard.dispatchEvent(new TestEvent("dragend", { dataTransfer: groupedDragData }));
+assert.equal(groupedKanbanRenderer.dataset.kanbanDraggingId, undefined);
+
+const groupedKanbanLoadEvents = [];
+const groupedKanbanLoadWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]],
+    __kanban_group_limit: 2
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      stage_id: { type: "many2one", relation: "crm.stage", string: "Stage" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><field name="display_name"/><field name="stage_id"/></kanban>`,
+        id: 28
+      }
+    }
+  },
+  search: {
+    state: { query: "", facets: [], groupBy: ["stage_id"], domain: [] },
+    suggestions: [],
+    filters: [],
+    groupBys: [],
+    favorites: []
+  },
+  records: [
+    { id: 31, display_name: "Stage One", stage_id: [8, "New"] },
+    { id: 32, display_name: "Stage Two", stage_id: [8, "New"] },
+    { id: 33, display_name: "Stage Three", stage_id: [8, "New"] },
+    { id: 34, display_name: "Stage Four", stage_id: [8, "New"] },
+    { id: 35, display_name: "Stage Five", stage_id: [8, "New"] },
+    { id: 36, display_name: "Done One", stage_id: [9, "Done"] }
+  ],
+  length: 6
+});
+const groupedKanbanLoadRenderer = findAll(groupedKanbanLoadWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+groupedKanbanLoadRenderer.addEventListener("action:kanban-group-load-more", (event) => groupedKanbanLoadEvents.push(event.detail));
+const groupedKanbanLoadGroups = findAll(groupedKanbanLoadRenderer, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_group"));
+const groupedKanbanLoadFirstBody = findAll(groupedKanbanLoadGroups[0], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_records"))[0];
+const groupedKanbanLoadCards = () => findAll(groupedKanbanLoadFirstBody, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"));
+const groupedKanbanLoadButton = findAll(groupedKanbanLoadFirstBody, (node) => node.dataset?.kanbanGroupLoadMore === "true")[0];
+assert.equal(groupedKanbanLoadButton.textContent, "Load more");
+assert.equal(groupedKanbanLoadButton.dataset.loaded, "2");
+assert.equal(groupedKanbanLoadButton.dataset.total, "5");
+assert.equal(groupedKanbanLoadButton.dataset.remaining, "3");
+assert.equal(groupedKanbanLoadButton.dataset.limit, "2");
+assert.deepEqual(groupedKanbanLoadCards().map((node) => [node.dataset.id, node.hidden === true, node.dataset.kanbanGroupHidden ?? ""]), [
+  ["31", false, ""],
+  ["32", false, ""],
+  ["33", true, "true"],
+  ["34", true, "true"],
+  ["35", true, "true"]
+]);
+groupedKanbanLoadButton.dispatchEvent(new TestEvent("click"));
+assert.deepEqual(groupedKanbanLoadCards().map((node) => [node.dataset.id, node.hidden === true, node.dataset.kanbanGroupHidden ?? ""]), [
+  ["31", false, ""],
+  ["32", false, ""],
+  ["33", false, ""],
+  ["34", false, ""],
+  ["35", true, "true"]
+]);
+assert.equal(groupedKanbanLoadButton.dataset.loaded, "4");
+assert.equal(groupedKanbanLoadButton.dataset.remaining, "1");
+assert.equal(groupedKanbanLoadButton.hidden, false);
+assert.deepEqual(groupedKanbanLoadEvents[0], { groupKey: "8", loaded: 4, total: 5, revealed: 2, remaining: 1 });
+groupedKanbanLoadButton.dispatchEvent(new TestEvent("click"));
+assert.equal(groupedKanbanLoadButton.dataset.loaded, "5");
+assert.equal(groupedKanbanLoadButton.dataset.remaining, "0");
+assert.equal(groupedKanbanLoadButton.hidden, true);
+assert.equal(groupedKanbanLoadButton.attributes.hidden, "hidden");
+assert.equal(groupedKanbanLoadCards().filter((node) => node.hidden === true).length, 0);
+assert.deepEqual(groupedKanbanLoadEvents[1], { groupKey: "8", loaded: 5, total: 5, revealed: 1, remaining: 0 });
 
 const moduleInfoCalls = [];
 const moduleKanbanWindow = renderWindowAction({

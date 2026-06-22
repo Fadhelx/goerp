@@ -6992,6 +6992,32 @@ const webClientShellHTML = `<!doctype html>
 		gap: 10px;
 		padding: 10px;
 	}
+	.o_kanban_record[draggable="true"] {
+		cursor: grab;
+	}
+	.o_kanban_record.o_kanban_record_dragging {
+		cursor: grabbing;
+		opacity: .58;
+		transform: scale(.985);
+	}
+	.o_kanban_group.o_kanban_group_drop_target {
+		border-color: rgba(113,75,103,.38);
+		background: rgba(113,75,103,.055);
+	}
+	.o_kanban_records.o_kanban_records_drop_target {
+		outline: 1px dashed rgba(113,75,103,.42);
+		outline-offset: -6px;
+	}
+	.o_kanban_group_load_more {
+		width: 100%;
+		min-height: 34px;
+		border: 1px dashed var(--line);
+		border-radius: 4px;
+		background: rgba(113,75,103,.035);
+		color: var(--brand);
+		font-weight: 600;
+		text-align: center;
+	}
 	.o_kanban_progressbar {
 		display: grid;
 		gap: 6px;
@@ -8491,6 +8517,21 @@ const webClientShellHTML = `<!doctype html>
 	body[data-theme="enterprise"] .o_kanban_group_fold_toggle:hover,
 	body[data-theme="enterprise"] .o_kanban_group_fold_toggle:focus {
 		background: rgba(0,160,157,.1);
+		color: #45c4c1;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_group.o_kanban_group_drop_target,
+	body[data-theme="enterprise"] .o_kanban_group.o_kanban_group_drop_target {
+		border-color: rgba(0,160,157,.48);
+		background: rgba(0,160,157,.08);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_records.o_kanban_records_drop_target,
+	body[data-theme="enterprise"] .o_kanban_records.o_kanban_records_drop_target {
+		outline-color: rgba(0,160,157,.52);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_group_load_more,
+	body[data-theme="enterprise"] .o_kanban_group_load_more {
+		background: rgba(0,160,157,.06);
+		border-color: rgba(0,160,157,.24);
 		color: #45c4c1;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view {

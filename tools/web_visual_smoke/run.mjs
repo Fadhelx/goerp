@@ -888,6 +888,333 @@ export const scenarios = [
     }
   },
   {
+    name: "default-kanban-action-menu-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_action_menu=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban action-menu TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        window.__kanbanActionMenuCalls = [];
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Kanban Actions",
+            res_model: "res.partner",
+            view_mode: "kanban,form",
+            views: [[false, "kanban"], [false, "form"]]
+          },
+          activeView: "kanban",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              display_name: { type: "char", string: "Name" },
+              email: { type: "char", string: "Email" }
+            },
+            relatedModels: {},
+            views: {
+              kanban: {
+                arch: "<kanban><field name='display_name'/><field name='email'/></kanban>",
+                id: 730,
+                actionMenus: {
+                  print: [{ id: 731, name: "Print Card", description: "Print Card", sequence: 2, groupNumber: 1 }],
+                  action: [{ id: 732, name: "Run Card Action", sequence: 5, groupNumber: 2 }]
+                }
+              },
+              form: { arch: "<form><field name='display_name'/></form>", id: 733 }
+            }
+          },
+          records: [{ id: 734, display_name: "Action Menu Partner", email: "action-menu@example.test" }],
+          length: 1,
+          offset: 0,
+          countLimited: false
+        }, {
+          services: {
+            action: {
+              doAction(action, options) {
+                window.__kanbanActionMenuCalls.push({ action, additionalContext: options?.additionalContext || {} });
+                return Promise.resolve(true);
+              }
+            }
+          }
+        });
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "kanban-action-menu";
+        const card = root.querySelector(".o_kanban_record");
+        const toggle = card?.querySelector(".o_kanban_record_menu_toggle[data-kanban-record-menu='true']");
+        toggle?.click();
+        const menu = card?.querySelector(".o_kanban_record_menu_dropdown");
+        const items = [...(menu?.querySelectorAll("[data-kanban-record-server-action='true']") || [])].map((node) => ({
+          kind: node.dataset.kanbanRecordMenuAction || "",
+          action_id: node.dataset.actionId || "",
+          record_id: node.dataset.recordId || "",
+          label: node.textContent.trim()
+        }));
+        const actionButton = menu?.querySelector("[data-kanban-record-server-action='true'][data-kanban-record-menu-action='action']");
+        actionButton?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return {
+          card_id: card?.dataset.id || "",
+          menu_open_after_click: toggle?.getAttribute("aria-expanded") || "",
+          menu_hidden_after_click: menu?.hasAttribute("hidden") ?? true,
+          items,
+          calls: window.__kanbanActionMenuCalls
+        };
+      })()`);
+      const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-action-menu'] .o_kanban_record", 1, "Kanban action-menu card");
+      const serverItemCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-action-menu'] [data-kanban-record-server-action='true']", 2, "Kanban server menu entries");
+      if (renderedState.card_id !== "734" || renderedState.items.length !== 2) {
+        throw new Error(`kanban action-menu entries invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.items.some((item) => item.kind === "print" && item.action_id === "731" && item.record_id === "734" && item.label === "Print Card")) {
+        throw new Error(`kanban print menu entry invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.items.some((item) => item.kind === "action" && item.action_id === "732" && item.record_id === "734" && item.label === "Run Card Action")) {
+        throw new Error(`kanban action menu entry invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.menu_open_after_click !== "false" || renderedState.menu_hidden_after_click !== true) {
+        throw new Error(`kanban action menu did not close: ${JSON.stringify(renderedState)}`);
+      }
+      const call = renderedState.calls?.[0];
+      if (!call || call.action !== 732 || call.additionalContext?.active_id !== 734 || !Array.isArray(call.additionalContext?.active_ids) || call.additionalContext.active_ids[0] !== 734) {
+        throw new Error(`kanban action menu execution context invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { rendered_state: renderedState, card_count: cardCount, server_item_count: serverItemCount };
+    }
+  },
+  {
+    name: "default-kanban-drag-drop-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_drag_drop=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban drag-drop TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        const writeCalls = [];
+        const dropEvents = [];
+        let refreshCount = 0;
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Kanban Drag",
+            res_model: "res.partner",
+            view_mode: "kanban,form",
+            views: [[false, "kanban"], [false, "form"]]
+          },
+          activeView: "kanban",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              display_name: { type: "char", string: "Name" },
+              stage_id: { type: "many2one", relation: "crm.stage", string: "Stage" }
+            },
+            relatedModels: {},
+            views: {
+              kanban: { arch: "<kanban><field name='display_name'/><field name='stage_id'/></kanban>", id: 740 },
+              form: { arch: "<form><field name='display_name'/></form>", id: 741 }
+            }
+          },
+          search: {
+            state: { query: "", facets: [], groupBy: ["stage_id"], domain: [] },
+            suggestions: [],
+            filters: [],
+            groupBys: [],
+            favorites: []
+          },
+          records: [
+            { id: 742, display_name: "Drag Source", stage_id: [10, "New"] },
+            { id: 743, display_name: "Drag Target", stage_id: [20, "Qualified"] }
+          ],
+          length: 2,
+          offset: 0,
+          countLimited: false
+        }, {
+          context: { active_id: 700 },
+          onRefresh() {
+            refreshCount += 1;
+          },
+          services: {
+            orm: {
+              write(model, ids, data, kwargs) {
+                writeCalls.push({ model, ids, data, kwargs });
+                return Promise.resolve(true);
+              }
+            }
+          }
+        });
+        root.addEventListener("action:kanban-record-drop", (event) => dropEvents.push(event.detail));
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "kanban-drag-drop";
+        const renderer = root.querySelector(".o_kanban_renderer.o_kanban_grouped");
+        const groups = [...(renderer?.querySelectorAll(".o_kanban_group") || [])];
+        const firstCard = groups[0]?.querySelector(".o_kanban_record");
+        const secondRecords = groups[1]?.querySelector(".o_kanban_records");
+        const data = new Map();
+        const dataTransfer = {
+          dropEffect: "",
+          effectAllowed: "",
+          setData(type, value) { data.set(type, String(value)); },
+          getData(type) { return data.get(type) || ""; }
+        };
+        function dragEvent(type) {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+          return event;
+        }
+        firstCard?.dispatchEvent(dragEvent("dragstart"));
+        const over = dragEvent("dragover");
+        groups[1]?.dispatchEvent(over);
+        const overState = {
+          default_prevented: over.defaultPrevented,
+          target_active: groups[1]?.dataset.dropTargetActive || "",
+          target_class: groups[1]?.className || "",
+          records_class: secondRecords?.className || "",
+          dragging_id: renderer?.dataset.kanbanDraggingId || ""
+        };
+        groups[1]?.dispatchEvent(dragEvent("drop"));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        firstCard?.dispatchEvent(dragEvent("dragend"));
+        return {
+          group_count: groups.length,
+          card_draggable: firstCard?.getAttribute("draggable") || "",
+          card_group: firstCard?.dataset.groupValue || "",
+          over_state: overState,
+          write_calls: writeCalls,
+          drop_events: dropEvents,
+          refresh_count: refreshCount,
+          drop_field: renderer?.dataset.kanbanDropField || "",
+          drop_value: renderer?.dataset.kanbanDropValue || "",
+          dragging_id_after: renderer?.dataset.kanbanDraggingId || ""
+        };
+      })()`);
+      const groupCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-drag-drop'] .o_kanban_group", 2, "Kanban drag-drop groups");
+      const draggableCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-drag-drop'] .o_kanban_record[draggable='true'][data-kanban-draggable='true']", 2, "Kanban draggable cards");
+      if (renderedState.group_count !== 2 || renderedState.card_draggable !== "true" || renderedState.card_group !== "10") {
+        throw new Error(`kanban drag metadata invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.over_state.default_prevented || renderedState.over_state.target_active !== "true" || !renderedState.over_state.target_class.includes("o_kanban_group_drop_target") || !renderedState.over_state.records_class.includes("o_kanban_records_drop_target")) {
+        throw new Error(`kanban drop target state invalid: ${JSON.stringify(renderedState)}`);
+      }
+      const write = renderedState.write_calls?.[0];
+      if (!write || write.model !== "res.partner" || write.ids?.[0] !== 742 || write.data?.stage_id !== 20 || write.kwargs?.context?.active_id !== 700) {
+        throw new Error(`kanban drop write invalid: ${JSON.stringify(renderedState)}`);
+      }
+      const drop = renderedState.drop_events?.[0];
+      if (!drop || drop.id !== 742 || drop.field !== "stage_id" || drop.value !== 20 || drop.previousGroupKey !== "10" || drop.groupKey !== "20") {
+        throw new Error(`kanban drop event invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.refresh_count !== 1 || renderedState.drop_field !== "stage_id" || renderedState.drop_value !== "20" || renderedState.dragging_id_after) {
+        throw new Error(`kanban drop final state invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { rendered_state: renderedState, group_count: groupCount, draggable_count: draggableCount };
+    }
+  },
+  {
+    name: "default-kanban-group-load-more-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_group_load_more=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban group load-more TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        const loadEvents = [];
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Kanban Column Load",
+            res_model: "res.partner",
+            view_mode: "kanban,form",
+            views: [[false, "kanban"], [false, "form"]],
+            __kanban_group_limit: 2
+          },
+          activeView: "kanban",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              display_name: { type: "char", string: "Name" },
+              stage_id: { type: "many2one", relation: "crm.stage", string: "Stage" }
+            },
+            relatedModels: {},
+            views: {
+              kanban: { arch: "<kanban><field name='display_name'/><field name='stage_id'/></kanban>", id: 750 },
+              form: { arch: "<form><field name='display_name'/></form>", id: 751 }
+            }
+          },
+          search: {
+            state: { query: "", facets: [], groupBy: ["stage_id"], domain: [] },
+            suggestions: [],
+            filters: [],
+            groupBys: [],
+            favorites: []
+          },
+          records: [
+            { id: 752, display_name: "Column A", stage_id: [30, "New"] },
+            { id: 753, display_name: "Column B", stage_id: [30, "New"] },
+            { id: 754, display_name: "Column C", stage_id: [30, "New"] },
+            { id: 755, display_name: "Column D", stage_id: [30, "New"] },
+            { id: 756, display_name: "Column E", stage_id: [30, "New"] },
+            { id: 757, display_name: "Done", stage_id: [40, "Done"] }
+          ],
+          length: 6,
+          offset: 0,
+          countLimited: false
+        });
+        root.addEventListener("action:kanban-group-load-more", (event) => loadEvents.push(event.detail));
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "kanban-group-load-more";
+        const firstGroup = root.querySelector(".o_kanban_group");
+        const button = firstGroup?.querySelector(".o_kanban_group_load_more[data-kanban-group-load-more='true']");
+        function state() {
+          const cards = [...(firstGroup?.querySelectorAll(".o_kanban_record") || [])].map((node) => ({
+            id: node.dataset.id || "",
+            hidden: node.hasAttribute("hidden"),
+            group_hidden: node.dataset.kanbanGroupHidden || ""
+          }));
+          return {
+            group_count: root.querySelectorAll(".o_kanban_group").length,
+            button_count: firstGroup?.querySelectorAll(".o_kanban_group_load_more[data-kanban-group-load-more='true']").length || 0,
+            loaded: button?.dataset.loaded || "",
+            total: button?.dataset.total || "",
+            remaining: button?.dataset.remaining || "",
+            button_hidden: button?.hasAttribute("hidden") || false,
+            cards,
+            events: [...loadEvents]
+          };
+        }
+        const before = state();
+        button?.click();
+        const afterFirst = state();
+        button?.click();
+        const afterSecond = state();
+        return { before, after_first: afterFirst, after_second: afterSecond };
+      })()`);
+      const groupCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-group-load-more'] .o_kanban_group", 2, "Kanban group-load groups");
+      const loadButtonCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-group-load-more'] .o_kanban_group_load_more[data-kanban-group-load-more='true']", 1, "Kanban group-load button");
+      if (renderedState.before.group_count !== 2 || renderedState.before.button_count !== 1 || renderedState.before.loaded !== "2" || renderedState.before.total !== "5" || renderedState.before.remaining !== "3") {
+        throw new Error(`kanban group load-more initial invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.before.cards.filter((card) => card.hidden).length !== 3) {
+        throw new Error(`kanban group load-more hidden records invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.after_first.loaded !== "4" || renderedState.after_first.remaining !== "1" || renderedState.after_first.cards.filter((card) => card.hidden).length !== 1) {
+        throw new Error(`kanban group load-more first reveal invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.after_second.loaded !== "5" || renderedState.after_second.remaining !== "0" || renderedState.after_second.button_hidden !== true || renderedState.after_second.cards.some((card) => card.hidden)) {
+        throw new Error(`kanban group load-more final invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.after_second.events.length !== 2 || renderedState.after_second.events[0].revealed !== 2 || renderedState.after_second.events[1].remaining !== 0) {
+        throw new Error(`kanban group load-more events invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { rendered_state: renderedState, group_count: groupCount, load_button_count: loadButtonCount };
+    }
+  },
+  {
     name: "default-kanban-groupby-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
