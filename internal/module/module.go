@@ -8,21 +8,23 @@ import (
 )
 
 type Manifest struct {
-	Name               string                      `json:"name"`
-	TechnicalName      string                      `json:"technical_name"`
-	Version            string                      `json:"version"`
-	Category           string                      `json:"category"`
-	Depends            []string                    `json:"depends"`
-	Data               []string                    `json:"data"`
-	Demo               []string                    `json:"demo"`
-	Assets             map[string][]string         `json:"assets"`
-	AssetOperations    map[string][]AssetOperation `json:"asset_operations,omitempty"`
-	Installable        bool                        `json:"installable"`
-	AutoInstall        bool                        `json:"auto_install"`
-	AutoInstallDepends []string                    `json:"auto_install_depends,omitempty"`
-	Application        bool                        `json:"application"`
-	SourceVersion      string                      `json:"source_version"`
-	SourceLicense      string                      `json:"source_license"`
+	Name                    string                       `json:"name"`
+	TechnicalName           string                       `json:"technical_name"`
+	Version                 string                       `json:"version"`
+	Category                string                       `json:"category"`
+	Depends                 []string                     `json:"depends"`
+	ExternalDependencies    map[string][]string          `json:"external_dependencies,omitempty"`
+	ExternalDependencyHints map[string]map[string]string `json:"external_dependency_hints,omitempty"`
+	Data                    []string                     `json:"data"`
+	Demo                    []string                     `json:"demo"`
+	Assets                  map[string][]string          `json:"assets"`
+	AssetOperations         map[string][]AssetOperation  `json:"asset_operations,omitempty"`
+	Installable             bool                         `json:"installable"`
+	AutoInstall             bool                         `json:"auto_install"`
+	AutoInstallDepends      []string                     `json:"auto_install_depends,omitempty"`
+	Application             bool                         `json:"application"`
+	SourceVersion           string                       `json:"source_version"`
+	SourceLicense           string                       `json:"source_license"`
 }
 
 type AssetOperation struct {
@@ -67,6 +69,12 @@ func finalizeManifest(manifest *Manifest, moduleName string) {
 	}
 	if manifest.Assets == nil {
 		manifest.Assets = map[string][]string{}
+	}
+	if manifest.ExternalDependencies == nil {
+		manifest.ExternalDependencies = map[string][]string{}
+	}
+	if manifest.ExternalDependencyHints == nil {
+		manifest.ExternalDependencyHints = map[string]map[string]string{}
 	}
 	if manifest.AssetOperations == nil {
 		manifest.AssetOperations = map[string][]AssetOperation{}
@@ -225,6 +233,8 @@ func parsePythonManifest(text string) (Manifest, bool, error) {
 			manifest.Category, _ = parsePythonString(value)
 		case "depends":
 			manifest.Depends = parsePythonStringList(value)
+		case "external_dependencies":
+			manifest.ExternalDependencies, manifest.ExternalDependencyHints = parsePythonExternalDependencies(value)
 		case "data":
 			manifest.Data = parsePythonStringList(value)
 		case "demo":
@@ -345,6 +355,65 @@ func parsePythonAssetTuple(raw string) (AssetOperation, bool) {
 	default:
 		return AssetOperation{}, false
 	}
+}
+
+func parsePythonExternalDependencies(raw string) (map[string][]string, map[string]map[string]string) {
+	lists := map[string][]string{}
+	hints := map[string]map[string]string{}
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "{") {
+		return lists, hints
+	}
+	end := matchingPythonDelimiter(raw, 0, '{', '}')
+	if end < 0 {
+		return lists, hints
+	}
+	for _, item := range splitPythonTopLevel(raw[1:end], ',') {
+		keyExpr, valueExpr, ok := splitPythonTopLevelPair(item, ':')
+		if !ok {
+			continue
+		}
+		key, ok := parsePythonString(strings.TrimSpace(keyExpr))
+		if !ok || key == "" {
+			continue
+		}
+		valueExpr = strings.TrimSpace(valueExpr)
+		if strings.HasPrefix(valueExpr, "[") {
+			lists[key] = parsePythonStringList(valueExpr)
+			continue
+		}
+		if strings.HasPrefix(valueExpr, "{") {
+			hints[key] = parsePythonStringMap(valueExpr)
+		}
+	}
+	return lists, hints
+}
+
+func parsePythonStringMap(raw string) map[string]string {
+	out := map[string]string{}
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "{") {
+		return out
+	}
+	end := matchingPythonDelimiter(raw, 0, '{', '}')
+	if end < 0 {
+		return out
+	}
+	for _, item := range splitPythonTopLevel(raw[1:end], ',') {
+		keyExpr, valueExpr, ok := splitPythonTopLevelPair(item, ':')
+		if !ok {
+			continue
+		}
+		key, ok := parsePythonString(strings.TrimSpace(keyExpr))
+		if !ok || key == "" {
+			continue
+		}
+		value, ok := parsePythonString(strings.TrimSpace(valueExpr))
+		if ok {
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func parsePythonStringList(raw string) []string {

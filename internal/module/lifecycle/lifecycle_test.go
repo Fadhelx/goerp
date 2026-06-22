@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -45,6 +46,195 @@ func TestButtonImmediateInstallInstallsDependencies(t *testing.T) {
 	assertModuleState(t, env, "crm", "installed")
 	assertModuleState(t, env, "mail", "installed")
 	assertModuleState(t, env, "auto_crm", "installed")
+}
+
+func TestButtonInstallChecksPythonExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	crm := manifests["crm"]
+	crm.ExternalDependencies = map[string][]string{"python": {"missing_py"}}
+	manifests["crm"] = crm
+	createModuleRow(t, env, "base", "installed")
+	createModuleRow(t, env, "mail", "uninstalled")
+	crmID := createModuleRow(t, env, "crm", "uninstalled")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "missing_py" {
+			return fmt.Errorf("not importable")
+		}
+		return nil
+	}
+	service.CheckBinaryDependency = func(string) error {
+		t.Fatal("binary dependency check should not run after python failure")
+		return nil
+	}
+
+	_, err := service.ButtonInstall([]int64{crmID})
+	if err == nil || !strings.Contains(err.Error(), "module crm missing external python dependency missing_py") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "mail", "uninstalled")
+	assertModuleState(t, env, "crm", "uninstalled")
+}
+
+func TestButtonInstallChecksTransitiveExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	mail := manifests["mail"]
+	mail.ExternalDependencies = map[string][]string{"python": {"missing_mail_dep"}}
+	manifests["mail"] = mail
+	createModuleRow(t, env, "base", "installed")
+	createModuleRow(t, env, "mail", "uninstalled")
+	crmID := createModuleRow(t, env, "crm", "uninstalled")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "missing_mail_dep" {
+			return fmt.Errorf("not importable")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonInstall([]int64{crmID})
+	if err == nil || !strings.Contains(err.Error(), "module mail missing external python dependency missing_mail_dep") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "mail", "uninstalled")
+	assertModuleState(t, env, "crm", "uninstalled")
+	assertModuleMissing(t, env, "auto_crm")
+}
+
+func TestButtonInstallSkipsExternalDependenciesForInstalledDependency(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	base := manifests["base"]
+	base.ExternalDependencies = map[string][]string{"python": {"already_installed_missing"}}
+	manifests["base"] = base
+	createModuleRow(t, env, "base", "installed")
+	mailID := createModuleRow(t, env, "mail", "uninstalled")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "already_installed_missing" {
+			return fmt.Errorf("installed module dependency should not be checked")
+		}
+		return nil
+	}
+
+	result, err := service.ButtonInstall([]int64{mailID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation != "install" || strings.Join(result.Modules, ",") != "mail" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "base", "installed")
+	assertModuleState(t, env, "mail", "to install")
+}
+
+func TestButtonInstallChecksAutoInstallExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	autoWebExtra := manifests["auto_web_extra"]
+	autoWebExtra.ExternalDependencies = map[string][]string{"bin": {"missing-auto-bin"}}
+	manifests["auto_web_extra"] = autoWebExtra
+	createModuleRow(t, env, "base", "installed")
+	webID := createModuleRow(t, env, "web", "uninstalled")
+
+	service := New(env, manifests)
+	service.CheckBinaryDependency = func(name string) error {
+		if name == "missing-auto-bin" {
+			return fmt.Errorf("not in path")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonInstall([]int64{webID})
+	if err == nil || !strings.Contains(err.Error(), "module auto_web_extra missing external binary dependency missing-auto-bin") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "web", "uninstalled")
+	assertModuleMissing(t, env, "mail")
+	assertModuleMissing(t, env, "auto_web_extra")
+}
+
+func TestButtonInstallChecksBinaryExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	web := manifests["web"]
+	web.ExternalDependencies = map[string][]string{"bin": {"missing-bin"}}
+	manifests["web"] = web
+	createModuleRow(t, env, "base", "installed")
+	webID := createModuleRow(t, env, "web", "uninstalled")
+
+	service := New(env, manifests)
+	service.CheckBinaryDependency = func(name string) error {
+		if name == "missing-bin" {
+			return fmt.Errorf("not in path")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonImmediateInstall([]int64{webID})
+	if err == nil || !strings.Contains(err.Error(), "module web missing external binary dependency missing-bin") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "web", "uninstalled")
+}
+
+func TestButtonInstallExternalDependencyChecksAreNormalized(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	web := manifests["web"]
+	web.ExternalDependencies = map[string][]string{
+		"python": {" zlib ", "zlib", ""},
+		"bin":    {" sh ", "sh", ""},
+	}
+	manifests["web"] = web
+	createModuleRow(t, env, "base", "installed")
+	webID := createModuleRow(t, env, "web", "uninstalled")
+
+	var pythonCalls []string
+	var binaryCalls []string
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		pythonCalls = append(pythonCalls, name)
+		return nil
+	}
+	service.CheckBinaryDependency = func(name string) error {
+		binaryCalls = append(binaryCalls, name)
+		return nil
+	}
+
+	result, err := service.ButtonInstall([]int64{webID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation != "install" || strings.Join(result.Modules, ",") != "auto_web_extra,mail,web" {
+		t.Fatalf("result = %+v", result)
+	}
+	if strings.Join(pythonCalls, ",") != "zlib" || strings.Join(binaryCalls, ",") != "sh" {
+		t.Fatalf("dependency checks python=%v binary=%v", pythonCalls, binaryCalls)
+	}
+	assertModuleState(t, env, "web", "to install")
+	assertModuleState(t, env, "mail", "to install")
+	assertModuleState(t, env, "auto_web_extra", "to install")
+}
+
+func TestPythonDistributionNameNormalizesRequirements(t *testing.T) {
+	cases := map[string]string{
+		"python-ldap":                          "python-ldap",
+		" geoip2 ":                             "geoip2",
+		"phonenumbers>=8.13":                   "phonenumbers",
+		"google-auth[reauth]>=2":               "google-auth",
+		"asn1crypto; python_version >= '3.10'": "asn1crypto",
+	}
+	for input, want := range cases {
+		if got := pythonDistributionName(input); got != want {
+			t.Fatalf("pythonDistributionName(%q) = %q, want %q", input, got, want)
+		}
+	}
 }
 
 func TestButtonInstallQueuesAutoInstallModules(t *testing.T) {
@@ -340,5 +530,16 @@ func assertModuleState(t *testing.T, env *record.Env, name string, want string) 
 	}
 	if rows[0]["state"] != want {
 		t.Fatalf("%s state = %v, want %s", name, rows[0]["state"], want)
+	}
+}
+
+func assertModuleMissing(t *testing.T, env *record.Env, name string) {
+	t.Helper()
+	found, err := env.Model("ir.module.module").Search(domain.Cond("name", "=", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := found.IDs(); len(ids) != 0 {
+		t.Fatalf("%s should be missing, found ids %v", name, ids)
 	}
 }

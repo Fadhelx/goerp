@@ -11,6 +11,8 @@ func TestParseJSONManifest(t *testing.T) {
 	  "technical_name": "base",
 	  "version": "19.0.1.0.0",
 	  "depends": [],
+	  "external_dependencies": {"python": ["html2text"], "bin": ["wkhtmltopdf"]},
+	  "external_dependency_hints": {"apt": {"html2text": "python3-html2text"}},
 	  "data": ["data/base.xml"],
 	  "installable": true
 	}`))
@@ -20,6 +22,12 @@ func TestParseJSONManifest(t *testing.T) {
 	if manifest.TechnicalName != "base" || !manifest.Installable || len(manifest.Data) != 1 {
 		t.Fatalf("unexpected manifest: %+v", manifest)
 	}
+	if !reflect.DeepEqual(manifest.ExternalDependencies["python"], []string{"html2text"}) || !reflect.DeepEqual(manifest.ExternalDependencies["bin"], []string{"wkhtmltopdf"}) {
+		t.Fatalf("external dependencies = %+v", manifest.ExternalDependencies)
+	}
+	if !reflect.DeepEqual(manifest.ExternalDependencyHints["apt"], map[string]string{"html2text": "python3-html2text"}) {
+		t.Fatalf("external dependency hints = %+v", manifest.ExternalDependencyHints)
+	}
 }
 
 func TestParseOdooPythonManifestAccount(t *testing.T) {
@@ -28,6 +36,11 @@ func TestParseOdooPythonManifestAccount(t *testing.T) {
     'version': '1.4',
     'category': 'Accounting/Accounting',
     'depends': ['base_setup', 'onboarding', 'product', 'analytic', 'portal', 'digest'],
+    'external_dependencies': {
+        'python': ['stdnum'],
+        'bin': ['wkhtmltopdf'],
+        'apt': {'stdnum': 'python3-stdnum'},
+    },
     'data': [
         'security/account_security.xml',
         'security/ir.model.access.csv',
@@ -58,6 +71,12 @@ func TestParseOdooPythonManifestAccount(t *testing.T) {
 	}
 	if !reflect.DeepEqual(manifest.Depends, []string{"base_setup", "onboarding", "product", "analytic", "portal", "digest"}) {
 		t.Fatalf("depends = %+v", manifest.Depends)
+	}
+	if !reflect.DeepEqual(manifest.ExternalDependencies["python"], []string{"stdnum"}) || !reflect.DeepEqual(manifest.ExternalDependencies["bin"], []string{"wkhtmltopdf"}) {
+		t.Fatalf("external dependencies = %+v", manifest.ExternalDependencies)
+	}
+	if !reflect.DeepEqual(manifest.ExternalDependencyHints["apt"], map[string]string{"stdnum": "python3-stdnum"}) {
+		t.Fatalf("external dependency hints = %+v", manifest.ExternalDependencyHints)
 	}
 	if !reflect.DeepEqual(manifest.Data, []string{"security/account_security.xml", "security/ir.model.access.csv", "data/account_data.xml"}) {
 		t.Fatalf("data = %+v", manifest.Data)

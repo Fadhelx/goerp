@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,8 +13,10 @@ import (
 )
 
 type Service struct {
-	Env       *record.Env
-	Manifests map[string]module.Manifest
+	Env                   *record.Env
+	Manifests             map[string]module.Manifest
+	CheckPythonDependency func(string) error
+	CheckBinaryDependency func(string) error
 }
 
 type Result struct {
@@ -83,6 +86,9 @@ func (s Service) install(ids []int64, immediate bool) (Result, error) {
 		return Result{}, err
 	}
 	if err := s.checkInstallExclusions(targetState, plan); err != nil {
+		return Result{}, err
+	}
+	if err := s.checkExternalDependencies(plan); err != nil {
 		return Result{}, err
 	}
 	changed, err := s.writeInstallPlan(targetState, plan)
@@ -255,6 +261,84 @@ func (s Service) checkInstallExclusions(targetState string, plan map[string]bool
 		}
 	}
 	return nil
+}
+
+func (s Service) checkExternalDependencies(plan map[string]bool) error {
+	states, err := s.moduleStates()
+	if err != nil {
+		return err
+	}
+	for _, name := range sortedKeys(plan) {
+		if states[name] == "installed" {
+			continue
+		}
+		manifest, ok := s.Manifests[name]
+		if !ok {
+			return fmt.Errorf("unknown module %s", name)
+		}
+		for _, pydep := range normalizedExternalDependencyList(manifest.ExternalDependencies["python"]) {
+			if err := s.checkPythonDependency(pydep); err != nil {
+				return fmt.Errorf("module %s missing external python dependency %s: %w", name, pydep, err)
+			}
+		}
+		for _, binary := range normalizedExternalDependencyList(manifest.ExternalDependencies["bin"]) {
+			if err := s.checkBinaryDependency(binary); err != nil {
+				return fmt.Errorf("module %s missing external binary dependency %s: %w", name, binary, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (s Service) checkPythonDependency(name string) error {
+	if s.CheckPythonDependency != nil {
+		return s.CheckPythonDependency(name)
+	}
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		return err
+	}
+	distribution := pythonDistributionName(name)
+	if distribution == "" {
+		distribution = name
+	}
+	return exec.Command(python, "-c", "import importlib, importlib.metadata as metadata, sys\ntry:\n    metadata.distribution(sys.argv[1])\nexcept metadata.PackageNotFoundError:\n    importlib.import_module(sys.argv[2])", distribution, distribution).Run()
+}
+
+func pythonDistributionName(value string) string {
+	value = strings.TrimSpace(value)
+	if cut, _, ok := strings.Cut(value, ";"); ok {
+		value = cut
+	}
+	for i, ch := range value {
+		if strings.ContainsRune("<>!=~[ \t", ch) {
+			return strings.TrimSpace(value[:i])
+		}
+	}
+	return value
+}
+
+func (s Service) checkBinaryDependency(name string) error {
+	if s.CheckBinaryDependency != nil {
+		return s.CheckBinaryDependency(name)
+	}
+	_, err := exec.LookPath(name)
+	return err
+}
+
+func normalizedExternalDependencyList(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (s Service) writeInstallPlan(targetState string, plan map[string]bool) (map[string]bool, error) {
