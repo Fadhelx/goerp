@@ -490,7 +490,7 @@ export interface WebClientServiceOptions {
 }
 
 export interface WebClientEnv extends Env {
-  bus: EventBus;
+  bus: InstanceType<typeof EventBus>;
   isReady: Promise<unknown>;
   services: Record<string, unknown>;
   debug: unknown;
@@ -837,10 +837,10 @@ serviceRegistry.addValidation({
 export function makeEnv(options: { debug?: unknown; services?: Record<string, unknown> } = {}): WebClientEnv {
   const bus = new EventBus();
   const isReady = new Promise((resolve) => {
-    const listener = (event: CustomEvent) => {
+    const listener = ((event: Event) => {
       bus.removeEventListener("SERVICES-LOADED", listener);
-      resolve(event.detail);
-    };
+      resolve((event as CustomEvent).detail);
+    }) as EventListener;
     bus.addEventListener("SERVICES-LOADED", listener);
   });
   return {
@@ -859,7 +859,7 @@ export async function startServices(env: WebClientEnv, source: Registry<ServiceD
   const toStart = new Map<string, NamedServiceDefinition>();
   source.addEventListener("UPDATE", async (event) => {
     await Promise.resolve();
-    const detail = event.detail as RegistryUpdate<ServiceDefinition>;
+    const detail = (event as CustomEvent).detail as RegistryUpdate<ServiceDefinition>;
     if (detail.operation === "delete") return;
     const service = detail.value as ServiceDefinition;
     if (toStart.size) {
@@ -2016,6 +2016,7 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
       }));
     },
     onSearch: (query) => {
+      if (rerunActionWithSearchQuery(result, query, options)) return;
       root.dispatchEvent(new CustomEvent("action:search", {
         bubbles: true,
         detail: { query, model: result.resModel }
@@ -2042,7 +2043,10 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     },
     onAddCustomFilter: () => dispatchSearchUtilityEvent(root, "action:search-custom-filter", result),
     onAddCustomGroup: () => dispatchSearchUtilityEvent(root, "action:search-custom-group", result),
-    onAddFavorite: () => dispatchSearchUtilityEvent(root, "action:search-add-favorite", result)
+    onAddFavorite: () => {
+      if (persistCurrentSearchFavorite(result, root, options)) return;
+      dispatchSearchUtilityEvent(root, "action:search-add-favorite", result);
+    }
   });
   const createButton = renderWindowActionCreateButton(result, root, options);
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
@@ -2065,6 +2069,14 @@ function actionWithViewType(action: Record<string, unknown>, viewType: string): 
   return next;
 }
 
+function rerunActionWithSearchQuery(result: WindowActionResult, query: string, options: RenderWindowActionOptions): boolean {
+  if (!options.services?.action) return false;
+  const nextAction = actionWithCurrentSearch(result, result.search?.state.facets ?? []);
+  nextAction.__search_query = String(query ?? "").trim();
+  void options.services.action.doAction(nextAction, replaceActionOptions(options));
+  return true;
+}
+
 function rerunActionWithSearchMenuItem(
   result: WindowActionResult,
   item: ActionControlPanelMenuItem,
@@ -2081,11 +2093,80 @@ function rerunActionWithSearchMenuItem(
 
 function rerunActionWithFacets(result: WindowActionResult, facets: readonly SearchFacet[], options: RenderWindowActionOptions): boolean {
   if (!options.services?.action) return false;
-  void options.services.action.doAction({
+  void options.services.action.doAction(actionWithCurrentSearch(result, facets), replaceActionOptions(options));
+  return true;
+}
+
+function persistCurrentSearchFavorite(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): boolean {
+  const orm = options.services?.orm;
+  if (!orm) return false;
+  const state = result.search?.state;
+  if (!state) return false;
+  const values: Record<string, unknown> = {
+    name: currentSearchFavoriteName(result),
+    model_id: result.resModel,
+    domain: JSON.stringify(state.domain ?? []),
+    context: JSON.stringify(currentSearchFavoriteContext(state)),
+    sort: "[]",
+    active: true,
+    is_default: false
+  };
+  const actionID = numericActionID(result.action.id);
+  if (actionID !== undefined) values.action_id = actionID;
+  if (user.userId > 0) values.user_id = user.userId;
+  void orm.create("ir.filters", [values]).then(() => {
+    options.services?.notification?.add("Favorite saved", { type: "success" });
+    if (options.services?.action) {
+      return options.services.action.doAction(actionWithCurrentSearch(result, state.facets), replaceActionOptions(options));
+    }
+    root.dispatchEvent(new CustomEvent("action:search-favorite-saved", {
+      bubbles: true,
+      detail: { model: result.resModel, values }
+    }));
+    return undefined;
+  }).catch((error) => {
+    options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+    root.dispatchEvent(new CustomEvent("action:search-favorite-error", {
+      bubbles: true,
+      detail: { model: result.resModel, error }
+    }));
+  });
+  return true;
+}
+
+function actionWithCurrentSearch(result: WindowActionResult, facets: readonly SearchFacet[]): Record<string, unknown> {
+  const nextAction: Record<string, unknown> = {
     ...result.action,
     __search_facets: facets.map(cloneSearchFacet)
-  }, replaceActionOptions(options));
-  return true;
+  };
+  const query = String(result.search?.state.query ?? "").trim();
+  if (query) nextAction.__search_query = query;
+  else delete nextAction.__search_query;
+  return nextAction;
+}
+
+function currentSearchFavoriteName(result: WindowActionResult): string {
+  const query = String(result.search?.state.query ?? "").trim();
+  if (query) return query;
+  const facets = result.search?.state.facets ?? [];
+  const labels = facets.map((facet) => searchFacetLabelValue(facet)).filter(Boolean);
+  if (labels.length) return labels.join(", ");
+  return "Current Search";
+}
+
+function searchFacetLabelValue(facet: SearchFacet): string {
+  const labels = facet.valueLabels?.length ? facet.valueLabels : [facet.label];
+  return labels.map((item) => String(item ?? "").trim()).filter(Boolean).join(" or ");
+}
+
+function currentSearchFavoriteContext(state: SearchModelState): Record<string, unknown> {
+  const context = { ...state.context };
+  if (state.groupBy.length) context.group_by = [...state.groupBy];
+  return context;
+}
+
+function numericActionID(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 function replaceActionOptions(options: RenderWindowActionOptions): ActionServiceOptions {

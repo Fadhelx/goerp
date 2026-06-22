@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   Component,
   EventBus,
+  OWL_UPSTREAM,
   OwlError,
   SERVICES_METADATA,
   __info__,
@@ -21,6 +22,7 @@ import {
   onWillPatch,
   onWillStart,
   onWillUnmount,
+  probeOfficialOwlRuntime,
   reactive,
   status,
   toRaw,
@@ -58,9 +60,23 @@ function createElement() {
 }
 
 globalThis.document = {
+  implementation: {
+    createDocument() {
+      return {};
+    }
+  },
   readyState: "complete",
+  addEventListener() {},
   createElement() {
     return createElement();
+  }
+};
+globalThis.window = {
+  requestAnimationFrame(callback) {
+    return setTimeout(callback, 0);
+  },
+  cancelAnimationFrame(handle) {
+    clearTimeout(handle);
   }
 };
 
@@ -87,11 +103,20 @@ await nextTick();
 assert.equal(reactiveCalled, true);
 
 assert.equal(__info__.version, "gorp-owl-compat");
+assert.equal(OWL_UPSTREAM.packageName, "@odoo/owl");
+assert.equal(OWL_UPSTREAM.license, "LGPL-3.0-only");
+assert.equal(OWL_UPSTREAM.version, "2.8.3");
+const officialOwl = await probeOfficialOwlRuntime();
+assert.equal(officialOwl.available, true);
+assert.equal(officialOwl.version, "2.8.3");
+assert.equal(officialOwl.exports.includes("Component"), true);
+assert.equal(officialOwl.exports.includes("EventBus"), true);
 assert.equal(htmlEscape("<b>&</b>"), "&lt;b&gt;&amp;&lt;/b&gt;");
 await whenReady();
 assert.equal(validate("x", "string"), true);
 assert.equal(validate(1, ["string", "number"]), true);
 assert.equal(validateType([1], "array"), true);
+assert.equal(validateType(1.2, "integer"), false);
 assert.equal(blockDom.text("x"), "x");
 assert.equal(blockDom.createBlock("tpl")(), "tpl");
 
@@ -327,5 +352,30 @@ bus.on("ready", (event) => {
 });
 bus.trigger("ready", { ok: true });
 assert.deepEqual(detail, { ok: true });
+
+class AutoPatchDemo extends Component {
+  static template = xml`<div></div>`;
+
+  setup() {
+    this.state = useState({ count: 0 });
+  }
+
+  render() {
+    const el = super.render();
+    el.innerHTML = `count:${this.state.count}`;
+    return el;
+  }
+}
+
+const autoPatchTarget = createElement();
+const autoPatchComponent = await mount(AutoPatchDemo, autoPatchTarget);
+const firstAutoPatchEl = autoPatchTarget.children[0];
+assert.equal(firstAutoPatchEl.innerHTML, "count:0");
+autoPatchComponent.state.count = 2;
+await nextTick();
+assert.equal(autoPatchTarget.children.length, 1);
+assert.equal(autoPatchTarget.children[0].innerHTML, "count:2");
+assert.notEqual(autoPatchTarget.children[0], firstAutoPatchEl);
+autoPatchComponent.unmount();
 
 assert.equal(markup("<b>x</b>").toString(), "<b>x</b>");

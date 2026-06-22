@@ -20,6 +20,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   const root = document.createElement("main");
   root.className = "o_web_client";
   root.dataset.theme = options.theme.name;
+  root.dataset.view = options.menus ? "apps" : "ready";
   root.dataset.mobileSafe = "true";
   const menuApps = normalizeHomeMenuApps(options.menus);
   const apps = options.apps ?? navbarApps(menuApps);
@@ -30,6 +31,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   };
   let setNavbarActive: (appId?: number | string) => void = () => {};
   const openApp = (app: HomeMenuApp) => {
+    root.dataset.view = "action";
     setMobileMenuOpen(false);
     setNavbarActive(app.rootId ?? app.id);
     return options.onOpenApp?.(app, action);
@@ -40,6 +42,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     return options.onOpenAppsCatalog?.(action);
   };
   const renderApps = () => {
+    root.dataset.view = "apps";
     setMobileMenuOpen(false);
     setNavbarActive(undefined);
     if (!options.menus) return;

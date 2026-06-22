@@ -1,5 +1,149 @@
 import assert from "node:assert/strict";
-import {
+let createActionService;
+let createClientActionExecutor;
+let createDatasetService;
+let createORMService;
+let createRPCService;
+let createWebClient;
+let createWebClientServices;
+let BUILTINS;
+let createDialogService;
+let createNotificationService;
+let createPortalMailService;
+let Domain;
+let DuplicatedKeyError;
+let EvaluationError;
+let evaluateBooleanExpr;
+let evaluateExpr;
+let evalPartialContext;
+let execOnIterable;
+let formatAST;
+let InvalidDomainError;
+let KeyNotFoundError;
+let makeContext;
+let makeEnv;
+let parseExpr;
+let portalAccessFormFields;
+let portalAccessPayload;
+let portalMailAvatarUrl;
+let PyDate;
+let PyDateTime;
+let PyTime;
+let PyTimeDelta;
+let registry;
+let Registry;
+let renderWindowAction;
+let renderWindowActionDialog;
+let registries;
+let session;
+let serviceMetadata;
+let startServices;
+let toPyDict;
+let toPyValue;
+let UPDATE_METHODS;
+let uniqueId;
+let user;
+let x2ManyCommands;
+
+class TestEvent {
+  constructor(type, options = {}) {
+    this.type = type;
+    this.detail = options.detail;
+    this.bubbles = options.bubbles === true;
+    this.defaultPrevented = false;
+    this.target = null;
+    this.currentTarget = null;
+  }
+
+  preventDefault() {
+    this.defaultPrevented = true;
+  }
+}
+
+globalThis.document = {
+  implementation: {
+    createDocument() {
+      return {};
+    }
+  },
+  createTextNode(text) {
+    return { tag: "#text", textContent: text, children: [] };
+  },
+  createElement(tag) {
+    return {
+      tag,
+      tagName: tag.toUpperCase(),
+      className: "",
+      dataset: {},
+      attributes: {},
+      textContent: "",
+      value: "",
+      children: [],
+      listeners: {},
+      append(...nodes) {
+        this.children.push(...nodes);
+      },
+      replaceChildren(...nodes) {
+        this.children = nodes;
+      },
+      setAttribute(name, value) {
+        this.attributes[name] = String(value);
+      },
+      getAttribute(name) {
+        return this.attributes[name] ?? null;
+      },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
+      focus() {
+        this.focused = true;
+      },
+      addEventListener(type, listener) {
+        this.listeners[type] = [...(this.listeners[type] ?? []), listener];
+      },
+      dispatchEvent(event) {
+        try {
+          event.target ??= this;
+          event.currentTarget = this;
+        } catch {}
+        for (const listener of this.listeners[event.type] ?? []) {
+          listener.call(this, event);
+        }
+        return !event.defaultPrevented;
+      }
+    };
+  }
+};
+const windowListeners = {};
+globalThis.window = {
+  innerWidth: 1024,
+  requestAnimationFrame(callback) {
+    return setTimeout(callback, 0);
+  },
+  cancelAnimationFrame(handle) {
+    clearTimeout(handle);
+  },
+  matchMedia(query) {
+    return { media: query, matches: this.innerWidth < 768 };
+  },
+  addEventListener(type, listener) {
+    windowListeners[type] = [...(windowListeners[type] ?? []), listener];
+  },
+  removeEventListener(type, listener) {
+    windowListeners[type] = (windowListeners[type] ?? []).filter((item) => item !== listener);
+  },
+  dispatchEvent(event) {
+    try {
+      event.target ??= this;
+      event.currentTarget = this;
+    } catch {}
+    for (const listener of windowListeners[event.type] ?? []) listener.call(this, event);
+    return !event.defaultPrevented;
+  }
+};
+if (!globalThis.CustomEvent) globalThis.CustomEvent = TestEvent;
+
+({
   createActionService,
   createClientActionExecutor,
   createDatasetService,
@@ -45,90 +189,7 @@ import {
   uniqueId,
   user,
   x2ManyCommands
-} from "../../../dist/packages/webclient/src/index.js";
-
-class TestEvent {
-  constructor(type, options = {}) {
-    this.type = type;
-    this.detail = options.detail;
-    this.bubbles = options.bubbles === true;
-    this.defaultPrevented = false;
-    this.target = null;
-    this.currentTarget = null;
-  }
-
-  preventDefault() {
-    this.defaultPrevented = true;
-  }
-}
-
-globalThis.document = {
-  createTextNode(text) {
-    return { tag: "#text", textContent: text, children: [] };
-  },
-  createElement(tag) {
-    return {
-      tag,
-      tagName: tag.toUpperCase(),
-      className: "",
-      dataset: {},
-      attributes: {},
-      textContent: "",
-      value: "",
-      children: [],
-      listeners: {},
-      append(...nodes) {
-        this.children.push(...nodes);
-      },
-      replaceChildren(...nodes) {
-        this.children = nodes;
-      },
-      setAttribute(name, value) {
-        this.attributes[name] = String(value);
-      },
-      getAttribute(name) {
-        return this.attributes[name] ?? null;
-      },
-      removeAttribute(name) {
-        delete this.attributes[name];
-      },
-      focus() {
-        this.focused = true;
-      },
-      addEventListener(type, listener) {
-        this.listeners[type] = [...(this.listeners[type] ?? []), listener];
-      },
-      dispatchEvent(event) {
-        event.target ??= this;
-        event.currentTarget = this;
-        for (const listener of this.listeners[event.type] ?? []) {
-          listener.call(this, event);
-        }
-        return !event.defaultPrevented;
-      }
-    };
-  }
-};
-const windowListeners = {};
-globalThis.window = {
-  innerWidth: 1024,
-  matchMedia(query) {
-    return { media: query, matches: this.innerWidth < 768 };
-  },
-  addEventListener(type, listener) {
-    windowListeners[type] = [...(windowListeners[type] ?? []), listener];
-  },
-  removeEventListener(type, listener) {
-    windowListeners[type] = (windowListeners[type] ?? []).filter((item) => item !== listener);
-  },
-  dispatchEvent(event) {
-    event.target ??= this;
-    event.currentTarget = this;
-    for (const listener of windowListeners[event.type] ?? []) listener.call(this, event);
-    return !event.defaultPrevented;
-  }
-};
-globalThis.CustomEvent = TestEvent;
+} = await import("../../../dist/packages/webclient/src/index.js"));
 
 function findAll(node, predicate, out = []) {
   if (predicate(node)) out.push(node);
@@ -862,6 +923,76 @@ assert.deepEqual(controlActionCalls[2].action.views.slice(0, 2), [[false, "form"
 assert.equal(controlActionCalls[2].action.view_mode, "form,list");
 assert.equal(controlActionCalls[2].action.view_type, "form");
 assert.deepEqual(controlActionCalls[2].options, { additionalContext: {}, replaceLastAction: true });
+
+const liveSearchCalls = [];
+const liveSearchWindow = renderWindowAction(windowResult, {
+  services: {
+    action: {
+      doAction(action, options) {
+        liveSearchCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const liveSearchInput = findAll(liveSearchWindow, (node) => node.tag === "input" && String(node.className).includes("o_searchview_input"))[0];
+liveSearchInput.value = "Azure";
+liveSearchInput.dispatchEvent(new TestEvent("input"));
+await Promise.resolve();
+assert.equal(liveSearchCalls.length, 1);
+assert.equal(liveSearchCalls[0].action.__search_query, "Azure");
+assert.deepEqual(liveSearchCalls[0].action.__search_facets.map((facet) => facet.id), ["filter-customer"]);
+assert.deepEqual(liveSearchCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
+const favoriteCreates = [];
+const favoriteActionCalls = [];
+const favoriteNotifications = [];
+const favoriteWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __search_query: "Azure"
+  },
+  search: {
+    ...windowResult.search,
+    state: {
+      ...windowResult.search.state,
+      query: "Azure"
+    }
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        favoriteActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    },
+    orm: {
+      create(model, records) {
+        favoriteCreates.push({ model, records });
+        return Promise.resolve([99]);
+      }
+    },
+    notification: {
+      add(message, options) {
+        favoriteNotifications.push({ message, options });
+      }
+    }
+  }
+});
+findAll(favoriteWindow, (node) => String(node.className).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(favoriteCreates.length, 1);
+assert.equal(favoriteCreates[0].model, "ir.filters");
+assert.equal(favoriteCreates[0].records[0].name, "Azure");
+assert.equal(favoriteCreates[0].records[0].model_id, "res.partner");
+assert.equal(favoriteCreates[0].records[0].action_id, 7);
+assert.deepEqual(JSON.parse(favoriteCreates[0].records[0].domain), windowResult.search.state.domain);
+assert.equal(favoriteActionCalls.length, 1);
+assert.equal(favoriteActionCalls[0].action.__search_query, "Azure");
+assert.deepEqual(favoriteNotifications, [{ message: "Favorite saved", options: { type: "success" } }]);
 
 const nonFormSwitchCalls = [];
 const formSwitchWindow = renderWindowAction({

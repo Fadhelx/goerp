@@ -8,7 +8,6 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@odoo/owl": ["packages/owl-compat/src/index.ts"],
       "@web/session": ["packages/webclient/src/aliases/session.ts"],
       "@web/core/browser/browser": ["packages/webclient/src/aliases/core/browser/browser.ts"],
       "@web/core/confirmation_dialog/confirmation_dialog": ["packages/webclient/src/aliases/core/confirmation_dialog/confirmation_dialog.ts"],

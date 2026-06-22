@@ -86,6 +86,7 @@ const shell = createWebClientShell({
 
 assert.match(shell.className, /o_web_client/);
 assert.equal(shell.dataset.theme, "enterprise-like");
+assert.equal(shell.dataset.view, "apps");
 assert.equal(shell.dataset.mobileSafe, "true");
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
@@ -99,6 +100,7 @@ assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
 assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp")).length, 0);
 
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].listeners.click[0]();
+assert.equal(shell.dataset.view, "action");
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_entry"))[0].listeners.click[0]();
 assert.deepEqual(opened, [
@@ -113,6 +115,7 @@ const mobileMenu = findAll(shell, (node) => String(node.className).includes("o-m
 mobileMenu.listeners.click[0]();
 assert.equal(bodyClasses.has("o-mobile-menu-open"), true);
 findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
+assert.equal(shell.dataset.view, "apps");
 assert.equal(bodyClasses.has("o-mobile-menu-open"), false);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, undefined);
 

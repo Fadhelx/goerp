@@ -5913,6 +5913,49 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client > .o_action_manager > .o-app-launcher-view {
 		min-height: calc(100vh - 46px);
 	}
+	main.o_web_client[data-view="apps"] {
+		position: relative;
+		background: #050914;
+	}
+	main.o_web_client[data-view="apps"] > .o_main_navbar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 20;
+		background: transparent;
+		border: 0;
+		box-shadow: none;
+	}
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o_navbar_apps_menu,
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o_navbar_sections,
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o-mobile-menu-toggle,
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o_mail_systray_item,
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o_activity_menu {
+		display: none;
+	}
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o_menu_systray {
+		margin-left: auto;
+		background: transparent;
+	}
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o-systray-item {
+		background: transparent;
+		border-color: transparent;
+		color: #fff;
+		text-shadow: 0 1px 2px rgba(0,0,0,.24);
+	}
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o-systray-item:hover {
+		background: rgba(255,255,255,.1);
+		border-color: rgba(255,255,255,.12);
+	}
+	main.o_web_client[data-view="apps"] > .o_action_manager {
+		min-height: 100vh;
+		background: #050914;
+	}
+	main.o_web_client[data-view="apps"] > .o_action_manager > .o-app-launcher-view {
+		min-height: 100vh;
+		padding-top: 76px;
+	}
 	.panel {
 		background: transparent;
 		border-bottom: 0;
@@ -6226,7 +6269,8 @@ const webClientShellHTML = `<!doctype html>
 		padding: 14px 18px 24px;
 	}
 	.o-app-launcher-view {
-		background: var(--home-bg);
+		background: #080d18;
+		box-shadow: inset 44vw 0 120vw rgba(16,43,53,.44);
 		color: var(--home-text);
 		padding: 34px 24px 44px;
 	}
@@ -6298,15 +6342,60 @@ const webClientShellHTML = `<!doctype html>
 	.app-icon {
 		display: inline-grid;
 		place-items: center;
+		position: relative;
 		width: 54px;
 		height: 54px;
 		border-radius: 12px;
 		background: #875a7b;
 		color: #fff;
-		font-size: 20px;
+		font-size: 0;
 		font-weight: 600;
 		box-shadow: inset 0 -10px 18px rgba(0,0,0,.14), 0 8px 18px rgba(0,0,0,.16);
 		overflow: hidden;
+	}
+	.app-icon::before,
+	.app-icon::after {
+		content: "";
+		position: absolute;
+		inset: 12px;
+		border-radius: 6px;
+		background: rgba(255,255,255,.86);
+	}
+	.app-icon::after {
+		inset: auto 11px 10px 25px;
+		height: 10px;
+		border-radius: 5px;
+		background: rgba(255,255,255,.42);
+	}
+	.app-icon[data-icon-token="teal"]::before {
+		inset: 11px 18px 11px 10px;
+		border-radius: 12px 4px 4px 12px;
+	}
+	.app-icon[data-icon-token="teal"]::after {
+		inset: 11px 10px 11px 32px;
+		height: auto;
+		border-radius: 4px 12px 12px 4px;
+	}
+	.app-icon[data-icon-token="blue"]::before {
+		inset: 11px;
+		border-radius: 50%;
+		background: transparent;
+		border: 7px solid rgba(255,255,255,.86);
+	}
+	.app-icon[data-icon-token="blue"]::after {
+		inset: 21px 10px auto 10px;
+		height: 5px;
+		border-radius: 3px;
+	}
+	.app-icon[data-icon-token="terracotta"]::before {
+		inset: 11px;
+		transform: rotate(45deg);
+	}
+	.app-icon[data-icon-token="terracotta"]::after {
+		inset: 19px;
+		height: auto;
+		border-radius: 50%;
+		background: rgba(11,14,24,.48);
 	}
 	.o-app-launcher-view .app-card:nth-child(4n+2) .app-icon { background: #017e84; }
 	.o-app-launcher-view .app-card:nth-child(4n+3) .app-icon { background: #5f6f94; }
@@ -18019,9 +18108,63 @@ func (s Server) viewDescription(env *record.Env, modelName string, ref viewReque
 		payload["toolbar"] = toolbarBindings(env, modelName, ref.Type, groups)
 	}
 	if boolOption(options, "load_filters") && ref.Type == view.Search {
-		payload["filters"] = []any{}
+		payload["filters"] = searchViewFilterPayload(env, modelName, options)
 	}
 	return payload, nil
+}
+
+func searchViewFilterPayload(env *record.Env, modelName string, options map[string]any) []any {
+	if env == nil {
+		return []any{}
+	}
+	if _, ok := env.ModelMetadata("ir.filters"); !ok {
+		return []any{}
+	}
+	found, err := env.Model("ir.filters").SearchWithOptions(
+		domain.And(
+			domain.Cond("model_id", domain.Equal, modelName),
+			domain.Cond("active", domain.Equal, true),
+		),
+		record.SearchOptions{Limit: 200, Order: "name asc, id asc"},
+	)
+	if err != nil || len(found.IDs()) == 0 {
+		return []any{}
+	}
+	rows, err := env.Model("ir.filters").Browse(found.IDs()...).Read("id", "name", "model_id", "domain", "context", "sort", "user_id", "action_id", "embedded_action_id", "is_default", "active")
+	if err != nil {
+		return []any{}
+	}
+	actionID := int64Value(options["action_id"])
+	embeddedActionID := int64Value(options["embedded_action_id"])
+	userID := env.Context().UserID
+	out := make([]any, 0, len(rows))
+	for _, row := range rows {
+		filterUserID := int64Value(row["user_id"])
+		if filterUserID != 0 && filterUserID != userID {
+			continue
+		}
+		filterActionID := int64Value(row["action_id"])
+		if filterActionID != 0 && filterActionID != actionID {
+			continue
+		}
+		filterEmbeddedActionID := int64Value(row["embedded_action_id"])
+		if filterEmbeddedActionID != 0 && filterEmbeddedActionID != embeddedActionID {
+			continue
+		}
+		out = append(out, map[string]any{
+			"id":                 int64Value(row["id"]),
+			"name":               stringValue(row["name"]),
+			"model_id":           stringValue(row["model_id"]),
+			"domain":             firstNonEmptyHTTPString(stringValue(row["domain"]), "[]"),
+			"context":            firstNonEmptyHTTPString(stringValue(row["context"]), "{}"),
+			"sort":               firstNonEmptyHTTPString(stringValue(row["sort"]), "[]"),
+			"user_id":            falseIfZero(filterUserID),
+			"action_id":          falseIfZero(filterActionID),
+			"embedded_action_id": falseIfZero(filterEmbeddedActionID),
+			"is_default":         truthyHTTPValue(row["is_default"]),
+		})
+	}
+	return out
 }
 
 func toolbarBindings(env *record.Env, modelName string, viewType view.Type, groups map[int64]bool) map[string]any {

@@ -610,8 +610,8 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"[('create_uid','=', user.id)]",
 		"['|', '|', ('partner_share', '=', False), ('company_id', 'parent_of', company_ids), ('company_id', '=', False)]",
 		"[('company_id', 'in', company_ids + [False])]",
-		"[('user_ids','in',[False,user.id])]",
-		"[('user_ids', 'in', user.ids)]",
+		"[('user_id','in',[False,user.id])]",
+		"[('user_id', 'in', user.ids)]",
 		"[('commercial_partner_id', '=', user.commercial_partner_id.id)]",
 		"[('id', 'child_of', user.commercial_partner_id.id)]",
 	}
@@ -631,8 +631,9 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('create_uid','=', user.id)]", map[string]any{"create_uid": int64(10)}},
 		{"[('company_id', 'in', company_ids + [False])]", map[string]any{"company_id": int64(2)}},
 		{"[('company_id', 'in', company_ids + [False])]", map[string]any{"company_id": false}},
-		{"[('user_ids','in',[False,user.id])]", map[string]any{"user_ids": []int64{10}}},
-		{"[('user_ids', 'in', user.ids)]", map[string]any{"user_ids": []int64{10}}},
+		{"[('user_id','in',[False,user.id])]", map[string]any{"user_id": int64(10)}},
+		{"[('user_id','in',[False,user.id])]", map[string]any{"user_id": false}},
+		{"[('user_id', 'in', user.ids)]", map[string]any{"user_id": int64(10)}},
 		{"[('commercial_partner_id', '=', user.commercial_partner_id.id)]", map[string]any{"commercial_partner_id": int64(30)}},
 		{"[('id', 'child_of', user.commercial_partner_id.id)]", map[string]any{"id": int64(31), "commercial_partner_id": int64(30)}},
 	}
@@ -804,6 +805,10 @@ func TestLoadedOdoo19BaseACLAndRecordRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	employeePartnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Employee Contact"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	systemUserID, err := env.Model("res.users").Create(map[string]any{
 		"login":       "system-active",
 		"name":        "System Active",
@@ -812,6 +817,18 @@ func TestLoadedOdoo19BaseACLAndRecordRules(t *testing.T) {
 		"company_ids": []int64{mainCompanyID},
 		"group_ids":   []int64{userGroupID, systemGroupID},
 		"partner_id":  systemPartnerID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	employeeUserID, err := env.Model("res.users").Create(map[string]any{
+		"login":       "employee-active",
+		"name":        "Employee Active",
+		"active":      true,
+		"company_id":  mainCompanyID,
+		"company_ids": []int64{mainCompanyID},
+		"group_ids":   []int64{userGroupID},
+		"partner_id":  employeePartnerID,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -900,6 +917,9 @@ func TestLoadedOdoo19BaseACLAndRecordRules(t *testing.T) {
 	assertRecordRule(t, engine, portalUserID, "res.users", map[string]any{"share": false, "company_ids": []int64{mainCompanyID}, "commercial_partner_id": portalCommercialID}, true)
 	assertRecordRule(t, engine, portalUserID, "res.users", map[string]any{"share": false, "company_ids": []int64{mainCompanyID}, "commercial_partner_id": publicCommercialID}, false)
 	assertRecordRule(t, engine, adminID, "res.partner", map[string]any{"id": otherPartnerID, "company_id": int64(999), "partner_share": true}, false)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": employeeUserID}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID}, false)
 }
 
 func TestPersistedSecurityLoadsPrincipals(t *testing.T) {

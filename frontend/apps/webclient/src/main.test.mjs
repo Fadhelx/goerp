@@ -16,10 +16,46 @@ let sessionResponse = {
   },
   user_context: { allowed_company_ids: [2, 1] }
 };
+let mailStoreResponse = {
+  inbox: { counter: 2 },
+  starred: { counter: 1 },
+  activityCounter: 1,
+  activityGroups: [
+    { name: "Partners", model: "res.partner", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0, activity_ids: [41] }
+  ]
+};
 
-globalThis.location = { search: "", hash: "" };
+const testLocation = { href: "/web", pathname: "/web", search: "", hash: "" };
+const setTestURL = (url) => {
+  testLocation.href = url;
+  const hashIndex = url.indexOf("#");
+  testLocation.hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
+};
+globalThis.location = testLocation;
+globalThis.window = {
+  location: testLocation,
+  requestAnimationFrame(callback) {
+    return setTimeout(callback, 0);
+  },
+  cancelAnimationFrame(handle) {
+    clearTimeout(handle);
+  },
+  history: {
+    pushState(_state, _title, url) {
+      setTestURL(String(url));
+    },
+    replaceState(_state, _title, url) {
+      setTestURL(String(url));
+    }
+  }
+};
 globalThis.matchMedia = () => ({ matches: false });
 globalThis.document = {
+  implementation: {
+    createDocument() {
+      return {};
+    }
+  },
   documentElement: { dataset: {} },
   body: {
     classList: {
@@ -77,8 +113,10 @@ globalThis.document = {
         this.listeners[type] = [...(this.listeners[type] ?? []), listener];
       },
       dispatchEvent(event) {
-        event.target ??= this;
-        event.currentTarget = this;
+        try {
+          event.target ??= this;
+          event.currentTarget = this;
+        } catch {}
         for (const listener of this.listeners?.[event.type] ?? []) listener.call(this, event);
         return !event.defaultPrevented;
       },
@@ -87,13 +125,6 @@ globalThis.document = {
       }
     };
   }
-};
-globalThis.CustomEvent = class TestCustomEvent {
-  constructor(type, options = {}) {
-    this.type = type;
-    this.detail = options.detail;
-  }
-  stopPropagation() {}
 };
 globalThis.addEventListener = (type, listener) => {
   events[type] = [...(events[type] ?? []), listener];
@@ -116,24 +147,23 @@ globalThis.fetch = async (route, options = {}) => {
   }
   if (route === "/mail/data") {
     return { ok: true, status: 200, async json() { return {
-      Store: {
-        inbox: { counter: 2 },
-        starred: { counter: 1 },
-        activityCounter: 1,
-        activityGroups: [
-          { name: "Partners", model: "res.partner", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0, activity_ids: [41] }
-        ]
-      }
+      Store: mailStoreResponse
     }; } };
   }
   if (route === "/web/dataset/call_kw/mail.activity/activity_format") {
     return { ok: true, status: 200, async json() { return {
       "mail.activity": [
-        { id: 41, display_name: "Call customer", res_name: "Azure Interior", res_model: "res.partner", date_deadline: "2026-06-22", state: "today" }
+        { id: 41, display_name: "Call customer", res_id: 11, res_name: "Azure Interior", res_model: "res.partner", date_deadline: "2026-06-22", state: "today" }
       ]
     }; } };
   }
   if (route === "/web/dataset/call_kw/mail.activity/action_feedback") {
+    mailStoreResponse = {
+      inbox: { counter: 2 },
+      starred: { counter: 1 },
+      activityCounter: 0,
+      activityGroups: []
+    };
     return { ok: true, status: 200, async json() { return { done: true }; } };
   }
   if (route === "/web/webclient/load_menus") {
@@ -199,6 +229,21 @@ globalThis.fetch = async (route, options = {}) => {
   }
   if (route === "/web/dataset/call_kw/partner.wizard/default_get") {
     return { ok: true, status: 200, async json() { return { name: "Wizard" }; } };
+  }
+  if (route === "/web/dataset/call_kw/res.partner/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: { name: { type: "char", string: "Name" } },
+      related_models: {},
+      views: {
+        form: {
+          arch: `<form><sheet><field name="name"/></sheet></form>`,
+          id: 50
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/res.partner/web_read") {
+    return { ok: true, status: 200, async json() { return [{ id: 11, name: "Azure Interior" }]; } };
   }
   throw new Error(`unexpected fetch ${route}`);
 };
@@ -298,16 +343,33 @@ const activityMenuItem = findAll(shell, (node) => node.dataset?.systrayItem === 
 activityMenuItem.dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const activityManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
-assert.equal(findAll(activityManager, (node) => String(node.className).includes("o_activity_card") && node.dataset?.activityId === "41").length, 1);
+const activityCard = findAll(activityManager, (node) => String(node.className).includes("o_activity_card") && node.dataset?.activityId === "41")[0];
+assert.equal(activityCard.dataset.resModel, "res.partner");
+assert.equal(activityCard.dataset.resId, "11");
+activityCard.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(findAll(activityManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "res.partner" && node.dataset?.view === "form").length, 1);
+assert.equal(globalThis.location.hash, "#model=res.partner&view_type=form&id=11");
+assert.equal(fetches.some((item) => item.route === "/web/dataset/call_kw/res.partner/web_read"), true);
+activityMenuItem.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
 const doneButton = findAll(activityManager, (node) => node.dataset?.activityAction === "action_feedback")[0];
 const feedback = findAll(activityManager, (node) => node.attributes?.placeholder === "Write Feedback")[0];
 feedback.value = "Resolved";
+fetches.length = 0;
 doneButton.dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
-const activityFormatFetch = fetches.find((item) => item.route === "/web/dataset/call_kw/mail.activity/activity_format");
-assert.deepEqual(JSON.parse(activityFormatFetch.options.body).args, [[41]]);
+assert.deepEqual(fetches.map((item) => item.route), [
+  "/web/dataset/call_kw/mail.activity/action_feedback",
+  "/mail/data"
+]);
 const doneFetch = fetches.find((item) => item.route === "/web/dataset/call_kw/mail.activity/action_feedback");
 assert.deepEqual(JSON.parse(doneFetch.options.body), { args: [[41]], kwargs: { attachment_ids: [], feedback: "Resolved" } });
+const activitySystray = findAll(shell, (node) => String(node.className).includes("o_activity_menu"))[0];
+assert.equal(findAll(activitySystray, (node) => String(node.className).includes("o-systray-counter") && node.hidden === true && node.textContent === "0").length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Partners").length, 0);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "No activities").length, 1);
+assert.equal(findAll(activityManager, (node) => String(node.className).includes("o_systray_action_row") && node.textContent === "No activities").length, 1);
 
 fetches.length = 0;
 sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };

@@ -12695,6 +12695,31 @@ func TestWebShellActionMetadataNormalizesPythonLiterals(t *testing.T) {
 
 func TestCallKWGetViewsOdooShape(t *testing.T) {
 	server := testServer(t)
+	filterID, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":       "My Customers",
+		"model_id":   "res.partner",
+		"domain":     `[["customer_rank", ">", 0]]`,
+		"context":    `{"group_by":["company_id"]}`,
+		"sort":       "[]",
+		"user_id":    int64(1),
+		"action_id":  int64(1),
+		"is_default": true,
+		"active":     true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":      "Other Action",
+		"model_id":  "res.partner",
+		"domain":    "[]",
+		"context":   "{}",
+		"sort":      "[]",
+		"action_id": int64(99),
+		"active":    true,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	handler := server.Handler()
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":12,"params":{"model":"res.partner","method":"get_views","kwargs":{"views":[[8,"list"],[false,"form"],[9,"search"]],"options":{"toolbar":true,"load_filters":true,"action_id":1},"context":{"lang":"en_US"}}}}`)
 
@@ -12721,8 +12746,13 @@ func TestCallKWGetViewsOdooShape(t *testing.T) {
 	if _, ok := listView["toolbar"].(map[string]any); !ok {
 		t.Fatalf("toolbar missing: %#v", listView)
 	}
-	if filters := searchView["filters"].([]any); len(filters) != 0 {
+	filters := searchView["filters"].([]any)
+	if len(filters) != 1 {
 		t.Fatalf("filters = %#v", filters)
+	}
+	filter := filters[0].(map[string]any)
+	if int64Value(filter["id"]) != filterID || filter["name"] != "My Customers" || filter["domain"] != `[["customer_rank", ">", 0]]` || filter["context"] != `{"group_by":["company_id"]}` || filter["is_default"] != true {
+		t.Fatalf("filter = %#v", filter)
 	}
 	models := result["models"].(map[string]any)
 	fields := models["res.partner"].(map[string]any)["fields"].(map[string]any)
@@ -17975,6 +18005,7 @@ func testServer(t *testing.T) Server {
 	if err := reg.Register(partner); err != nil {
 		t.Fatal(err)
 	}
+	registerBaseModelForHTTPTest(t, reg, "ir.filters")
 	env := record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
 	assetReg := assets.NewRegistry()
 	if err := assetReg.Apply(assets.Backend, assets.Operation{Kind: assets.Append, Path: "webclient.js"}); err != nil {
@@ -18028,6 +18059,19 @@ func testServer(t *testing.T) Server {
 		t.Fatal(err)
 	}
 	return Server{Env: env, Assets: assetReg, Actions: actionReg, Menus: menuReg, Views: viewReg}
+}
+
+func registerBaseModelForHTTPTest(t *testing.T, reg *record.Registry, name string) {
+	t.Helper()
+	for _, m := range internalbase.Models() {
+		if m.Name == name {
+			if err := reg.Register(m); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+	}
+	t.Fatalf("base model %s not found", name)
 }
 
 func testToolbarBindingServer(t *testing.T) Server {

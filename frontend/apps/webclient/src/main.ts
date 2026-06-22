@@ -53,7 +53,15 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
   const menus = await fetchJSON<Record<string, unknown>>("/web/webclient/load_menus");
   if (shouldTakeOverDOM()) {
     const target = ensureRoot();
-    const shell = createWebClient({
+    let shell!: HTMLElement;
+    const runSystrayAction = (action: NavbarSystrayAction, outlet: HTMLElement) => {
+      void handleSystrayAction(env, action, outlet, {
+        onActivityStore: (store) => {
+          updateActivitySystray(shell, store, (nextAction) => runSystrayAction(nextAction, outlet));
+        }
+      }).catch((error) => renderActionError(outlet, error));
+    };
+    shell = createWebClient({
       env: { debug: Boolean(env.debug), isSmall },
       theme: enterpriseLikeTheme,
       session,
@@ -61,9 +69,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
       onOpenApp: (app, outlet) => {
         void openMenuApp(env, app, outlet).catch((error) => renderActionError(outlet, error));
       },
-      onSystrayAction: (action, outlet) => {
-        void handleSystrayAction(env, action, outlet).catch((error) => renderActionError(outlet, error));
-      }
+      onSystrayAction: runSystrayAction
     }).render();
     target.replaceChildren(shell);
     await restoreActionFromHash(env, menus as HomeMenuPayload, shell);
@@ -190,6 +196,15 @@ function findDescendantByClass(root: HTMLElement, className: string): HTMLElemen
   return null;
 }
 
+function findDescendantByDataset(root: HTMLElement, key: string, value: string): HTMLElement | null {
+  if (root.dataset?.[key] === value) return root;
+  for (const child of Array.from(root.children)) {
+    const found = findDescendantByDataset(child as HTMLElement, key, value);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function rpcTransport(request: RPCRequest): Promise<unknown> {
   return fetchJSON(request.route, request.params);
 }
@@ -239,7 +254,8 @@ async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, ou
 async function handleSystrayAction(
   env: ReturnType<typeof makeEnv>,
   action: NavbarSystrayAction,
-  outlet: HTMLElement
+  outlet: HTMLElement,
+  options: SystrayActionOptions = {}
 ): Promise<void> {
   switch (action.type) {
     case "logout":
@@ -250,7 +266,7 @@ async function handleSystrayAction(
       await openMailboxAction(env, action, outlet);
       return;
     case "open-activities":
-      await openActivitiesAction(env, action, outlet);
+      await openActivitiesAction(env, action, outlet, options);
       return;
     case "open-debug-tools":
     case "view-metadata":
@@ -302,6 +318,10 @@ async function handleSystrayAction(
   }
 }
 
+interface SystrayActionOptions {
+  onActivityStore?: (store: Record<string, unknown>) => void;
+}
+
 async function switchCompanyAction(action: NavbarSystrayAction): Promise<void> {
   const payload: Record<string, unknown> = { company_id: action.companyId };
   if (Array.isArray(action.companyIds) && action.companyIds.length > 0) {
@@ -335,7 +355,8 @@ async function openMailboxAction(
 async function openActivitiesAction(
   env: ReturnType<typeof makeEnv>,
   action: NavbarSystrayAction,
-  outlet: HTMLElement
+  outlet: HTMLElement,
+  options: SystrayActionOptions = {}
 ): Promise<void> {
   const session = (env.services.session as SessionService | undefined)?.info ?? {};
   const payload = await fetchJSON<Record<string, unknown>>("/mail/data", {
@@ -343,6 +364,7 @@ async function openActivitiesAction(
     context: sessionUserContext(session)
   });
   const store = isRecord(payload.Store) ? payload.Store : {};
+  options.onActivityStore?.(store);
   const groups = Array.isArray(store.activityGroups) ? store.activityGroups : [];
   const selectedModel = firstText(action.model);
   const groupRows = groups.filter(isRecord).filter((group) => !selectedModel || firstText(group.model) === selectedModel);
@@ -359,8 +381,64 @@ async function openActivitiesAction(
   const activities = activityRows(activityStore);
   renderActivityAction(outlet, firstText(action.model, groupRows[0]?.name, "Activities") || "Activities", activities, async (method, activityID, feedback) => {
     await activityAction(method, activityID, feedback);
-    await openActivitiesAction(env, action, outlet);
+    await openActivitiesAction(env, action, outlet, options);
+  }, async (activity) => {
+    await openActivityRecord(env, outlet, activity);
   });
+}
+
+function updateActivitySystray(
+  shell: HTMLElement,
+  store: Record<string, unknown>,
+  onAction: (action: NavbarSystrayAction) => void
+): void {
+  const activityButton = findDescendantByClass(shell, "o_activity_menu");
+  const counter = activityButton ? findDescendantByClass(activityButton, "o-systray-counter") : null;
+  const count = numericUserID(store.activityCounter);
+  if (counter) {
+    counter.textContent = String(count);
+    counter.hidden = count <= 0;
+  }
+  const dropdown = findDescendantByDataset(shell, "systrayDropdown", "activities");
+  if (!dropdown) return;
+  const groups = Array.isArray(store.activityGroups) ? store.activityGroups.filter(isRecord) : [];
+  const entries = groups.length ? groups : [{ name: "No activities", total_count: 0 }];
+  dropdown.replaceChildren(...entries.map((group) => renderActivitySystrayMenuEntry(group, onAction)));
+}
+
+function renderActivitySystrayMenuEntry(
+  group: Record<string, unknown>,
+  onAction: (action: NavbarSystrayAction) => void
+): HTMLElement {
+  const model = firstText(group.model);
+  const labelText = firstText(group.name, model, "Activities") || "Activities";
+  const total = numericUserID(group.total_count);
+  const overdue = numericUserID(group.overdue_count);
+  const today = numericUserID(group.today_count);
+  const planned = numericUserID(group.planned_count);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "dropdown-item";
+  button.dataset.systrayItem = labelText;
+  button.dataset.systrayAction = "open-activities";
+  button.setAttribute("role", "menuitem");
+  button.addEventListener("click", () => onAction({
+    type: "open-activities",
+    model,
+    domain: group.domain,
+    viewType: firstText(group.view_type, "list")
+  }));
+  const label = document.createElement("span");
+  label.className = "o_systray_menu_label";
+  label.textContent = labelText;
+  const badge = document.createElement("span");
+  badge.className = "o_systray_menu_badge";
+  badge.textContent = String(total);
+  const description = document.createElement("span");
+  description.className = "o_systray_menu_description";
+  description.textContent = `Late ${overdue} Today ${today} Future ${planned}`;
+  button.append(label, badge, description);
+  return button;
 }
 
 function renderSystrayAction(outlet: HTMLElement, titleText: string, rows: readonly string[]): void {
@@ -392,7 +470,8 @@ function renderActivityAction(
   outlet: HTMLElement,
   titleText: string,
   activities: readonly Record<string, unknown>[],
-  onAction: (method: string, activityID: number, feedback: string) => Promise<void>
+  onAction: (method: string, activityID: number, feedback: string) => Promise<void>,
+  onOpenRecord: (activity: Record<string, unknown>) => Promise<void>
 ): void {
   outlet.dataset.tsActionStatus = "ready";
   const root = document.createElement("section");
@@ -416,9 +495,26 @@ function renderActivityAction(
   }
   for (const activity of activities) {
     const activityID = numericUserID(activity.id);
+    const resModel = firstText(activity.res_model);
+    const resID = numericUserID(activity.res_id);
     const row = document.createElement("article");
     row.className = `o_activity_card o-mail-Activity o-mail-ActivityListPopoverItem ${firstText(activity.state, "planned")}`;
     row.dataset.activityId = String(activityID);
+    if (resModel && resID > 0) {
+      row.dataset.resModel = resModel;
+      row.dataset.resId = String(resID);
+      row.setAttribute("role", "button");
+      row.setAttribute("tabindex", "0");
+      row.addEventListener("click", async () => {
+        await onOpenRecord(activity);
+      });
+      row.addEventListener("keydown", async (event) => {
+        if (event instanceof KeyboardEvent && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          await onOpenRecord(activity);
+        }
+      });
+    }
     const summary = document.createElement("strong");
     summary.className = "o_activity_summary";
     summary.textContent = firstText(activity.display_name, activity.summary, "Activity");
@@ -428,6 +524,7 @@ function renderActivityAction(
     const feedback = document.createElement("textarea");
     feedback.className = "o-mail-ActivityMarkAsDone-feedback";
     feedback.setAttribute("placeholder", "Write Feedback");
+    feedback.addEventListener("click", (event) => event.stopPropagation?.());
     const actions = document.createElement("div");
     actions.className = "o_activity_actions";
     for (const item of [
@@ -447,7 +544,8 @@ function renderActivityAction(
       if (item.method === "action_feedback" && firstText(activity.chaining_type) === "trigger") {
         button.hidden = true;
       }
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", async (event) => {
+        event.stopPropagation?.();
         button.disabled = true;
         await onAction(item.method, activityID, feedback.value.trim());
       });
@@ -458,6 +556,34 @@ function renderActivityAction(
   }
   root.append(controlPanel, body);
   outlet.replaceChildren(root);
+}
+
+async function openActivityRecord(
+  env: ReturnType<typeof makeEnv>,
+  outlet: HTMLElement,
+  activity: Record<string, unknown>
+): Promise<void> {
+  const resModel = firstText(activity.res_model);
+  const resID = numericUserID(activity.res_id);
+  if (!resModel || resID <= 0) return;
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading(firstText(activity.res_name, activity.display_name, resModel) || resModel));
+  const actionHost = createActionHost(env, outlet);
+  await actionHost.doAction({
+    name: firstText(activity.res_name, activity.display_name, resModel) || resModel,
+    res_id: resID,
+    res_model: resModel,
+    type: "ir.actions.act_window",
+    view_mode: "form",
+    views: [[false, "form"]]
+  }, {
+    additionalContext: {
+      active_id: resID,
+      active_ids: [resID],
+      active_model: resModel
+    },
+    stackPosition: "clear"
+  });
 }
 
 async function activityAction(method: string, activityID: number, feedback = ""): Promise<void> {

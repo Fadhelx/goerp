@@ -34,6 +34,42 @@ export const __info__ = {
   date: "2026-06-17"
 };
 
+export const OWL_UPSTREAM = {
+  packageName: "@odoo/owl",
+  license: "LGPL-3.0-only",
+  version: "2.8.3",
+  url: "https://github.com/odoo/owl"
+};
+
+export interface OfficialOwlRuntimeProbe {
+  available: boolean;
+  version?: string;
+  exports: readonly string[];
+  error?: string;
+}
+
+export async function loadOfficialOwlRuntime(): Promise<Record<string, unknown>> {
+  const mod = await dynamicImport(OWL_UPSTREAM.packageName + "/dist/owl.cjs.js");
+  return moduleRuntime(mod);
+}
+
+export async function probeOfficialOwlRuntime(): Promise<OfficialOwlRuntimeProbe> {
+  try {
+    const runtime = await loadOfficialOwlRuntime();
+    return {
+      available: typeof runtime.Component === "function" && typeof runtime.EventBus === "function",
+      version: moduleVersion(runtime),
+      exports: Object.keys(runtime).sort()
+    };
+  } catch (error) {
+    return {
+      available: false,
+      exports: [],
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
 export class OwlError extends Error {
   readonly cause?: unknown;
 
@@ -87,9 +123,16 @@ export class Component<P extends Props = Props> {
 
   patch(): HTMLElement {
     this.runSyncHooks("willPatch");
+    const previous = this.el;
     const next = this.render();
+    replaceMountedElement(previous, next);
     this.runSyncHooks("patched");
     return next;
+  }
+
+  requestPatch(): void {
+    if (this.statusValue !== "mounted") return;
+    this.patch();
   }
 
   onWillUnmount(cleanup: () => void): void {
@@ -283,7 +326,11 @@ export const blockDom = {
 };
 
 export function useState<T extends object>(initial: T): T {
-  return reactive(initial);
+  const component = currentComponent;
+  if (!component) return reactive(initial);
+  const callback = () => component.requestPatch();
+  component.onWillUnmount(() => clearReactiveSubscriptions(callback));
+  return reactive(initial, callback);
 }
 
 export function reactive<T extends object>(initial: T, callback: () => void = scheduleNoop): T {
@@ -589,7 +636,41 @@ function clearTarget(target: HTMLElement, el: HTMLElement): void {
   }
 }
 
+function replaceMountedElement(previous: HTMLElement | null, next: HTMLElement): void {
+  if (!previous || previous === next || !previous.parentNode) return;
+  const parent = previous.parentNode as unknown as {
+    replaceChild?: (newChild: HTMLElement, oldChild: HTMLElement) => unknown;
+    removeChild?: (child: HTMLElement) => unknown;
+    appendChild?: (child: HTMLElement) => unknown;
+  };
+  if (typeof parent.replaceChild === "function") {
+    parent.replaceChild(next, previous);
+    return;
+  }
+  if (typeof parent.removeChild === "function") parent.removeChild(previous);
+  if (typeof parent.appendChild === "function") parent.appendChild(next);
+}
+
 function scheduleNoop(): void {}
+
+function dynamicImport(specifier: string): Promise<unknown> {
+  const importer = new Function("specifier", "return import(specifier)") as (specifier: string) => Promise<unknown>;
+  return importer(specifier);
+}
+
+function moduleRuntime(mod: unknown): Record<string, unknown> {
+  if (isRecord(mod) && isRecord(mod.default)) return mod.default;
+  return isRecord(mod) ? mod : {};
+}
+
+function moduleVersion(runtime: Record<string, unknown>): string | undefined {
+  const info = runtime.__info__;
+  return isRecord(info) && typeof info.version === "string" ? info.version : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 function protectServiceMethod(component: Component, fn: (...args: unknown[]) => unknown): (...args: unknown[]) => unknown {
   return function protectedMethod(this: unknown, ...args: unknown[]) {

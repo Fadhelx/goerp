@@ -54,6 +54,8 @@ Existing Odoo screenshots were used as visual reference:
 - The TypeScript systray now opens message, activity, company, debug, and user dropdowns, closes on Escape/outside click, and stays out of the action manager state.
 - The default TypeScript systray now fetches live `/mail/data` Store metadata during bootstrap and renders backend inbox, starred, and activity counters, activity group rows, current-company state, Odoo-like systray order, and typed menu actions.
 - The activity systray action now opens bounded `.o-mail-ActivityListPopover` cards, fetches `mail.activity.activity_format`, supports Done with feedback, Done and Schedule Next, reschedule presets, and Cancel through existing `mail.activity` RPCs.
+- Activity card mutations now refresh the navbar activity counter/dropdown from `/mail/data`, activity cards can open their related record through the local action service/hash route, and saved favorites load through scoped active `ir.filters` rows.
+- The frontend now carries official `@odoo/owl` 2.8.3 dependency provenance and a runtime probe in `owl-compat`, while keeping the current clean-room compatibility wrapper stable.
 
 ## Evidence
 
@@ -85,7 +87,7 @@ Renderer worker evidence:
 
 P0:
 - Launcher still lacks real Odoo app icon artwork, enterprise alert panel behavior, exact spacing, and top-right systray-only home layout.
-- Control panel lacks search autocomplete, custom filter/group dialogs, saved `ir.filters`, and full mobile search panel.
+- Control panel lacks search autocomplete, custom filter/group dialogs, full favorite edit/delete/default behavior, and full mobile search panel.
 - Action manager lacks complete breadcrumb stack, browser back/forward parity, nested actions, full `target="new"` lifecycle, and client action coverage.
 - List renderer lacks grouped rows, column sorting/resizing, optional columns, select-all/bulk action states, aggregates, and inline edit.
 - Form renderer lacks full arch layout support: groups, notebooks, smart buttons, relation widgets, onchange, x2many editors, modifiers, and dirty guards.
@@ -93,7 +95,7 @@ P0:
 P1:
 - Apps install flow has bounded method-backed install, upgrade, uninstall, cancel-state, and restore smoke coverage; it still needs Odoo-like categories, filters, module detail cards, and confirmation/wizard behavior.
 - Dialogs need footer action mapping, stacked inactive state, confirmation dialogs, backdrop policy, draggable desktop, and mobile fullscreen/bottom-sheet behavior.
-- Systray now uses real Store counters and activity groups, persistent Odoo-style company switching with `cids`, and bounded activity cards/actions. Remaining work is full Discuss inbox/channels UI, exact activity group filters/edit/open-document/live counter refresh, select-all/ancestor-disabled company tree polish, and mobile burger relocation.
+- Systray now uses real Store counters and activity groups, persistent Odoo-style company switching with `cids`, bounded activity cards/actions, live counter refresh after activity mutation, and related-record opening. Remaining work is full Discuss inbox/channels UI, exact activity group filters/edit/open-document parity, select-all/ancestor-disabled company tree polish, and mobile burger relocation.
 - Kanban needs grouped columns, quick create, drag/drop, folded groups, progress bars, and load-more.
 - Mobile shell is usable without overflow, but still desktop-shaped.
 
@@ -105,11 +107,11 @@ P2:
 ## Bounded Implementation Tasks
 
 1. Implement full action stack and breadcrumb lifecycle.
-2. Implement search autocomplete, custom filters/groups, and saved filter persistence.
+2. Implement search autocomplete, custom filters/groups, and full saved favorite edit/delete/default behavior.
 3. Implement list grouping/sorting/optional-columns/select-all.
 4. Implement form notebooks/groups/smart-buttons/x2many/onchange/dirty guards.
 5. Expand Apps catalog to categories, filters, module detail behavior, and confirmation/wizard flows.
-6. Expand systray from live Store counters/actions, persistent company switching, and bounded activity cards into full Discuss, exact activity filters/edit/live counter behavior, select-all/company-tree polish, and mobile behavior.
+6. Expand systray from live Store counters/actions, persistent company switching, bounded activity cards, and related-record opening into full Discuss, exact activity filters/edit/open-document behavior, select-all/company-tree polish, and mobile behavior.
 7. Implement kanban grouped columns and quick-create.
 8. Add production smoke after every deploy for `/web`, Settings, Server Actions, view switch, search filter, normal user, and mobile.
 
