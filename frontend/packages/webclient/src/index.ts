@@ -2220,14 +2220,14 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
       ? undefined
       : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited },
     views,
-    search: {
+    search: result.activeView === "form" ? undefined : {
       query: result.search?.state.query ?? "",
       facets: result.search?.state.facets ?? [],
       suggestions: result.search?.suggestions ?? []
     },
-    filters: result.search?.filters ?? [],
-    groupBys: result.search?.groupBys ?? [],
-    favorites: result.search?.favorites ?? []
+    filters: result.activeView === "form" ? [] : result.search?.filters ?? [],
+    groupBys: result.activeView === "form" ? [] : result.search?.groupBys ?? [],
+    favorites: result.activeView === "form" ? [] : result.search?.favorites ?? []
   }, {
     onViewSwitch: (viewType) => {
       if (options.services?.action && viewType !== result.activeView) {
@@ -2896,13 +2896,43 @@ function renderMobileListCards(
 ): HTMLElement {
   const cards = document.createElement("div");
   cards.className = "o_mobile_list_cards";
+  const titleField = mobileListTitleField(fieldNodes, fields);
   for (const record of records) {
     const card = document.createElement("article");
     card.className = "o_mobile_record_card";
     const recordID = numberRecordID(record.id);
     if (recordID !== undefined) card.dataset.id = String(recordID);
     if (model) card.dataset.model = model;
+    if (model && recordID !== undefined) {
+      card.className = `${card.className} o_data_row`;
+      card.setAttribute("role", "link");
+      card.setAttribute("tabindex", "0");
+      card.addEventListener("click", async (event) => {
+        if (listRowClickIgnored(event)) return;
+        await openListRecord(model, recordID, action, options, cards);
+      });
+      card.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") return;
+        await openListRecord(model, recordID, action, options, cards);
+      });
+    }
+    const header = document.createElement("div");
+    header.className = "o_mobile_record_header";
+    const title = document.createElement("strong");
+    title.className = "o_mobile_record_title";
+    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
+    header.append(title);
+    if (fields.state && record.state !== undefined && titleField !== "state") {
+      const state = document.createElement("span");
+      state.className = "o_mobile_record_state";
+      state.textContent = fieldDisplayText(fields.state, record.state, model, "state");
+      header.append(state);
+    }
+    card.append(header);
     for (const node of fieldNodes) {
+      if (node.name === titleField || node.name === "state") continue;
+      const display = fieldDisplayText(fields[node.name], record[node.name], model, node.name);
+      if (!display) continue;
       const line = document.createElement("div");
       line.className = "o_mobile_record_line";
       line.dataset.field = node.name;
@@ -2915,20 +2945,16 @@ function renderMobileListCards(
       line.append(label, value);
       card.append(line);
     }
-    if (model && recordID !== undefined) {
-      const openButton = document.createElement("button");
-      openButton.type = "button";
-      openButton.className = "btn btn-secondary o_mobile_record_open";
-      openButton.dataset.recordId = String(recordID);
-      openButton.textContent = "Open";
-      openButton.addEventListener("click", async () => {
-        await openListRecord(model, recordID, action, options, cards);
-      });
-      card.append(openButton);
-    }
     cards.append(card);
   }
   return cards;
+}
+
+function mobileListTitleField(fieldNodes: readonly ViewFieldNode[], fields: Record<string, unknown>): string {
+  for (const preferred of ["display_name", "name"]) {
+    if (fieldNodes.some((node) => node.name === preferred) || fields[preferred]) return preferred;
+  }
+  return fieldNodes.find((node) => node.name !== "id")?.name || "id";
 }
 
 function listRowClickIgnored(event: Event): boolean {

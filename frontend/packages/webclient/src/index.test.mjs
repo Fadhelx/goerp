@@ -887,7 +887,9 @@ const renderedNameHeader = findAll(renderedListTable, (node) => node.dataset?.na
 findAll(renderedNameHeader, (node) => String(node.className).includes("o_list_header_button"))[0].dispatchEvent(new TestEvent("click"));
 assert.equal(renderedNameHeader.attributes["aria-sort"], "ascending");
 const renderedMobileCard = findAll(renderedWindow, (node) => String(node.className ?? "").includes("o_mobile_record_card"))[0];
-assert.equal(findAll(renderedMobileCard, (node) => String(node.className ?? "").includes("o_mobile_record_value"))[0].children[0].textContent, "Azure Interior");
+assert.equal(renderedMobileCard.attributes.role, "link");
+assert.equal(findAll(renderedMobileCard, (node) => String(node.className ?? "").includes("o_mobile_record_title"))[0].textContent, "Azure Interior");
+assert.equal(findAll(renderedMobileCard, (node) => String(node.className ?? "").includes("o_mobile_record_value"))[0].children[0].textContent, "My Company");
 const listOpenCalls = [];
 const interactiveListWindow = renderWindowAction(windowResult, {
   services: {
@@ -908,6 +910,11 @@ assert.equal(listOpenCalls[0].action.res_id, 1);
 assert.equal(listOpenCalls[0].action.res_model, "res.partner");
 assert.equal(listOpenCalls[0].action.view_mode, "form");
 assert.deepEqual(listOpenCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+const interactiveMobileCard = findAll(interactiveListWindow, (node) => String(node.className ?? "").includes("o_mobile_record_card") && node.dataset?.id === "1")[0];
+interactiveMobileCard.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(listOpenCalls.length, 2);
+assert.equal(listOpenCalls[1].action.res_id, 1);
 
 const controlActionCalls = [];
 const controlActionWindow = renderWindowAction({
@@ -1296,6 +1303,8 @@ const formSwitchWindow = renderWindowAction({
     }
   }
 });
+assert.equal(findAll(formSwitchWindow, (node) => String(node.className).includes("o_searchview_input")).length, 0);
+assert.equal(findAll(formSwitchWindow, (node) => String(node.className).includes("o_searchview_dropdown_toggler")).length, 0);
 findAll(formSwitchWindow, (node) => node.dataset?.viewType === "list")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(nonFormSwitchCalls.length, 1);

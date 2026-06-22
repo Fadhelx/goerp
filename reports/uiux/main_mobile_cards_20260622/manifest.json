@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-06-22T07:03:47.621Z",
+  "base_url": "http://127.0.0.1:8097/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-technical-search-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-search-desktop.png",
+      "sha256": "3a4df7eec98f79fc47ca694063d38703025ccaa884e61f74c701136c4d7c5e63",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "action_card_count": 1,
+        "window_count": 1,
+        "row_count": 20,
+        "control_panel_bg": "rgb(41, 44, 58)",
+        "control_panel_shadow": "none",
+        "control_panel_min_height_px": 62,
+        "search_width_px": 440,
+        "search_radius_px": 4,
+        "list_header_bg": "rgb(28, 31, 42)",
+        "label_state": {
+          "headers": [
+            "Name",
+            "Type",
+            "Model",
+            "Active"
+          ],
+          "state": "Execute Code"
+        }
+      },
+      "duration_ms": 836
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "253c01668e3d3adb2a68756a00fd0aaa20da39333cf51ac9a33cd8dbe1a8200b",
+      "assertions": {
+        "card_count": 20,
+        "card_state": {
+          "role": "link",
+          "title": "Base: Auto-vacuum internal data",
+          "state": "Execute Code",
+          "open_buttons": 0
+        },
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 580
+    },
+    {
+      "name": "technical-list-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "technical-list-mobile.png",
+      "sha256": "485f71b161749f961db3ea859949baaf92400620ae4fa16f91f7346b16e1a788",
+      "assertions": {
+        "card_count": 20,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 432
+    }
+  ],
+  "duration_ms": 2032
+}

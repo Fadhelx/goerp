@@ -160,6 +160,13 @@ export const scenarios = [
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
       const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
+      const formControlState = await evaluate(page, `(() => ({
+        search_inputs: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_input").length,
+        search_toggles: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_dropdown_toggler").length
+      }))()`);
+      if (formControlState.search_inputs !== 0 || formControlState.search_toggles !== 0) {
+        throw new Error(`TS Server Actions form exposes list search controls: ${JSON.stringify(formControlState)}`);
+      }
       const serverActionBandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-band[data-state]", 1, "TS Server Actions header band");
       const serverActionNotebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-form-notebook-tab", 2, "TS Server Actions Code Help notebook");
       const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Server Actions code viewer");
@@ -211,7 +218,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -421,18 +428,37 @@ export const scenarios = [
     run: async (page, config) => {
       await openDefaultServerActionsList(page, config, mobileViewport());
       const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_card", 1, "default TS mobile Server Actions cards");
-      await clickFirst(page, ".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_open");
+      const cardState = await evaluate(page, `(() => {
+        const card = document.querySelector(".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_card");
+        return {
+          role: card?.getAttribute("role") || "",
+          title: card?.querySelector(".o_mobile_record_title")?.textContent?.trim() || "",
+          state: card?.querySelector(".o_mobile_record_state")?.textContent?.trim() || "",
+          open_buttons: document.querySelectorAll(".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_open").length
+        };
+      })()`);
+      if (cardState.role !== "link" || !cardState.title || cardState.state === "code" || cardState.open_buttons !== 0) {
+        throw new Error(`default TS mobile Server Actions card invalid: ${JSON.stringify(cardState)}`);
+      }
+      await clickFirst(page, ".o_web_client .o_action_manager .o_mobile_list_cards .o_mobile_record_card");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "default TS mobile form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "default TS mobile Server Actions form");
       const breadcrumbCount = await waitForCount(page, ".o_web_client .o_action_manager .o_control_panel_breadcrumbs", 1, "default TS mobile breadcrumbs");
       const sheetCount = await waitForCount(page, ".o_web_client .o_action_manager .o_form_sheet", 1, "default TS mobile form sheet");
+      const formControlState = await evaluate(page, `(() => ({
+        search_inputs: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_input").length,
+        search_toggles: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_dropdown_toggler").length
+      }))()`);
+      if (formControlState.search_inputs !== 0 || formControlState.search_toggles !== 0) {
+        throw new Error(`default TS mobile form exposes list search controls: ${JSON.stringify(formControlState)}`);
+      }
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "default TS mobile form hash");
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
-      return { card_count: cardCount, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, hash, horizontal_overflow_px: overflow };
+      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, hash, horizontal_overflow_px: overflow };
     }
   },
   {

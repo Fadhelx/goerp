@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-22T06:48:13.003Z",
-  "base_url": "http://127.0.0.1:8086/",
+  "generated_at": "2026-06-22T06:55:43.812Z",
+  "base_url": "http://127.0.0.1:8087/",
   "chrome": "Google Chrome",
   "scenarios": [
     {
@@ -17,7 +17,7 @@
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 436
+      "duration_ms": 630
     },
     {
       "name": "settings-desktop",
@@ -33,7 +33,7 @@
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 445
+      "duration_ms": 448
     },
     {
       "name": "default-webclient-takeover",
@@ -67,7 +67,7 @@
         "app_icon_radius_px": 12,
         "action_count": 1
       },
-      "duration_ms": 358
+      "duration_ms": 444
     },
     {
       "name": "default-systray-dropdowns-desktop",
@@ -85,7 +85,7 @@
         "open_menu_items": 6,
         "action_status": ""
       },
-      "duration_ms": 268
+      "duration_ms": 291
     },
     {
       "name": "default-webclient-action-desktop",
@@ -110,7 +110,7 @@
         "save_disabled": true,
         "discard_disabled": true
       },
-      "duration_ms": 416
+      "duration_ms": 553
     },
     {
       "name": "default-technical-search-desktop",
@@ -144,7 +144,7 @@
           "state": "Execute Code"
         }
       },
-      "duration_ms": 418
+      "duration_ms": 505
     },
     {
       "name": "default-technical-form-desktop",
@@ -195,7 +195,7 @@
           "save_disabled": false
         }
       },
-      "duration_ms": 886
+      "duration_ms": 808
     },
     {
       "name": "default-groups-form-notebook-desktop",
@@ -236,7 +236,7 @@
         "x2many_relation": "res.groups",
         "x2many_tag_labels": []
       },
-      "duration_ms": 649
+      "duration_ms": 558
     },
     {
       "name": "default-delegation-one2many-desktop",
@@ -257,7 +257,7 @@
           "menuID": 33,
           "delegationID": 1,
           "groupID": 35,
-          "groupName": "Visual One2many 1782110881395-77506"
+          "groupName": "Visual One2many 1782111332034-23733"
         },
         "readonly_state": {
           "relation": "delegation.line",
@@ -277,7 +277,7 @@
           "relation_input_count": 3
         }
       },
-      "duration_ms": 583
+      "duration_ms": 602
     },
     {
       "name": "default-search-menu-desktop",
@@ -294,7 +294,7 @@
         "group_by_items": 4,
         "favorite_items": 1
       },
-      "duration_ms": 424
+      "duration_ms": 406
     },
     {
       "name": "default-search-filter-click-desktop",
@@ -311,7 +311,7 @@
         "selected_filter_count": 1,
         "row_count": 19
       },
-      "duration_ms": 577
+      "duration_ms": 592
     },
     {
       "name": "default-view-switch-desktop",
@@ -329,7 +329,7 @@
         "form_hash": "#action=7&model=ir.actions.server&view_type=form&menu_id=8",
         "list_hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8"
       },
-      "duration_ms": 716
+      "duration_ms": 735
     },
     {
       "name": "default-hash-route-desktop",
@@ -346,7 +346,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 620
+      "duration_ms": 633
     },
     {
       "name": "default-webclient-mobile",
@@ -363,7 +363,7 @@
         "mobile_toggle_count": 1,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 423
+      "duration_ms": 409
     },
     {
       "name": "default-mobile-server-actions-flow",
@@ -377,13 +377,19 @@
       "sha256": "6d0077482e49d22d45ade1afbb395c0868aff55558daaa9d0f23473e577d2c5b",
       "assertions": {
         "card_count": 20,
+        "card_state": {
+          "role": "link",
+          "title": "Base: Auto-vacuum internal data",
+          "state": "Execute Code",
+          "open_buttons": 0
+        },
         "form_count": 1,
         "breadcrumb_count": 1,
         "sheet_count": 1,
         "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 560
+      "duration_ms": 561
     },
     {
       "name": "technical-list-desktop",
@@ -399,7 +405,7 @@
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 442
+      "duration_ms": 456
     },
     {
       "name": "hash-route-desktop",
@@ -410,13 +416,13 @@
         "mobile": false
       },
       "screenshot": "hash-route-desktop.png",
-      "sha256": "edcd70482702af82b14a526e3d996f9c8de6939b304d7f1f629ab98e8c75e679",
+      "sha256": "5969402020c216424ee8dde94f2576b80f8f4a0ad290f4ea55d046bbf9d1ba7f",
       "assertions": {
         "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 661
+      "duration_ms": 636
     },
     {
       "name": "technical-form-desktop",
@@ -436,7 +442,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 584
+      "duration_ms": 574
     },
     {
       "name": "search-menu-desktop",
@@ -453,7 +459,7 @@
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 438
+      "duration_ms": 436
     },
     {
       "name": "launcher-mobile",
@@ -470,7 +476,7 @@
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 242
+      "duration_ms": 264
     },
     {
       "name": "technical-list-mobile",
@@ -481,12 +487,12 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "8997a191a61bc00d1ae3b6059e001ed04a7c8067082b577bad6504d908f98411",
+      "sha256": "485f71b161749f961db3ea859949baaf92400620ae4fa16f91f7346b16e1a788",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 424
+      "duration_ms": 430
     },
     {
       "name": "technical-form-mobile",
@@ -507,7 +513,7 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 558
+      "duration_ms": 578
     },
     {
       "name": "normal-user-launcher-desktop",
@@ -527,7 +533,7 @@
         "model": "approval.buttons",
         "window_count": 1
       },
-      "duration_ms": 612
+      "duration_ms": 649
     },
     {
       "name": "default-apps-install-desktop",
@@ -548,7 +554,7 @@
         "after_uninstall_state": "uninstalled",
         "restored_state": "installed"
       },
-      "duration_ms": 1753
+      "duration_ms": 1750
     },
     {
       "name": "default-apps-catalog-detail-desktop",
@@ -570,7 +576,7 @@
         "detail_module": "ai",
         "detail_closed": "closed"
       },
-      "duration_ms": 414
+      "duration_ms": 443
     },
     {
       "name": "default-apps-lifecycle-cancel-desktop",
@@ -591,8 +597,8 @@
         "to_remove_state": "to remove",
         "after_cancel_uninstall_state": "installed"
       },
-      "duration_ms": 1807
+      "duration_ms": 1847
     }
   ],
-  "duration_ms": 15869
+  "duration_ms": 16416
 }

@@ -6651,19 +6651,51 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o_mobile_record_card {
 		display: grid;
-		gap: 7px;
+		gap: 6px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
 		background: #fff;
-		padding: 10px 12px;
+		padding: 12px 14px;
 		box-shadow: 0 1px 0 rgba(16,24,40,.03);
+		cursor: pointer;
 	}
-	.o_mobile_record_card button {
-		justify-self: start;
+	.o_mobile_record_card:focus {
+		outline: 2px solid var(--accent-2);
+		outline-offset: -2px;
+	}
+	.o_mobile_record_header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		min-width: 0;
+	}
+	.o_mobile_record_title {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--text);
+		font-size: 15px;
+		font-weight: 600;
+		line-height: 1.25;
+	}
+	.o_mobile_record_state {
+		flex: 0 0 auto;
+		max-width: 45%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		padding: 3px 7px;
+		border: 1px solid rgba(1,126,132,.34);
+		border-radius: 4px;
+		background: rgba(1,126,132,.12);
+		color: var(--accent-2);
+		font-size: 12px;
+		font-weight: 600;
 	}
 	.o_mobile_record_line {
 		display: grid;
-		grid-template-columns: minmax(86px, .45fr) minmax(0, 1fr);
+		grid-template-columns: minmax(78px, .38fr) minmax(0, 1fr);
 		gap: 8px;
 		min-width: 0;
 	}
@@ -8031,6 +8063,44 @@ const webClientShellHTML = `<!doctype html>
 		.gorp-form-fields.o_inner_group,
 		.gorp-form-field.o_wrap_field {
 			grid-template-columns: minmax(0, 1fr);
+		}
+		.gorp-form-sheet.o_form_sheet {
+			padding: 18px 16px;
+		}
+		.gorp-form-sheet .oe_title h1 {
+			font-size: 28px;
+			line-height: 1.2;
+		}
+		.gorp-server-action-band.o_server_action_band {
+			grid-template-columns: minmax(0, 1fr);
+			align-items: stretch;
+		}
+		.gorp-server-action-identity,
+		.gorp-server-action-meta {
+			justify-content: flex-start;
+		}
+		.gorp-server-action-meta {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px 10px;
+		}
+		.gorp-server-action-meta-item {
+			display: grid;
+			gap: 2px;
+			padding-left: 0;
+			border-left: 0;
+		}
+		.gorp-server-action-badge,
+		.gorp-server-action-state,
+		.gorp-selection-pill,
+		.gorp-selection-radio-pill {
+			min-height: 28px;
+			padding: 4px 9px;
+			font-size: 12px;
+		}
+		.gorp-code-viewer,
+		.gorp-code-editor {
+			min-height: 180px;
 		}
 		.gorp-form-notebook-tab.nav-link {
 			padding: 9px 12px;

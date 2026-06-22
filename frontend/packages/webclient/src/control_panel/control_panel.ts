@@ -86,12 +86,12 @@ export function createControlPanelState(state: ControlPanelState): ControlPanelS
     breadcrumbs: [...(state.breadcrumbs ?? [])],
     pager: state.pager ? normalizePager(state.pager) : undefined,
     views: [...(state.views ?? [])].map(normalizeView),
-    search: {
+    search: state.search ? {
       query: state.search?.query ?? "",
       placeholder: state.search?.placeholder ?? "Search...",
       facets: [...(state.search?.facets ?? [])].map((facet) => ({ ...facet })),
       suggestions: [...(state.search?.suggestions ?? [])].map(normalizeSearchSuggestion)
-    },
+    } : undefined,
     filters: [...(state.filters ?? [])].map(normalizeMenuItem),
     groupBys: [...(state.groupBys ?? [])].map(normalizeMenuItem),
     favorites: [...(state.favorites ?? [])].map(normalizeMenuItem)
@@ -112,7 +112,7 @@ export function renderControlPanel(state: ControlPanelState, callbacks: ControlP
 
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions d-empty-none d-flex align-items-center justify-content-start justify-content-lg-around order-2 order-lg-1 w-100 mw-100 w-lg-auto";
-  actions.append(renderSearch(normalized, callbacks));
+  if (normalized.search) actions.append(renderSearch(normalized, callbacks));
 
   const navigation = document.createElement("div");
   navigation.className = "o_control_panel_navigation d-flex flex-wrap flex-md-nowrap justify-content-end gap-1 gap-xl-3 order-1 order-lg-2 flex-grow-1";
