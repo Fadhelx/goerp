@@ -495,9 +495,9 @@ assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "email_templates" && node.dataset?.settingsTargetModel === "mail.template").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users")[0].textContent, "Manage Users");
-assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "server_actions")[0].textContent, "Open Server Actions");
-assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "automation_rules")[0].textContent, "Open Automated Actions");
-assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "ai")[0].textContent, "Open AI Apps");
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "server_actions")[0].textContent, "Server Actions");
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "automation_rules")[0].textContent, "Automation Rules");
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "ai")[0].textContent, "AI Apps");
 const technicalSettingsTab = findAll(actionManager, (node) => node.dataset?.appId === "technical" && String(node.className).split(/\s+/).includes("o_settings_tab"))[0];
 technicalSettingsTab.dispatchEvent(new CustomEvent("click"));
 assert.equal(technicalSettingsTab.attributes["aria-pressed"], "true");

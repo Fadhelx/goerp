@@ -39,14 +39,14 @@ export const scenarios = [
         const labels = buttons.map((button) => button.textContent.trim()).filter(Boolean);
         return {
           labels,
-          generic_open_count: labels.filter((label) => label === "Open").length,
+          generic_open_count: labels.filter((label) => label === "Open" || label.startsWith("Open ")).length,
           grid_count: document.querySelectorAll("#settingsBlocks .o_setting_grid").length,
           has_manage_users: labels.includes("Manage Users"),
-          has_open_server_actions: labels.includes("Open Server Actions"),
-          has_open_apps: labels.includes("Open Apps")
+          has_server_actions: labels.includes("Server Actions"),
+          has_apps: labels.includes("Apps")
         };
       })()`);
-      if (settingsState.generic_open_count || !settingsState.labels.includes("Open Automated Actions") || !settingsState.has_manage_users || !settingsState.has_open_server_actions || !settingsState.has_open_apps || settingsState.grid_count < 3) {
+      if (settingsState.generic_open_count || !settingsState.labels.includes("Automation Rules") || !settingsState.has_manage_users || !settingsState.has_server_actions || !settingsState.has_apps || settingsState.grid_count < 3) {
         throw new Error(`legacy settings layout invalid: ${JSON.stringify(settingsState)}`);
       }
       return { settings_blocks: blockCount, setting_boxes: boxCount, settings_state: settingsState };
@@ -324,7 +324,8 @@ export const scenarios = [
       if (settingsTargets.missing.length) {
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
-      if (settingsTargets.gridCount < 4 || settingsTargets.actionBoxCount < 10 || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.server_actions !== "Open Server Actions" || settingsTargets.labels.automation_rules !== "Open Automated Actions" || settingsTargets.labels.ai !== "Open AI Apps") {
+      const genericOpenLabels = Object.values(settingsTargets.labels).filter((label) => String(label).startsWith("Open "));
+      if (settingsTargets.gridCount < 4 || settingsTargets.actionBoxCount < 10 || genericOpenLabels.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.server_actions !== "Server Actions" || settingsTargets.labels.automation_rules !== "Automation Rules" || settingsTargets.labels.ai !== "AI Apps") {
         throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
       }
       await clickSelector(page, ".o_web_client .o_action_manager .o_settings_tab[data-app-id='technical']");
@@ -347,7 +348,6 @@ export const scenarios = [
       if (settingsTabState.active_app !== "technical" || settingsTabState.technical_pressed !== "true" || !settingsTabState.technical_visible || !settingsTabState.general_hidden || settingsTabState.server_actions_hidden || !settingsTabState.users_hidden) {
         throw new Error(`TS Settings tab switch invalid: ${JSON.stringify(settingsTabState)}`);
       }
-      await clickSelector(page, ".o_web_client .o_action_manager .o_settings_tab[data-app-id='apps_ai']");
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
       const topbarState = await evaluate(page, `(() => {

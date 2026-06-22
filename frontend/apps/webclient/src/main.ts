@@ -487,7 +487,7 @@ function attachGeneralSettingsNavigation(
     actions.dataset.settingsActions = target.id;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "btn btn-secondary o_setting_link";
+    button.className = "o_setting_action o_setting_link";
     button.dataset.settingsTarget = target.id;
     if (target.model) button.dataset.settingsTargetModel = target.model;
     button.textContent = settingsTargetButtonLabel(target);
@@ -529,17 +529,17 @@ function settingsTargetButtonLabel(target: SettingsNavigationTarget): string {
     users_access: "Manage Users",
     groups_access: "Manage Groups",
     company_records: "Manage Companies",
-    server_actions: "Open Server Actions",
-    scheduled_actions: "Open Scheduled Actions",
-    automation_rules: "Open Automated Actions",
-    views: "Open Views",
-    access_rights: "Open Access Rights",
-    record_rules: "Open Record Rules",
-    email_templates: "Open Email Templates",
-    apps: "Open Apps",
-    ai: "Open AI Apps"
+    server_actions: "Server Actions",
+    scheduled_actions: "Scheduled Actions",
+    automation_rules: "Automation Rules",
+    views: "Views",
+    access_rights: "Access Rights",
+    record_rules: "Record Rules",
+    email_templates: "Email Templates",
+    apps: "Apps",
+    ai: "AI Apps"
   };
-  return labels[target.id] || `Open ${target.names[0] || target.id}`;
+  return labels[target.id] || target.names[0] || target.id;
 }
 
 async function openSettingsNavigationTarget(

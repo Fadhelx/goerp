@@ -7521,15 +7521,77 @@ const webClientShellHTML = `<!doctype html>
 		justify-content: center;
 		padding: 0 28px 16px;
 	}
-	.o_settings_search_panel .o_settings_search {
+	.o_settings_search_wrapper {
+		display: flex;
+		align-items: center;
 		width: min(414px, 100%);
-		max-width: 414px;
 		height: 34px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
 		background: var(--panel);
-		padding: 0 10px;
+		color: var(--muted);
+		overflow: hidden;
+	}
+	.o_settings_search_icon {
+		position: relative;
+		flex: 0 0 34px;
+		width: 34px;
+		height: 100%;
+	}
+	.o_settings_search_icon::before {
+		content: "";
+		position: absolute;
+		left: 13px;
+		top: 10px;
+		width: 10px;
+		height: 10px;
+		border: 2px solid currentColor;
+		border-radius: 50%;
+	}
+	.o_settings_search_icon::after {
+		content: "";
+		position: absolute;
+		left: 23px;
+		top: 21px;
+		width: 7px;
+		height: 2px;
+		background: currentColor;
+		transform: rotate(45deg);
+		transform-origin: left center;
+	}
+	.o_settings_search_panel .o_settings_search {
+		width: 100%;
+		min-width: 0;
+		height: 32px;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		padding: 0 8px 0 0;
 		color: var(--text);
+		box-shadow: none;
+	}
+	.o_settings_search_dropdown {
+		position: relative;
+		flex: 0 0 34px;
+		width: 34px;
+		height: 100%;
+		border: 0;
+		border-left: 1px solid var(--line);
+		border-radius: 0;
+		background: transparent;
+		color: var(--muted);
+	}
+	.o_settings_search_dropdown::after {
+		content: "";
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 0;
+		height: 0;
+		margin: -1px 0 0 -4px;
+		border-left: 4px solid transparent;
+		border-right: 4px solid transparent;
+		border-top: 4px solid currentColor;
 	}
 	.o_settings_sidebar {
 		display: grid;
@@ -7669,18 +7731,35 @@ const webClientShellHTML = `<!doctype html>
 	.o_setting_buttons {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: 6px;
+		gap: 10px;
+		margin-top: 4px;
 	}
 	.o_setting_link {
-		min-height: 28px;
-		padding: 3px 9px;
-		border-radius: 4px;
-		border-color: var(--line);
-		background: var(--panel);
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 22px;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
 		color: var(--accent);
 		font-size: 12px;
 		font-weight: 600;
+		line-height: 1.4;
+		box-shadow: none;
+	}
+	.o_setting_link::before {
+		content: "\2192";
+		font-size: 14px;
+		font-weight: 700;
+		line-height: 1;
+	}
+	.o_setting_link:hover,
+	.o_setting_link:focus-visible {
+		background: transparent;
+		color: var(--accent-2);
+		text-decoration: none;
 	}
 	.gorp-form-body.o_form_sheet_bg {
 		padding: 16px 18px 26px;
@@ -11128,22 +11207,22 @@ const webClientShellHTML = `<!doctype html>
         {
           title: "Technical",
           entries: [
-            {label: "Server Actions", names: ["Server Actions"], actionLabel: "Open Server Actions"},
-            {label: "Automated Actions", names: ["Automated Actions", "Automation Rules"], actionLabel: "Open Automated Actions"},
-            {label: "Scheduled Actions", names: ["Scheduled Actions"], actionLabel: "Open Scheduled Actions"},
-            {label: "Views", names: ["Views"], actionLabel: "Open Views"},
-            {label: "Models", names: ["Models"], actionLabel: "Open Models"},
-            {label: "Access Rights", names: ["Access Rights"], actionLabel: "Open Access Rights"},
-            {label: "Record Rules", names: ["Record Rules"], actionLabel: "Open Record Rules"},
-            {label: "Outgoing Mail Servers", names: ["Outgoing Mail Servers", "Mail Servers"], actionLabel: "Open Outgoing Mail Servers"},
-            {label: "Email Templates", names: ["Email Templates"], actionLabel: "Open Email Templates"}
+            {label: "Server Actions", names: ["Server Actions"], actionLabel: "Server Actions"},
+            {label: "Automated Actions", names: ["Automated Actions", "Automation Rules"], actionLabel: "Automation Rules"},
+            {label: "Scheduled Actions", names: ["Scheduled Actions"], actionLabel: "Scheduled Actions"},
+            {label: "Views", names: ["Views"], actionLabel: "Views"},
+            {label: "Models", names: ["Models"], actionLabel: "Models"},
+            {label: "Access Rights", names: ["Access Rights"], actionLabel: "Access Rights"},
+            {label: "Record Rules", names: ["Record Rules"], actionLabel: "Record Rules"},
+            {label: "Outgoing Mail Servers", names: ["Outgoing Mail Servers", "Mail Servers"], actionLabel: "Outgoing Mail Servers"},
+            {label: "Email Templates", names: ["Email Templates"], actionLabel: "Email Templates"}
           ]
         },
         {
           title: "Apps",
           entries: [
-            {label: "Apps", names: ["Apps", "Modules"], actionLabel: "Open Apps"},
-            {label: "AI", names: ["AI", "AI Settings"], actionLabel: "Open AI Apps"}
+            {label: "Apps", names: ["Apps", "Modules"], actionLabel: "Apps"},
+            {label: "AI", names: ["AI", "AI Settings"], actionLabel: "AI Apps"}
           ]
         }
       ];
@@ -11176,8 +11255,8 @@ const webClientShellHTML = `<!doctype html>
           description.textContent = menu ? menuPath(menu) : "Not available";
           const button = document.createElement("button");
           button.type = "button";
-          button.className = "btn btn-secondary o_setting_action o_setting_link";
-          button.textContent = menu ? (entry.actionLabel || ("Open " + entry.label)) : "Unavailable";
+          button.className = "o_setting_action o_setting_link";
+          button.textContent = menu ? (entry.actionLabel || entry.label) : "Unavailable";
           button.disabled = !menu;
           if (menu) {
             button.dataset.menuId = String(menu.id);
