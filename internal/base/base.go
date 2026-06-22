@@ -547,7 +547,7 @@ func Models() []model.Model {
 			field.New("automated_name", field.Char),
 			field.New("allowed_states", field.Json),
 			field.New("available_model_ids", field.Many2Many).WithRelation("ir.model"),
-			field.New("state", field.Selection),
+			serverActionStateField(),
 			field.New("active", field.Bool),
 			field.New("usage", field.Selection),
 			field.New("sequence", field.Int),
@@ -932,4 +932,28 @@ func resConfigSettingsModel() model.Model {
 		m.AddField(f)
 	}
 	return m
+}
+
+func serverActionStateField() field.Field {
+	return selectionField("state",
+		field.SelectionOption{Value: "code", Label: "Execute Code"},
+		field.SelectionOption{Value: "object_create", Label: "Create Record"},
+		field.SelectionOption{Value: "object_write", Label: "Update Record"},
+		field.SelectionOption{Value: "multi", Label: "Multi Actions"},
+		field.SelectionOption{Value: "mail_post", Label: "Send Email"},
+		field.SelectionOption{Value: "followers", Label: "Add Followers"},
+		field.SelectionOption{Value: "remove_followers", Label: "Remove Followers"},
+		field.SelectionOption{Value: "next_activity", Label: "Create Next Activity"},
+		field.SelectionOption{Value: "sms", Label: "Send SMS"},
+		field.SelectionOption{Value: "whatsapp", Label: "Send WhatsApp"},
+		field.SelectionOption{Value: "webhook", Label: "Webhook"},
+		field.SelectionOption{Value: "ai", Label: "AI Action"},
+		field.SelectionOption{Value: "documents_account_record_create", Label: "Create Vendor Bill"},
+	)
+}
+
+func selectionField(name string, options ...field.SelectionOption) field.Field {
+	f := field.New(name, field.Selection)
+	f.Selection = append([]field.SelectionOption(nil), options...)
+	return f
 }

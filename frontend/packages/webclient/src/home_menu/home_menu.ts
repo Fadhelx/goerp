@@ -36,6 +36,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
 
   const grid = document.createElement("div");
   grid.className = "app-grid o_apps";
+  const notice = renderRegistrationNotice();
 
   const setSearchActive = (active: boolean) => {
     searchWrap.className = active ? "o-app-search o_home_menu_search is-active" : "o-app-search o_home_menu_search";
@@ -111,9 +112,27 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   });
   renderGrid();
 
-  shell.append(searchWrap, grid);
+  shell.append(searchWrap, notice, grid);
   section.append(shell);
   return section;
+}
+
+function renderRegistrationNotice(): HTMLElement {
+  const notice = document.createElement("div");
+  notice.className = "o_home_menu_registration_banner alert alert-info";
+  notice.setAttribute("role", "status");
+  const text = document.createElement("span");
+  text.textContent = "Database registration becomes available after installing the first app.";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "o_home_menu_registration_close";
+  close.setAttribute("aria-label", "Dismiss");
+  close.textContent = "x";
+  close.addEventListener("click", () => {
+    notice.hidden = true;
+  });
+  notice.append(text, close);
+  return notice;
 }
 
 function isTextInput(target: EventTarget | null): boolean {

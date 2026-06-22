@@ -357,6 +357,10 @@ func TestRegisterModels(t *testing.T) {
 			t.Fatalf("%s table = %q, want %s", modelName, got, tableName)
 		}
 	}
+	stateField := reg.Models["ir.actions.server"].Fields["state"]
+	if stateField.Kind != field.Selection || len(stateField.Selection) < 4 || stateField.Selection[0].Value != "code" || stateField.Selection[0].Label != "Execute Code" {
+		t.Fatalf("ir.actions.server.state selection = %+v", stateField.Selection)
+	}
 	for _, name := range []string{
 		"res.users",
 		"res.groups",

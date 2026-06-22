@@ -149,6 +149,10 @@ export const scenarios = [
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
       const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
+      const serverActionBandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-band[data-state]", 1, "TS Server Actions header band");
+      const serverActionNotebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-form-notebook-tab", 2, "TS Server Actions Code Help notebook");
+      const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Server Actions code viewer");
+      const selectionPillCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-pills[data-field='state'] .gorp-selection-pill", 1, "TS Server Actions state selection pills");
       const relationLinkCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-many2one-link[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions many2one relation link");
       const relationState = await evaluate(page, `(() => {
         const link = document.querySelector(".o_web_client .o_action_manager .gorp-form-view .gorp-many2one-link[data-field='model_id'][data-relation='ir.model']");
@@ -162,6 +166,8 @@ export const scenarios = [
         throw new Error(`TS Server Actions relation link invalid: ${JSON.stringify(relationState)}`);
       }
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const stateRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-radio-group[data-field='state'] input[type='radio']", 1, "TS Server Actions state radio editor");
+      const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Server Actions code editor");
       const relationEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions many2one editor");
       await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
       const relationOptionCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 1, "TS Server Actions many2one options");
@@ -194,7 +200,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, form_count: formCount, field_count: fieldCount, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {

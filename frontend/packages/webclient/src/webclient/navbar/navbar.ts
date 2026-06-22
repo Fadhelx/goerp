@@ -54,7 +54,8 @@ export interface NavbarOptions {
 }
 
 export interface RenderedNavbar extends HTMLElement {
-  setActiveApp: (appId?: number | string) => void;
+  setActiveApp: (appId?: number | string, brandName?: string) => void;
+  setApps: (apps: readonly NavbarApp[], activeAppId?: number | string, brandName?: string) => void;
 }
 
 export function defaultSystrayItems(store?: Record<string, unknown>): SystrayItem[] {
@@ -91,6 +92,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const appButtons = new Map<string, HTMLElement>();
   const dropdowns: HTMLElement[] = [];
   const dropdownButtons = new Map<HTMLElement, HTMLElement>();
+  let currentApps = [...(options.apps ?? [])];
 
   const brand = document.createElement("div");
   brand.className = "o_navbar_apps_menu o-brand";
@@ -122,7 +124,12 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const nav = document.createElement("nav");
   nav.className = "o-nav o_navbar_sections";
   nav.setAttribute("aria-label", "Application");
-  for (const app of options.apps ?? []) {
+  renderNavEntries(currentApps);
+
+  function renderNavEntries(apps: readonly NavbarApp[]): void {
+    nav.replaceChildren?.();
+    appButtons.clear();
+    for (const app of apps) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = app.name;
@@ -137,6 +144,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     });
     nav.append(button);
   }
+  }
 
   const systray = document.createElement("div");
   systray.className = "o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit";
@@ -150,18 +158,25 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   header.append(brand, mobileMenu, nav, systray);
   bindSystrayAutoClose(header, closeDropdowns);
   header.setActiveApp = setActiveApp;
+  header.setApps = setApps;
   setActiveApp(options.activeAppId);
   return header;
 
-  function setActiveApp(appId?: number | string): void {
+  function setApps(apps: readonly NavbarApp[], activeAppId?: number | string, brandName?: string): void {
+    currentApps = [...apps];
+    renderNavEntries(currentApps);
+    setActiveApp(activeAppId, brandName);
+  }
+
+  function setActiveApp(appId?: number | string, brandName?: string): void {
     const activeKey = appId === undefined || appId === null ? "" : String(appId);
     if (activeKey) {
       header.dataset.activeMenuId = activeKey;
     } else {
       delete header.dataset.activeMenuId;
     }
-    const activeName = activeAppName(options.apps ?? [], appId);
-    title.textContent = activeName ?? "Odoo";
+    const activeName = activeAppName(currentApps, appId);
+    title.textContent = brandName || activeName || "Odoo";
     launcher.className = activeKey ? "o_menu_toggle o-launcher-button border-0" : "o_menu_toggle o-launcher-button border-0 active";
     setPageCurrent(launcher, !activeKey);
     for (const [key, button] of appButtons) {

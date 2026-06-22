@@ -144,4 +144,5 @@ findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.cla
 assert.deepEqual(catalogOpened, [
   { id: 12, rootId: 10, actionID: 91, outletClass: "o_action_manager" }
 ]);
-assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "10");
+assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "11");
+assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "11" && String(node.className).includes("o_nav_entry active")).length, 1);

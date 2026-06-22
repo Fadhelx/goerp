@@ -4565,6 +4565,8 @@ function renderFormView(
 ): HTMLElement {
   const form = document.createElement("form");
   form.className = "gorp-form-view o_form_view";
+  form.dataset.model = model;
+  const serverActionForm = isServerActionForm(model);
   const arch = viewDescription?.arch ?? "";
   const recordValues = values;
   const allFieldNodes = parseViewFieldNodes(arch);
@@ -4581,7 +4583,9 @@ function renderFormView(
       .filter((name) => name !== "id" && name !== "display_name")
       .slice(0, 6)
       .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
-  const mainFieldNodes = mainNodes.length || arch ? mainNodes : fieldNodes;
+  const mainFieldNodes = serverActionForm
+    ? serverActionMainFieldNodes(mainNodes.length || arch ? mainNodes : fieldNodes)
+    : mainNodes.length || arch ? mainNodes : fieldNodes;
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
   const notebooks = parseFormNotebooks(arch);
   if (buttons.length || statusbarNodes.length) {
@@ -4601,6 +4605,7 @@ function renderFormView(
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
   const title = renderFormTitle(recordValues);
   if (title) sheet.append(title);
+  if (serverActionForm) sheet.append(renderServerActionBand(fields, recordValues));
   const group = document.createElement("div");
   group.className = "gorp-form-fields record-grid o_group o_inner_group";
   for (const node of mainFieldNodes) {
@@ -4608,6 +4613,10 @@ function renderFormView(
     group.append(renderFormFieldNode(node, fields, relatedModels, recordValues, form, options, editMode));
   }
   if (group.children.length) sheet.append(group);
+  if (serverActionForm) {
+    const serverNotebook = renderServerActionNotebook(fieldNodes, fields, relatedModels, recordValues, form, options, editMode);
+    if (serverNotebook) sheet.append(serverNotebook);
+  }
   for (const notebook of notebooks) {
     const rendered = renderFormNotebook(notebook, fields, relatedModels, recordValues, form, options, editMode);
     if (rendered) sheet.append(rendered);
@@ -4616,6 +4625,14 @@ function renderFormView(
   form.append(body);
   if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
   return form;
+}
+
+function isServerActionForm(model: string): boolean {
+  return model === "ir.actions.server";
+}
+
+function serverActionMainFieldNodes(nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
+  return nodes.filter((node) => node.name !== "code" && node.name !== "help");
 }
 
 function renderFormFieldNode(
@@ -4639,11 +4656,147 @@ function renderFormFieldNode(
   caption.textContent = fieldLabel(fields, name);
   const required = formFieldRequired(node, fields[name], recordValues);
   if (required) label.dataset.required = "true";
-  const value = (editMode || required) && formFieldEditable(node, fields[name], recordValues)
+  const value = (editMode || required) && formFieldEditable(node, fields[name], recordValues, form.dataset.model, name)
     ? renderEditableFormField(node, fields[name], relatedModels, recordValues, form, options, required)
     : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues, form, options);
   label.append(caption, value);
   return label;
+}
+
+function renderServerActionBand(fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement {
+  const stateChoices = selectionOptionsForField(fields.state, "ir.actions.server", "state");
+  const stateValue = String(values.state ?? "");
+  const stateLabel = selectionLabel(stateChoices, stateValue) || "Action";
+  const modelLabel = many2OneDisplayData(values.model_id).displayName || firstText(values.model_name) || "No target model";
+  const activeLabel = values.active === false ? "Archived" : "Active";
+  const root = document.createElement("section");
+  root.className = "gorp-server-action-band o_server_action_band";
+  root.dataset.state = stateValue;
+  root.dataset.active = values.active === false ? "false" : "true";
+  const identity = document.createElement("div");
+  identity.className = "gorp-server-action-identity";
+  const badge = document.createElement("span");
+  badge.className = "gorp-server-action-badge";
+  badge.textContent = "Server Action";
+  const state = document.createElement("span");
+  state.className = "gorp-server-action-state";
+  state.dataset.value = stateValue;
+  state.textContent = stateLabel;
+  identity.append(badge, state);
+  const meta = document.createElement("div");
+  meta.className = "gorp-server-action-meta";
+  meta.append(
+    serverActionMetaItem("Target Model", modelLabel),
+    serverActionMetaItem("Status", activeLabel),
+    serverActionMetaItem("Usage", firstText(values.usage) || "Action")
+  );
+  root.append(identity, meta);
+  return root;
+}
+
+function serverActionMetaItem(label: string, value: string): HTMLElement {
+  const item = document.createElement("span");
+  item.className = "gorp-server-action-meta-item";
+  const caption = document.createElement("span");
+  caption.className = "gorp-server-action-meta-label";
+  caption.textContent = label;
+  const content = document.createElement("span");
+  content.className = "gorp-server-action-meta-value";
+  content.textContent = value;
+  item.append(caption, content);
+  return item;
+}
+
+function renderServerActionNotebook(
+  fieldNodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown>,
+  relatedModels: Record<string, unknown>,
+  recordValues: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  editMode = false
+): HTMLElement | null {
+  if (!fields.code) return null;
+  const codeNode = fieldNodes.find((node) => node.name === "code") || { name: "code", attrs: {}, children: [], childViewAttrs: {} };
+  const root = document.createElement("section");
+  root.className = "gorp-server-action-notebook gorp-form-notebook o_notebook";
+  root.dataset.notebook = "server-action";
+  const tabs = document.createElement("div");
+  tabs.className = "gorp-form-notebook-tabs nav nav-tabs";
+  tabs.setAttribute("role", "tablist");
+  const panes = document.createElement("div");
+  panes.className = "gorp-form-notebook-content tab-content";
+  const codePage = document.createElement("section");
+  codePage.className = "gorp-form-notebook-page tab-pane active";
+  codePage.dataset.notebookPage = "code";
+  codePage.id = "server-action-code-page";
+  codePage.setAttribute("role", "tabpanel");
+  const codeGroup = document.createElement("div");
+  codeGroup.className = "gorp-form-fields record-grid o_group o_inner_group";
+  codeGroup.append(renderFormFieldNode(codeNode, fields, relatedModels, recordValues, form, options, editMode));
+  codePage.append(codeGroup);
+  const helpPage = document.createElement("section");
+  helpPage.className = "gorp-form-notebook-page tab-pane";
+  helpPage.dataset.notebookPage = "help";
+  helpPage.id = "server-action-help-page";
+  helpPage.hidden = true;
+  helpPage.setAttribute("hidden", "hidden");
+  helpPage.setAttribute("role", "tabpanel");
+  helpPage.append(renderServerActionHelpPanel());
+  const pages = [codePage, helpPage];
+  const buttons = [
+    serverActionNotebookTab("Code", "code", "server-action-code-page", true),
+    serverActionNotebookTab("Help", "help", "server-action-help-page", false)
+  ];
+  const activate = (activeIndex: number) => {
+    buttons.forEach((button, index) => {
+      const active = index === activeIndex;
+      button.className = toggleClassToken(String(button.className ?? ""), "active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    pages.forEach((page, index) => {
+      const active = index === activeIndex;
+      page.className = toggleClassToken(String(page.className ?? ""), "active", active);
+      page.hidden = !active;
+      if (active) page.removeAttribute("hidden");
+      else page.setAttribute("hidden", "hidden");
+    });
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => activate(index));
+    tabs.append(button);
+  });
+  panes.append(...pages);
+  root.append(tabs, panes);
+  return root;
+}
+
+function serverActionNotebookTab(label: string, page: string, controls: string, selected: boolean): HTMLButtonElement {
+  const tab = document.createElement("button");
+  tab.type = "button";
+  tab.className = `gorp-form-notebook-tab nav-link${selected ? " active" : ""}`;
+  tab.dataset.notebookPage = page;
+  tab.setAttribute("role", "tab");
+  tab.setAttribute("aria-selected", selected ? "true" : "false");
+  tab.setAttribute("aria-controls", controls);
+  tab.textContent = label;
+  return tab;
+}
+
+function renderServerActionHelpPanel(): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "gorp-server-action-help";
+  const heading = document.createElement("h3");
+  heading.textContent = "Available variables";
+  const list = document.createElement("div");
+  list.className = "gorp-server-action-help-list";
+  for (const token of ["env", "model", "record", "records", "log", "Warning"]) {
+    const item = document.createElement("code");
+    item.textContent = token;
+    list.append(item);
+  }
+  root.append(heading, list);
+  return root;
 }
 
 function renderFormNotebook(
@@ -4750,6 +4903,13 @@ function renderReadonlyFieldValue(
   if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
     return renderBadgeValue(node, description, value, evalContext);
   }
+  if (form?.dataset.model === "ir.actions.server" && node.name === "code") {
+    return renderCodeViewer(node.name, value);
+  }
+  const choices = selectionOptionsForField(description, form?.dataset.model, node.name);
+  if (form && fieldTypeValue(description) === "selection" && choices.length) {
+    return renderSelectionPillValue(node, choices, value, fieldLabel({ [node.name]: description }, node.name));
+  }
   if (fieldTypeValue(description) === "many2one") {
     const relation = fieldRelationValue(description);
     const data = many2OneDisplayData(value);
@@ -4764,6 +4924,87 @@ function renderReadonlyFieldValue(
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value);
   return output;
+}
+
+function renderCodeViewer(fieldName: string, value: unknown): HTMLElement {
+  const viewer = document.createElement("pre");
+  viewer.className = "gorp-code-viewer o_field_widget o_readonly_modifier";
+  viewer.dataset.field = fieldName;
+  const code = document.createElement("code");
+  code.textContent = formatCellValue(value);
+  viewer.append(code);
+  return viewer;
+}
+
+function renderSelectionPillValue(node: ViewFieldNode, choices: readonly [string, string][], value: unknown, label: string): HTMLElement {
+  const currentValue = String(value ?? "");
+  const root = document.createElement("span");
+  root.className = "gorp-selection-pills o_field_widget o_field_selection o_readonly_modifier";
+  root.dataset.field = node.name;
+  root.dataset.value = currentValue;
+  root.setAttribute("role", "group");
+  root.setAttribute("aria-label", label);
+  for (const [optionValue, optionLabel] of choices) {
+    const item = document.createElement("span");
+    const selected = optionValue === currentValue;
+    item.className = selected ? "gorp-selection-pill selected" : "gorp-selection-pill";
+    item.dataset.value = optionValue;
+    item.dataset.selected = selected ? "true" : "false";
+    if (selected) item.setAttribute("aria-current", "true");
+    item.textContent = optionLabel;
+    root.append(item);
+  }
+  return root;
+}
+
+function renderSelectionRadioEditor(
+  node: ViewFieldNode,
+  choices: readonly [string, string][],
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  required: boolean
+): HTMLElement {
+  const root = document.createElement("span");
+  root.className = "gorp-selection-radio-group o_field_widget o_field_selection";
+  root.dataset.field = node.name;
+  root.dataset.value = String(values[node.name] ?? "");
+  root.setAttribute("role", "radiogroup");
+  root.setAttribute("aria-required", required ? "true" : "false");
+  const controls: Array<{ label: HTMLLabelElement; input: HTMLInputElement }> = [];
+  const refresh = (nextValue: string) => {
+    root.dataset.value = nextValue;
+    for (const { label, input } of controls) {
+      const selected = input.value === nextValue;
+      label.className = toggleClassToken(String(label.className ?? ""), "selected", selected);
+      label.dataset.selected = selected ? "true" : "false";
+      input.checked = selected;
+    }
+  };
+  for (const [value, labelText] of choices) {
+    const label = document.createElement("label");
+    label.className = "gorp-selection-radio-pill";
+    label.dataset.value = value;
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = node.name;
+    input.value = value;
+    input.dataset.field = node.name;
+    input.checked = value === String(values[node.name] ?? "");
+    const caption = document.createElement("span");
+    caption.textContent = labelText;
+    input.addEventListener("change", () => {
+      if (!input.checked) return;
+      values[node.name] = input.value;
+      refresh(input.value);
+      emitFieldUpdate(form, options.onUpdate, node.name, input.value);
+    });
+    label.append(input, caption);
+    controls.push({ label, input });
+    root.append(label);
+  }
+  refresh(String(values[node.name] ?? ""));
+  return root;
 }
 
 function renderMany2OneLinkValue(
@@ -5973,6 +6214,13 @@ function renderEditableFormField(
   if (fieldType === "one2many") {
     return renderOne2ManyListEditor(node, description, relatedModels, values, form, options);
   }
+  if (form.dataset.model === "ir.actions.server" && node.name === "code") {
+    return renderCodeEditor(node, values, form, options, required);
+  }
+  const choices = selectionOptionsForField(description, form.dataset.model, node.name);
+  if (fieldType === "selection" && choices.length) {
+    return renderSelectionRadioEditor(node, choices, values, form, options, required);
+  }
   const control = fieldType === "text" || fieldType === "html" || node.attrs.widget === "text"
     ? document.createElement("textarea")
     : document.createElement("input");
@@ -5992,6 +6240,35 @@ function renderEditableFormField(
     emitFieldUpdate(form, options.onUpdate, node.name, control.value);
   });
   return control;
+}
+
+function renderCodeEditor(
+  node: ViewFieldNode,
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  required: boolean
+): HTMLElement {
+  const textarea = document.createElement("textarea");
+  textarea.className = "gorp-form-control gorp-code-editor o_input";
+  textarea.dataset.field = node.name;
+  if (required) textarea.dataset.requiredField = node.name;
+  textarea.setAttribute("aria-required", required ? "true" : "false");
+  textarea.setAttribute("aria-invalid", "false");
+  textarea.required = required;
+  textarea.name = node.name;
+  textarea.rows = 14;
+  textarea.spellcheck = false;
+  textarea.setAttribute("wrap", "off");
+  textarea.setAttribute("autocomplete", "off");
+  textarea.setAttribute("autocapitalize", "off");
+  textarea.value = formatCellValue(values[node.name]);
+  textarea.addEventListener("input", () => {
+    values[node.name] = textarea.value;
+    if (required && !requiredControlEmpty(textarea as RequiredFormControl)) setRequiredControlInvalid(textarea as RequiredFormControl, false);
+    emitFieldUpdate(form, options.onUpdate, node.name, textarea.value);
+  });
+  return textarea;
 }
 
 interface Many2OneSearchItem {
@@ -6404,10 +6681,11 @@ function formFieldRequired(node: ViewFieldNode, description: unknown, evalContex
   return isRecord(description) && description.required === true;
 }
 
-function formFieldEditable(node: ViewFieldNode, description: unknown, evalContext: Record<string, unknown>): boolean {
+function formFieldEditable(node: ViewFieldNode, description: unknown, evalContext: Record<string, unknown>, model?: string, fieldName = node.name): boolean {
   const readonly = safeEvaluateBooleanAttr(node.attrs.readonly, evalContext);
   if (readonly === true) return false;
   const fieldType = fieldTypeValue(description);
+  if (fieldType === "selection") return selectionOptionsForField(description, model, fieldName).length > 0;
   return fieldType === "" || fieldType === "char" || fieldType === "text" || fieldType === "html" || fieldType === "many2one" || fieldType === "many2many" || fieldType === "one2many" || node.attrs.widget === "text";
 }
 
@@ -7348,6 +7626,35 @@ function selectionOptions(description: unknown): Array<[string, string]> {
     }
   }
   return out;
+}
+
+function selectionLabel(choices: readonly [string, string][], value: string): string {
+  return choices.find(([candidate]) => candidate === value)?.[1] || value;
+}
+
+const serverActionStateSelectionOptions: Array<[string, string]> = [
+  ["code", "Execute Code"],
+  ["object_create", "Create Record"],
+  ["object_write", "Update Record"],
+  ["multi", "Multi Actions"],
+  ["mail_post", "Send Email"],
+  ["followers", "Add Followers"],
+  ["remove_followers", "Remove Followers"],
+  ["next_activity", "Create Next Activity"],
+  ["sms", "Send SMS"],
+  ["whatsapp", "Send WhatsApp"],
+  ["webhook", "Webhook"],
+  ["ai", "AI Action"],
+  ["documents_account_record_create", "Create Vendor Bill"]
+];
+
+function selectionOptionsForField(description: unknown, model: string | undefined, fieldName: string): Array<[string, string]> {
+  const choices = selectionOptions(description);
+  if (choices.length) return choices;
+  if (model === "ir.actions.server" && fieldName === "state" && fieldTypeValue(description) === "selection") {
+    return serverActionStateSelectionOptions;
+  }
+  return [];
 }
 
 function statusbarVisibleSelection(value: string | undefined): string[] {

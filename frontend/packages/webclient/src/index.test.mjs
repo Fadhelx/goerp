@@ -1442,6 +1442,8 @@ const genericFormWindow = renderWindowAction({
       name: { type: "char", string: "Name", required: true },
       email: { type: "char", string: "Email" },
       model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+      state: { type: "selection", string: "Type" },
+      code: { type: "text", string: "Code" },
       group_ids: { type: "many2many", relation: "res.groups", string: "Groups" },
       line_ids: { type: "one2many", relation: "ir.actions.server.line", string: "Lines" },
       active: { type: "boolean", string: "Active" }
@@ -1456,7 +1458,7 @@ const genericFormWindow = renderWindowAction({
     },
     views: {
       form: {
-        arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="group_ids"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
+        arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="state"/><field name="code"/><field name="group_ids"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
         id: 73
       }
     }
@@ -1470,6 +1472,8 @@ const genericFormWindow = renderWindowAction({
     name: "Update Records",
     email: "old@example.com",
     model_id: [5, "Contact"],
+    state: "code",
+    code: "result = True\nlog('ok')",
     group_ids: [[11, "Base / User"]],
     line_ids: [
       { id: 201, description: "Old line", quantity: 1 },
@@ -1500,12 +1504,31 @@ const genericDiscardButton = findAll(genericFormWindow, (node) => node.dataset?.
 assert.equal(genericEditButton.hidden, false);
 assert.equal(genericSaveButton.hidden, true);
 assert.equal(genericDiscardButton.hidden, true);
-genericEditButton.dispatchEvent(new TestEvent("click"));
 let genericForm = genericFormWindow.children[1];
+const genericServerBand = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-band"))[0];
+assert.equal(genericServerBand.dataset.state, "code");
+assert.equal(findAll(genericServerBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
+const genericServerNotebook = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-notebook"))[0];
+assert.deepEqual(findAll(genericServerNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
+const genericCodeViewer = findAll(genericServerNotebook, (node) => String(node.className ?? "").includes("gorp-code-viewer") && node.dataset?.field === "code")[0];
+assert.equal(findAll(genericCodeViewer, (node) => node.tag === "code")[0].textContent.includes("log('ok')"), true);
+const genericReadonlyState = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-selection-pills") && node.dataset?.field === "state")[0];
+assert.equal(genericReadonlyState.dataset.value, "code");
+const genericStatePills = findAll(genericReadonlyState, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-selection-pill"));
+assert.deepEqual(genericStatePills.filter((node) => ["Execute Code", "Update Record", "Multi Actions"].includes(node.textContent)).map((node) => [node.textContent, node.dataset.selected]), [
+  ["Execute Code", "true"],
+  ["Update Record", "false"],
+  ["Multi Actions", "false"]
+]);
+assert.equal(genericStatePills.some((node) => node.textContent === "Send WhatsApp"), true);
+genericEditButton.dispatchEvent(new TestEvent("click"));
+genericForm = genericFormWindow.children[1];
 const genericNameInput = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "name")[0];
 const genericEmailInput = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "email")[0];
 const genericRelation = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-editor"))[0];
 const genericRelationInput = findAll(genericRelation, (node) => node.tag === "input" && node.dataset?.field === "model_id")[0];
+const genericStateRadio = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "state")[0];
+const genericCodeEditor = findAll(genericForm, (node) => node.tag === "textarea" && String(node.className ?? "").includes("gorp-code-editor") && node.dataset?.field === "code")[0];
 const genericGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor"))[0];
 const genericGroupsInput = findAll(genericGroups, (node) => node.tag === "input" && node.dataset?.field === "group_ids")[0];
 const genericLines = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-editor"))[0];
@@ -1516,6 +1539,11 @@ assert.equal(genericDiscardButton.hidden, false);
 assert.equal(genericNameInput.required, true);
 assert.equal(genericEmailInput.value, "old@example.com");
 assert.equal(genericEmailInput.required, false);
+assert.equal(genericStateRadio.dataset.value, "code");
+assert.equal(findAll(genericStateRadio, (node) => node.tag === "input" && node.value === "code")[0].checked, true);
+assert.equal(findAll(genericStateRadio, (node) => node.textContent === "Send WhatsApp").length, 1);
+assert.equal(genericCodeEditor.value.includes("log('ok')"), true);
+assert.equal(genericCodeEditor.rows, 14);
 assert.equal(genericRelation.dataset.relation, "ir.model");
 assert.equal(genericRelation.dataset.resId, "5");
 assert.equal(genericGroups.dataset.relation, "res.groups");

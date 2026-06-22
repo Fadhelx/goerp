@@ -1,5 +1,12 @@
 import type { ThemeTokens } from "../../../theme-tokens/src/index";
-import { homeMenuAppsCatalogApp, normalizeHomeMenuApps, type HomeMenuApp, type HomeMenuPayload } from "../home_menu/app_metadata.js";
+import {
+  cleanAppName,
+  homeMenuAppsCatalogApp,
+  homeMenuEntry,
+  normalizeHomeMenuApps,
+  type HomeMenuApp,
+  type HomeMenuPayload
+} from "../home_menu/app_metadata.js";
 import { renderHomeMenu } from "../home_menu/home_menu.js";
 import { renderNavbar, type NavbarApp, type NavbarSystrayAction, type NavbarSystrayState, type RenderedNavbar } from "./navbar/navbar.js";
 
@@ -23,17 +30,24 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   root.dataset.view = options.menus ? "apps" : "ready";
   root.dataset.mobileSafe = "true";
   const menuApps = normalizeHomeMenuApps(options.menus);
+  const menuActions = normalizeHomeMenuApps(options.menus, { includeDescendantActions: true });
   const apps = options.apps ?? navbarApps(menuApps);
   const action = document.createElement("section");
   action.className = "o_action_manager";
   const setMobileMenuOpen = (open: boolean) => {
     document.body?.classList?.toggle("o-mobile-menu-open", open);
   };
-  let setNavbarActive: (appId?: number | string) => void = () => {};
+  let setNavbarActive: (appId?: number | string, brandName?: string) => void = () => {};
+  let setNavbarApps: (apps: readonly NavbarApp[], activeAppId?: number | string, brandName?: string) => void = () => {};
+  let activeBrandApp: HomeMenuApp | undefined;
   const openApp = (app: HomeMenuApp) => {
     root.dataset.view = "action";
     setMobileMenuOpen(false);
-    setNavbarActive(app.rootId ?? app.id);
+    const brandApp = app.rootId === undefined ? app : menuApps.find((item) => String(item.id) === String(app.rootId)) ?? app;
+    activeBrandApp = brandApp;
+    const sections = navbarSectionApps(options.menus, brandApp);
+    const activeSectionID = app.rootId === undefined ? app.id : navbarActiveSectionId(options.menus, brandApp, app) ?? app.rootId;
+    setNavbarApps(sections.length ? sections : apps, activeSectionID, brandApp.name);
     return options.onOpenApp?.(app, action);
   };
   const openAppsCatalog = () => {
@@ -44,7 +58,8 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   const renderApps = () => {
     root.dataset.view = "apps";
     setMobileMenuOpen(false);
-    setNavbarActive(undefined);
+    activeBrandApp = undefined;
+    setNavbarApps(apps, undefined);
     if (!options.menus) return;
     action.replaceChildren(renderHomeMenu(options.menus, {
       onOpenApp: openApp,
@@ -61,7 +76,8 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     onOpenApps: renderApps,
     onToggleMobileMenu: setMobileMenuOpen,
     onOpenApp: (app) => {
-      const menuApp = menuApps.find((item) => String(item.id) === String(app.id));
+      const menuApp = menuActions.find((item) => String(item.id) === String(app.id))
+        ?? firstSectionAction(menuActions, app.name, activeBrandApp);
       if (menuApp) openApp(menuApp);
     },
     onSystrayAction: (systrayAction) => {
@@ -70,6 +86,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     }
   });
   setNavbarActive = navbar.setActiveApp;
+  setNavbarApps = navbar.setApps;
 
   if (options.menus) {
     renderApps();
@@ -89,4 +106,36 @@ function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {
     id: app.id,
     name: app.name
   }));
+}
+
+function navbarSectionApps(payload: HomeMenuPayload | undefined, app: HomeMenuApp): NavbarApp[] {
+  if (!payload) return [];
+  return (app.menu.children ?? [])
+    .map((id) => homeMenuEntry(payload, id))
+    .filter((entry): entry is NonNullable<ReturnType<typeof homeMenuEntry>> => Boolean(entry))
+    .map((entry) => ({
+      id: entry.id ?? cleanAppName(entry.name),
+      name: cleanAppName(entry.name)
+    }));
+}
+
+function firstSectionAction(actions: readonly HomeMenuApp[], sectionName: string, activeRoot: HomeMenuApp | undefined): HomeMenuApp | undefined {
+  if (!activeRoot) return undefined;
+  const prefix = `${activeRoot.name} / ${sectionName}`;
+  return actions.find((item) => item.parentPath === prefix || item.parentPath?.startsWith(`${prefix} / `));
+}
+
+function navbarActiveSectionId(payload: HomeMenuPayload | undefined, brandApp: HomeMenuApp, app: HomeMenuApp): number | string | undefined {
+  if (!payload) return undefined;
+  const parentPath = app.parentPath ?? "";
+  for (const sectionId of brandApp.menu.children ?? []) {
+    const section = homeMenuEntry(payload, sectionId);
+    if (!section) continue;
+    const sectionName = cleanAppName(section.name);
+    const prefix = `${brandApp.name} / ${sectionName}`;
+    if (String(app.id) === String(section.id ?? sectionId) || parentPath === prefix || parentPath.startsWith(`${prefix} / `)) {
+      return section.id ?? sectionId;
+    }
+  }
+  return undefined;
 }
