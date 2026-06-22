@@ -12,7 +12,7 @@ const parsed = parseSearchArch(
     <field name="name"/>
     <filter name="active" string="Active" domain="[('active', '=', True)]"/>
     <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
-    <filter name="created_on" string="Created On" date="create_date"/>
+    <filter name="created_on" string="Created On" date="create_date" default_period="year,month-1" start_year="-1" end_year="1" start_month="-3" end_month="0"/>
     <separator/>
     <filter name="my_records" string="My Records" domain="[('user_id', '=', uid)]" context="{'search_default_my_records': 1}"/>
     <filter name="group_create_date" string="Creation Date" context="{'group_by': 'create_date:month'}"/>
@@ -48,6 +48,11 @@ assert.deepEqual(parsed.filters[0].domain, [["active", "=", true]]);
 assert.equal(parsed.filters[2].type, "dateFilter");
 assert.equal(parsed.filters[2].dateField, "create_date");
 assert.equal(parsed.filters[2].fieldType, "datetime");
+assert.deepEqual(parsed.filters[2].defaultPeriod, ["year", "month-1"]);
+assert.deepEqual(
+  [parsed.filters[2].startYear, parsed.filters[2].endYear, parsed.filters[2].startMonth, parsed.filters[2].endMonth],
+  [-1, 1, -3, 0]
+);
 assert.deepEqual(parsed.filters[3].domain, [["user_id", "=", 42]]);
 assert.deepEqual(parsed.groupBys.map((item) => [item.name, item.label, item.groupBy]), [
   ["group_create_date", "Creation Date", ["create_date:month"]],
@@ -72,9 +77,11 @@ assert.equal(groupFacet.categoryLabel, "Creation Date");
 assert.deepEqual(groupFacet.valueLabels, ["Month"]);
 
 const noFavoriteDefaults = parseSearchArch(
-  `<search><filter name="active" string="Active" domain="[('active', '=', True)]" context="{'group_by': 'user_id'}"/></search>`,
-  { context: { search_default_active: "1" } }
+  `<search><filter name="active" string="Active" domain="[('active', '=', True)]" context="{'group_by': 'user_id'}"/><filter name="date_filter" string="Date" date="create_date"/></search>`,
+  { context: { search_default_active: "1", search_default_date_filter: "year-1,month-1" }, fields: { create_date: { type: "date" } } }
 );
-assert.deepEqual(noFavoriteDefaults.defaultFacets.map((facet) => [facet.id, facet.type]), [["filter-active", "filter"]]);
+assert.deepEqual(noFavoriteDefaults.defaultFacets.map((facet) => [facet.id, facet.type]), [["filter-active", "filter"], ["filter-date_filter", "dateFilter"]]);
 assert.deepEqual(noFavoriteDefaults.defaultFacets[0].domain, [["active", "=", true]]);
 assert.deepEqual(noFavoriteDefaults.defaultFacets[0].groupBy, ["user_id"]);
+assert.equal(noFavoriteDefaults.filters[1].isDefault, true);
+assert.deepEqual(noFavoriteDefaults.filters[1].defaultPeriod, ["year-1", "month-1"]);

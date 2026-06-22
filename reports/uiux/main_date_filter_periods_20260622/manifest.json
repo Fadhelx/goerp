@@ -1,0 +1,125 @@
+{
+  "generated_at": "2026-06-22T08:22:48.723Z",
+  "base_url": "http://127.0.0.1:8088/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-menu-desktop.png",
+      "sha256": "c4d63f6a63aa21b67cd709c388406993d9d556543cdfeab1a883c88c225bf2e9",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 1
+      },
+      "duration_ms": 805
+    },
+    {
+      "name": "default-date-groupby-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-date-groupby-menu-desktop.png",
+      "sha256": "ac97a4d13d06c6bf2c6fb323124eb2d74f742e33d18619bf9478f7cf268e0b59",
+      "assertions": {
+        "fixture": {
+          "actionID": 72,
+          "messageID": 13
+        },
+        "option_state": {
+          "parent": "DateYearQuarterMonthWeekDay",
+          "labels": [
+            "Year",
+            "Quarter",
+            "Month",
+            "Week",
+            "Day"
+          ]
+        },
+        "selected_state": {
+          "facet_label": "Date",
+          "facet_values": [
+            "Year"
+          ],
+          "selected_checked": "true"
+        }
+      },
+      "duration_ms": 632
+    },
+    {
+      "name": "default-date-filter-period-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-date-filter-period-menu-desktop.png",
+      "sha256": "42bb7b8430545be215415665db405768aa7d1f8e711a4468ab3b3aa2299fd84d",
+      "assertions": {
+        "fixture": {
+          "actionID": 73,
+          "messageID": 14
+        },
+        "option_state": {
+          "parent_id": "filter-date",
+          "parent": "DateJuneMayAprilQ4Q3Q2Q1202620252024",
+          "labels": [
+            "June",
+            "May",
+            "April",
+            "Q4",
+            "Q3",
+            "Q2",
+            "Q1",
+            "2026",
+            "2025",
+            "2024"
+          ]
+        },
+        "selected_state": {
+          "selected": [
+            {
+              "id": "filter-date-month",
+              "checked": "true",
+              "label": "June"
+            },
+            {
+              "id": "filter-date-year",
+              "checked": "true",
+              "label": "2026"
+            }
+          ],
+          "facets": [
+            {
+              "id": "filter-date-month",
+              "label": "Date",
+              "values": [
+                "June 2026"
+              ]
+            },
+            {
+              "id": "filter-date-year",
+              "label": "Date",
+              "values": [
+                "2026"
+              ]
+            }
+          ],
+          "rows": 14
+        }
+      },
+      "duration_ms": 648
+    }
+  ],
+  "duration_ms": 2238
+}

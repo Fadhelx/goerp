@@ -48,6 +48,7 @@ let x2ManyCommands;
 class TestEvent {
   constructor(type, options = {}) {
     this.type = type;
+    Object.assign(this, options);
     this.detail = options.detail;
     this.bubbles = options.bubbles === true;
     this.defaultPrevented = false;
@@ -791,6 +792,7 @@ const actionServices = createWebClientServices({
                 <field name="company_id"/>
                 <field name="missing_field"/>
                 <filter name="customer" string="Customers" domain="[('customer_rank', '>', 0)]" context="{'group_by': 'company_id', 'from_search': True}"/>
+                <filter name="created_on" string="Created On" date="create_date" default_period="year,month-1"/>
                 <filter name="group_company" string="Company" context="{'group_by': 'company_id'}"/>
                 <filter name="group_created" string="Created" context="{'group_by': 'create_date'}"/>
               </search>
@@ -860,7 +862,9 @@ assert.equal(windowSearchRead.params.kwargs.context.from_search, true);
 assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
 assert.deepEqual(windowResult.search.parsed.searchFields, ["name", "company_id", "missing_field"]);
-assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active]), [["filter-customer", true]]);
+assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active, item.children?.length ?? 0]), [["filter-customer", true, 0], ["filter-created_on", false, 10]]);
+assert.equal(windowResult.search.filters[1].children[0].id, "filter-created_on-month");
+assert.equal(windowResult.search.filters[1].children[0].label, new Date().toLocaleString("en-US", { month: "long" }));
 assert.deepEqual(windowResult.search.groupBys.map((item) => [item.id, item.children?.length ?? 0]), [["group-by-group_company", 0], ["group-by-group_created", 5]]);
 assert.deepEqual(windowResult.search.groupBys[1].children.map((item) => [item.id, item.label]), [
   ["group-by-group_created-year", "Year"],
@@ -880,7 +884,7 @@ assert.equal(renderedWindow.dataset.model, "res.partner");
 assert.equal(renderedWindow.dataset.view, "list");
 assert.ok(String(renderedWindow.children[0].className).includes("o_control_panel"));
 const renderedMenuIDs = findAll(renderedWindow, (node) => node.dataset?.menuItemId).map((node) => node.dataset.menuItemId);
-for (const id of ["filter-customer", "group-by-group_company", "group-by-group_created", "group-by-group_created-month", "favorite-14"]) {
+for (const id of ["filter-customer", "filter-created_on", "filter-created_on-year", "group-by-group_company", "group-by-group_created", "group-by-group_created-month", "favorite-14"]) {
   assert.ok(renderedMenuIDs.includes(id), `missing menu id ${id}`);
 }
 assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value")[0].textContent, "Customers");
@@ -957,21 +961,38 @@ assert.deepEqual(controlActionCalls[1].action.__search_facets.map((facet) => [fa
 ]);
 assert.equal("__pager_offset" in controlActionCalls[1].action, false);
 assert.deepEqual(controlActionCalls[1].options, { additionalContext: {}, replaceLastAction: true });
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "filter-created_on-year")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+const currentYear = new Date().getFullYear();
+assert.equal(controlActionCalls.length, 3);
+assert.deepEqual(controlActionCalls[2].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.categoryLabel, facet.valueLabels, facet.dateFilterID, facet.datePeriodID]), [
+  ["filter-customer", "filter", undefined, undefined, undefined, undefined, undefined],
+  ["filter-created_on-year", "dateFilter", "create_date", "Created On", [String(currentYear)], "filter-created_on", "year"]
+]);
+assert.equal(controlActionCalls[2].action.__search_facets[1].dateFieldType, "datetime");
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "filter-created_on-month-1")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 4);
+assert.deepEqual(controlActionCalls[3].action.__search_facets.map((facet) => [facet.id, facet.datePeriodID]), [
+  ["filter-customer", undefined],
+  ["filter-created_on-month-1", "month-1"],
+  ["filter-created_on-year", "year"]
+]);
 findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "group-by-group_created-year")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
-assert.equal(controlActionCalls.length, 3);
-assert.deepEqual(controlActionCalls[2].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.interval, facet.categoryLabel, facet.valueLabels]), [
+assert.equal(controlActionCalls.length, 5);
+assert.deepEqual(controlActionCalls[4].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.interval, facet.categoryLabel, facet.valueLabels]), [
   ["filter-customer", "filter", undefined, undefined, undefined, undefined],
   ["group-by-group_created-year", "groupBy", "create_date", "year", "Created", ["Year"]]
 ]);
 findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
-assert.equal(controlActionCalls.length, 4);
-assert.deepEqual(controlActionCalls[3].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
-assert.equal(controlActionCalls[3].action.view_mode, "form,list");
-assert.equal(controlActionCalls[3].action.view_type, "form");
-assert.equal("__pager_offset" in controlActionCalls[3].action, false);
-assert.deepEqual(controlActionCalls[3].options, { additionalContext: {}, replaceLastAction: true });
+assert.equal(controlActionCalls.length, 6);
+assert.deepEqual(controlActionCalls[5].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
+assert.equal(controlActionCalls[5].action.view_mode, "form,list");
+assert.equal(controlActionCalls[5].action.view_type, "form");
+assert.equal("__pager_offset" in controlActionCalls[5].action, false);
+assert.deepEqual(controlActionCalls[5].options, { additionalContext: {}, replaceLastAction: true });
 
 const liveSearchCalls = [];
 const liveSearchWindow = renderWindowAction({
@@ -1528,6 +1549,16 @@ const genericDiscardButton = findAll(genericFormWindow, (node) => node.dataset?.
 const genericControlPanel = genericFormWindow.children[0];
 const genericControlPanelButtons = findAll(genericControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_main_buttons"))[0];
 assert.equal(findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 1);
+const genericActionMenuSection = findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
+const genericActionMenuToggle = findAll(genericActionMenuSection, (node) => node.dataset?.actionMenuToggle === "action")[0];
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
+genericActionMenuToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "true");
+assert.equal(genericActionMenuSection.dataset.open, "true");
+assert.equal(String(genericActionMenuSection.className).split(/\s+/).includes("open"), true);
+genericActionMenuToggle.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
+assert.equal(genericActionMenuSection.dataset.open, "false");
 assert.equal(genericEditButton.hidden, false);
 assert.equal(genericSaveButton.hidden, true);
 assert.equal(genericDiscardButton.hidden, true);
@@ -1860,14 +1891,18 @@ const renderedDialog = renderWindowActionDialog({
 });
 renderedDialog.addEventListener("dialog:close", (event) => dialogCloseEvents.push(event.detail));
 assert.equal(renderedDialog.dataset.target, "new");
+assert.equal(renderedDialog.dataset.dialogOpen, "true");
 assert.equal(renderedDialog.dataset.model, "res.partner");
 assert.equal(String(renderedDialog.className).split(/\s+/).includes("o_dialog"), true);
+assert.equal(String(renderedDialog.className).split(/\s+/).includes("modal-open"), true);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("gorp-action-dialog-backdrop") && node.attributes["aria-hidden"] === "true").length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-dialog")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-body") && String(node.className).includes("o_act_window")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("gorp-window-action")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
 findAll(renderedDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(renderedDialog.dataset.dialogOpen, "false");
 assert.deepEqual(dialogCloseEvents, [{ model: "res.partner" }]);
 const createActionCalls = [];
 const createActionWindow = renderWindowAction(windowResult, {

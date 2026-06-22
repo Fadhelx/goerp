@@ -1807,10 +1807,14 @@ function moveFormActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLE
 
 export function renderWindowActionDialog(result: WindowActionResult, options: RenderWindowActionDialogOptions = {}): HTMLElement {
   const overlay = document.createElement("section");
-  overlay.className = "o_dialog gorp-action-dialog";
+  overlay.className = "o_dialog gorp-action-dialog modal-open";
   overlay.dataset.target = "new";
   overlay.dataset.model = result.resModel;
+  overlay.dataset.dialogOpen = "true";
   overlay.setAttribute("tabindex", "-1");
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop o_dialog_backdrop gorp-action-dialog-backdrop show";
+  backdrop.setAttribute("aria-hidden", "true");
   const modal = document.createElement("div");
   modal.className = "modal o_dialog_container show d-block";
   modal.setAttribute("role", "dialog");
@@ -1832,6 +1836,7 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   close.className = "btn-close";
   close.setAttribute("aria-label", "Close");
   close.addEventListener("click", () => {
+    overlay.dataset.dialogOpen = "false";
     overlay.dispatchEvent(new CustomEvent("dialog:close", {
       bubbles: true,
       detail: { model: result.resModel }
@@ -1849,7 +1854,7 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   content.append(header, body);
   dialog.append(content);
   modal.append(dialog);
-  overlay.append(modal);
+  overlay.append(backdrop, modal);
   return overlay;
 }
 
@@ -2378,7 +2383,9 @@ function rerunActionWithSearchMenuItem(
 ): boolean {
   if (!item.facet || !options.services?.action) return false;
   const currentFacets = result.search?.state.facets ?? [];
-  const nextFacets = mode === "replace"
+  const nextFacets = mode === "toggle" && isGeneratedDateFilterSearchFacet(item.facet)
+    ? toggleDateFilterPeriodFacet(currentFacets, item.facet, result.search?.filters ?? [])
+    : mode === "replace"
     ? [cloneSearchFacet(item.facet)]
     : toggleSearchFacet(currentFacets, item.facet);
   return rerunActionWithFacets(result, nextFacets, options);
@@ -2548,6 +2555,50 @@ function replaceActionOptions(options: RenderWindowActionOptions): ActionService
 function toggleSearchFacet(currentFacets: readonly SearchFacet[], facet: SearchFacet): SearchFacet[] {
   if (currentFacets.some((item) => item.id === facet.id)) return withoutSearchFacet(currentFacets, facet.id);
   return [...currentFacets.map(cloneSearchFacet), cloneSearchFacet(facet)];
+}
+
+function toggleDateFilterPeriodFacet(
+  currentFacets: readonly SearchFacet[],
+  facet: SearchFacet,
+  filters: readonly ActionControlPanelMenuItem[]
+): SearchFacet[] {
+  const dateFilterID = facet.dateFilterID || "";
+  const periodID = facet.datePeriodID || "";
+  if (!dateFilterID || !periodID) return toggleSearchFacet(currentFacets, facet);
+  const selected = currentFacets.filter((item) => item.dateFilterID === dateFilterID);
+  const exists = selected.some((item) => item.id === facet.id);
+  if (exists) {
+    const withoutFacet = currentFacets.filter((item) => item.id !== facet.id);
+    if (isDateYearPeriodID(periodID) && !withoutFacet.some((item) => item.dateFilterID === dateFilterID && isDateYearPeriodID(item.datePeriodID || ""))) {
+      return withoutFacet.filter((item) => item.dateFilterID !== dateFilterID).map(cloneSearchFacet);
+    }
+    return withoutFacet.map(cloneSearchFacet);
+  }
+  const next = [...currentFacets.map(cloneSearchFacet), cloneSearchFacet(facet)];
+  if (!isDateYearPeriodID(periodID) && !next.some((item) => item.dateFilterID === dateFilterID && isDateYearPeriodID(item.datePeriodID || ""))) {
+    const defaultYearID = facet.dateDefaultYearID || "year";
+    const yearFacet = findDateFilterPeriodFacet(filters, dateFilterID, defaultYearID);
+    if (yearFacet && !next.some((item) => item.id === yearFacet.id)) next.push(cloneSearchFacet(yearFacet));
+  }
+  return next;
+}
+
+function findDateFilterPeriodFacet(
+  items: readonly ActionControlPanelMenuItem[],
+  dateFilterID: string,
+  periodID: string
+): SearchFacet | null {
+  for (const item of items) {
+    const facet = item.facet;
+    if (facet?.dateFilterID === dateFilterID && facet.datePeriodID === periodID) return facet;
+    const child = item.children?.length ? findDateFilterPeriodFacet(item.children, dateFilterID, periodID) : null;
+    if (child) return child;
+  }
+  return null;
+}
+
+function isGeneratedDateFilterSearchFacet(facet: SearchFacet): boolean {
+  return facet.type === "dateFilter" && Boolean(facet.dateFilterID && facet.datePeriodID);
 }
 
 function withoutSearchFacet(facets: readonly SearchFacet[], id: string): SearchFacet[] {
@@ -3183,6 +3234,7 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
   toggle.className = "gorp-action-menu-toggle";
   toggle.dataset.actionMenuToggle = kind;
   toggle.setAttribute("aria-haspopup", "menu");
+  toggle.setAttribute("aria-expanded", "false");
   toggle.textContent = title;
   const icon = document.createElement("i");
   icon.className = iconClass;
@@ -3193,8 +3245,37 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
   menu.dataset.actionMenuItems = kind;
   menu.setAttribute("role", "menu");
   appendActionMenuItems(menu, items);
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault?.();
+    setActionMenuOpen(section, toggle, !actionMenuOpen(section));
+  });
+  toggle.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault?.();
+      setActionMenuOpen(section, toggle, false);
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault?.();
+      setActionMenuOpen(section, toggle, true);
+    }
+  });
+  menu.addEventListener("click", (event) => {
+    if ((event.target as HTMLButtonElement | null)?.disabled) return;
+    setActionMenuOpen(section, toggle, false);
+  });
   section.append(toggle, menu);
   return section;
+}
+
+function actionMenuOpen(section: HTMLElement): boolean {
+  return section.dataset.open === "true";
+}
+
+function setActionMenuOpen(section: HTMLElement, toggle: HTMLElement, open: boolean): void {
+  section.dataset.open = open ? "true" : "false";
+  section.className = toggleClassToken(String(section.className ?? ""), "open", open);
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function appendActionMenuItems(menu: HTMLElement, items: readonly HTMLElement[]): void {
@@ -7104,7 +7185,7 @@ function buildWindowActionSearch(
   const explicitFacets = searchFacetsFromAction(action);
   const searchFields = validSearchFields(parsed.searchFields, viewDescriptions.fields) ?? fallbackSearchFields(viewDescriptions.fields);
   const model = createActionSearchModel({
-    facets: explicitFacets ?? parsed.defaultFacets,
+    facets: explicitFacets ?? initialSearchFacets(parsed),
     query: typeof action.__search_query === "string" ? action.__search_query : "",
     searchFields,
     baseDomain: normalizeDomainExpression(action.domain, context),
@@ -7119,7 +7200,7 @@ function buildWindowActionSearch(
     parsed,
     state,
     suggestions: searchAutocompleteSuggestions(state.query, searchFields, viewDescriptions.fields),
-    filters: filters.length ? filters : fallbackFilterMenuItems(viewDescriptions.fields),
+    filters: filters.length ? filters : fallbackFilterMenuItems(viewDescriptions.fields, activeFacetIDs),
     groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields, activeGroupByDescriptors),
     favorites: searchMenuItems(parsed.favorites, activeFacetIDs, viewDescriptions.fields, activeGroupByDescriptors)
   };
@@ -7176,6 +7257,8 @@ function searchMenuItems(
   activeGroupByDescriptors: ReadonlySet<string> = new Set()
 ): ActionControlPanelMenuItem[] {
   return items.map((item) => {
+    const dateFilter = dateFilterMenuItem(item, activeFacetIDs);
+    if (dateFilter) return dateFilter;
     const dateGroup = dateGroupByMenuItem(item, fields, activeFacetIDs, activeGroupByDescriptors);
     if (dateGroup) return dateGroup;
     const facet = parsedSearchItemFacet(item);
@@ -7187,6 +7270,165 @@ function searchMenuItems(
       ...(item.type === "favorite" ? { favorite: parsedFavoriteMetadata(item) } : {})
     };
   });
+}
+
+function initialSearchFacets(parsed: ParsedSearchArch): SearchFacet[] {
+  const defaultFavorite = parsed.favorites.find((item) => item.isDefault);
+  if (defaultFavorite) return [parsedSearchItemFacet(defaultFavorite)];
+  const facets: SearchFacet[] = [];
+  for (const item of [...parsed.filters, ...parsed.groupBys, ...parsed.favorites]) {
+    if (!item.isDefault) continue;
+    if (item.type === "dateFilter") facets.push(...dateFilterDefaultFacets(item));
+    else facets.push(parsedSearchItemFacet(item));
+  }
+  return facets;
+}
+
+function dateFilterMenuItem(item: ParsedSearchItem, activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem | null {
+  if (item.type !== "dateFilter" || !item.dateField) return null;
+  const children = dateFilterPeriodOptions(item).map((option) => ({
+    id: option.id,
+    label: option.label,
+    active: activeFacetIDs.has(option.facet.id),
+    facet: option.facet,
+    separatorBefore: option.separatorBefore
+  }));
+  if (!children.length) return null;
+  return {
+    id: item.id,
+    label: item.label,
+    active: children.some((child) => child.active),
+    children
+  };
+}
+
+function dateFilterDefaultFacets(item: ParsedSearchItem): SearchFacet[] {
+  const requested = item.defaultPeriod?.length ? item.defaultPeriod : ["month"];
+  const options = dateFilterPeriodOptions(item);
+  const byPeriodID = new Map(options.map((option) => [option.periodID, option.facet]));
+  const facets: SearchFacet[] = [];
+  for (const periodID of requested) {
+    const facet = byPeriodID.get(periodID);
+    if (!facet || facets.some((item) => item.id === facet.id)) continue;
+    facets.push(cloneSearchFacet(facet));
+    if (isDateYearPeriodID(periodID) || !facet.dateDefaultYearID || facets.some((item) => item.datePeriodID === facet.dateDefaultYearID)) continue;
+    const yearFacet = byPeriodID.get(facet.dateDefaultYearID);
+    if (yearFacet) facets.push(cloneSearchFacet(yearFacet));
+  }
+  return facets;
+}
+
+interface DateFilterPeriodMenuOption {
+  id: string;
+  periodID: string;
+  label: string;
+  separatorBefore?: boolean;
+  facet: SearchFacet;
+}
+
+function dateFilterPeriodOptions(item: ParsedSearchItem, reference = new Date()): DateFilterPeriodMenuOption[] {
+  const field = item.dateField || "";
+  if (!field) return [];
+  const params = dateFilterRangeParams(item);
+  const options: DateFilterPeriodMenuOption[] = [];
+  const pushOption = (periodID: string, menuLabel: string, facetLabel: string, separatorBefore = false, defaultYearID?: string) => {
+    const id = `${item.id}-${periodID}`;
+    options.push({
+      id,
+      periodID,
+      label: menuLabel,
+      separatorBefore,
+      facet: {
+        id,
+        type: "dateFilter",
+        label: `${item.label}: ${facetLabel}`,
+        categoryLabel: item.label,
+        valueLabels: [facetLabel],
+        field,
+        group: item.group,
+        dateFilterID: item.id,
+        datePeriodID: periodID,
+        dateDefaultYearID: defaultYearID,
+        dateFieldType: item.fieldType,
+        dateStartYear: params.startYear,
+        dateEndYear: params.endYear,
+        dateStartMonth: params.startMonth,
+        dateEndMonth: params.endMonth,
+        domain: item.domain ? [...item.domain] : undefined,
+        context: item.context ? { ...item.context } : undefined,
+        groupBy: item.groupBy ? [...item.groupBy] : undefined
+      }
+    });
+  };
+
+  const months: number[] = [];
+  for (let offset = params.endMonth; offset >= params.startMonth; offset -= 1) months.push(offset);
+  for (const offset of months) {
+    const date = addMonths(reference, offset);
+    const menuLabel = monthName(date);
+    const yearOffset = date.getFullYear() - reference.getFullYear();
+    pushOption(periodID("month", offset), menuLabel, `${menuLabel} ${date.getFullYear()}`, false, clampDatePeriodID("year", yearOffset, params.startYear, params.endYear));
+  }
+
+  const currentYear = reference.getFullYear();
+  const defaultYearID = clampDatePeriodID("year", 0, params.startYear, params.endYear);
+  for (const quarter of [4, 3, 2, 1]) {
+    const label = `Q${quarter}`;
+    pushOption(`${ordinalName(quarter)}_quarter`, label, `${label} ${currentYear}`, quarter === 4 && options.length > 0, defaultYearID);
+  }
+
+  const years: number[] = [];
+  for (let offset = params.endYear; offset >= params.startYear; offset -= 1) years.push(offset);
+  for (const offset of years) {
+    const year = currentYear + offset;
+    pushOption(periodID("year", offset), String(year), String(year), offset === params.endYear && options.length > 0);
+  }
+  return options;
+}
+
+function dateFilterRangeParams(item: ParsedSearchItem): { startYear: number; endYear: number; startMonth: number; endMonth: number } {
+  const startYear = numberOrDefault(item.startYear, -2);
+  const endYear = numberOrDefault(item.endYear, 0);
+  const startMonth = numberOrDefault(item.startMonth, -2);
+  const endMonth = numberOrDefault(item.endMonth, 0);
+  return {
+    startYear: Math.min(startYear, endYear),
+    endYear: Math.max(startYear, endYear),
+    startMonth: Math.min(startMonth, endMonth),
+    endMonth: Math.max(startMonth, endMonth)
+  };
+}
+
+function numberOrDefault(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : fallback;
+}
+
+function periodID(unit: "month" | "year", offset: number): string {
+  if (offset === 0) return unit;
+  return `${unit}${offset > 0 ? "+" : ""}${offset}`;
+}
+
+function clampDatePeriodID(unit: "year", offset: number, start: number, end: number): string {
+  return periodID(unit, Math.max(Math.min(start, end), Math.min(Math.max(start, end), offset)));
+}
+
+function isDateYearPeriodID(periodID: string): boolean {
+  return periodID === "year" || /^year[+-]\d+$/.test(periodID);
+}
+
+function addMonths(reference: Date, offset: number): Date {
+  return new Date(reference.getFullYear(), reference.getMonth() + offset, 1);
+}
+
+function monthName(date: Date): string {
+  return date.toLocaleString("en-US", { month: "long" });
+}
+
+function ordinalName(value: number): string {
+  if (value === 1) return "first";
+  if (value === 2) return "second";
+  if (value === 3) return "third";
+  return "fourth";
 }
 
 function dateGroupByMenuItem(
@@ -7253,19 +7495,58 @@ function parsedFavoriteMetadata(item: ParsedSearchItem): ActionControlPanelMenuI
   };
 }
 
-function fallbackFilterMenuItems(fields: Record<string, unknown>): ActionControlPanelMenuItem[] {
+function fallbackFilterMenuItems(fields: Record<string, unknown>, activeFacetIDs: ReadonlySet<string> = new Set()): ActionControlPanelMenuItem[] {
   const items: ActionControlPanelMenuItem[] = [];
   if (fields.active) {
     items.push(
-      { id: "filter-active", label: "Active", facet: { id: "filter-active", type: "filter", label: "Active", domain: [["active", "=", true]] } },
-      { id: "filter-archived", label: "Archived", facet: { id: "filter-archived", type: "filter", label: "Archived", domain: [["active", "=", false]], context: { active_test: false } } }
+      { id: "filter-active", label: "Active", active: activeFacetIDs.has("filter-active"), facet: { id: "filter-active", type: "filter", label: "Active", domain: [["active", "=", true]] } },
+      { id: "filter-archived", label: "Archived", active: activeFacetIDs.has("filter-archived"), facet: { id: "filter-archived", type: "filter", label: "Archived", domain: [["active", "=", false]], context: { active_test: false } } }
     );
   }
   if (fields.state) {
     const codeLabel = selectionOptions(fields.state).find(([value]) => value === "code")?.[1];
-    items.push({ id: "filter-code", label: codeLabel || fieldLabel(fields, "state"), facet: { id: "filter-code", type: "filter", label: codeLabel || fieldLabel(fields, "state"), domain: [["state", "=", "code"]] } });
+    items.push({ id: "filter-code", label: codeLabel || fieldLabel(fields, "state"), active: activeFacetIDs.has("filter-code"), facet: { id: "filter-code", type: "filter", label: codeLabel || fieldLabel(fields, "state"), domain: [["state", "=", "code"]] } });
+  }
+  const fallbackDate = fallbackDateFilterField(fields);
+  if (fallbackDate) {
+    const [name, description] = fallbackDate;
+    const item: ParsedSearchItem = {
+      id: `filter-${name}`,
+      name,
+      label: fieldLabel({ [name]: description }, name),
+      type: "dateFilter",
+      dateField: name,
+      fieldType: fieldTypeValue(description),
+      defaultPeriod: ["month"],
+      startYear: -2,
+      endYear: 0,
+      startMonth: -2,
+      endMonth: 0
+    };
+    const dateItem = dateFilterMenuItem(item, activeFacetIDs);
+    if (dateItem) items.push(dateItem);
   }
   return dedupeMenuItems(items);
+}
+
+function fallbackDateFilterField(fields: Record<string, unknown>): [string, unknown] | undefined {
+  const preferred = [
+    "date",
+    "datetime",
+    "scheduled_date",
+    "deadline",
+    "date_deadline",
+    "activity_date_deadline",
+    "create_date",
+    "write_date"
+  ];
+  for (const name of preferred) {
+    if (fields[name] && dateFieldForMenu(name, fields)) return [name, fields[name]];
+  }
+  for (const [name, description] of Object.entries(fields)) {
+    if (dateFieldForMenu(name, fields)) return [name, description];
+  }
+  return undefined;
 }
 
 function fallbackGroupByMenuItems(
@@ -7345,7 +7626,15 @@ function searchFacetsFromAction(action: Record<string, unknown>): SearchFacet[] 
       ...(isRecord(raw.context) ? { context: { ...raw.context } } : {}),
       ...(Array.isArray(raw.groupBy) ? { groupBy: raw.groupBy.map((item) => String(item)) } : {}),
       ...(typeof raw.interval === "string" ? { interval: raw.interval as SearchFacet["interval"] } : {}),
-      ...(raw.group !== undefined ? { group: raw.group as string | number } : {})
+      ...(raw.group !== undefined ? { group: raw.group as string | number } : {}),
+      ...(typeof raw.dateFilterID === "string" ? { dateFilterID: raw.dateFilterID } : {}),
+      ...(typeof raw.datePeriodID === "string" ? { datePeriodID: raw.datePeriodID } : {}),
+      ...(typeof raw.dateDefaultYearID === "string" ? { dateDefaultYearID: raw.dateDefaultYearID } : {}),
+      ...(typeof raw.dateFieldType === "string" ? { dateFieldType: raw.dateFieldType } : {}),
+      ...(typeof raw.dateStartYear === "number" ? { dateStartYear: raw.dateStartYear } : {}),
+      ...(typeof raw.dateEndYear === "number" ? { dateEndYear: raw.dateEndYear } : {}),
+      ...(typeof raw.dateStartMonth === "number" ? { dateStartMonth: raw.dateStartMonth } : {}),
+      ...(typeof raw.dateEndMonth === "number" ? { dateEndMonth: raw.dateEndMonth } : {})
     });
   }
   return facets;

@@ -5866,10 +5866,18 @@ const webClientShellHTML = `<!doctype html>
 		align-items: flex-start;
 		justify-content: center;
 		padding: 56px 18px 24px;
+		background: transparent;
+	}
+	.gorp-action-dialog .o_dialog_container {
+		position: relative;
+		z-index: 1056;
+		width: 100%;
+		pointer-events: none;
 	}
 	.gorp-action-dialog .modal-dialog {
 		width: min(960px, 100%);
 		margin: 0;
+		pointer-events: auto;
 	}
 	.gorp-action-dialog .modal-content {
 		background: var(--panel);
@@ -5889,6 +5897,8 @@ const webClientShellHTML = `<!doctype html>
 		background: #fff;
 	}
 	.gorp-action-dialog .modal-title {
+		margin: 0;
+		color: #1f2937;
 		font-size: 18px;
 		font-weight: 500;
 	}
@@ -5901,7 +5911,7 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--muted);
 	}
 	.gorp-action-dialog .btn-close::before {
-		content: "x";
+		content: "\00d7";
 		font-size: 20px;
 		line-height: 1;
 	}
@@ -5915,7 +5925,8 @@ const webClientShellHTML = `<!doctype html>
 		position: fixed;
 		inset: 0;
 		z-index: 1050;
-		background: rgba(17, 24, 39, .42);
+		background: rgba(17, 24, 39, .55);
+		backdrop-filter: blur(1px);
 	}
 	#modules {
 		margin: 0;
@@ -6655,7 +6666,8 @@ const webClientShellHTML = `<!doctype html>
 		padding: 4px;
 	}
 	.gorp-action-menu-section:hover .gorp-action-menu-items,
-	.gorp-action-menu-section:focus-within .gorp-action-menu-items {
+	.gorp-action-menu-section:focus-within .gorp-action-menu-items,
+	.gorp-action-menu-section.open .gorp-action-menu-items {
 		display: grid;
 		gap: 2px;
 	}
@@ -8277,6 +8289,24 @@ const webClientShellHTML = `<!doctype html>
 		.o-list-content { padding: 12px; overflow-x: hidden; }
 		.o-list-view table { display: none; }
 		.o_mobile_list_cards { display: grid; gap: 8px; }
+		.gorp-action-dialog {
+			align-items: stretch;
+			padding: 46px 0 0;
+		}
+		.gorp-action-dialog .o_dialog_container,
+		.gorp-action-dialog .modal-dialog {
+			min-height: calc(100dvh - 46px);
+		}
+		.gorp-action-dialog .modal-content {
+			min-height: calc(100dvh - 46px);
+			border-right: 0;
+			border-bottom: 0;
+			border-left: 0;
+			border-radius: 0;
+		}
+		.gorp-action-dialog .modal-body {
+			max-height: calc(100dvh - 99px);
+		}
 		#recordForm { padding: 14px; }
 	}
   </style>

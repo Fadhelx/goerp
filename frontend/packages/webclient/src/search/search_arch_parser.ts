@@ -14,6 +14,11 @@ export interface ParsedSearchItem {
   groupBy?: readonly string[];
   dateField?: string;
   fieldType?: string;
+  defaultPeriod?: readonly string[];
+  startYear?: number;
+  endYear?: number;
+  startMonth?: number;
+  endMonth?: number;
   userId?: number;
   actionId?: number;
   embeddedActionId?: number;
@@ -79,6 +84,11 @@ export function parseSearchArch(arch: string, options: SearchArchParseOptions = 
     }
     const dateField = cleanFieldName(node.attrs.date);
     const itemType: ParsedSearchItemType = dateField ? "dateFilter" : "filter";
+    const startYear = numberAttr(node.attrs.start_year, -2);
+    const endYear = numberAttr(node.attrs.end_year, 0);
+    const startMonth = numberAttr(node.attrs.start_month, -2);
+    const endMonth = numberAttr(node.attrs.end_month, 0);
+    const defaultPeriod = dateFieldDefaultPeriod(node.attrs.default_period, context, name, defaultMonthPeriodID(startMonth, endMonth));
     filters.push({
       id: `filter-${name}`,
       name,
@@ -90,6 +100,11 @@ export function parseSearchArch(arch: string, options: SearchArchParseOptions = 
       groupBy,
       dateField: dateField || undefined,
       fieldType: fieldType(options.fields?.[dateField]),
+      defaultPeriod: dateField ? defaultPeriod : undefined,
+      startYear: dateField ? startYear : undefined,
+      endYear: dateField ? endYear : undefined,
+      startMonth: dateField ? startMonth : undefined,
+      endMonth: dateField ? endMonth : undefined,
       isDefault: contextDefaultActive(context, name)
     });
   }
@@ -298,7 +313,37 @@ function dateIntervalLabel(interval: SearchDateInterval): string {
 
 function contextDefaultActive(context: Record<string, unknown>, name: string): boolean {
   const value = context[`search_default_${name}`];
-  return value === true || value === 1 || value === "1";
+  if (value === true || value === 1) return true;
+  if (typeof value === "string") return Boolean(value.trim()) && !/^(false|0)$/i.test(value.trim());
+  return false;
+}
+
+function dateFieldDefaultPeriod(value: unknown, context: Record<string, unknown>, name: string, fallbackPeriod: string): string[] {
+  const contextValue = context[`search_default_${name}`];
+  if (typeof contextValue === "string" && contextValue.trim() && !/^(true|1)$/i.test(contextValue.trim())) {
+    return splitPeriodIDs(contextValue);
+  }
+  const attrPeriod = splitPeriodIDs(value);
+  return attrPeriod.length ? attrPeriod : [fallbackPeriod];
+}
+
+function splitPeriodIDs(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  if (typeof value !== "string") return [];
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function numberAttr(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function defaultMonthPeriodID(startMonth: number, endMonth: number): string {
+  const lower = Math.min(startMonth, endMonth);
+  const upper = Math.max(startMonth, endMonth);
+  const offset = Math.max(lower, Math.min(upper, 0));
+  if (offset === 0) return "month";
+  return `month${offset > 0 ? "+" : ""}${offset}`;
 }
 
 function parsePythonish(value: string, context: Record<string, unknown> = {}): unknown {

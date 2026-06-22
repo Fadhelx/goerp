@@ -609,7 +609,6 @@ interface ActionHostState {
 }
 
 interface ActionDialogMount {
-  backdrop: HTMLElement;
   dialog: HTMLElement;
 }
 
@@ -672,13 +671,11 @@ function renderActionHostResult(state: ActionHostState, host: ActionService, res
   const services = actionHostServices(state.env, host);
   if (isDialogWindowAction(titledResult)) {
     const dialog = renderWindowActionDialog(titledResult, { services });
-    const backdrop = document.createElement("div");
-    backdrop.className = "modal-backdrop gorp-action-dialog-backdrop show";
     dialog.addEventListener("dialog:close", () => {
       void host.doAction({ type: "ir.actions.act_window_close" });
     });
-    state.dialogs.push({ backdrop, dialog });
-    state.outlet.append(backdrop, dialog);
+    state.dialogs.push({ dialog });
+    state.outlet.append(dialog);
     setBodyModalOpen(state);
     state.outlet.dataset.tsDialogStatus = "ready";
     return;
@@ -710,7 +707,6 @@ function isCloseActionResult(result: unknown): boolean {
 function removeTopDialog(state: ActionHostState): void {
   const mount = state.dialogs.pop();
   mount?.dialog.remove();
-  mount?.backdrop.remove();
   setBodyModalOpen(state);
   state.outlet.dataset.tsDialogStatus = state.dialogs.length ? "ready" : "closed";
 }
@@ -718,7 +714,6 @@ function removeTopDialog(state: ActionHostState): void {
 function clearDialogs(state: ActionHostState): void {
   for (const mount of state.dialogs.splice(0)) {
     mount.dialog.remove();
-    mount.backdrop.remove();
   }
   setBodyModalOpen(state);
   delete state.outlet.dataset.tsDialogStatus;

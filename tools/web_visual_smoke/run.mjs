@@ -127,6 +127,47 @@ export const scenarios = [
     }
   },
   {
+    name: "default-action-dialog-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&dialog_auth=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "dialog auth document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=web.action_base_document_layout_configurator&view_type=form`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "dialog route document ready");
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "dialog route TS webclient ready");
+      const dialogCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-action-dialog[data-target='new'][data-dialog-open='true']", 1, "TS target-new action dialog");
+      const backdropCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-action-dialog .gorp-action-dialog-backdrop", 1, "TS target-new action dialog backdrop");
+      const state = await evaluate(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-action-dialog");
+        const backdrops = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-action-dialog-backdrop")];
+        const modal = dialog?.querySelector(".modal.o_dialog_container");
+        const body = dialog?.querySelector(".modal-body.o_act_window");
+        const title = dialog?.querySelector(".modal-title")?.textContent?.trim() || "";
+        const close = dialog?.querySelector(".btn-close");
+        const rect = dialog?.querySelector(".modal-dialog")?.getBoundingClientRect();
+        return {
+          body_modal_open: document.body.classList.contains("modal-open"),
+          dialog_open: dialog?.dataset?.dialogOpen || "",
+          model: dialog?.dataset?.model || "",
+          backdrop_count: backdrops.length,
+          backdrop_in_dialog: backdrops.every((node) => node.parentElement === dialog),
+          modal_role: modal?.getAttribute("role") || "",
+          close_label: close?.getAttribute("aria-label") || "",
+          title,
+          body_count: body ? 1 : 0,
+          width: Math.round(rect?.width || 0),
+          height: Math.round(rect?.height || 0)
+        };
+      })()`);
+      if (!state.body_modal_open || state.dialog_open !== "true" || state.backdrop_count !== 1 || !state.backdrop_in_dialog || state.modal_role !== "dialog" || state.close_label !== "Close" || !state.title || state.body_count !== 1 || state.width < 360 || state.height < 180) {
+        throw new Error(`target-new dialog state invalid: ${JSON.stringify(state)}`);
+      }
+      return { dialog_count: dialogCount, backdrop_count: backdropCount, state };
+    }
+  },
+  {
     name: "default-technical-search-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -389,6 +430,57 @@ export const scenarios = [
     }
   },
   {
+    name: "default-date-filter-period-menu-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&date_filter_setup=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "date filter TS webclient ready");
+      const fixture = await createDateFilterSmokeAction(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=mail.message&view_type=list`) });
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "date filter action ready");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='mail.message'][data-view='list']", 1, "date filter mail message list");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const optionState = await waitFor(page, `(() => {
+        const parents = [...document.querySelectorAll(".o_web_client .o_action_manager .o_filter_menu [data-menu-item-id]")];
+        const parent = parents.find((node) => {
+          const id = node.dataset.menuItemId || "";
+          if (!id.startsWith("filter-")) return false;
+          return document.querySelectorAll(\`.o_web_client .o_action_manager .o_filter_menu [data-parent-menu-item-id="\${id}"]\`).length >= 10;
+        });
+        const parentID = parent?.dataset.menuItemId || "";
+        const options = parentID ? [...document.querySelectorAll(\`.o_web_client .o_action_manager .o_filter_menu [data-parent-menu-item-id="\${parentID}"]\`)] : [];
+        const labels = options.map((node) => node.textContent.trim()).filter(Boolean);
+        return parent && labels.length >= 10 ? { parent_id: parentID, parent: parent.textContent.trim(), labels: labels.slice(0, 10) } : null;
+      })()`, "date filter period options");
+      const currentMonth = new Date().toLocaleString("en-US", { month: "long" });
+      const currentYear = String(new Date().getFullYear());
+      if (optionState.labels[0] !== currentMonth || !optionState.labels.includes(currentYear) || !optionState.labels.includes("Q1")) {
+        throw new Error(`date filter options invalid: ${JSON.stringify(optionState)}`);
+      }
+      await clickSelector(page, `.o_web_client .o_action_manager .o_filter_menu [data-menu-item-id='${optionState.parent_id}-month']`);
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "date filter current month action ready");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const selectedState = await waitFor(page, `(() => {
+        const selected = [...document.querySelectorAll(${JSON.stringify(`.o_web_client .o_action_manager .o_filter_menu [data-parent-menu-item-id='${optionState.parent_id}'].selected`)})]
+          .map((node) => ({ id: node.dataset.menuItemId || "", checked: node.getAttribute("aria-checked") || "", label: node.textContent.trim() }));
+        const facets = [...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet_dateFilter")]
+          .map((facet) => ({
+            id: facet.dataset.facetId || "",
+            label: facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "",
+            values: [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean)
+          }));
+        const rows = document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row").length;
+        return selected.length >= 2 && facets.length >= 2 && rows >= 1 ? { selected, facets, rows } : null;
+      })()`, "date filter selected current month and year");
+      const selectedIDs = selectedState.selected.map((item) => item.id);
+      if (!selectedIDs.includes(`${optionState.parent_id}-month`) || !selectedIDs.includes(`${optionState.parent_id}-year`)) {
+        throw new Error(`date filter selected options invalid: ${JSON.stringify(selectedState)}`);
+      }
+      return { fixture, option_state: optionState, selected_state: selectedState };
+    }
+  },
+  {
     name: "default-search-filter-click-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -574,13 +666,33 @@ export const scenarios = [
       if (mobileFormChrome.action_toggle_width_px < 32 || mobileFormChrome.action_toggle_width_px > 40 || mobileFormChrome.action_toggle_font_size_px !== 0) {
         throw new Error(`default TS mobile form action toggle not compact: ${JSON.stringify(mobileFormChrome)}`);
       }
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_control_panel_main_buttons .gorp-action-menu-toggle[data-action-menu-toggle='action']");
+      const actionMenuOpenState = await waitFor(page, `(() => {
+        const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
+        const toggle = section?.querySelector(".gorp-action-menu-toggle");
+        const menu = section?.querySelector(".gorp-action-menu-items");
+        const rect = menu?.getBoundingClientRect();
+        const style = menu ? getComputedStyle(menu) : null;
+        const itemCount = menu?.querySelectorAll(".gorp-action-menu-item").length || 0;
+        return section?.dataset.open === "true" && toggle?.getAttribute("aria-expanded") === "true" && itemCount > 0 && rect && rect.width > 0 && rect.height > 0 && style?.display !== "none"
+          ? { open: section.dataset.open, expanded: toggle.getAttribute("aria-expanded"), item_count: itemCount, width: Math.round(rect.width), height: Math.round(rect.height), display: style.display }
+          : null;
+      })()`, "default TS mobile form action menu opens");
+      await evaluate(page, `document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-toggle[data-action-menu-toggle='action']")?.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
+      const actionMenuClosedState = await waitFor(page, `(() => {
+        const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
+        const toggle = section?.querySelector(".gorp-action-menu-toggle");
+        return section?.dataset.open === "false" && toggle?.getAttribute("aria-expanded") === "false"
+          ? { open: section.dataset.open, expanded: toggle.getAttribute("aria-expanded") }
+          : null;
+      })()`, "default TS mobile form action menu closes");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "default TS mobile form hash");
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
-      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, hash, horizontal_overflow_px: overflow };
+      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, action_menu_open_state: actionMenuOpenState, action_menu_closed_state: actionMenuClosedState, hash, horizontal_overflow_px: overflow };
     }
   },
   {
@@ -1346,6 +1458,35 @@ async function createDateGroupBySmokeAction(page, config) {
   });
   const actionID = Number(actionCreated?.id || actionCreated || 0);
   if (!actionID) throw new Error(`date groupby smoke action invalid: ${JSON.stringify(actionCreated)}`);
+  return { actionID, messageID };
+}
+
+async function createDateFilterSmokeAction(page, config) {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const today = new Date();
+  const messageCreated = await webCallKW(page, config, "mail.message", "create", {
+    values: {
+      subject: `Visual Date Filter ${suffix}`,
+      body: "Date filter smoke",
+      message_type: "comment",
+      model: "res.partner",
+      res_id: 0,
+      date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")} 09:00:00`
+    }
+  });
+  const messageID = Number(messageCreated?.id || messageCreated || 0);
+  if (!messageID) throw new Error("date filter smoke message was not created");
+  const actionCreated = await webCallKW(page, config, "ir.actions.act_window", "create", {
+    values: {
+      name: "Message Date Filtering",
+      type: "ir.actions.act_window",
+      res_model: "mail.message",
+      view_mode: "list",
+      limit: 40
+    }
+  });
+  const actionID = Number(actionCreated?.id || actionCreated || 0);
+  if (!actionID) throw new Error(`date filter smoke action invalid: ${JSON.stringify(actionCreated)}`);
   return { actionID, messageID };
 }
 

@@ -333,6 +333,7 @@ function renderMenuLane(
       groupLabel.textContent = item.label;
       group.append(groupLabel);
       for (const child of item.children) {
+        if (child.separatorBefore) group.append(dropdownDivider());
         const option = document.createElement("button");
         option.type = "button";
         option.className = child.active ? "o_item_option o-dropdown-item dropdown-item selected" : "o_item_option o-dropdown-item dropdown-item";

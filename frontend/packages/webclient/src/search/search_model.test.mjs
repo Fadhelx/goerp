@@ -92,6 +92,88 @@ assert.deepEqual(
   ]
 );
 
+const now = new Date();
+const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+assert.deepEqual(
+  buildSearchState("", [
+    {
+      id: "filter-date-month",
+      type: "dateFilter",
+      label: "Date",
+      field: "date_field",
+      dateFilterID: "filter-date",
+      datePeriodID: "month",
+      dateDefaultYearID: "year",
+      dateFieldType: "date",
+      dateStartYear: -2,
+      dateEndYear: 0,
+      dateStartMonth: -2,
+      dateEndMonth: 0
+    },
+    {
+      id: "filter-date-year",
+      type: "dateFilter",
+      label: "Date",
+      field: "date_field",
+      dateFilterID: "filter-date",
+      datePeriodID: "year",
+      dateFieldType: "date",
+      dateStartYear: -2,
+      dateEndYear: 0,
+      dateStartMonth: -2,
+      dateEndMonth: 0
+    }
+  ]).domain,
+  [
+    "&",
+    ["date_field", ">=", ymd(currentMonthStart)],
+    ["date_field", "<=", ymd(currentMonthEnd)]
+  ]
+);
+
+assert.deepEqual(
+  buildSearchState("", [
+    {
+      id: "filter-date-month",
+      type: "dateFilter",
+      label: "Date",
+      field: "date_field",
+      group: 1,
+      dateFilterID: "filter-date",
+      datePeriodID: "month",
+      dateDefaultYearID: "year",
+      dateFieldType: "date",
+      dateStartYear: -2,
+      dateEndYear: 0,
+      dateStartMonth: -2,
+      dateEndMonth: 0,
+      domain: [["active", "=", true]]
+    },
+    {
+      id: "filter-date-year",
+      type: "dateFilter",
+      label: "Date",
+      field: "date_field",
+      group: 1,
+      dateFilterID: "filter-date",
+      datePeriodID: "year",
+      dateFieldType: "date",
+      dateStartYear: -2,
+      dateEndYear: 0,
+      dateStartMonth: -2,
+      dateEndMonth: 0
+    }
+  ]).domain,
+  [
+    "&",
+    "&",
+    ["date_field", ">=", ymd(currentMonthStart)],
+    ["date_field", "<=", ymd(currentMonthEnd)],
+    ["active", "=", true]
+  ]
+);
+
 const favoriteSearch = createSearchModel({ searchFields: ["name"] });
 favoriteSearch.setQuery("draft");
 let favoriteState = favoriteSearch.addFacet({ id: "state", type: "filter", label: "Draft", domain: [["state", "=", "draft"]] });
@@ -116,7 +198,9 @@ assert.deepEqual(
     { id: "customer", type: "filter", label: "Customer", group: 2, domain: [["customer_rank", ">", 0]] }
   ]).domain,
   [
-    ["|", ["active", "=", true], ["active", "=", false]],
+    "|",
+    ["active", "=", true],
+    ["active", "=", false],
     ["customer_rank", ">", 0]
   ]
 );
@@ -145,3 +229,11 @@ assert.deepEqual(labelState.facets[0], {
   valueLabels: ["New", "Won"],
   domain: [["stage", "in", ["new", "won"]]]
 });
+
+function ymd(date) {
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
