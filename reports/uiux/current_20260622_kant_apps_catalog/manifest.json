@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-06-22T01:58:51.733Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "ea3b6d60032c7e4957ed5b2d2117ecd8d7411be2cddc6f411043d6e7e9b09cf3",
+      "assertions": {
+        "module": "ai",
+        "sidebar_count": 1,
+        "filter_count": 4,
+        "category_count": 10,
+        "active_filter": "installed",
+        "card_count": 1,
+        "detail_module": "ai",
+        "detail_closed": "closed"
+      },
+      "duration_ms": 821
+    }
+  ],
+  "duration_ms": 1006
+}

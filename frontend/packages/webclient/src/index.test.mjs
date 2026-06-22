@@ -877,8 +877,12 @@ assert.ok(String(renderedWindow.children[1].className).includes("gorp-list-shell
 assert.ok(String(renderedWindow.children[1].className).includes("o-list-view"));
 const renderedListTable = findAll(renderedWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
 assert.ok(String(renderedListTable.className).includes("o_list_table"));
-assert.equal(renderedListTable.children[0].children[0].children[0].textContent, "Name");
+assert.equal(findAll(renderedListTable, (node) => String(node.className).includes("o_column_sortable") && node.dataset?.name === "name").length, 1);
+assert.equal(renderedListTable.children[0].children[0].children[0].children[0].textContent, "Name");
 assert.equal(renderedListTable.children[1].children[0].children[0].children[0].textContent, "Azure Interior");
+const renderedNameHeader = findAll(renderedListTable, (node) => node.dataset?.name === "name")[0];
+findAll(renderedNameHeader, (node) => String(node.className).includes("o_list_header_button"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(renderedNameHeader.attributes["aria-sort"], "ascending");
 const renderedMobileCard = findAll(renderedWindow, (node) => String(node.className ?? "").includes("o_mobile_record_card"))[0];
 assert.equal(findAll(renderedMobileCard, (node) => String(node.className ?? "").includes("o_mobile_record_value"))[0].children[0].textContent, "Azure Interior");
 const listOpenCalls = [];
@@ -1421,7 +1425,7 @@ const delegationWidgetWindow = renderWindowAction({
   ],
   length: 3
 });
-assert.deepEqual(findAll(delegationWidgetWindow, (node) => node.tag === "th").map((node) => node.textContent), ["Employee", "Status"]);
+assert.deepEqual(findAll(delegationWidgetWindow, (node) => node.tag === "th").map((node) => node.children[0]?.textContent ?? node.textContent), ["Employee", "Status"]);
 const delegationAvatar = findAll(delegationWidgetWindow, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0];
 assert.equal(delegationAvatar.dataset.relation, "hr.employee");
 assert.equal(delegationAvatar.dataset.resId, "7");
@@ -1576,7 +1580,7 @@ assert.equal(approveAllButton.textContent, "Approve");
 assert.equal(approveAllButton.dataset.sequence, "110");
 assert.equal(approveAllButton.dataset.icon, "fa fa-thumbs-up");
 assert.equal(approveAllButton.disabled, true);
-const approveAllCheckboxes = findAll(approveAllShell, (node) => node.tag === "input" && node.type === "checkbox");
+const approveAllCheckboxes = findAll(approveAllShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId);
 approveAllCheckboxes[0].checked = true;
 approveAllCheckboxes[0].dispatchEvent(new TestEvent("change"));
 assert.equal(approveAllButton.disabled, false);
@@ -1894,7 +1898,7 @@ const workflowListButtons = findAll(workflowListShell, (node) => node.dataset?.w
 assert.deepEqual(workflowListButtons.map((button) => button.dataset.workflowAction), ["update_status", "approve_log"]);
 assert.deepEqual(workflowListButtons.map((button) => [button.textContent, button.disabled, button.dataset.sequence, button.dataset.icon]), [["Update Status", true, "100", "fa fa-code"], ["Approval Log", true, "120", "fa fa-arrows-h"]]);
 assert.deepEqual(workflowListButtons.map((button) => button.children[0].className), ["fa fa-code", "fa fa-arrows-h"]);
-const workflowListCheckboxes = findAll(workflowListShell, (node) => node.tag === "input" && node.type === "checkbox");
+const workflowListCheckboxes = findAll(workflowListShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId);
 workflowListCheckboxes[0].checked = true;
 workflowListCheckboxes[0].dispatchEvent(new TestEvent("change"));
 assert.deepEqual(workflowListButtons.map((button) => button.disabled), [false, false]);
@@ -1984,9 +1988,9 @@ const serverExportButton = findAll(serverActionMenu, (node) => node.dataset?.act
 const serverPrintToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "print")[0];
 assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
 assert.deepEqual([serverExportButton.disabled], [true]);
-const serverActionMenuCheckboxes = findAll(serverActionMenuShell, (node) => node.tag === "input" && node.type === "checkbox");
-serverActionMenuCheckboxes[1].checked = true;
-serverActionMenuCheckboxes[1].dispatchEvent(new TestEvent("change"));
+const serverActionMenuCheckbox = findAll(serverActionMenuShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "82")[0];
+serverActionMenuCheckbox.checked = true;
+serverActionMenuCheckbox.dispatchEvent(new TestEvent("change"));
 assert.deepEqual([serverExportButton.disabled], [false]);
 serverExportButton.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -2008,8 +2012,8 @@ serverPrintButton.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(serverActionMenuCalls[1].action, 320);
 assert.deepEqual(serverActionMenuCalls[1].options.additionalContext.active_ids, [82]);
-serverActionMenuCheckboxes[1].checked = false;
-serverActionMenuCheckboxes[1].dispatchEvent(new TestEvent("change"));
+serverActionMenuCheckbox.checked = false;
+serverActionMenuCheckbox.dispatchEvent(new TestEvent("change"));
 assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
 const actionMenuRunRequests = [];
 let actionMenuRunRefreshes = 0;

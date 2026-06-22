@@ -423,6 +423,29 @@ export const scenarios = [
     }
   },
   {
+    name: "default-apps-catalog-detail-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultAppsCatalogForModule(page, config, "ai", "apps_catalog_detail");
+      const sidebarCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-sidebar", 1, "Apps catalog category sidebar");
+      const filterCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter]", 4, "Apps catalog filters");
+      const categoryCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-sidebar [data-category]", 1, "Apps catalog categories");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='installed']");
+      const activeFilter = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog")?.dataset.activeFilter === "installed" ? "installed" : ""`, "Apps catalog installed filter active");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='all']");
+      const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai']", 1, "AI module card for detail");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_info_button");
+      const detailModule = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-detail")?.dataset.moduleName === "ai" ? "ai" : ""`, "AI module detail panel");
+      const detailText = await textContent(page, ".o_web_client .gorp-apps-catalog-detail");
+      if (!detailText.includes("Technical Name") || !detailText.includes("Dependencies")) {
+        throw new Error(`Apps detail panel missing metadata: ${detailText}`);
+      }
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-detail .o_module_info_close");
+      const detailClosed = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-detail")?.hidden === true ? "closed" : ""`, "Apps detail panel closes");
+      return { module: "ai", sidebar_count: sidebarCount, filter_count: filterCount, category_count: categoryCount, active_filter: activeFilter, card_count: cardCount, detail_module: detailModule, detail_closed: detailClosed };
+    }
+  },
+  {
     name: "default-apps-lifecycle-cancel-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

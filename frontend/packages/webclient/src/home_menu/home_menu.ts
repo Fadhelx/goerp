@@ -23,12 +23,15 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   const shell = document.createElement("div");
   shell.className = "o-app-shell o_home_menu";
 
+  const searchWrap = document.createElement("div");
+  searchWrap.className = "o-app-search o_home_menu_search";
   const search = document.createElement("input");
   search.type = "search";
   search.className = "o_app_search_input o_searchview_input";
   search.setAttribute("placeholder", "Search...");
   search.setAttribute("aria-label", "Search apps and menus");
   search.value = options.query ?? "";
+  searchWrap.append(search);
 
   const grid = document.createElement("div");
   grid.className = "app-grid o_apps";
@@ -73,7 +76,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   search.addEventListener("input", renderGrid);
   renderGrid();
 
-  shell.append(search, grid);
+  shell.append(searchWrap, grid);
   section.append(shell);
   return section;
 }

@@ -2389,12 +2389,37 @@ function renderListView(
   const headerRow = document.createElement("tr");
   if (showToolbar) {
     const selectHead = document.createElement("th");
-    selectHead.textContent = "";
+    selectHead.className = "o_list_record_selector";
+    const selectAll = document.createElement("input");
+    selectAll.type = "checkbox";
+    selectAll.className = "o_list_record_selector";
+    selectAll.setAttribute("aria-label", "Select all");
+    selectAll.addEventListener("change", () => {
+      selectedIds.clear();
+      for (const checkbox of listRowCheckboxes(tbody)) {
+        checkbox.checked = selectAll.checked && !checkbox.disabled;
+        const id = Number(checkbox.dataset.recordId);
+        if (checkbox.checked && Number.isFinite(id) && id > 0) selectedIds.add(id);
+        setListRowSelected(checkbox, checkbox.checked);
+      }
+      updateListToolbarButtons(shell, selectedIds);
+    });
+    selectHead.append(selectAll);
     headerRow.append(selectHead);
   }
   for (const node of fieldNodes) {
     const th = document.createElement("th");
-    th.textContent = fieldLabel(fields, node.name);
+    th.className = "o_column_sortable";
+    th.dataset.name = node.name;
+    th.setAttribute("aria-sort", "none");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_list_header_button";
+    button.textContent = fieldLabel(fields, node.name);
+    button.addEventListener("click", () => {
+      sortListRows(tbody, fieldNodes, fields, node.name, th, showToolbar);
+    });
+    th.append(button);
     headerRow.append(th);
   }
   thead.append(headerRow);
@@ -2432,6 +2457,8 @@ function renderListView(
         if (recordID === undefined) return;
         if (checkbox.checked) selectedIds.add(recordID);
         else selectedIds.delete(recordID);
+        setListRowSelected(checkbox, checkbox.checked);
+        if (showToolbar) updateSelectAllState(thead, tbody);
         updateListToolbarButtons(shell, selectedIds);
       });
       selectCell.append(checkbox);
@@ -2467,6 +2494,104 @@ function renderListView(
   }
   shell.append(table, renderMobileListCards(fieldNodes, fields, records, model, action, options));
   return shell;
+}
+
+function listRowCheckboxes(tbody: HTMLElement): HTMLInputElement[] {
+  const out: HTMLInputElement[] = [];
+  const visit = (node: HTMLElement) => {
+    if ((node as HTMLInputElement).type === "checkbox" && node.dataset?.recordId !== undefined) {
+      out.push(node as HTMLInputElement);
+    }
+    for (const child of Array.from(node.children ?? [])) visit(child as HTMLElement);
+  };
+  visit(tbody);
+  return out;
+}
+
+function setListRowSelected(checkbox: HTMLInputElement, selected: boolean): void {
+  const row = closestTag(checkbox, "TR");
+  if (!row) return;
+  row.classList?.toggle?.("o_data_row_selected", selected);
+  row.dataset.selected = selected ? "true" : "false";
+}
+
+function updateSelectAllState(thead: HTMLElement, tbody: HTMLElement): void {
+  const selectAll = firstCheckbox(thead);
+  if (!selectAll) return;
+  const checkboxes = listRowCheckboxes(tbody).filter((checkbox) => !checkbox.disabled);
+  const selected = checkboxes.filter((checkbox) => checkbox.checked);
+  selectAll.checked = checkboxes.length > 0 && selected.length === checkboxes.length;
+  selectAll.indeterminate = selected.length > 0 && selected.length < checkboxes.length;
+}
+
+function sortListRows(
+  tbody: HTMLElement,
+  fieldNodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown>,
+  fieldName: string,
+  header: HTMLElement,
+  showToolbar: boolean
+): void {
+  const index = fieldNodes.findIndex((node) => node.name === fieldName);
+  if (index < 0) return;
+  const current = header.getAttribute("aria-sort") === "ascending" ? "ascending" : header.getAttribute("aria-sort") === "descending" ? "descending" : "none";
+  const next = current === "ascending" ? "descending" : "ascending";
+  const cellIndex = index + (showToolbar ? 1 : 0);
+  const rows = Array.from(tbody.children ?? []) as HTMLElement[];
+  rows.sort((left, right) => compareListCellText(left, right, cellIndex, fields[fieldName], next));
+  tbody.replaceChildren(...rows);
+  header.setAttribute("aria-sort", next);
+  const headerRow = header.parentElement;
+  for (const child of Array.from(headerRow?.children ?? [])) {
+    (child as HTMLElement).setAttribute("aria-sort", child === header ? next : "none");
+  }
+}
+
+function compareListCellText(
+  left: HTMLElement,
+  right: HTMLElement,
+  cellIndex: number,
+  fieldDescription: unknown,
+  direction: "ascending" | "descending"
+): number {
+  const leftValue = listCellText(left, cellIndex);
+  const rightValue = listCellText(right, cellIndex);
+  const fieldType = fieldTypeValue(fieldDescription);
+  const leftNumber = Number(leftValue);
+  const rightNumber = Number(rightValue);
+  const result = fieldType === "integer" || fieldType === "float" || fieldType === "monetary" || (Number.isFinite(leftNumber) && Number.isFinite(rightNumber))
+    ? leftNumber - rightNumber
+    : leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: "base" });
+  return direction === "ascending" ? result : -result;
+}
+
+function listCellText(row: HTMLElement, cellIndex: number): string {
+  const cell = row.children?.[cellIndex] as HTMLElement | undefined;
+  return elementText(cell).trim();
+}
+
+function elementText(node: HTMLElement | undefined): string {
+  if (!node) return "";
+  return [node.textContent || "", ...Array.from(node.children ?? []).map((child) => elementText(child as HTMLElement))].join(" ");
+}
+
+function closestTag(node: HTMLElement, tagName: string): HTMLElement | null {
+  let current: HTMLElement | null = node;
+  const upper = tagName.toUpperCase();
+  while (current) {
+    if (current.tagName === upper || (current as unknown as { tag?: string }).tag === tagName.toLowerCase()) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function firstCheckbox(root: HTMLElement): HTMLInputElement | null {
+  if ((root as HTMLInputElement).type === "checkbox") return root as HTMLInputElement;
+  for (const child of Array.from(root.children ?? [])) {
+    const found = firstCheckbox(child as HTMLElement);
+    if (found) return found;
+  }
+  return null;
 }
 
 function renderMobileListCards(
@@ -4175,14 +4300,12 @@ function renderFormView(
   }
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
-  body.setAttribute("style", "padding:14px 18px 24px;background:#eef0f3;");
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
-  sheet.setAttribute("style", "max-width:980px;margin:0 auto;background:#fff;border:1px solid var(--line);padding:20px;");
   const title = renderFormTitle(recordValues);
   if (title) sheet.append(title);
   const group = document.createElement("div");
-  group.className = "gorp-form-fields record-grid o_group";
+  group.className = "gorp-form-fields record-grid o_group o_inner_group";
   for (const node of fieldNodes) {
     const name = node.name;
     if (statusbarNodes.includes(node)) continue;

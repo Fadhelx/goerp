@@ -1,0 +1,458 @@
+{
+  "generated_at": "2026-06-22T01:59:13.045Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "launcher-desktop.png",
+      "sha256": "381b74549bda6379de1980e8f5276cb69984144f77c2a31d66a2da20761dfcfa",
+      "assertions": {
+        "app_count": 4,
+        "systray_count": 5
+      },
+      "duration_ms": 402
+    },
+    {
+      "name": "settings-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "settings-desktop.png",
+      "sha256": "03a9c1455e311017e44b92726954613f9ffa9157f38c98129db773c8c2df7246",
+      "assertions": {
+        "settings_blocks": 3,
+        "setting_boxes": 14
+      },
+      "duration_ms": 461
+    },
+    {
+      "name": "default-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-takeover.png",
+      "sha256": "44a9fa6ab62bbfabdcbf648839c85c7544e2ac5f8c9f7a09f3861d067a5835e1",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "search_count": 1,
+        "action_count": 1
+      },
+      "duration_ms": 242
+    },
+    {
+      "name": "default-systray-dropdowns-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-systray-dropdowns-desktop.png",
+      "sha256": "d6462ebf06d1bc3266d37748a1be09b3e2d0ba2c964e533352eb0fabad1ba267",
+      "assertions": {
+        "systray_count": 1,
+        "item_count": 5,
+        "open_menu_items": 6,
+        "action_status": ""
+      },
+      "duration_ms": 275
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "2523d4c5605aa281e4f98e7de40e2fb9b8203ffe60ae043f3c007601fde93cb4",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "visible_setting_count": 12,
+        "visible_label_count": 12,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 411
+    },
+    {
+      "name": "default-technical-search-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-search-desktop.png",
+      "sha256": "833bc405597466f5a16582f5a8670ca0b8cc4fb9dfe2e90808716a341aa32f71",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "action_card_count": 1,
+        "window_count": 1,
+        "row_count": 20,
+        "control_panel_bg": "rgb(255, 255, 255)",
+        "control_panel_shadow": "rgba(16, 24, 40, 0.04) 0px 1px 0px 0px",
+        "control_panel_min_height_px": 62,
+        "search_width_px": 440,
+        "search_radius_px": 4,
+        "list_header_bg": "rgb(246, 247, 248)"
+      },
+      "duration_ms": 425
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "a74cad794fdf395838cf0936811089ded1e135cafe7dceaecd7d8df7fe44fbf1",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "form_count": 1,
+        "field_count": 6
+      },
+      "duration_ms": 556
+    },
+    {
+      "name": "default-search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-menu-desktop.png",
+      "sha256": "d22d62e433e78e4308c1259df1e30fa6a3e4e4d50e2d9780f6775c2f47577164",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 1
+      },
+      "duration_ms": 441
+    },
+    {
+      "name": "default-search-filter-click-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-filter-click-desktop.png",
+      "sha256": "3d5507414c863fda290a574a94e3b07c0e7c5a0c75357200bca9ad532b24d947",
+      "assertions": {
+        "facet_count": 1,
+        "selected_filter_count": 1,
+        "row_count": 19
+      },
+      "duration_ms": 729
+    },
+    {
+      "name": "default-view-switch-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-view-switch-desktop.png",
+      "sha256": "833bc405597466f5a16582f5a8670ca0b8cc4fb9dfe2e90808716a341aa32f71",
+      "assertions": {
+        "form_count": 1,
+        "list_count": 20,
+        "form_hash": "#action=7&model=ir.actions.server&view_type=form&menu_id=8",
+        "list_hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8"
+      },
+      "duration_ms": 775
+    },
+    {
+      "name": "default-hash-route-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-hash-route-desktop.png",
+      "sha256": "7d863a6f9550532bec3d17aee99a3f2adc7181c372f383f4e84f1163f50e1574",
+      "assertions": {
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 650
+    },
+    {
+      "name": "default-webclient-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-webclient-mobile.png",
+      "sha256": "563340fd58fbe69be9a26ac84203f2c0ecb4ce8bff4dfe47b2591f147257bf3f",
+      "assertions": {
+        "app_count": 4,
+        "mobile_toggle_count": 1,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 405
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "2469cc19cd0b1d6763207abf404869dc759f6598c520a5f7303b3bc2b6ab3a82",
+      "assertions": {
+        "card_count": 20,
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 558
+    },
+    {
+      "name": "technical-list-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "technical-list-desktop.png",
+      "sha256": "2d73d3b9cf04a55852bb34d5d2c6ec731b228ac685eba7078ff9218e3bc42445",
+      "assertions": {
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 465
+    },
+    {
+      "name": "hash-route-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "hash-route-desktop.png",
+      "sha256": "a33ee5e435d104dd3dc397c1b0bff16a6fa1226ff9483a71be7b77bdbd06cbcc",
+      "assertions": {
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
+        "title": "Server Actions",
+        "row_count": 20
+      },
+      "duration_ms": 663
+    },
+    {
+      "name": "technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "technical-form-desktop.png",
+      "sha256": "d198f135d2da4268b7ec92f4aac56bea69f1f7a79a7b932af14d21220b3fc2a3",
+      "assertions": {
+        "title": "Process Workflow Escalation",
+        "field_count": 6,
+        "form_header_buttons_width": 129,
+        "form_header_breadcrumbs_width": 1141,
+        "form_header_navigation_width": 27,
+        "form_header_gap_px": 10
+      },
+      "duration_ms": 555
+    },
+    {
+      "name": "search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "search-menu-desktop.png",
+      "sha256": "ab0af443d4057695f727bd3c6af6b471845cf65aa04d1f8d48e979de20bc86ba",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 2
+      },
+      "duration_ms": 438
+    },
+    {
+      "name": "launcher-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "launcher-mobile.png",
+      "sha256": "79b798a5769e5b3afcba4eca817c850c13227855529d0c8ae682828408377156",
+      "assertions": {
+        "app_count": 4,
+        "menu_toggle": true,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 265
+    },
+    {
+      "name": "technical-list-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "technical-list-mobile.png",
+      "sha256": "7d336ab601a119f652d398c6f80af3d449dee26b57efcfc92f5a92228059c9e7",
+      "assertions": {
+        "card_count": 20,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 426
+    },
+    {
+      "name": "technical-form-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "technical-form-mobile.png",
+      "sha256": "1a09a5bb19d504f3c1afdb4d1edde945d4282b968f7ec1149571671865e08431",
+      "assertions": {
+        "title": "Process Workflow Escalation",
+        "field_count": 6,
+        "horizontal_overflow_px": 0,
+        "form_header_buttons_width": 366,
+        "form_header_breadcrumbs_width": 366,
+        "form_header_navigation_width": 366,
+        "form_header_gap_px": 10
+      },
+      "duration_ms": 563
+    },
+    {
+      "name": "normal-user-launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "normal-user-launcher-desktop.png",
+      "sha256": "46d552b5395d7d805359c87eb771e57e71d5c44854f575bb041a0d52251aec50",
+      "assertions": {
+        "uid": 5,
+        "app_count": 1,
+        "menu_count": 5,
+        "title": "Approval Buttons",
+        "model": "approval.buttons",
+        "window_count": 1
+      },
+      "duration_ms": 742
+    },
+    {
+      "name": "default-apps-install-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-install-desktop.png",
+      "sha256": "fbfcb76774153cde6d623a344a1adb04695363a3da75ea521425239cb4c76141",
+      "assertions": {
+        "module": "ai",
+        "catalog_count": 1,
+        "before_state": "uninstalled",
+        "after_install_state": "installed",
+        "after_upgrade_state": "installed",
+        "after_uninstall_state": "uninstalled",
+        "restored_state": "installed"
+      },
+      "duration_ms": 997
+    },
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "fbfcb76774153cde6d623a344a1adb04695363a3da75ea521425239cb4c76141",
+      "assertions": {
+        "module": "ai",
+        "sidebar_count": 1,
+        "filter_count": 4,
+        "category_count": 10,
+        "active_filter": "installed",
+        "card_count": 1,
+        "detail_module": "ai",
+        "detail_closed": "closed"
+      },
+      "duration_ms": 409
+    },
+    {
+      "name": "default-apps-lifecycle-cancel-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-lifecycle-cancel-desktop.png",
+      "sha256": "ea3b6d60032c7e4957ed5b2d2117ecd8d7411be2cddc6f411043d6e7e9b09cf3",
+      "assertions": {
+        "module": "ai",
+        "to_install_state": "to install",
+        "after_cancel_install_state": "uninstalled",
+        "to_upgrade_state": "to upgrade",
+        "after_cancel_upgrade_state": "installed",
+        "to_remove_state": "to remove",
+        "after_cancel_uninstall_state": "installed"
+      },
+      "duration_ms": 1925
+    }
+  ],
+  "duration_ms": 13915
+}

@@ -6447,9 +6447,112 @@ const webClientShellHTML = `<!doctype html>
 		text-align: center;
 	}
 	.o-list-view table {
+		width: 100%;
 		margin-top: 0;
 		border: 1px solid var(--line);
 		box-shadow: 0 1px 0 rgba(16,24,40,.03);
+	}
+	.o-list-view .o_list_record_selector {
+		width: 34px;
+		text-align: center;
+	}
+	.o-list-view th.o_column_sortable {
+		padding: 0;
+	}
+	.o_list_header_button {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		min-height: 34px;
+		padding: 7px 10px;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+	}
+	.o_list_header_button:hover {
+		background: #eef0f3;
+		color: var(--accent);
+	}
+	.o_column_sortable[aria-sort="ascending"] .o_list_header_button::after,
+	.o_column_sortable[aria-sort="descending"] .o_list_header_button::after {
+		content: "▲";
+		margin-left: 6px;
+		color: var(--accent);
+		font-size: 9px;
+	}
+	.o_column_sortable[aria-sort="descending"] .o_list_header_button::after {
+		content: "▼";
+	}
+	.o_data_row_selected td {
+		background: #e6f2f3 !important;
+	}
+	.gorp-list-toolbar.gorp-action-menus {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin: 0 0 8px;
+	}
+	.gorp-action-menu-section {
+		position: relative;
+		display: inline-flex;
+	}
+	.gorp-action-menu-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 30px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		color: var(--text);
+		padding: 5px 10px;
+	}
+	.gorp-action-menu-toggle:hover {
+		background: var(--hover-bg);
+		color: var(--accent);
+	}
+	.gorp-action-menu-items {
+		display: none;
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		z-index: 25;
+		min-width: 190px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		box-shadow: var(--dropdown-shadow);
+		padding: 4px;
+	}
+	.gorp-action-menu-section:hover .gorp-action-menu-items,
+	.gorp-action-menu-section:focus-within .gorp-action-menu-items {
+		display: grid;
+		gap: 2px;
+	}
+	.gorp-action-menu-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		min-height: 30px;
+		border: 0;
+		border-radius: 3px;
+		background: transparent;
+		color: var(--text);
+		padding: 5px 8px;
+		text-align: left;
+	}
+	.gorp-action-menu-item:hover:not(:disabled) {
+		background: var(--hover-bg);
+		color: var(--accent);
+	}
+	.gorp-action-menu-item:disabled {
+		color: var(--muted);
+		opacity: .65;
 	}
 	.o_mobile_list_cards {
 		display: none;
@@ -6546,9 +6649,49 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o_settings_container {
 		display: grid;
+		grid-template-columns: 220px minmax(0, 1fr);
 		gap: 16px;
 		max-width: 1180px;
 		margin: 0 auto;
+	}
+	.o_settings_search_panel {
+		grid-column: 1 / -1;
+		display: flex;
+		justify-content: flex-end;
+	}
+	.o_settings_search_panel .o_settings_search {
+		max-width: 360px;
+		height: 34px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		padding: 0 10px;
+	}
+	.o_settings_sidebar {
+		display: grid;
+		align-content: start;
+		gap: 2px;
+		border-right: 1px solid var(--line);
+		padding-right: 12px;
+	}
+	.o_settings_tab {
+		min-height: 34px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--text);
+		padding: 7px 10px;
+		text-align: left;
+	}
+	.o_settings_tab:hover,
+	.o_settings_tab.active {
+		background: var(--hover-bg);
+		color: var(--accent);
+	}
+	.o_setting_container {
+		display: grid;
+		gap: 16px;
+		min-width: 0;
 	}
 	.app_settings_block {
 		display: grid;
@@ -6603,12 +6746,166 @@ const webClientShellHTML = `<!doctype html>
 	.o_setting_action {
 		justify-self: start;
 	}
+	.gorp-form-body.o_form_sheet_bg {
+		padding: 16px 18px 26px;
+		background: #eef0f3;
+	}
+	.gorp-form-sheet.o_form_sheet {
+		max-width: 980px;
+		margin: 0 auto;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		padding: 20px 24px;
+		box-shadow: 0 1px 0 rgba(16,24,40,.03);
+	}
+	.gorp-form-fields.o_inner_group {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px 24px;
+	}
+	.gorp-form-field.o_wrap_field {
+		display: grid;
+		grid-template-columns: minmax(110px, .38fr) minmax(0, 1fr);
+		gap: 10px;
+		align-items: start;
+		min-width: 0;
+		color: var(--muted);
+	}
+	.gorp-form-field .o_field_widget {
+		min-width: 0;
+		color: var(--text);
+		overflow-wrap: anywhere;
+	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	}
 	.module-card {
 		border-radius: 4px;
 		min-height: 118px;
+	}
+	.gorp-apps-catalog-content {
+		display: grid;
+		grid-template-columns: 210px minmax(0, 1fr) minmax(260px, 320px);
+		gap: 14px;
+		align-items: start;
+	}
+	.gorp-apps-filterbar {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		margin-left: 8px;
+	}
+	.o_search_panel_filter,
+	.o_search_panel_category {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		min-height: 30px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--text);
+		padding: 5px 9px;
+		text-align: left;
+	}
+	.o_search_panel_filter {
+		border: 1px solid var(--line);
+		background: #fff;
+	}
+	.o_search_panel_filter:hover,
+	.o_search_panel_filter.active,
+	.o_search_panel_category:hover,
+	.o_search_panel_category.active {
+		background: var(--hover-bg);
+		color: var(--accent);
+	}
+	.gorp-apps-catalog-sidebar {
+		display: grid;
+		gap: 3px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		padding: 8px;
+	}
+	.o_search_panel_counter {
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.gorp-apps-catalog-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+		gap: 10px;
+		min-width: 0;
+	}
+	.gorp-apps-catalog-card {
+		display: grid;
+		grid-template-columns: 54px minmax(0, 1fr);
+		gap: 4px 10px;
+		align-items: start;
+		border: 1px solid var(--line);
+		background: #fff;
+		padding: 12px;
+	}
+	.gorp-apps-catalog-card .app-icon {
+		grid-row: 1 / span 4;
+	}
+	.gorp-apps-catalog-card .o_app_name,
+	.gorp-apps-catalog-card .o_app_technical_name,
+	.gorp-apps-catalog-card .o_app_summary {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.gorp-apps-catalog-card .o_app_summary {
+		margin: 0;
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.gorp-apps-catalog-card .o_module_state {
+		justify-self: start;
+	}
+	.gorp-apps-catalog-card .o_module_actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		grid-column: 1 / -1;
+		margin-top: 6px;
+	}
+	.gorp-apps-catalog-card .o_module_info_button {
+		grid-column: 1 / -1;
+		justify-self: start;
+		padding-left: 0;
+	}
+	.gorp-apps-catalog-detail {
+		display: grid;
+		gap: 10px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: #fff;
+		padding: 14px;
+		box-shadow: 0 1px 0 rgba(16,24,40,.03);
+	}
+	.gorp-apps-catalog-detail h3,
+	.gorp-apps-catalog-detail p {
+		margin: 0;
+	}
+	.o_module_meta {
+		display: grid;
+		grid-template-columns: minmax(92px, .42fr) minmax(0, 1fr);
+		gap: 5px 10px;
+		margin: 0;
+	}
+	.o_module_meta dt {
+		color: var(--muted);
+		font-weight: 600;
+	}
+	.o_module_meta dd {
+		margin: 0;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.record-panel {
 		padding: 0;
@@ -6742,6 +7039,30 @@ const webClientShellHTML = `<!doctype html>
 		.o-app-launcher-view .app-card { width: 100%; min-width: 0; }
 		.o-app-launcher-view .app-card strong { white-space: normal; line-height: 1.2; }
 		.module-grid, .record-grid { grid-template-columns: 1fr; }
+		.gorp-apps-catalog-content {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.gorp-apps-catalog-sidebar {
+			display: flex;
+			overflow-x: auto;
+		}
+		.gorp-apps-filterbar {
+			margin-left: 0;
+		}
+		.o_settings_container { grid-template-columns: minmax(0, 1fr); }
+		.o_settings_search_panel { justify-content: stretch; }
+		.o_settings_search_panel .o_settings_search { max-width: none; }
+		.o_settings_sidebar {
+			display: flex;
+			overflow-x: auto;
+			border-right: 0;
+			border-bottom: 1px solid var(--line);
+			padding: 0 0 8px;
+		}
+		.gorp-form-fields.o_inner_group,
+		.gorp-form-field.o_wrap_field {
+			grid-template-columns: minmax(0, 1fr);
+		}
 		.toolbar { display: grid; }
 		.field.small { max-width: none; }
 		.o-control-panel,

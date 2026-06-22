@@ -90,7 +90,7 @@ assert.equal(shell.dataset.view, "apps");
 assert.equal(shell.dataset.mobileSafe, "true");
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "4").length, 1);

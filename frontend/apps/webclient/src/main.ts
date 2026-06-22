@@ -782,10 +782,14 @@ export interface AppsCatalogModule {
   auto_install?: boolean;
   category?: string;
   depends?: readonly string[];
+  description?: string;
   installable?: boolean;
+  license?: string;
   name?: string;
+  summary?: string;
   state?: string;
   technical_name?: string;
+  website?: string;
 }
 
 export interface AppsCatalogPayload {
@@ -814,10 +818,17 @@ interface AppsCatalogAction {
   runningLabel: string;
 }
 
+type AppsCatalogFilter = "all" | "installed" | "available" | "updates";
+
 export function renderAppsCatalogView(payload: AppsCatalogPayload, options: AppsCatalogRenderOptions = {}): HTMLElement {
   const root = document.createElement("section");
   root.className = "gorp-apps-catalog o_apps_view";
   root.dataset.model = "ir.module.module";
+  root.dataset.activeFilter = "all";
+  root.dataset.activeCategory = "all";
+  const allModules = appsCatalogModules(payload);
+  let activeFilter: AppsCatalogFilter = "all";
+  let activeCategory = "all";
   const control = document.createElement("div");
   control.className = "o-control-panel o_control_panel";
   const main = document.createElement("div");
@@ -837,6 +848,25 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
   search.setAttribute("aria-label", "Search apps");
   search.value = options.query || "";
   actions.append(search);
+  const filterBar = document.createElement("div");
+  filterBar.className = "gorp-apps-filterbar o_search_panel";
+  const filterButtons: HTMLButtonElement[] = [];
+  for (const filter of appsCatalogFilters()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = filter.id === activeFilter ? "o_search_panel_filter active" : "o_search_panel_filter";
+    button.dataset.catalogFilter = filter.id;
+    button.textContent = filter.label;
+    button.setAttribute("aria-pressed", filter.id === activeFilter ? "true" : "false");
+    button.addEventListener("click", () => {
+      activeFilter = filter.id;
+      root.dataset.activeFilter = activeFilter;
+      renderGrid();
+    });
+    filterButtons.push(button);
+    filterBar.append(button);
+  }
+  actions.append(filterBar);
   const navigation = document.createElement("div");
   navigation.className = "o_control_panel_navigation";
   const pager = document.createElement("div");
@@ -845,18 +875,49 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
   main.append(breadcrumbs, actions, navigation);
   control.append(main);
   const content = document.createElement("div");
-  content.className = "o-list-content";
+  content.className = "o-list-content gorp-apps-catalog-content";
+  const sidebar = document.createElement("aside");
+  sidebar.className = "gorp-apps-catalog-sidebar o_search_panel";
+  sidebar.setAttribute("aria-label", "App categories");
   const grid = document.createElement("div");
   grid.className = "gorp-apps-catalog-grid o_apps";
-  content.append(grid);
+  const detail = document.createElement("aside");
+  detail.className = "gorp-apps-catalog-detail o_module_info_panel";
+  detail.hidden = true;
+  detail.setAttribute("aria-live", "polite");
+  const categoryButtons = renderAppsCatalogCategories(sidebar, allModules, activeCategory, (category) => {
+    activeCategory = category;
+    root.dataset.activeCategory = category;
+    renderGrid();
+  });
+  content.append(sidebar, grid, detail);
   root.append(control, content);
 
   const renderGrid = () => {
     const query = search.value.trim().toLowerCase();
+    root.dataset.query = query;
+    for (const button of filterButtons) {
+      const active = button.dataset.catalogFilter === activeFilter;
+      button.className = active ? "o_search_panel_filter active" : "o_search_panel_filter";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    for (const button of categoryButtons) {
+      const active = button.dataset.category === activeCategory;
+      button.className = active ? "o_search_panel_category active" : "o_search_panel_category";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
     grid.replaceChildren();
-    const modules = appsCatalogModules(payload).filter((item) => !query || item.searchText.includes(query));
+    const modules = allModules.filter((item) => {
+      if (query && !item.searchText.includes(query)) return false;
+      if (activeCategory !== "all" && item.category !== activeCategory) return false;
+      return appsCatalogFilterMatches(item, activeFilter);
+    });
     for (const item of modules) {
-      grid.append(renderAppsCatalogCard(item, { ...options, query }));
+      grid.append(renderAppsCatalogCard(item, {
+        ...options,
+        query,
+        onInfo: (module) => renderAppsCatalogDetail(detail, module)
+      }));
     }
     if (!grid.children.length) {
       const empty = document.createElement("p");
@@ -872,11 +933,21 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
 }
 
 interface AppsCatalogDisplayModule {
+  category: string;
+  depends: readonly string[];
+  description: string;
   displayName: string;
   installable: boolean;
+  license: string;
   searchText: string;
   state: string;
+  summary: string;
   technicalName: string;
+  website: string;
+}
+
+interface AppsCatalogCardOptions extends AppsCatalogRenderOptions {
+  onInfo?: (module: AppsCatalogDisplayModule) => void;
 }
 
 async function renderAppsCatalog(_env: ReturnType<typeof makeEnv>, outlet: HTMLElement, title: string, query = ""): Promise<void> {
@@ -922,23 +993,35 @@ function appsCatalogModules(payload: AppsCatalogPayload): AppsCatalogDisplayModu
       const technicalName = firstText(module.technical_name, key) || key;
       const displayName = firstText(module.name, moduleDisplayName(technicalName)) || technicalName;
       const state = firstText(module.state, "uninstalled") || "uninstalled";
-      const category = firstText(module.category, "");
+      const category = firstText(module.category, "Uncategorized") || "Uncategorized";
+      const summary = firstText(module.summary, module.description, "");
+      const description = firstText(module.description, module.summary, "");
+      const depends = Array.isArray(module.depends) ? module.depends.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
+      const license = firstText(module.license, "");
+      const website = firstText(module.website, "");
       return {
+        category,
+        depends,
+        description,
         displayName,
         installable: module.installable !== false,
-        searchText: [displayName, technicalName, category].join(" ").toLowerCase(),
+        license,
+        searchText: [displayName, technicalName, category, summary, description, depends.join(" ")].join(" ").toLowerCase(),
         state,
-        technicalName
+        summary,
+        technicalName,
+        website
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName) || left.technicalName.localeCompare(right.technicalName));
 }
 
-function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCatalogRenderOptions): HTMLElement {
+function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCatalogCardOptions): HTMLElement {
   const card = document.createElement("article");
   card.className = "gorp-apps-catalog-card module-card o_app";
   card.dataset.moduleName = module.technicalName;
   card.dataset.appName = module.displayName;
+  card.dataset.category = module.category;
   card.dataset.state = module.state;
   const icon = document.createElement("span");
   icon.className = "app-icon o_app_icon";
@@ -950,9 +1033,18 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   const technical = document.createElement("span");
   technical.className = "text-muted o_app_technical_name";
   technical.textContent = module.technicalName;
+  const summary = document.createElement("p");
+  summary.className = "o_app_summary";
+  summary.textContent = module.summary || module.category;
   const state = document.createElement("span");
   state.className = "badge o_module_state";
   state.textContent = module.state;
+  const info = document.createElement("button");
+  info.type = "button";
+  info.className = "btn btn-link o_module_info_button";
+  info.dataset.moduleInfo = module.technicalName;
+  info.textContent = "Module Info";
+  info.addEventListener("click", () => options.onInfo?.(module));
   const actions = document.createElement("div");
   actions.className = "o_module_actions";
   const actionHandler = options.onModuleAction || ((technicalName: string, method: AppsCatalogActionMethod) => {
@@ -981,8 +1073,99 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     locked.textContent = module.installable ? "Installed" : "Not installable";
     actions.append(locked);
   }
-  card.append(icon, title, technical, state, actions);
+  card.append(icon, title, technical, summary, state, actions, info);
   return card;
+}
+
+function appsCatalogFilters(): Array<{ id: AppsCatalogFilter; label: string }> {
+  return [
+    { id: "all", label: "All" },
+    { id: "installed", label: "Installed" },
+    { id: "available", label: "Not Installed" },
+    { id: "updates", label: "Updates" }
+  ];
+}
+
+function appsCatalogFilterMatches(module: AppsCatalogDisplayModule, filter: AppsCatalogFilter): boolean {
+  if (filter === "installed") return module.state === "installed";
+  if (filter === "available") return module.state === "uninstalled";
+  if (filter === "updates") return module.state === "to upgrade";
+  return true;
+}
+
+function renderAppsCatalogCategories(
+  sidebar: HTMLElement,
+  modules: readonly AppsCatalogDisplayModule[],
+  activeCategory: string,
+  onSelect: (category: string) => void
+): HTMLButtonElement[] {
+  const counts = new Map<string, number>();
+  for (const module of modules) counts.set(module.category, (counts.get(module.category) ?? 0) + 1);
+  const categories = ["all", ...[...counts.keys()].sort((left, right) => left.localeCompare(right))];
+  const buttons: HTMLButtonElement[] = [];
+  for (const category of categories) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = category === activeCategory ? "o_search_panel_category active" : "o_search_panel_category";
+    button.dataset.category = category;
+    button.setAttribute("aria-pressed", category === activeCategory ? "true" : "false");
+    const label = document.createElement("span");
+    label.className = "o_search_panel_label";
+    label.textContent = category === "all" ? "All Apps" : category;
+    const count = document.createElement("span");
+    count.className = "o_search_panel_counter";
+    count.textContent = String(category === "all" ? modules.length : counts.get(category) ?? 0);
+    button.append(label, count);
+    button.addEventListener("click", () => onSelect(category));
+    sidebar.append(button);
+    buttons.push(button);
+  }
+  return buttons;
+}
+
+function renderAppsCatalogDetail(panel: HTMLElement, module: AppsCatalogDisplayModule): void {
+  panel.hidden = false;
+  panel.dataset.moduleName = module.technicalName;
+  const title = document.createElement("h3");
+  title.textContent = module.displayName;
+  const state = document.createElement("span");
+  state.className = "badge o_module_state";
+  state.textContent = module.state;
+  const description = document.createElement("p");
+  description.className = "o_module_description";
+  description.textContent = module.description || module.summary || "No description available.";
+  const meta = document.createElement("dl");
+  meta.className = "o_module_meta";
+  appendModuleMeta(meta, "Technical Name", module.technicalName);
+  appendModuleMeta(meta, "Category", module.category);
+  appendModuleMeta(meta, "Dependencies", module.depends.length ? module.depends.join(", ") : "None");
+  if (module.license) appendModuleMeta(meta, "License", module.license);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "btn btn-secondary o_module_info_close";
+  close.textContent = "Close";
+  close.addEventListener("click", () => {
+    panel.hidden = true;
+    delete panel.dataset.moduleName;
+  });
+  panel.replaceChildren(title, state, description, meta, close);
+  if (module.website) {
+    const link = document.createElement("a");
+    link.className = "btn btn-link o_module_website";
+    link.href = module.website;
+    link.target = "_blank";
+    link.rel = "noreferrer noopener";
+    link.textContent = "Learn More";
+    panel.append(link);
+  }
+}
+
+function appendModuleMeta(root: HTMLElement, labelText: string, valueText: string): void {
+  const term = document.createElement("dt");
+  term.textContent = labelText;
+  const description = document.createElement("dd");
+  description.textContent = valueText;
+  root.append(term, description);
 }
 
 function appsCatalogActions(module: AppsCatalogDisplayModule): AppsCatalogAction[] {

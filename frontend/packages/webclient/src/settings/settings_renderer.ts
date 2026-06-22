@@ -3,6 +3,7 @@ export interface SettingsRendererInput {
   fields?: Record<string, unknown>;
   values?: Record<string, unknown>;
   activeApp?: string;
+  search?: string;
 }
 
 export interface SettingsRendererCallbacks {
@@ -15,6 +16,7 @@ export interface SettingsRendererState {
   activeAppId?: string;
   fields: Record<string, unknown>;
   values: Record<string, unknown>;
+  search: string;
 }
 
 export interface SettingsApp {
@@ -65,7 +67,7 @@ export function createSettingsRendererState(input: SettingsRendererInput): Setti
   const values = { ...(input.values ?? {}) };
   const apps = parseSettingsArch(input.arch ?? "", fields, values);
   const activeAppId = activeAppID(input.activeApp, apps);
-  return { apps, activeAppId, fields, values };
+  return { apps, activeAppId, fields, values, search: cleanText(input.search) };
 }
 
 export function parseSettingsArch(
@@ -90,6 +92,17 @@ export function renderSettingsView(
   const state = createSettingsRendererState(input);
   const root = document.createElement("section");
   root.className = "o_settings_container o_form_view";
+  root.dataset.search = state.search;
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "o_settings_search_panel";
+  const search = document.createElement("input");
+  search.type = "search";
+  search.className = "o_settings_search o_input";
+  search.placeholder = "Search...";
+  search.setAttribute("aria-label", "Search settings");
+  search.value = state.search;
+  toolbar.append(search);
 
   const sidebar = document.createElement("nav");
   sidebar.className = "o_settings_sidebar settings_tab";
@@ -101,10 +114,35 @@ export function renderSettingsView(
   for (const app of state.apps) {
     const active = app.id === state.activeAppId;
     sidebar.append(renderAppTab(app, active, callbacks));
-    content.append(renderApp(app, active, callbacks, root));
+    content.append(renderApp(app, active, callbacks, root, state.search));
   }
 
-  root.append(sidebar, content);
+  const empty = document.createElement("p");
+  empty.className = "o_settings_no_result o_view_nocontent";
+  empty.hidden = true;
+  empty.textContent = "No settings found.";
+  content.append(empty);
+
+  const applySearch = () => {
+    const query = cleanText(search.value).toLowerCase();
+    root.dataset.search = query;
+    let visibleSettingCount = 0;
+    for (const block of findByClass(root, "o_settings_block")) {
+      let blockVisible = false;
+      for (const setting of findByClass(block, "o_setting_box")) {
+        const text = (setting.dataset.searchText ?? textContent(setting)).toLowerCase();
+        const visible = !query || text.includes(query);
+        setting.hidden = !visible;
+        blockVisible ||= visible;
+        if (visible) visibleSettingCount += 1;
+      }
+      block.hidden = !blockVisible;
+    }
+    empty.hidden = visibleSettingCount > 0;
+  };
+  search.addEventListener("input", applySearch);
+  root.append(toolbar, sidebar, content);
+  applySearch();
   return root;
 }
 
@@ -123,12 +161,17 @@ function renderApp(
   app: SettingsApp,
   active: boolean,
   callbacks: SettingsRendererCallbacks,
-  eventRoot: HTMLElement
+  eventRoot: HTMLElement,
+  search: string
 ): HTMLElement {
   const article = document.createElement("article");
   article.className = "app_settings_block";
   article.dataset.appId = app.id;
   article.dataset.string = app.label;
+  article.dataset.searchText = settingsSearchText([app.label, app.name, ...app.blocks.flatMap((block) => [
+    block.title,
+    ...block.settings.flatMap((setting) => [setting.label, setting.help, ...setting.fields.map((field) => field.label)])
+  ])]);
   article.hidden = !active;
 
   const heading = document.createElement("h1");
@@ -137,7 +180,7 @@ function renderApp(
   article.append(heading);
 
   for (const block of app.blocks) {
-    article.append(renderBlock(block, callbacks, eventRoot));
+    article.append(renderBlock(block, callbacks, eventRoot, search));
   }
   return article;
 }
@@ -145,11 +188,16 @@ function renderApp(
 function renderBlock(
   block: SettingsBlock,
   callbacks: SettingsRendererCallbacks,
-  eventRoot: HTMLElement
+  eventRoot: HTMLElement,
+  search: string
 ): HTMLElement {
   const section = document.createElement("section");
   section.className = "o_settings_block";
   section.dataset.blockId = block.id;
+  section.dataset.searchText = settingsSearchText([
+    block.title,
+    ...block.settings.flatMap((setting) => [setting.label, setting.help, ...setting.fields.map((field) => field.label)])
+  ]);
 
   if (block.title) {
     const title = document.createElement("h2");
@@ -159,7 +207,7 @@ function renderBlock(
   }
 
   for (const setting of block.settings) {
-    section.append(renderSetting(setting, callbacks, eventRoot));
+    section.append(renderSetting(setting, callbacks, eventRoot, search));
   }
   return section;
 }
@@ -167,11 +215,17 @@ function renderBlock(
 function renderSetting(
   setting: SettingsSetting,
   callbacks: SettingsRendererCallbacks,
-  eventRoot: HTMLElement
+  eventRoot: HTMLElement,
+  _search: string
 ): HTMLElement {
   const box = document.createElement("div");
   box.className = "o_setting_box";
   box.dataset.settingId = setting.id;
+  box.dataset.searchText = settingsSearchText([
+    setting.label,
+    setting.help,
+    ...setting.fields.flatMap((field) => [field.name, field.label, field.help])
+  ]);
 
   const left = document.createElement("div");
   left.className = "o_setting_left_pane";
@@ -766,6 +820,25 @@ function formatValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(formatValue).filter(Boolean).join(", ");
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+function settingsSearchText(parts: readonly unknown[]): string {
+  return parts.map((part) => cleanText(part)).filter(Boolean).join(" ").toLowerCase();
+}
+
+function cleanText(value: unknown): string {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function textContent(root: HTMLElement): string {
+  const own = root.textContent || "";
+  return [own, ...Array.from(root.children ?? []).map((child) => textContent(child as HTMLElement))].join(" ");
+}
+
+function findByClass(root: HTMLElement, className: string, out: HTMLElement[] = []): HTMLElement[] {
+  if (String(root.className).split(/\s+/).includes(className)) out.push(root);
+  for (const child of Array.from(root.children ?? [])) findByClass(child as HTMLElement, className, out);
+  return out;
 }
 
 function stringRecordValue(value: unknown, ...keys: string[]): string {

@@ -156,10 +156,23 @@ const root = renderSettingsView({ arch, fields, values, activeApp: "workflow" },
 });
 
 assert.ok(hasClass(root, "o_settings_container"));
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_panel")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_tab")).length, 2);
 assert.equal(findAll(root, (node) => hasClass(node, "app_settings_block")).length, 2);
 assert.equal(findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "app_settings_block"))[0].hidden, true);
 assert.equal(findAll(root, (node) => node.dataset?.appId === "workflow" && hasClass(node, "app_settings_block"))[0].hidden, false);
+const settingsSearch = findAll(root, (node) => hasClass(node, "o_settings_search"))[0];
+settingsSearch.value = "expenses";
+settingsSearch.dispatchEvent(new TestEvent("input"));
+assert.equal(findAll(root, (node) => node.dataset?.settingId === "module_oi_workflow_expense")[0].hidden, false);
+assert.equal(findAll(root, (node) => node.dataset?.settingId === "company")[0].hidden, true);
+settingsSearch.value = "does not exist";
+settingsSearch.dispatchEvent(new TestEvent("input"));
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_no_result"))[0].hidden, false);
+settingsSearch.value = "";
+settingsSearch.dispatchEvent(new TestEvent("input"));
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_no_result"))[0].hidden, true);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_block_title"))[1].textContent, "Activate Workflow on");
 assert.equal(findAll(root, (node) => node.dataset?.settingId === "hidden_option").length, 0);
 assert.equal(findAll(root, (node) => node.dataset?.field === "is_enterprise").length, 0);

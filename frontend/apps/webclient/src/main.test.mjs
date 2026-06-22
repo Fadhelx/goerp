@@ -254,6 +254,10 @@ function findAll(node, predicate, out = []) {
   return out;
 }
 
+function allText(node) {
+  return [node.textContent, ...(node.children ?? []).map(allText)].filter(Boolean).join(" ");
+}
+
 const ready = new Promise((resolve) => {
   globalThis.addEventListener("goerp:webclient-ready", (event) => resolve(event.detail));
 });
@@ -269,17 +273,39 @@ assert.equal(typeof mod.renderAppsCatalogView, "function");
 const moduleActions = [];
 const catalog = mod.renderAppsCatalogView({
   modules: {
-    crm: { name: "CRM", technical_name: "crm", state: "uninstalled", installable: true },
-    calendar: { name: "Calendar", technical_name: "calendar", state: "to upgrade", installable: true },
-    mail: { name: "Mail", technical_name: "mail", state: "installed", installable: true },
-    project: { name: "Project", technical_name: "project", state: "to remove", installable: true }
+    crm: { name: "CRM", technical_name: "crm", state: "uninstalled", installable: true, category: "Sales", summary: "Pipeline and leads", depends: ["mail"] },
+    calendar: { name: "Calendar", technical_name: "calendar", state: "to upgrade", installable: true, category: "Productivity", summary: "Meetings" },
+    mail: { name: "Mail", technical_name: "mail", state: "installed", installable: true, category: "Productivity", description: "Discuss and messages", website: "https://example.test/mail" },
+    project: { name: "Project", technical_name: "project", state: "to remove", installable: true, category: "Services" }
   }
 }, {
   onModuleAction: (technicalName, method, query) => moduleActions.push({ technicalName, method, query })
 });
 assert.equal(findAll(catalog, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-sidebar")).length, 1);
+assert.deepEqual(findAll(catalog, (node) => node.dataset?.catalogFilter).map((node) => node.dataset.catalogFilter), ["all", "installed", "available", "updates"]);
+assert.deepEqual(findAll(catalog, (node) => String(node.className).includes("o_search_panel_category")).map((node) => node.dataset.category), ["all", "Productivity", "Sales", "Services"]);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_summary") && node.textContent === "Pipeline and leads").length, 1);
+findAll(catalog, (node) => node.dataset?.catalogFilter === "installed")[0].dispatchEvent(new CustomEvent("click"));
+assert.equal(catalog.dataset.activeFilter, "installed");
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 0);
+findAll(catalog, (node) => node.dataset?.catalogFilter === "all")[0].dispatchEvent(new CustomEvent("click"));
+findAll(catalog, (node) => node.dataset?.category === "Sales")[0].dispatchEvent(new CustomEvent("click"));
+assert.equal(catalog.dataset.activeCategory, "Sales");
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
+assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 0);
+findAll(catalog, (node) => node.dataset?.moduleInfo === "crm")[0].dispatchEvent(new CustomEvent("click"));
+const catalogDetail = findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-detail"))[0];
+assert.equal(catalogDetail.hidden, false);
+assert.equal(catalogDetail.dataset.moduleName, "crm");
+assert.match(allText(catalogDetail), /Pipeline and leads/);
+assert.match(allText(catalogDetail), /mail/);
+findAll(catalogDetail, (node) => String(node.className).includes("o_module_info_close"))[0].dispatchEvent(new CustomEvent("click"));
+assert.equal(catalogDetail.hidden, true);
+findAll(catalog, (node) => node.dataset?.category === "all")[0].dispatchEvent(new CustomEvent("click"));
 const crmInstall = findAll(catalog, (node) => node.dataset?.moduleAction === "button_immediate_install" && node.disabled === false)[0];
 crmInstall.dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -302,7 +328,7 @@ let shell = globalThis.document.body.children[0].children[0];
 assert.match(shell.className, /o_web_client/);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_home_menu")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "2").length, 1);
