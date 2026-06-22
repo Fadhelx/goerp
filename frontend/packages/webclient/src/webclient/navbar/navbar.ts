@@ -1,6 +1,8 @@
 export interface NavbarApp {
   id: number | string;
   name: string;
+  children?: readonly NavbarApp[];
+  action?: boolean;
 }
 
 export interface SystrayItem {
@@ -93,6 +95,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   mainNavbar.className = "o_main_navbar d-print-none";
   let setMobileMenuExpanded = (_expanded: boolean) => {};
   const appButtons = new Map<string, HTMLElement>();
+  const appButtonEntries = new Map<string, NavbarApp>();
   const dropdowns: HTMLElement[] = [];
   const dropdownButtons = new Map<HTMLElement, HTMLElement>();
   let currentApps = [...(options.apps ?? [])];
@@ -132,21 +135,27 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   function renderNavEntries(apps: readonly NavbarApp[]): void {
     nav.replaceChildren?.();
     appButtons.clear();
+    appButtonEntries.clear();
     for (const app of apps) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = app.name;
-    button.className = "o_nav_entry";
-    button.dataset.menuId = String(app.id);
-    button.title = app.name;
-    appButtons.set(String(app.id), button);
-    button.addEventListener("click", () => {
-      setMobileMenuExpanded(false);
-      setActiveApp(app.id);
-      options.onOpenApp?.(app);
-    });
-    nav.append(button);
-  }
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = app.name;
+      button.className = app.children?.length ? "o_nav_entry o_nav_dropdown_toggle dropdown-toggle" : "o_nav_entry";
+      button.dataset.menuId = String(app.id);
+      button.title = app.name;
+      appButtons.set(String(app.id), button);
+      appButtonEntries.set(String(app.id), app);
+      if (app.children?.length) {
+        appendDropdown(nav, button, renderNavbarDropdownMenu(app));
+      } else {
+        button.addEventListener("click", () => {
+          setMobileMenuExpanded(false);
+          setActiveApp(app.id);
+          options.onOpenApp?.(app);
+        });
+        nav.append(button);
+      }
+    }
   }
 
   const systray = document.createElement("div");
@@ -187,9 +196,59 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     updateLauncherClass(Boolean(activeKey));
     setPageCurrent(launcher, !activeKey);
     for (const [key, button] of appButtons) {
-      const active = key === activeKey;
-      button.className = active ? "o_nav_entry active" : "o_nav_entry";
+      const entry = appButtonEntries.get(key);
+      const dropdown = Boolean(entry?.children?.length);
+      const active = key === activeKey || Boolean(entry && activeKey && menuContains(entry, activeKey));
+      if (String(button.className ?? "").split(/\s+/).includes("o_navbar_dropdown_item")) {
+        button.className = active ? "dropdown-item o_navbar_dropdown_item active" : "dropdown-item o_navbar_dropdown_item";
+        setPageCurrent(button, active);
+        continue;
+      }
+      const classes = dropdown ? ["o_nav_entry", "o_nav_dropdown_toggle", "dropdown-toggle"] : ["o_nav_entry"];
+      if (active) classes.push("active");
+      button.className = classes.join(" ");
       setPageCurrent(button, active);
+    }
+  }
+
+  function renderNavbarDropdownMenu(rootApp: NavbarApp): HTMLElement {
+    const menu = document.createElement("div");
+    menu.className = "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu";
+    menu.dataset.navbarDropdown = String(rootApp.id);
+    menu.hidden = true;
+    menu.setAttribute("role", "menu");
+    appendNavbarMenuEntries(menu, rootApp.children ?? [], 0);
+    return menu;
+  }
+
+  function appendNavbarMenuEntries(menu: HTMLElement, entries: readonly NavbarApp[], level: number): void {
+    for (const entry of entries) {
+      if (entry.action !== false) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "dropdown-item o_navbar_dropdown_item";
+        item.dataset.menuId = String(entry.id);
+        item.dataset.menuLevel = String(level);
+        item.setAttribute("role", "menuitem");
+        item.textContent = entry.name;
+        appButtons.set(String(entry.id), item);
+        appButtonEntries.set(String(entry.id), entry);
+        item.addEventListener("click", () => {
+          setMobileMenuExpanded(false);
+          closeDropdowns();
+          setActiveApp(entry.id);
+          options.onOpenApp?.(entry);
+        });
+        menu.append(item);
+      } else {
+        const header = document.createElement("span");
+        header.className = "dropdown-header o_navbar_dropdown_header";
+        header.dataset.menuId = String(entry.id);
+        header.dataset.menuLevel = String(level);
+        header.textContent = entry.name;
+        menu.append(header);
+      }
+      if (entry.children?.length) appendNavbarMenuEntries(menu, entry.children, level + 1);
     }
   }
 
@@ -329,8 +388,17 @@ function normalizeMenuEntry(entry: SystrayMenuEntry): SystrayMenuItem {
 function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: boolean): void {
   if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
   menu.hidden = !open;
-  const base = menu.dataset.systrayDropdown ? `dropdown-menu o-dropdown-menu ${systrayMenuClass(menu.dataset.systrayDropdown)}`.trim() : "dropdown-menu o-dropdown-menu";
+  const base = menu.dataset.systrayDropdown
+    ? `dropdown-menu o-dropdown-menu ${systrayMenuClass(menu.dataset.systrayDropdown)}`.trim()
+    : menu.dataset.navbarDropdown
+      ? "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu"
+      : "dropdown-menu o-dropdown-menu";
   menu.className = open ? `${base} show` : base;
+}
+
+function menuContains(entry: NavbarApp, menuId: string): boolean {
+  if (String(entry.id) === menuId) return true;
+  return Boolean(entry.children?.some((child) => menuContains(child, menuId)));
 }
 
 function bindSystrayAutoClose(root: HTMLElement, closeDropdowns: () => void): void {

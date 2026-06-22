@@ -3,6 +3,8 @@ import {
   cleanAppName,
   homeMenuAppsCatalogApp,
   homeMenuEntry,
+  menuActionValue,
+  menuDirectActionValue,
   normalizeHomeMenuApps,
   type HomeMenuApp,
   type HomeMenuPayload
@@ -23,8 +25,12 @@ export interface WebClientShellOptions {
   onSystrayAction?: (action: NavbarSystrayAction, outlet: HTMLElement) => unknown;
 }
 
-export function createWebClientShell(options: WebClientShellOptions): HTMLElement {
-  const root = document.createElement("main");
+export interface RenderedWebClientShell extends HTMLElement {
+  openMenuApp: (menuId: number | string) => unknown;
+}
+
+export function createWebClientShell(options: WebClientShellOptions): RenderedWebClientShell {
+  const root = document.createElement("main") as RenderedWebClientShell;
   root.className = "o_web_client";
   root.dataset.theme = options.theme.name;
   root.dataset.view = options.menus ? "apps" : "ready";
@@ -139,6 +145,11 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   setNavbarActive = navbar.setActiveApp;
   setNavbarApps = navbar.setApps;
   setNavbarHomeMenuBackMode = navbar.setHomeMenuBackMode;
+  root.openMenuApp = (menuId: number | string) => {
+    const menuApp = menuActions.find((item) => String(item.id) === String(menuId));
+    if (!menuApp) return undefined;
+    return openApp(menuApp);
+  };
 
   if (options.menus) {
     renderRootApps();
@@ -179,12 +190,22 @@ function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {
 function navbarSectionApps(payload: HomeMenuPayload | undefined, app: HomeMenuApp): NavbarApp[] {
   if (!payload) return [];
   return (app.menu.children ?? [])
-    .map((id) => homeMenuEntry(payload, id))
-    .filter((entry): entry is NonNullable<ReturnType<typeof homeMenuEntry>> => Boolean(entry))
-    .map((entry) => ({
-      id: entry.id ?? cleanAppName(entry.name),
-      name: cleanAppName(entry.name)
-    }));
+    .map((id) => navbarMenuEntry(payload, id))
+    .filter((entry): entry is NavbarApp => Boolean(entry));
+}
+
+function navbarMenuEntry(payload: HomeMenuPayload, id: number | string): NavbarApp | null {
+  const entry = homeMenuEntry(payload, id);
+  if (!entry) return null;
+  const children = (entry.children ?? [])
+    .map((childId) => navbarMenuEntry(payload, childId))
+    .filter((child): child is NavbarApp => Boolean(child));
+  return {
+    id: entry.id ?? id,
+    name: cleanAppName(entry.name),
+    action: menuDirectActionValue(entry) !== undefined || (menuActionValue(entry) !== undefined && !children.length),
+    children
+  };
 }
 
 function firstSectionAction(actions: readonly HomeMenuApp[], sectionName: string, activeRoot: HomeMenuApp | undefined): HomeMenuApp | undefined {

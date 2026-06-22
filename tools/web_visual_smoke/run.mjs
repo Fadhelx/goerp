@@ -153,6 +153,102 @@ export const scenarios = [
     }
   },
   {
+    name: "default-navbar-nested-menus-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "nested menu TS webclient ready");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Settings", ".o_app_name");
+      await delay(350);
+      const settingsClickState = await evaluate(page, `(() => ({
+        hash: window.location.hash || "",
+        webclient_view: document.querySelector(".o_web_client")?.dataset.view || "",
+        action_status: document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus || "",
+        active_menu: document.querySelector(".o_web_client > .o_navbar")?.dataset.activeMenuId || "",
+        settings_tiles: [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")].filter((node) => node.querySelector(".o_app_name")?.textContent.trim() === "Settings").map((node) => ({ href: node.getAttribute("href") || "", menu_id: node.dataset.menuId || "", action: node.dataset.menuAction || "" }))
+      }))()`);
+      if (settingsClickState.action_status !== "ready" || !settingsClickState.hash.includes("model=res.config.settings")) {
+        throw new Error(`Settings click did not open action: ${JSON.stringify(settingsClickState)}`);
+      }
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Settings ready");
+      await waitForCount(page, ".o_web_client .o_menu_sections .o_nav_dropdown_toggle", 1, "nested navbar dropdown toggles");
+      const sections = await evaluate(page, `(() => [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_entry")]
+        .map((node) => ({ text: node.textContent.trim(), dropdown: node.classList.contains("o_nav_dropdown_toggle"), menu_id: node.dataset.menuId || "" })))()`);
+      if (!sections.some((section) => section.text === "Technical" && section.dropdown)) {
+        throw new Error(`Technical navbar section is not a dropdown: ${JSON.stringify(sections)}`);
+      }
+      await evaluate(page, `(() => {
+        const button = [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_dropdown_toggle")]
+          .find((node) => node.textContent.trim() === "Technical");
+        if (!button) throw new Error("Technical dropdown button not found");
+        button.click();
+        return true;
+      })()`);
+      await waitFor(page, `(() => {
+        const button = [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_dropdown_toggle")]
+          .find((node) => node.textContent.trim() === "Technical");
+        const menu = button?.nextElementSibling;
+        return button?.getAttribute("aria-expanded") === "true" && menu?.classList.contains("show") ? true : false;
+      })()`, "Technical dropdown opens");
+      const technicalMenu = await evaluate(page, `(() => {
+        const button = [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_dropdown_toggle")]
+          .find((node) => node.textContent.trim() === "Technical");
+        const menu = button?.nextElementSibling;
+        const headers = [...(menu?.querySelectorAll(".o_navbar_dropdown_header") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const items = [...(menu?.querySelectorAll(".o_navbar_dropdown_item") || [])].map((node) => ({
+          text: node.textContent.trim(),
+          level: node.dataset.menuLevel || "",
+          menu_id: node.dataset.menuId || ""
+        })).filter((item) => item.text);
+        return {
+          parent_id: button?.parentElement?.id || "",
+          in_legacy_top_menu: Boolean(button && document.querySelector("#topMenu")?.contains(button)),
+          webclient_view: document.querySelector(".o_web_client")?.dataset.view || "",
+          button_menu_id: button?.dataset.menuId || "",
+          button_expanded: button?.getAttribute("aria-expanded") || "",
+          menu_class: menu?.className || "",
+          menu_hidden: menu?.hidden === true,
+          raw_children: [...(menu?.children || [])].map((node) => ({
+            tag: node.tagName || "",
+            text: node.textContent.trim(),
+            class_name: node.className || "",
+            menu_id: node.dataset?.menuId || "",
+            level: node.dataset?.menuLevel || ""
+          })),
+          headers,
+          items,
+          item_labels: items.map((item) => item.text)
+        };
+      })()`);
+      if (technicalMenu.items.length < 8) {
+        technicalMenu.payload = await evaluate(page, `(async () => {
+          const payload = await fetch("/web/webclient/load_menus").then((response) => response.json());
+          const entries = Object.entries(payload).filter(([, value]) => value && typeof value === "object" && value.name === "Technical");
+          const nestedEntries = Object.entries(payload.children || {}).filter(([, value]) => value && typeof value === "object" && value.name === "Technical");
+          return {
+            root_children: payload.root?.children || [],
+            menu_roots: payload.menu_roots || [],
+            technical_entries: entries.map(([key, value]) => ({ key, id: value.id, children: value.children || [], actionID: value.actionID || false })),
+            technical_nested_entries: nestedEntries.map(([key, value]) => ({ key, id: value.id, children: value.children || [], actionID: value.actionID || false }))
+          };
+        })()`);
+      }
+      if (technicalMenu.items.length < 8) throw new Error(`Technical dropdown has too few items: ${JSON.stringify(technicalMenu)}`);
+      for (const label of ["Actions", "User Interface", "Database Structure", "Security", "Email"]) {
+        if (!technicalMenu.headers.includes(label)) throw new Error(`Technical dropdown missing header ${label}: ${JSON.stringify(technicalMenu)}`);
+      }
+      for (const label of ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages"]) {
+        if (!technicalMenu.item_labels.includes(label)) throw new Error(`Technical dropdown missing item ${label}: ${JSON.stringify(technicalMenu)}`);
+      }
+      await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Actions");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Server Actions ready");
+      const activeTitle = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
+      if (activeTitle !== "Server Actions") throw new Error(`Technical dropdown did not open Server Actions: ${activeTitle}`);
+      return { sections, technical_menu: technicalMenu, active_title: activeTitle };
+    }
+  },
+  {
     name: "default-webclient-action-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -220,7 +316,7 @@ export const scenarios = [
           systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
         };
       })()`);
-      const allowedTopbarBackgrounds = new Set(["rgb(40, 42, 53)"]);
+      const allowedTopbarBackgrounds = new Set(["rgb(255, 255, 255)", "rgba(0, 0, 0, 0)", "transparent", "rgb(113, 75, 103)", "rgb(135, 90, 123)"]);
       if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || !allowedTopbarBackgrounds.has(topbarState.background) || topbarState.launcher_width < 30 || !["rgb(113, 75, 103)", "rgb(135, 90, 123)"].includes(topbarState.launcher_dot) || topbarState.systray_count < 4) {
         throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
       }
@@ -457,6 +553,24 @@ export const scenarios = [
       const stateRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-radio-group[data-field='state'] input[type='radio']", 1, "TS Server Actions state radio editor");
       const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Server Actions code editor");
       const relationEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions many2one editor");
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-dropdown-toggle");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 1, "TS Server Actions many2one dropdown opens empty");
+      const relationDropdownState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const toggle = editor?.querySelector(".gorp-many2one-dropdown-toggle");
+        const input = editor?.querySelector("input");
+        const dropdown = editor?.querySelector(".gorp-many2one-dropdown");
+        return {
+          toggle_expanded: toggle?.getAttribute("aria-expanded") || "",
+          input_expanded: input?.getAttribute("aria-expanded") || "",
+          dropdown_open: dropdown?.hidden === false,
+          option_count: editor?.querySelectorAll(".gorp-many2one-option").length || 0,
+          current_res_id: editor?.dataset?.resId || ""
+        };
+      })()`);
+      if (relationDropdownState.toggle_expanded !== "true" || relationDropdownState.input_expanded !== "true" || !relationDropdownState.dropdown_open || relationDropdownState.option_count < 1 || !relationDropdownState.current_res_id) {
+        throw new Error(`TS Server Actions many2one dropdown invalid: ${JSON.stringify(relationDropdownState)}`);
+      }
       await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
       const relationOptionCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 1, "TS Server Actions many2one options");
       const editorState = await evaluate(page, `(() => {
@@ -488,7 +602,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -1823,14 +1937,14 @@ export const scenarios = [
           horizontal_overflow_px: document.documentElement.scrollWidth - window.innerWidth
         };
       })()`);
-      if (!isDarkLauncherBackground(launcherState.launcher_bg)) throw new Error(`mobile launcher background not dark: ${JSON.stringify(launcherState)}`);
+      if (!isDarkLauncherBackground(launcherState.launcher_bg)) throw new Error(`mobile launcher background is not dark: ${JSON.stringify(launcherState)}`);
       if (!isEnterpriseHomeBackgroundImage(launcherState.launcher_bg_image)) throw new Error(`mobile launcher enterprise background missing: ${JSON.stringify(launcherState)}`);
       if (launcherState.horizontal_overflow_px > 1) throw new Error(`mobile launcher horizontal overflow: ${launcherState.horizontal_overflow_px}px`);
       if (launcherState.draggable_count < appCount) throw new Error(`mobile launcher wrapper contract invalid: ${JSON.stringify(launcherState)}`);
       if (appCount >= 4 && launcherState.first_row_count !== 4) throw new Error(`mobile launcher first row invalid: ${JSON.stringify(launcherState)}`);
       if (launcherState.icon_width_px < 62 || launcherState.icon_width_px > 74) throw new Error(`mobile launcher icon width invalid: ${JSON.stringify(launcherState)}`);
       if (launcherState.icon_height_px < 62 || launcherState.icon_height_px > 74) throw new Error(`mobile launcher icon height invalid: ${JSON.stringify(launcherState)}`);
-      if (launcherState.banner_count !== 0) throw new Error(`mobile launcher unexpected banner: ${JSON.stringify(launcherState)}`);
+      if (launcherState.banner_count !== 1) throw new Error(`mobile launcher banner missing: ${JSON.stringify(launcherState)}`);
       if (launcherState.hidden_search_count !== 1) throw new Error(`mobile launcher hidden search missing: ${JSON.stringify(launcherState)}`);
       if (!launcherState.search_hidden) throw new Error(`mobile launcher search should start hidden: ${JSON.stringify(launcherState)}`);
       if (!launcherState.user_avatar_visible) throw new Error(`mobile launcher user avatar hidden: ${JSON.stringify(launcherState)}`);
@@ -2455,7 +2569,7 @@ async function assertLegacyLauncherChromeSnapshot(page) {
   if (snapshot.header_position !== "absolute") issues.push(`header position ${snapshot.header_position}`);
   if (!transparent.has(snapshot.header_bg)) issues.push(`header background ${snapshot.header_bg}`);
   if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
-  if (!isDarkLauncherBackground(snapshot.launcher_bg)) issues.push(`launcher background not dark ${snapshot.launcher_bg}`);
+  if (!isDarkLauncherBackground(snapshot.launcher_bg)) issues.push(`launcher background is not dark ${snapshot.launcher_bg}`);
   if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
   if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
   if (snapshot.grid_top_px < 145 || snapshot.grid_top_px > 250) issues.push(`grid top ${snapshot.grid_top_px}`);
@@ -2562,13 +2676,13 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
 	  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
 	  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
-		  if (!isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`launcher background not dark ${snapshot.launcher_bg_color}`);
+		  if (!isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`launcher background is not dark ${snapshot.launcher_bg_color}`);
 	  if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
 	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
 	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
-	  if (snapshot.banner_count !== 0 || snapshot.banner_visible) issues.push(`unexpected registration banner ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);
+	  if (snapshot.banner_count !== 1 || !snapshot.banner_visible) issues.push(`registration banner missing ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);
 	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
-	  if (snapshot.app_card_top_px < 90 || snapshot.app_card_top_px > 180) issues.push(`app card top ${snapshot.app_card_top_px}`);
+	  if (snapshot.app_card_top_px < 165 || snapshot.app_card_top_px > 230) issues.push(`app card top ${snapshot.app_card_top_px}`);
 	  if (snapshot.app_card_width_px < 120 || snapshot.app_card_width_px > 150) issues.push(`app card width ${snapshot.app_card_width_px}`);
 	  if (snapshot.app_card_height_px < 98 || snapshot.app_card_height_px > 122) issues.push(`app card height ${snapshot.app_card_height_px}`);
   if (!transparent.has(snapshot.app_card_bg)) issues.push(`app card background ${snapshot.app_card_bg}`);

@@ -133,6 +133,47 @@ activeNavbar.setActiveApp(undefined);
 assert.equal(activeNavbar.dataset.activeMenuId, undefined);
 assert.equal(findAll(activeNavbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Odoo").length, 1);
 
+const nestedOpened = [];
+const nestedNavbar = renderNavbar({
+  apps: [
+    {
+      id: 1,
+      name: "Settings",
+      children: [
+        { id: 10, name: "General Settings", action: true },
+        {
+          id: 20,
+          name: "Technical",
+          action: false,
+          children: [
+            { id: 21, name: "Server Actions", action: true },
+            { id: 22, name: "Scheduled Actions", action: true }
+          ]
+        }
+      ]
+    }
+  ],
+  onOpenApp: (app) => nestedOpened.push(app.id)
+});
+const settingsToggle = findAll(nestedNavbar, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_dropdown_toggle"))[0];
+const settingsDropdown = findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1")[0];
+assert.equal(settingsToggle.attributes["aria-haspopup"], "menu");
+assert.equal(settingsDropdown.hidden, true);
+settingsToggle.listeners.click[0]({ stopPropagation() {} });
+assert.equal(settingsToggle.attributes["aria-expanded"], "true");
+assert.equal(settingsDropdown.hidden, false);
+assert.match(settingsDropdown.className, /show/);
+assert.equal(findAll(settingsDropdown, (node) => String(node.className).includes("o_navbar_dropdown_header") && node.textContent === "Technical").length, 1);
+assert.equal(findAll(settingsDropdown, (node) => node.dataset?.menuId === "21" && node.dataset?.menuLevel === "1").length, 1);
+const serverActionsDropdownItem = findAll(settingsDropdown, (node) => node.dataset?.menuId === "21")[0];
+assert.equal(String(serverActionsDropdownItem.className).split(/\s+/).includes("o_navbar_dropdown_item"), true);
+serverActionsDropdownItem.listeners.click[0]();
+assert.deepEqual(nestedOpened, [21]);
+assert.equal(settingsToggle.attributes["aria-expanded"], "false");
+assert.equal(nestedNavbar.dataset.activeMenuId, "21");
+assert.equal(findAll(nestedNavbar, (node) => node.dataset?.menuId === "1" && String(node.className).includes("active")).length, 1);
+assert.equal(findAll(nestedNavbar, (node) => node.dataset?.menuId === "21" && String(node.className).includes("active") && String(node.className).includes("o_navbar_dropdown_item")).length, 1);
+
 const systrayActions = [];
 const liveNavbar = renderNavbar({
   userName: "Admin",

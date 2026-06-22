@@ -5,6 +5,7 @@ export interface HomeMenuEntry {
   actionID?: number | string | false;
   actionId?: number | string | false;
   directActionID?: number | string | false;
+  hasDirectAction?: boolean;
   xmlid?: string | false;
   actionPath?: string | false;
   action_path?: string | false;
@@ -69,7 +70,9 @@ export function homeMenuRootIds(payload: HomeMenuPayload | null | undefined): (n
 }
 
 export function homeMenuEntry(payload: HomeMenuPayload, id: number | string): HomeMenuEntry | null {
-  const value = payload[String(id)];
+  const direct = payload[String(id)];
+  const nested = isRecord(payload.children) ? payload.children[String(id)] : undefined;
+  const value = richerMenuEntry(direct, nested);
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as HomeMenuEntry;
 }
@@ -198,6 +201,13 @@ export function menuActionValue(menu: HomeMenuEntry): number | string | undefine
   return undefined;
 }
 
+export function menuDirectActionValue(menu: HomeMenuEntry): number | string | undefined {
+  const value = menu.directActionID ?? (menu.hasDirectAction === true ? menu.actionID ?? menu.actionId : undefined);
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return undefined;
+}
+
 function isAppsCatalogMenu(menu: HomeMenuEntry): boolean {
   const name = cleanAppName(menu.name).toLowerCase();
   const xmlid = textValue(menu.xmlid).toLowerCase();
@@ -224,4 +234,17 @@ function menuSearchAliases(menu: HomeMenuEntry): string[] {
 
 function textValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function richerMenuEntry(left: unknown, right: unknown): unknown {
+  if (!isRecord(left)) return right;
+  if (!isRecord(right)) return left;
+  const leftChildren = Array.isArray(left.children) ? left.children.length : 0;
+  const rightChildren = Array.isArray(right.children) ? right.children.length : 0;
+  if (rightChildren > leftChildren) return right;
+  return left;
 }

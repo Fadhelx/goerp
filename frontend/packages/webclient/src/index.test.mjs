@@ -1661,6 +1661,7 @@ const genericCodeEditor = findAll(genericForm, (node) => node.tag === "textarea"
 const genericGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor"))[0];
 const genericGroupsInput = findAll(genericGroups, (node) => node.tag === "input" && node.dataset?.field === "group_ids")[0];
 const genericLines = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-editor"))[0];
+const genericRelationToggle = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-dropdown-toggle"))[0];
 assert.equal(genericEditButton.hidden, true);
 assert.equal(genericSaveButton.hidden, false);
 assert.equal(genericSaveButton.disabled, true);
@@ -1675,6 +1676,8 @@ assert.equal(genericCodeEditor.value.includes("log('ok')"), true);
 assert.equal(genericCodeEditor.rows, 14);
 assert.equal(genericRelation.dataset.relation, "ir.model");
 assert.equal(genericRelation.dataset.resId, "5");
+assert.equal(genericRelationToggle.attributes["aria-haspopup"], "listbox");
+assert.equal(genericRelationToggle.attributes["aria-expanded"], "false");
 assert.equal(genericGroups.dataset.relation, "res.groups");
 assert.equal(genericGroups.dataset.count, "1");
 assert.equal(genericGroups.dataset.mobileWidget, "many2many_tags");
@@ -1690,10 +1693,21 @@ genericNameInput.value = "Send Follow-up";
 genericNameInput.dispatchEvent(new TestEvent("input"));
 genericEmailInput.value = "follow@example.com";
 genericEmailInput.dispatchEvent(new TestEvent("input"));
+genericRelationToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(genericFormSearchCalls[0], {
+  model: "ir.model",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+});
+assert.equal(genericRelationToggle.attributes["aria-expanded"], "true");
+assert.equal(genericRelationInput.attributes["aria-expanded"], "true");
+assert.equal(genericRelation.dataset.resId, "5");
 genericRelationInput.value = "mail";
 genericRelationInput.dispatchEvent(new TestEvent("input"));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.deepEqual(genericFormSearchCalls[0], {
+assert.deepEqual(genericFormSearchCalls[1], {
   model: "ir.model",
   method: "name_search",
   args: [],
@@ -1709,7 +1723,7 @@ assert.deepEqual(findAll(genericInitialGroupTags[0], (node) => String(node.class
 genericGroupsInput.value = "sales";
 genericGroupsInput.dispatchEvent(new TestEvent("input"));
 await new Promise((resolve) => setTimeout(resolve, 0));
-assert.deepEqual(genericFormSearchCalls[1], {
+assert.deepEqual(genericFormSearchCalls[2], {
   model: "res.groups",
   method: "name_search",
   args: [],

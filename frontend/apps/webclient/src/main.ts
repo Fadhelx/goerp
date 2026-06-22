@@ -17,6 +17,7 @@ import {
   type WebClientServices,
   type WindowActionResult
 } from "../../../packages/webclient/src/index.js";
+import type { RenderedWebClientShell } from "../../../packages/webclient/src/webclient/shell.js";
 import type { NavbarSystrayAction } from "../../../packages/webclient/src/webclient/navbar/navbar.js";
 import {
   appIconToken,
@@ -55,7 +56,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
   const menus = await fetchJSON<Record<string, unknown>>("/web/webclient/load_menus");
   if (shouldTakeOverDOM()) {
     const target = ensureRoot();
-    let shell!: HTMLElement;
+    let shell!: RenderedWebClientShell;
     const runSystrayAction = (action: NavbarSystrayAction, outlet: HTMLElement) => {
       void handleSystrayAction(env, action, outlet, {
         onActivityStore: (store) => {
@@ -72,9 +73,18 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
         void openMenuApp(env, menus as HomeMenuPayload, app, outlet).catch((error) => renderActionError(outlet, error));
       },
       onSystrayAction: runSystrayAction
-    }).render();
+    }).render() as RenderedWebClientShell;
     target.replaceChildren(shell);
+    let restoringHash = false;
+    const restoreCurrentHash = () => {
+      if (restoringHash) return;
+      restoringHash = true;
+      void restoreActionFromHash(env, menus as HomeMenuPayload, shell).finally(() => {
+        restoringHash = false;
+      });
+    };
     await restoreActionFromHash(env, menus as HomeMenuPayload, shell);
+    globalThis.addEventListener?.("hashchange", restoreCurrentHash);
   }
   globalThis.document.documentElement.dataset.tsWebclient = "ready";
   globalThis.dispatchEvent(new CustomEvent("goerp:webclient-ready", {
@@ -86,11 +96,16 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
 async function restoreActionFromHash(
   env: ReturnType<typeof makeEnv>,
   menus: HomeMenuPayload,
-  shell: HTMLElement
+  shell: RenderedWebClientShell
 ): Promise<boolean> {
   const route = parseRouteState(globalThis.location?.hash ?? "");
   const actionID = routeActionID(route);
-  if (actionID === undefined) return false;
+  if (actionID === undefined) {
+    const menuID = routeID(route.menu_id);
+    if (menuID === undefined) return false;
+    await shell.openMenuApp(menuID);
+    return true;
+  }
   const outlet = findDescendantByClass(shell, "o_action_manager");
   if (!outlet) return false;
   setShellActionView(shell);

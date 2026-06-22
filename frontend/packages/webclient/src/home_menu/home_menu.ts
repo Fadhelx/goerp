@@ -27,6 +27,23 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   const container = document.createElement("div");
   container.className = "container o_home_menu_container";
 
+  const registrationBanner = document.createElement("div");
+  registrationBanner.className = "o_home_menu_registration_banner";
+  registrationBanner.setAttribute("role", "status");
+  const registrationText = document.createElement("span");
+  registrationText.className = "o_home_menu_registration_text";
+  registrationText.textContent = "Database registration is available after the first app is installed.";
+  const registrationClose = document.createElement("button");
+  registrationClose.type = "button";
+  registrationClose.className = "o_home_menu_registration_close";
+  registrationClose.setAttribute("aria-label", "Close");
+  registrationClose.textContent = "x";
+  registrationClose.addEventListener("click", () => {
+    registrationBanner.hidden = true;
+    registrationBanner.dataset.dismissed = "true";
+  });
+  registrationBanner.append(registrationText, registrationClose);
+
   const searchWrap = document.createElement("div");
   searchWrap.className = "o-app-search o_home_menu_search";
   const search = document.createElement("input");
@@ -121,7 +138,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   });
   renderGrid();
 
-  container.append(searchWrap, grid);
+  container.append(registrationBanner, searchWrap, grid);
   shell.append(container);
   section.append(shell);
   return section;
@@ -241,8 +258,9 @@ function defaultAppWebIcon(app: HomeMenuApp): ParsedWebIcon | null {
   const key = app.key.split(":")[0];
   const name = app.name.toLowerCase();
   const iconClass =
-    key === "settings" || name.includes("setting") || name.includes("technical") ? "fa fa-cog" :
-    key === "apps" || name === "apps" ? "fa fa-th-large" :
+    key === "settings" || name.includes("setting") ? "" :
+    key === "apps" || name === "apps" ? "" :
+    name.includes("technical") ? "fa fa-cog" :
     name.includes("approval") ? "fa fa-check-square-o" :
     name.includes("delegation") ? "fa fa-exchange" :
     "";

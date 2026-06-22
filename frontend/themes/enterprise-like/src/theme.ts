@@ -3,14 +3,14 @@ import type { ThemeTokens } from "../../../packages/theme-tokens/src/index";
 export const enterpriseLikeTheme: ThemeTokens = {
   name: "enterprise-like",
   color: {
-    surface: "#f4f5f7",
-    panel: "#ffffff",
-    text: "#1f2933",
-    accent: "#714b67",
-    focus: "#017e84",
-    navbar: "#714b67",
-    home: "#eef0f3",
-    homeText: "#1f2933"
+    surface: "#1b1d27",
+    panel: "#282a35",
+    text: "#f5f5f7",
+    accent: "#875a7b",
+    focus: "#00a09d",
+    navbar: "#282a35",
+    home: "#070b12",
+    homeText: "#ffffff"
   },
   typography: {
     body: "ui-sans-serif, system-ui",

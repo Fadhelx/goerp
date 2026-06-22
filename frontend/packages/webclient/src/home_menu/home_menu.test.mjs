@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   appInitials,
   homeMenuAppsCatalogApp,
+  homeMenuEntry,
   normalizeHomeMenuApps
 } from "../../../../dist/packages/webclient/src/home_menu/app_metadata.js";
 import { renderHomeMenu } from "../../../../dist/packages/webclient/src/home_menu/home_menu.js";
@@ -19,6 +20,7 @@ globalThis.document = {
       attributes: {},
       textContent: "",
       type: "",
+      hidden: false,
       value: "",
       children: [],
       listeners: {},
@@ -70,7 +72,7 @@ assert.equal(homeMenu.dataset.mobileSafe, "true");
 assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search") && node.dataset?.searchActive === "true").length, 1);
-assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_registration_banner")).length, 0);
+assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_registration_banner")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_apps")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_app")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_draggable")).length, 1);
@@ -88,12 +90,30 @@ assert.equal(serverActionCard.dataset.rootMenuId, "4");
 assert.equal(serverActionCard.dataset.menuPath, "Settings / Technical");
 assert.equal(findAll(serverActionCard, (node) => String(node.className).includes("o_app_menu_path") && node.textContent === "Settings / Technical").length, 1);
 
+const nestedPayload = {
+  menu_roots: [1],
+  root: { children: [1] },
+  2: { id: 2, name: "Technical", children: [] },
+  children: {
+    1: { id: 1, name: "Settings", children: [2] },
+    2: { id: 2, name: "Technical", children: [3] },
+    3: { id: 3, name: "Server Actions", actionID: 7, children: [] }
+  }
+};
+assert.equal(homeMenuEntry(nestedPayload, 2)?.name, "Technical");
+assert.deepEqual(normalizeHomeMenuApps(nestedPayload, { includeDescendantActions: true }).map((item) => item.name), ["Settings", "Server Actions"]);
+
 const liveMenu = renderHomeMenu(payload);
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41").length, 0);
 const liveShell = findAll(liveMenu, (node) => String(node.className).split(/\s+/).includes("o_home_menu"))[0];
 const liveContainer = findAll(liveShell, (node) => String(node.className).split(/\s+/).includes("o_home_menu_container"))[0];
-assert.deepEqual(liveContainer.children.map((node) => String(node.className).split(/\s+/)[0]), ["o-app-search", "o_apps"]);
-assert.equal(findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner")).length, 0);
+assert.deepEqual(liveContainer.children.map((node) => String(node.className).split(/\s+/)[0]), ["o_home_menu_registration_banner", "o-app-search", "o_apps"]);
+assert.equal(findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner")).length, 1);
+const registrationClose = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_close"))[0];
+registrationClose.listeners.click[0]();
+const registrationBanner = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner"))[0];
+assert.equal(registrationBanner.hidden, true);
+assert.equal(registrationBanner.dataset.dismissed, "true");
 const liveCatalogCard = findAll(liveMenu, (node) => node.dataset?.menuId === "42")[0];
 assert.equal(liveCatalogCard.dataset.appKey, "apps");
 assert.equal(liveCatalogCard.dataset.menuXmlid, "base.menu_ir_module_module");
