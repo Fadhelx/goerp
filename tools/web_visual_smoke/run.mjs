@@ -1118,6 +1118,120 @@ export const scenarios = [
     }
   },
   {
+    name: "default-action-menus-keyboard-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&action_menus_keyboard=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "ActionMenus keyboard TS webclient ready");
+      const keyboardState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        window.__actionMenuKeyboardCalls = [];
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Keyboard Actions",
+            res_model: "res.partner",
+            view_mode: "list,form",
+            views: [[false, "list"], [false, "form"]]
+          },
+          activeView: "list",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              name: { type: "char", string: "Name" },
+              active: { type: "boolean", string: "Active" }
+            },
+            relatedModels: {},
+            views: {
+              list: {
+                arch: "<list><field name='name'/><field name='active'/></list>",
+                id: 740,
+                actionMenus: {
+                  print: [{ id: 741, name: "Print Keyboard", description: "Print Keyboard", sequence: 2, groupNumber: 1 }],
+                  action: [{ id: 742, name: "Run Keyboard", sequence: 5, groupNumber: 2 }]
+                }
+              },
+              form: { arch: "<form><field name='name'/></form>", id: 743 }
+            }
+          },
+          records: [{ id: 744, name: "Keyboard Partner", active: true }],
+          length: 1,
+          offset: 0,
+          countLimited: false
+        }, {
+          services: {
+            action: {
+              doAction(action, options) {
+                window.__actionMenuKeyboardCalls.push({ action, additionalContext: options?.additionalContext || {} });
+                return Promise.resolve(true);
+              }
+            }
+          }
+        });
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "action-menus-keyboard";
+        const checkbox = root.querySelector("input[type='checkbox'][data-record-id='744']");
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const toolbar = root.querySelector(".gorp-action-menus");
+        const actionSection = toolbar?.querySelector(".gorp-action-menu-section[data-menu='action']");
+        const printSection = toolbar?.querySelector(".gorp-action-menu-section[data-menu='print']");
+        const actionToggle = actionSection?.querySelector(".gorp-action-menu-toggle");
+        const printToggle = printSection?.querySelector(".gorp-action-menu-toggle");
+        const actionMenu = actionSection?.querySelector(".gorp-action-menu-items");
+        const printMenu = printSection?.querySelector(".gorp-action-menu-items");
+        actionToggle.focus();
+        actionToggle.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const arrow_focus_menuitem = document.activeElement?.classList?.contains("gorp-action-menu-item") === true;
+        actionMenu.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+        const end_focus = document.activeElement?.dataset?.actionId || "";
+        actionMenu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        const action_escape_closed = actionSection?.dataset.open === "false" && actionToggle.getAttribute("aria-expanded") === "false";
+        const action_escape_restored = document.activeElement === actionToggle;
+        const before_print_hotkey_focus = document.activeElement?.dataset?.actionMenuToggle || "";
+        toolbar.dispatchEvent(new KeyboardEvent("keydown", { key: "U", shiftKey: true, bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const shift_u_focus = document.activeElement?.dataset?.actionId || "";
+        const shift_u_open = printSection?.dataset.open === "true" && printToggle.getAttribute("aria-expanded") === "true";
+        printMenu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        const print_escape_restored_to = document.activeElement?.dataset?.actionMenuToggle || "";
+        toolbar.dispatchEvent(new KeyboardEvent("keydown", { key: "u", bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const u_initial_focus_menuitem = document.activeElement?.classList?.contains("gorp-action-menu-item") === true;
+        actionMenu.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+        const u_focus = document.activeElement?.dataset?.actionId || "";
+        actionMenu.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return {
+          arrow_focus_menuitem,
+          end_focus,
+          action_escape_closed,
+          action_escape_restored,
+          before_print_hotkey_focus,
+          shift_u_focus,
+          shift_u_open,
+          print_escape_restored_to,
+          u_initial_focus_menuitem,
+          u_focus,
+          action_closed_after_enter: actionSection?.dataset.open === "false" && actionToggle.getAttribute("aria-expanded") === "false",
+          calls: window.__actionMenuKeyboardCalls
+        };
+      })()`);
+      if (!keyboardState.arrow_focus_menuitem || keyboardState.end_focus !== "742" || !keyboardState.u_initial_focus_menuitem || keyboardState.u_focus !== "742" || !keyboardState.action_escape_closed || !keyboardState.action_escape_restored || keyboardState.shift_u_focus !== "741" || !keyboardState.shift_u_open || keyboardState.print_escape_restored_to !== keyboardState.before_print_hotkey_focus || !keyboardState.action_closed_after_enter) {
+        throw new Error(`ActionMenus keyboard state invalid: ${JSON.stringify(keyboardState)}`);
+      }
+      const call = keyboardState.calls?.[0];
+      if (!call || call.action !== 742 || call.additionalContext?.active_id !== 744 || !Array.isArray(call.additionalContext?.active_ids) || call.additionalContext.active_ids[0] !== 744) {
+        throw new Error(`ActionMenus keyboard action context invalid: ${JSON.stringify(keyboardState)}`);
+      }
+      return { keyboard_state: keyboardState };
+    }
+  },
+  {
     name: "default-kanban-action-menu-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

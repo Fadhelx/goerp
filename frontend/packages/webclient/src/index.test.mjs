@@ -77,6 +77,7 @@ function testDataTransfer() {
 
 const documentListeners = {};
 globalThis.document = {
+  activeElement: null,
   implementation: {
     createDocument() {
       return {};
@@ -132,6 +133,10 @@ globalThis.document = {
       },
       focus() {
         this.focused = true;
+        globalThis.document.activeElement = this;
+      },
+      click() {
+        this.dispatchEvent(new TestEvent("click"));
       },
       addEventListener(type, listener) {
         this.listeners[type] = [...(this.listeners[type] ?? []), listener];
@@ -3658,6 +3663,8 @@ const serverActionSection = findAll(serverActionMenu, (node) => String(node.clas
 const serverExportButton = findAll(serverActionMenu, (node) => node.dataset?.actionId === "310")[0];
 const serverPrintToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "print")[0];
 const serverActionToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "action")[0];
+const serverActionItems = findAll(serverActionSection, (node) => node.dataset?.actionMenuItems === "action")[0];
+const serverPrintItems = findAll(serverPrintSection, (node) => node.dataset?.actionMenuItems === "print")[0];
 assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
 assert.deepEqual([serverExportButton.disabled], [true]);
 serverPrintToggle.dispatchEvent(new TestEvent("click"));
@@ -3674,8 +3681,31 @@ const serverActionMenuCheckbox = findAll(serverActionMenuShell, (node) => node.t
 serverActionMenuCheckbox.checked = true;
 serverActionMenuCheckbox.dispatchEvent(new TestEvent("change"));
 assert.deepEqual([serverExportButton.disabled], [false]);
-serverExportButton.dispatchEvent(new TestEvent("click"));
+serverPrintToggle.focus();
+serverActionMenu.dispatchEvent(new TestEvent("keydown", { key: "U", shiftKey: true }));
 await new Promise((resolve) => setTimeout(resolve, 0));
+const serverHotkeyPrintButton = findAll(serverActionMenu, (node) => node.dataset?.actionId === "320")[0];
+assert.equal(serverPrintSection.dataset.open, "true");
+assert.equal(serverPrintToggle.attributes["aria-expanded"], "true");
+assert.equal(globalThis.document.activeElement, serverHotkeyPrintButton);
+serverPrintItems.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(serverPrintSection.dataset.open, "false");
+assert.equal(globalThis.document.activeElement, serverPrintToggle);
+serverActionToggle.dispatchEvent(new TestEvent("keydown", { key: "ArrowDown" }));
+assert.equal(serverActionSection.dataset.open, "true");
+assert.equal(globalThis.document.activeElement, serverExportButton);
+serverActionItems.dispatchEvent(new TestEvent("keydown", { key: "End" }));
+assert.equal(globalThis.document.activeElement, serverExportButton);
+serverActionItems.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(serverActionSection.dataset.open, "false");
+assert.equal(globalThis.document.activeElement, serverActionToggle);
+serverActionMenu.dispatchEvent(new TestEvent("keydown", { key: "u" }));
+assert.equal(serverActionSection.dataset.open, "true");
+assert.equal(serverPrintSection.dataset.open, "false");
+assert.equal(globalThis.document.activeElement, serverExportButton);
+serverActionItems.dispatchEvent(new TestEvent("keydown", { key: "Enter" }));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(serverActionSection.dataset.open, "false");
 assert.equal(serverActionMenuCalls[0].action, 310);
 assert.deepEqual(serverActionMenuCalls[0].options.additionalContext, {
   active_id: 82,
@@ -3889,15 +3919,27 @@ assert.deepEqual(printLoadedEvent.availableIds, []);
 const emptyPrintItem = findAll(reportDomainShell, (node) => node.dataset?.actionMenuEmpty === "print")[0];
 assert.equal(emptyPrintItem.textContent, "No report available.");
 assert.equal(emptyPrintItem.disabled, true);
-validDomainReports = [domainReportID];
-reportDomainToggle.dispatchEvent(new TestEvent("click"));
-await new Promise((resolve) => setTimeout(resolve, 0));
-assert.equal(reportDomainCalls.length, 1);
+const reportDomainPrintSection = findAll(reportDomainShell, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "print")[0];
+const reportDomainPrintItems = findAll(reportDomainPrintSection, (node) => node.dataset?.actionMenuItems === "print")[0];
+reportDomainPrintItems.dispatchEvent(new TestEvent("keydown", { key: "ArrowDown" }));
+assert.notEqual(globalThis.document.activeElement, emptyPrintItem);
+reportDomainPrintItems.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
 assert.equal(reportDomainToggle.attributes["aria-expanded"], "false");
+assert.equal(globalThis.document.activeElement, reportDomainToggle);
+validDomainReports = [domainReportID];
 reportDomainToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(reportDomainCalls[1], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
 assert.equal(reportDomainCalls.length, 2);
+assert.equal(reportDomainToggle.attributes["aria-expanded"], "true");
+reportDomainToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(reportDomainCalls.length, 2);
+assert.equal(reportDomainToggle.attributes["aria-expanded"], "false");
+reportDomainToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(reportDomainCalls[2], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
+assert.equal(reportDomainCalls.length, 3);
 const reportDomainButton = findAll(reportDomainShell, (node) => node.dataset?.actionId === domainReportID)[0];
 assert.deepEqual(printLoadedEvent.availableIds, [domainReportID]);
 reportDomainButton.dispatchEvent(new TestEvent("click"));

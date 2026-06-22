@@ -4667,6 +4667,18 @@ interface ActionMenuSectionLifecycle {
   onOpen?: (section: HTMLElement) => void | Promise<void>;
 }
 
+interface ActionMenuOpenOptions {
+  focusFirst?: boolean;
+  restoreFocusElement?: HTMLElement;
+}
+
+interface ActionMenuCloseOptions {
+  restoreFocus?: boolean;
+}
+
+const actionMenuRestoreFocus = new WeakMap<HTMLElement, HTMLElement>();
+const actionMenuOpenHandlers = new WeakMap<HTMLElement, (options?: ActionMenuOpenOptions) => Promise<void>>();
+
 function renderActionMenuSection(kind: string, title: string, iconClass: string, items: readonly HTMLElement[], lifecycle: ActionMenuSectionLifecycle = {}): HTMLElement {
   const section = document.createElement("div");
   section.className = "gorp-action-menu-section";
@@ -4687,37 +4699,47 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
   menu.dataset.actionMenuItems = kind;
   menu.setAttribute("role", "menu");
   appendActionMenuItems(menu, items);
+  actionMenuOpenHandlers.set(section, (options = {}) => toggleActionMenuSection(section, toggle, true, lifecycle, options));
   toggle.addEventListener("click", (event) => {
     event.preventDefault?.();
-    void toggleActionMenuSection(section, toggle, !actionMenuOpen(section), lifecycle);
+    void toggleActionMenuSection(section, toggle, !actionMenuOpen(section), lifecycle, { restoreFocusElement: toggle });
   });
   toggle.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault?.();
-      setActionMenuOpen(section, toggle, false);
+      closeActionMenuSection(section, { restoreFocus: true });
       return;
     }
     if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
       event.preventDefault?.();
-      void toggleActionMenuSection(section, toggle, true, lifecycle);
+      void toggleActionMenuSection(section, toggle, true, lifecycle, { focusFirst: true, restoreFocusElement: toggle });
     }
+  });
+  menu.addEventListener("keydown", (event) => {
+    handleActionMenuItemsKeydown(section, menu, event as KeyboardEvent);
   });
   menu.addEventListener("click", (event) => {
     if ((event.target as HTMLButtonElement | null)?.disabled) return;
-    setActionMenuOpen(section, toggle, false);
+    closeActionMenuSection(section);
   });
   section.append(toggle, menu);
   return section;
 }
 
-async function toggleActionMenuSection(section: HTMLElement, toggle: HTMLElement, open: boolean, lifecycle: ActionMenuSectionLifecycle): Promise<void> {
+async function toggleActionMenuSection(section: HTMLElement, toggle: HTMLElement, open: boolean, lifecycle: ActionMenuSectionLifecycle, options: ActionMenuOpenOptions = {}): Promise<void> {
   const wasOpen = actionMenuOpen(section);
   if (open && !wasOpen) {
+    if (options.restoreFocusElement) {
+      actionMenuRestoreFocus.set(section, options.restoreFocusElement);
+    } else {
+      storeActionMenuRestoreFocus(section, toggle);
+    }
     lifecycle.onBeforeOpen?.(section);
     const beforeOpen = lifecycle.beforeOpen?.(section);
     if (beforeOpen) await beforeOpen;
   }
   setActionMenuOpen(section, toggle, open);
+  if (open && options.focusFirst) focusActionMenuItem(section, 0);
   if (open && !wasOpen) void lifecycle.onOpen?.(section);
 }
 
@@ -4734,6 +4756,9 @@ function setActionMenuOpen(section: HTMLElement, toggle: HTMLElement, open: bool
 function bindActionMenuToolbarLifecycle(toolbar: HTMLElement, sections: readonly HTMLElement[]): void {
   const documentTarget = globalThis.document;
   if (!documentTarget || typeof documentTarget.addEventListener !== "function") return;
+  toolbar.addEventListener("keydown", (event) => {
+    handleActionMenuToolbarHotkey(sections, event as KeyboardEvent);
+  });
   const closeIfOutside = (event: Event) => {
     const target = event.target as HTMLElement | null;
     if (target && elementContains(toolbar, target)) return;
@@ -4743,7 +4768,7 @@ function bindActionMenuToolbarLifecycle(toolbar: HTMLElement, sections: readonly
   documentTarget.addEventListener("click", closeIfOutside);
   documentTarget.addEventListener("keydown", (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
-    closeActionMenuSections(sections);
+    closeActionMenuSections(sections, undefined, { restoreFocus: true });
   });
   const windowTarget = globalThis.window;
   if (windowTarget && typeof windowTarget.addEventListener === "function") {
@@ -4752,12 +4777,40 @@ function bindActionMenuToolbarLifecycle(toolbar: HTMLElement, sections: readonly
   }
 }
 
-function closeActionMenuSections(sections: readonly HTMLElement[], except?: HTMLElement): void {
+function handleActionMenuToolbarHotkey(sections: readonly HTMLElement[], event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (isTextInputTarget(event.target as HTMLElement | null)) return;
+  if (String(event.key).toLowerCase() !== "u") return;
+  const targetKind = event.shiftKey ? "print" : "action";
+  const section = sections.find((item) => item.dataset.menu === targetKind);
+  if (!section) return;
+  event.preventDefault?.();
+  void openActionMenuSection(section, { focusFirst: true });
+}
+
+function isTextInputTarget(target: HTMLElement | null): boolean {
+  if (!target) return false;
+  const tag = String(target.tagName ?? (target as unknown as { tag?: string }).tag ?? "").toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || (target as HTMLElement & { isContentEditable?: boolean }).isContentEditable === true;
+}
+
+function closeActionMenuSections(sections: readonly HTMLElement[], except?: HTMLElement, options: ActionMenuCloseOptions = {}): void {
   for (const section of sections) {
     if (section === except) continue;
-    const toggle = actionMenuToggle(section);
-    if (toggle) setActionMenuOpen(section, toggle, false);
+    closeActionMenuSection(section, options);
   }
+}
+
+function closeActionMenuSection(section: HTMLElement, options: ActionMenuCloseOptions = {}): void {
+  const toggle = actionMenuToggle(section);
+  if (!toggle) return;
+  const wasOpen = actionMenuOpen(section);
+  setActionMenuOpen(section, toggle, false);
+  if (wasOpen && options.restoreFocus) restoreActionMenuFocus(section, toggle);
+}
+
+function openActionMenuSection(section: HTMLElement, options: ActionMenuOpenOptions = {}): Promise<void> {
+  return actionMenuOpenHandlers.get(section)?.(options) ?? Promise.resolve();
 }
 
 function actionMenuToggle(section: HTMLElement): HTMLElement | null {
@@ -4766,6 +4819,108 @@ function actionMenuToggle(section: HTMLElement): HTMLElement | null {
     if (element.dataset?.actionMenuToggle) return element;
   }
   return null;
+}
+
+function actionMenuItems(section: HTMLElement): HTMLElement | null {
+  for (const child of Array.from(section.children)) {
+    const element = child as HTMLElement;
+    if (element.dataset?.actionMenuItems) return element;
+  }
+  return null;
+}
+
+function handleActionMenuItemsKeydown(section: HTMLElement, menu: HTMLElement, event: KeyboardEvent): void {
+  if (event.key === "Escape") {
+    event.preventDefault?.();
+    closeActionMenuSection(section, { restoreFocus: true });
+    return;
+  }
+  if (event.key === "Tab") {
+    closeActionMenuSection(section);
+    return;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault?.();
+    focusRelativeActionMenuItem(menu, 1);
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault?.();
+    focusRelativeActionMenuItem(menu, -1);
+    return;
+  }
+  if (event.key === "Home") {
+    event.preventDefault?.();
+    focusActionMenuItem(section, 0);
+    return;
+  }
+  if (event.key === "End") {
+    event.preventDefault?.();
+    focusActionMenuItem(section, -1);
+    return;
+  }
+  if (event.key === "Enter" || event.key === " ") {
+    const item = activeActionMenuItem(menu);
+    if (!item) return;
+    event.preventDefault?.();
+    activateActionMenuItem(item);
+    closeActionMenuSection(section);
+  }
+}
+
+function focusRelativeActionMenuItem(menu: HTMLElement, direction: 1 | -1): void {
+  const items = enabledActionMenuItems(menu);
+  if (!items.length) return;
+  const current = activeActionMenuItem(menu);
+  const currentIndex = current ? items.indexOf(current) : -1;
+  const nextIndex = currentIndex < 0
+    ? (direction > 0 ? 0 : items.length - 1)
+    : (currentIndex + direction + items.length) % items.length;
+  items[nextIndex]?.focus?.();
+}
+
+function focusActionMenuItem(section: HTMLElement, index: number): void {
+  const menu = actionMenuItems(section);
+  if (!menu) return;
+  const items = enabledActionMenuItems(menu);
+  if (!items.length) return;
+  const targetIndex = index < 0 ? items.length - 1 : Math.min(index, items.length - 1);
+  items[targetIndex]?.focus?.();
+}
+
+function enabledActionMenuItems(menu: HTMLElement): HTMLElement[] {
+  return Array.from(menu.children)
+    .map((child) => child as HTMLElement)
+    .filter((child) =>
+      classNameIncludes(String(child.className ?? ""), "gorp-action-menu-item") &&
+      !(child as HTMLButtonElement).disabled &&
+      child.getAttribute?.("aria-disabled") !== "true"
+    );
+}
+
+function activeActionMenuItem(menu: HTMLElement): HTMLElement | null {
+  const active = globalThis.document?.activeElement as HTMLElement | null;
+  if (!active || !elementContains(menu, active)) return null;
+  return enabledActionMenuItems(menu).includes(active) ? active : null;
+}
+
+function activateActionMenuItem(item: HTMLElement): void {
+  if (typeof (item as HTMLButtonElement).click === "function") {
+    (item as HTMLButtonElement).click();
+    return;
+  }
+  item.dispatchEvent(new Event("click", { bubbles: true }));
+}
+
+function storeActionMenuRestoreFocus(section: HTMLElement, fallback: HTMLElement): void {
+  const active = globalThis.document?.activeElement as HTMLElement | null;
+  actionMenuRestoreFocus.set(section, active && typeof active.focus === "function" ? active : fallback);
+}
+
+function restoreActionMenuFocus(section: HTMLElement, fallback: HTMLElement): void {
+  const target = actionMenuRestoreFocus.get(section) ?? fallback;
+  actionMenuRestoreFocus.delete(section);
+  target.focus?.();
 }
 
 function elementContains(root: HTMLElement, target: HTMLElement): boolean {
