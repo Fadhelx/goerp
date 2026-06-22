@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-06-22T12:02:06.589Z",
+  "base_url": "https://goerp.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-takeover.png",
+      "sha256": "90282b87fa9a0e231a3cedba1830251ac76c0a9c4464dd76b0768ab9954b3704",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "search_count": 1,
+        "search_state": {
+          "ok": true,
+          "hidden": true,
+          "visible": false,
+          "width": 1,
+          "height": 1,
+          "margin_bottom_px": 0,
+          "search_active": "false"
+        },
+        "typed_search_state": {
+          "ok": true,
+          "active": true,
+          "idle": true,
+          "active_dataset": "true",
+          "active_value": "a",
+          "active_width_px": 520,
+          "active_height_px": 40,
+          "active_max_height_px": 0,
+          "idle_margin_bottom_px": 0,
+          "visible_app_count": 36
+        },
+        "navbar_height_px": 46,
+        "navbar_contract": true,
+        "home_background_class": true,
+        "legacy_card_count": 0,
+        "draggable_count": 4,
+        "hidden_search_count": 1,
+        "menu_sections_contract": true,
+        "mobile_toggle_contract": true,
+        "app_tag": "A",
+        "app_href": "#menu_id=29&action=42",
+        "hidden_search_role": "combobox",
+        "navbar_bg": "rgba(0, 0, 0, 0)",
+        "launcher_top_px": 0,
+        "launcher_bg_color": "rgb(238, 240, 243)",
+        "launcher_bg_image": "radial-gradient(circle at 22px 18px, rgba(31, 41, 51, 0.055) 0px, rgba(31, 41, 51, 0.055) 1px, rgba(0, 0, 0, 0) 1.4px), radial-gradient(circle at 72px 68px, rgba(31, 41, 51, 0.035) 0px, rgba(31, 41, 51, 0.035) 1px, rgba(0, 0, 0, 0) 1.4px)",
+        "launcher_box_shadow": "rgba(255, 255, 255, 0.66) 0px 1px 0px 0px inset",
+        "search_height_px": 0,
+        "search_margin_bottom_px": 0,
+        "banner_visible": false,
+        "banner_count": 0,
+        "banner_top_px": 0,
+        "banner_width_px": 0,
+        "user_name_display": "none",
+        "app_card_left_px": 258,
+        "app_card_top_px": 118,
+        "app_card_width_px": 142,
+        "app_card_height_px": 106,
+        "app_card_bg": "rgba(0, 0, 0, 0)",
+        "app_card_border_color": "rgba(0, 0, 0, 0)",
+        "app_card_border_radius_px": 4,
+        "app_icon_width_px": 70,
+        "app_icon_height_px": 70,
+        "app_icon_radius_px": 6,
+        "app_icon_text": "",
+        "action_count": 1
+      },
+      "duration_ms": 7270
+    }
+  ],
+  "duration_ms": 7421
+}
