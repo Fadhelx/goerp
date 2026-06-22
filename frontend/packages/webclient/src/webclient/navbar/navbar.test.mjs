@@ -77,7 +77,8 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("o-systra
 assert.equal(findAll(navbar, (node) => String(node.className).split(/\s+/).includes("o_switch_company_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("oe_topbar_name")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_debug_manager")).length, 1);
-assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_menu")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).split(/\s+/).includes("o_user_menu")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_avatar") && node.textContent === "A").length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 5);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu") && node.hidden === true).length, 5);
 assert.equal(findAll(navbar, (node) => String(node.textContent).includes("Gorp")).length, 0);

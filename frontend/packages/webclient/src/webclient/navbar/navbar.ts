@@ -568,10 +568,20 @@ function renderUserMenu(userName: string): HTMLElement {
   button.className = "o-systray-item o_user_menu o-user-menu-button dropdown-toggle";
   button.setAttribute("aria-label", "User menu");
   button.setAttribute("role", "menuitem");
+  const avatar = document.createElement("span");
+  avatar.className = "o_user_avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  avatar.textContent = userInitial(userName);
   const label = document.createElement("span");
+  label.className = "o_user_menu_name";
   label.textContent = userName;
-  button.append(label);
+  button.append(avatar, label);
   return button;
+}
+
+function userInitial(userName: string): string {
+  const trimmed = userName.trim();
+  return (trimmed ? trimmed[0] : "A").toUpperCase();
 }
 
 function userMenuItems(): SystrayMenuEntry[] {

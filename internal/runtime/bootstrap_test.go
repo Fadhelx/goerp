@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 	"gorp/internal/meta/menu"
 	"gorp/internal/meta/view"
 	"gorp/internal/module"
+	modulelifecycle "gorp/internal/module/lifecycle"
 	"gorp/internal/notifications"
 	"gorp/internal/record"
 	"gorp/internal/scheduler"
@@ -258,6 +260,88 @@ func TestCSVModelNameFromTemplatePath(t *testing.T) {
 	for path, want := range cases {
 		if got := csvModelNameFromPath(path); got != want {
 			t.Fatalf("csvModelNameFromPath(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
+func TestImmediateLifecycleLoadsSelectedManifestDataInDependencyOrder(t *testing.T) {
+	root := t.TempDir()
+	depDir := filepath.Join(root, "addons", "x_dep", "data")
+	appDir := filepath.Join(root, "addons", "x_app", "data")
+	if err := os.MkdirAll(depDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(appDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(depDir, "partner.xml"), []byte(`<odoo>
+  <record id="partner_dep" model="res.partner">
+    <field name="name">Dependency Partner</field>
+    <field name="active">1</field>
+  </record>
+</odoo>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appDir, "partner.xml"), []byte(`<odoo>
+  <record id="partner_app" model="res.partner">
+    <field name="name">Application Partner</field>
+    <field name="active">1</field>
+    <field name="parent_id" ref="x_dep.partner_dep"/>
+  </record>
+</odoo>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	reg := record.NewRegistry()
+	for _, model := range internalbase.Models() {
+		if err := reg.Register(model); err != nil {
+			t.Fatal(err)
+		}
+	}
+	env := record.NewEnv(reg, record.Context{UserID: 1, CompanyID: 1, CompanyIDs: []int64{1}})
+	app := &App{
+		Root: root,
+		Env:  env,
+		Modules: map[string]module.Manifest{
+			"x_dep": {Name: "Dependency", TechnicalName: "x_dep", Version: "19.0.1.0.0", Installable: true, Data: []string{"data/partner.xml"}},
+			"x_app": {Name: "Application", TechnicalName: "x_app", Version: "19.0.1.0.0", Depends: []string{"x_dep"}, Installable: true, Data: []string{
+				"data/partner.xml",
+			}},
+		},
+		ExternalIDs: map[string]data.ExternalID{},
+	}
+
+	err := app.loadImmediateModuleData(env, modulelifecycle.Result{Operation: "immediate_install", Modules: []string{"x_app", "x_dep"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	depID := app.ExternalIDs["x_dep.partner_dep"].ResID
+	appID := app.ExternalIDs["x_app.partner_app"].ResID
+	if depID == 0 || appID == 0 {
+		t.Fatalf("external ids = %+v", app.ExternalIDs)
+	}
+	rows, err := env.Model("res.partner").Browse(appID).Read("name", "parent_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["name"] != "Application Partner" || int64Value(rows[0]["parent_id"]) != depID {
+		t.Fatalf("loaded partner row = %+v; dep=%d", rows, depID)
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 3)
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- app.loadImmediateModuleData(env, modulelifecycle.Result{Operation: "immediate_upgrade", Modules: []string{"x_app", "x_dep"}})
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

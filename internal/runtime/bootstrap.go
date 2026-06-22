@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	accounting "gorp/addons/accounting"
@@ -38,6 +39,7 @@ import (
 	"gorp/internal/meta/view"
 	"gorp/internal/model"
 	"gorp/internal/module"
+	modulelifecycle "gorp/internal/module/lifecycle"
 	"gorp/internal/notifications"
 	"gorp/internal/phone"
 	"gorp/internal/record"
@@ -48,6 +50,7 @@ import (
 )
 
 type App struct {
+	Root                string
 	Env                 *record.Env
 	Assets              *assets.Registry
 	Actions             *action.Registry
@@ -69,12 +72,14 @@ type App struct {
 	FetchmailConnector  internalmail.FetchmailConnector
 	InboundMessageLock  internalmail.InboundMessageIDLocker
 	FetchmailServerLock internalmail.FetchmailServerLocker
+	moduleDataLoadMu    sync.Mutex
 }
 
 func BootstrapOI(root string) (*App, error) {
 	if strings.TrimSpace(root) == "" {
 		root = repoRoot()
 	}
+	root = filepath.Clean(root)
 	moduleReg := registry.New("gorp")
 	manifests := oiManifests()
 	if err := moduleReg.Install(manifests); err != nil {
@@ -137,6 +142,7 @@ func BootstrapOI(root string) (*App, error) {
 		modules[manifest.TechnicalName] = manifest
 	}
 	app := &App{
+		Root:           root,
 		Env:            env,
 		Assets:         assetReg,
 		Actions:        actionReg,
@@ -206,6 +212,7 @@ func (a *App) Server() web.Server {
 		FetchmailConnector:  a.FetchmailConnector,
 		InboundMessageLock:  a.InboundMessageLock,
 		FetchmailServerLock: a.FetchmailServerLock,
+		ModuleLifecycleHook: a.loadImmediateModuleData,
 	}
 }
 
@@ -562,6 +569,130 @@ func loadManifestData(env *record.Env, externalIDs map[string]data.ExternalID, m
 		}
 	}
 	return nil
+}
+
+func (a *App) loadImmediateModuleData(env *record.Env, result modulelifecycle.Result) error {
+	if result.Operation != "immediate_install" && result.Operation != "immediate_upgrade" {
+		return nil
+	}
+	return a.loadSelectedManifestData(env, result.Modules)
+}
+
+func (a *App) loadSelectedManifestData(env *record.Env, moduleNames []string) error {
+	if a == nil {
+		return fmt.Errorf("module data load requires app")
+	}
+	a.moduleDataLoadMu.Lock()
+	defer a.moduleDataLoadMu.Unlock()
+	if env == nil {
+		env = a.Env
+	}
+	if env == nil {
+		return fmt.Errorf("module data load requires env")
+	}
+	if a.ExternalIDs == nil {
+		a.ExternalIDs = map[string]data.ExternalID{}
+	}
+	ordered, err := a.orderedSelectedModules(moduleNames)
+	if err != nil {
+		return err
+	}
+	root := runtimeDataRoot(a.Root)
+	for _, name := range ordered {
+		manifest := a.Modules[name]
+		if len(manifest.Data) == 0 {
+			continue
+		}
+		baseDir, ok := moduleDataBaseDir(root, name)
+		if !ok {
+			return fmt.Errorf("module %s data directory not found", name)
+		}
+		if name == oi_login_as.ModuleName {
+			loginLoader := data.NewLoaderWithExternalIDs(env, oi_login_as.ModuleName, a.ExternalIDs)
+			if err := seedLoginAsExternalIDs(loginLoader); err != nil {
+				return err
+			}
+		}
+		if err := loadManifestData(env, a.ExternalIDs, name, baseDir, manifest.Data); err != nil {
+			return fmt.Errorf("load module %s data: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func (a *App) orderedSelectedModules(moduleNames []string) ([]string, error) {
+	selected := map[string]bool{}
+	for _, name := range moduleNames {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			selected[name] = true
+		}
+	}
+	names := make([]string, 0, len(selected))
+	for name := range selected {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var ordered []string
+	visiting := map[string]bool{}
+	visited := map[string]bool{}
+	var visit func(string) error
+	visit = func(name string) error {
+		if visited[name] {
+			return nil
+		}
+		if visiting[name] {
+			return fmt.Errorf("module dependency cycle at %s", name)
+		}
+		manifest, ok := a.Modules[name]
+		if !ok {
+			return fmt.Errorf("unknown module %s", name)
+		}
+		visiting[name] = true
+		deps := append([]string(nil), manifest.Depends...)
+		sort.Strings(deps)
+		for _, dep := range deps {
+			if selected[dep] {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+		}
+		visiting[name] = false
+		visited[name] = true
+		ordered = append(ordered, name)
+		return nil
+	}
+	for _, name := range names {
+		if err := visit(name); err != nil {
+			return nil, err
+		}
+	}
+	return ordered, nil
+}
+
+func runtimeDataRoot(root string) string {
+	if strings.TrimSpace(root) == "" {
+		return repoRoot()
+	}
+	return filepath.Clean(root)
+}
+
+func moduleDataBaseDir(root string, moduleName string) (string, bool) {
+	candidates := []string{
+		filepath.Join(root, "addons", moduleName),
+		filepath.Join(root, "internal", moduleName),
+	}
+	if moduleName == base.Manifest().TechnicalName {
+		candidates = []string{filepath.Join(root, "internal", "base")}
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 func csvModelNameFromPath(path string) string {

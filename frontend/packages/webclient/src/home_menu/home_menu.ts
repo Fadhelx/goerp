@@ -19,6 +19,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   section.className = "o-app-launcher-view o_app_launcher";
   section.dataset.view = "apps";
   section.dataset.mobileSafe = "true";
+  section.setAttribute("tabindex", "-1");
 
   const shell = document.createElement("div");
   shell.className = "o-app-shell o_home_menu";
@@ -36,8 +37,13 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   const grid = document.createElement("div");
   grid.className = "app-grid o_apps";
 
+  const setSearchActive = (active: boolean) => {
+    searchWrap.className = active ? "o-app-search o_home_menu_search is-active" : "o-app-search o_home_menu_search";
+    searchWrap.dataset.searchActive = active ? "true" : "false";
+  };
   const renderGrid = () => {
     const query = search.value.trim().toLowerCase();
+    setSearchActive(Boolean(query));
     const apps = normalizeHomeMenuApps(payload, { includeDescendantActions: Boolean(query) });
     const visible = query ? apps.filter((app) => app.searchText.includes(query)) : apps;
     const catalogApp = homeMenuAppsCatalogApp(payload);
@@ -73,12 +79,45 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
       grid.append(empty);
     }
   };
+  const showSearch = () => setSearchActive(true);
+  const hideSearchIfEmpty = () => {
+    if (!search.value.trim()) setSearchActive(false);
+  };
+  search.addEventListener("focus", showSearch);
+  search.addEventListener("blur", hideSearchIfEmpty);
   search.addEventListener("input", renderGrid);
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    search.value = "";
+    renderGrid();
+    setSearchActive(false);
+  });
+  section.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (isTextInput(event.target)) return;
+    if (event.key === "/") {
+      event.preventDefault?.();
+      setSearchActive(true);
+      search.focus?.();
+      return;
+    }
+    if (event.key.length !== 1) return;
+    event.preventDefault?.();
+    search.value = event.key;
+    setSearchActive(true);
+    search.focus?.();
+    renderGrid();
+  });
   renderGrid();
 
   shell.append(searchWrap, grid);
   section.append(shell);
   return section;
+}
+
+function isTextInput(target: EventTarget | null): boolean {
+  const tag = (target as HTMLElement | null)?.tagName?.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select";
 }
 
 export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLElement {

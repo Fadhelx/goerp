@@ -44,6 +44,7 @@ import (
 	"gorp/internal/meta/view"
 	"gorp/internal/model"
 	"gorp/internal/module"
+	modulelifecycle "gorp/internal/module/lifecycle"
 	"gorp/internal/notifications"
 	"gorp/internal/record"
 	"gorp/internal/security"
@@ -298,6 +299,46 @@ func TestModuleLifecycleCallButtonBodyUsesLifecycleDispatch(t *testing.T) {
 		t.Fatalf("button params = %+v", params)
 	}
 	assertHTTPModuleState(t, env, appID, "installed")
+}
+
+func TestModuleLifecycleDataHookRunsOnlyForImmediateInstallAndUpgrade(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstalled")
+	mailID := createHTTPModuleRow(t, env, "mail", "installed")
+	calls := []string{}
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm":  {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Installable: true},
+		},
+		ModuleLifecycleHook: func(_ *record.Env, result modulelifecycle.Result) error {
+			calls = append(calls, result.Operation+":"+strings.Join(result.Modules, ","))
+			return nil
+		},
+	}).Handler()
+
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_install","args":[[%d]]}`, crmID))
+	if len(calls) != 0 {
+		t.Fatalf("queued install hook calls = %+v", calls)
+	}
+
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_install_cancel","args":[[%d]]}`, crmID))
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_install","args":[[%d]]}`, crmID))
+	if strings.Join(calls, "|") != "immediate_install:crm" {
+		t.Fatalf("immediate install hook calls = %+v", calls)
+	}
+
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_upgrade","args":[[%d]]}`, mailID))
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_upgrade","args":[[%d]]}`, mailID))
+	if strings.Join(calls, "|") != "immediate_install:crm|immediate_upgrade:mail" {
+		t.Fatalf("immediate upgrade hook calls = %+v", calls)
+	}
+
+	postCallKW(t, handler, fmt.Sprintf(`{"model":"ir.module.module","method":"button_immediate_uninstall","args":[[%d]]}`, mailID))
+	if strings.Join(calls, "|") != "immediate_install:crm|immediate_upgrade:mail" {
+		t.Fatalf("uninstall hook calls = %+v", calls)
+	}
 }
 
 func TestModuleLifecycleCallKWBlocksDependentUninstall(t *testing.T) {

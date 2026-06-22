@@ -47,10 +47,21 @@ export const scenarios = [
       const navCount = await waitForCount(page, ".o_web_client .o_main_navbar", 1, "TS navbar");
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
       const searchCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app_search_input", 1, "TS app search");
+      const searchState = await evaluate(page, `(() => {
+        const node = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
+        const input = document.querySelector(".o_web_client .o_home_menu .o_app_search_input");
+        if (!node || !input) return { ok: false, reason: "missing launcher search" };
+        const style = getComputedStyle(node);
+        const hidden = node.dataset.searchActive === "false" && style.opacity === "0" && Number.parseFloat(style.maxHeight) === 0;
+        const rect = input.getBoundingClientRect();
+        const visible = rect.width >= 300 && rect.height >= 30 && style.display !== "none" && style.visibility !== "hidden";
+        return { ok: hidden || visible, hidden, visible, width: rect.width, height: rect.height, search_active: node.dataset.searchActive || "" };
+      })()`);
+      if (!searchState.ok) throw new Error(`TS app search is not usable: ${JSON.stringify(searchState)}`);
       const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
-      return { nav_count: navCount, app_count: appCount, search_count: searchCount, action_count: actionCount };
+      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, action_count: actionCount };
     }
   },
   {
@@ -633,12 +644,14 @@ async function assertEnterprisePolishSnapshot(page) {
     };
   })()`);
   const issues = [];
-  if (snapshot.control_panel_bg !== "rgb(255, 255, 255)") issues.push(`control panel bg ${snapshot.control_panel_bg}`);
-  if (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none") issues.push("control panel shadow missing");
+  const acceptedControlPanelBG = new Set(["rgb(255, 255, 255)", "rgb(41, 44, 58)"]);
+  const acceptedListHeaderBG = new Set(["rgb(246, 247, 248)", "rgb(28, 31, 42)"]);
+  if (!acceptedControlPanelBG.has(snapshot.control_panel_bg)) issues.push(`control panel bg ${snapshot.control_panel_bg}`);
+  if (snapshot.control_panel_bg === "rgb(255, 255, 255)" && (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none")) issues.push("control panel shadow missing");
   if (snapshot.control_panel_min_height_px < 60 || snapshot.control_panel_min_height_px > 66) issues.push(`control panel min-height ${snapshot.control_panel_min_height_px}`);
   if (snapshot.search_width_px < 400 || snapshot.search_width_px > 450) issues.push(`search width ${snapshot.search_width_px}`);
   if (snapshot.search_radius_px !== 4) issues.push(`search radius ${snapshot.search_radius_px}`);
-  if (snapshot.list_header_bg !== "rgb(246, 247, 248)") issues.push(`list header bg ${snapshot.list_header_bg}`);
+  if (!acceptedListHeaderBG.has(snapshot.list_header_bg)) issues.push(`list header bg ${snapshot.list_header_bg}`);
   if (issues.length) throw new Error(`enterprise polish style audit failed: ${issues.join("; ")}`);
   return snapshot;
 }

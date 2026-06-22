@@ -68,6 +68,7 @@ assert.equal(homeMenu.dataset.view, "apps");
 assert.equal(homeMenu.dataset.mobileSafe, "true");
 assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search")).length, 1);
+assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search") && node.dataset?.searchActive === "true").length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_apps")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("app-card")).length, 1);
 assert.equal(findAll(homeMenu, (node) => node.dataset?.appName === "Sales Orders").length, 1);
@@ -85,9 +86,21 @@ assert.equal(findAll(serverActionCard, (node) => String(node.className).includes
 const liveMenu = renderHomeMenu(payload);
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41").length, 0);
 const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
+const liveSearchWrap = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_search"))[0];
+assert.equal(liveSearchWrap.dataset.searchActive, "false");
 searchInput.value = "server";
 searchInput.listeners.input[0]();
+assert.equal(liveSearchWrap.dataset.searchActive, "true");
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41" && node.dataset?.menuAction === "true").length, 1);
+
+const keyboardMenu = renderHomeMenu(payload);
+const keyboardSection = keyboardMenu;
+const keyboardSearch = findAll(keyboardMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
+let prevented = false;
+keyboardSection.listeners.keydown[0]({ key: "s", preventDefault() { prevented = true; } });
+assert.equal(prevented, true);
+assert.equal(keyboardSearch.value, "s");
+assert.equal(findAll(keyboardMenu, (node) => String(node.className).includes("o_home_menu_search") && node.dataset?.searchActive === "true").length, 1);
 
 const normalUserMenu = renderHomeMenu({
   menu_roots: [1],

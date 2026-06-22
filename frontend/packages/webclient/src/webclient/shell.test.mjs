@@ -95,6 +95,7 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "4").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Tasks").length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_user_avatar") && node.textContent === "A").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.appKey === "apps").length, 0);
 assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
 assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp")).length, 0);
