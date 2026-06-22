@@ -1428,6 +1428,200 @@ assert.deepEqual(relationOpenCalls[0].action, {
 });
 assert.deepEqual(relationOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
 
+const genericFormSearchCalls = [];
+const genericFormSaveCalls = [];
+const genericFormSaveEvents = [];
+const genericFormDiscardEvents = [];
+const genericFormWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Server Action" },
+  activeView: "form",
+  resModel: "ir.actions.server",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name", required: true },
+      email: { type: "char", string: "Email" },
+      model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+      group_ids: { type: "many2many", relation: "res.groups", string: "Groups" },
+      line_ids: { type: "one2many", relation: "ir.actions.server.line", string: "Lines" },
+      active: { type: "boolean", string: "Active" }
+    },
+    relatedModels: {
+      "ir.actions.server.line": {
+        fields: {
+          description: { type: "char", string: "Description" },
+          quantity: { type: "integer", string: "Quantity" }
+        }
+      }
+    },
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="group_ids"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
+        id: 73
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 24,
+    display_name: "Update Records",
+    name: "Update Records",
+    email: "old@example.com",
+    model_id: [5, "Contact"],
+    group_ids: [[11, "Base / User"]],
+    line_ids: [
+      { id: 201, description: "Old line", quantity: 1 },
+      { id: 202, description: "Drop line", quantity: 2 }
+    ],
+    active: true
+  },
+  context: { lang: "en_US" },
+  services: {
+    orm: {
+      call(model, method, args, kwargs) {
+        genericFormSearchCalls.push({ model, method, args, kwargs });
+        if (model === "res.groups") return Promise.resolve([[11, "Base / User"], [30, "Sales / Manager"]]);
+        return Promise.resolve([[81, "mail.mail"], [82, "mail.message"]]);
+      },
+      webSave(model, ids, changes, kwargs) {
+        genericFormSaveCalls.push({ model, ids, changes, kwargs });
+        return Promise.resolve([{ id: ids[0], ...changes }]);
+      }
+    }
+  }
+});
+genericFormWindow.addEventListener("form:save", (event) => genericFormSaveEvents.push(event.detail));
+genericFormWindow.addEventListener("form:discard", (event) => genericFormDiscardEvents.push(event.detail));
+const genericEditButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "edit")[0];
+const genericSaveButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "save")[0];
+const genericDiscardButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "discard")[0];
+assert.equal(genericEditButton.hidden, false);
+assert.equal(genericSaveButton.hidden, true);
+assert.equal(genericDiscardButton.hidden, true);
+genericEditButton.dispatchEvent(new TestEvent("click"));
+let genericForm = genericFormWindow.children[1];
+const genericNameInput = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "name")[0];
+const genericEmailInput = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "email")[0];
+const genericRelation = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-editor"))[0];
+const genericRelationInput = findAll(genericRelation, (node) => node.tag === "input" && node.dataset?.field === "model_id")[0];
+const genericGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor"))[0];
+const genericGroupsInput = findAll(genericGroups, (node) => node.tag === "input" && node.dataset?.field === "group_ids")[0];
+const genericLines = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-editor"))[0];
+assert.equal(genericEditButton.hidden, true);
+assert.equal(genericSaveButton.hidden, false);
+assert.equal(genericSaveButton.disabled, true);
+assert.equal(genericDiscardButton.hidden, false);
+assert.equal(genericNameInput.required, true);
+assert.equal(genericEmailInput.value, "old@example.com");
+assert.equal(genericEmailInput.required, false);
+assert.equal(genericRelation.dataset.relation, "ir.model");
+assert.equal(genericRelation.dataset.resId, "5");
+assert.equal(genericGroups.dataset.relation, "res.groups");
+assert.equal(genericGroups.dataset.count, "1");
+assert.equal(genericLines.dataset.relation, "ir.actions.server.line");
+assert.equal(genericLines.dataset.count, "2");
+genericNameInput.value = "Send Follow-up";
+genericNameInput.dispatchEvent(new TestEvent("input"));
+genericEmailInput.value = "follow@example.com";
+genericEmailInput.dispatchEvent(new TestEvent("input"));
+genericRelationInput.value = "mail";
+genericRelationInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(genericFormSearchCalls[0], {
+  model: "ir.model",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "mail", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+});
+const genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
+assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["mail.mail", "mail.message"]);
+genericRelationOptions[0].dispatchEvent(new TestEvent("click"));
+assert.equal(genericRelation.dataset.resId, "81");
+assert.equal(genericRelationInput.value, "mail.mail");
+const genericInitialGroupTags = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-tag"));
+assert.deepEqual(findAll(genericInitialGroupTags[0], (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-label")).map((node) => node.textContent), ["Base / User"]);
+genericGroupsInput.value = "sales";
+genericGroupsInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(genericFormSearchCalls[1], {
+  model: "res.groups",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "sales", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+});
+const genericGroupOptions = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-option"));
+assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
+genericGroupOptions[0].dispatchEvent(new TestEvent("click"));
+assert.equal(genericGroups.dataset.count, "2");
+const genericGroupRemove = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-remove") && node.dataset?.resId === "11")[0];
+genericGroupRemove.dispatchEvent(new TestEvent("click"));
+assert.equal(genericGroups.dataset.count, "1");
+let genericLineDescriptionInputs = findAll(genericLines, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-input") && node.dataset?.field === "description");
+let genericLineQuantityInputs = findAll(genericLines, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-input") && node.dataset?.field === "quantity");
+assert.deepEqual(genericLineDescriptionInputs.map((node) => node.value), ["Old line", "Drop line"]);
+genericLineDescriptionInputs[0].value = "Updated line";
+genericLineDescriptionInputs[0].dispatchEvent(new TestEvent("input"));
+genericLineQuantityInputs[0].value = "5";
+genericLineQuantityInputs[0].dispatchEvent(new TestEvent("input"));
+const genericLineRemove = findAll(genericLines, (node) => node.dataset?.one2manyAction === "remove")[1];
+genericLineRemove.dispatchEvent(new TestEvent("click"));
+assert.equal(genericLines.dataset.count, "1");
+const genericLineAdd = findAll(genericLines, (node) => node.dataset?.one2manyAction === "add")[0];
+genericLineAdd.dispatchEvent(new TestEvent("click"));
+assert.equal(genericLines.dataset.count, "2");
+genericLineDescriptionInputs = findAll(genericLines, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-input") && node.dataset?.field === "description");
+genericLineQuantityInputs = findAll(genericLines, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-one2many-input") && node.dataset?.field === "quantity");
+genericLineDescriptionInputs.at(-1).value = "New line";
+genericLineDescriptionInputs.at(-1).dispatchEvent(new TestEvent("input"));
+genericLineQuantityInputs.at(-1).value = "3";
+genericLineQuantityInputs.at(-1).dispatchEvent(new TestEvent("input"));
+genericSaveButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(genericFormSaveCalls, [{
+  model: "ir.actions.server",
+  ids: [24],
+  changes: {
+    name: "Send Follow-up",
+    email: "follow@example.com",
+    model_id: 81,
+    group_ids: [[6, false, [30]]],
+    line_ids: [
+      [1, 201, { description: "Updated line", quantity: "5" }],
+      [3, 202, false],
+      [0, false, { description: "New line", quantity: "3" }]
+    ]
+  },
+  kwargs: { context: { lang: "en_US" } }
+}]);
+assert.equal(genericFormSaveEvents.length, 1);
+assert.deepEqual(genericFormSaveEvents[0].changes, genericFormSaveCalls[0].changes);
+assert.equal(genericEditButton.hidden, false);
+assert.equal(genericSaveButton.hidden, true);
+genericForm = genericFormWindow.children[1];
+const genericSavedRelationLink = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-link") && node.dataset?.field === "model_id")[0];
+assert.equal(genericSavedRelationLink.textContent, "mail.mail");
+assert.equal(genericSavedRelationLink.dataset.resId, "81");
+const genericSavedGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-tags") && node.dataset?.field === "group_ids")[0];
+assert.equal(genericSavedGroups.dataset.count, "1");
+assert.deepEqual(findAll(genericSavedGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag")).map((node) => node.textContent), ["Sales / Manager"]);
+const genericSavedLines = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-tags") && node.dataset?.field === "line_ids")[0];
+assert.equal(genericSavedLines.dataset.count, "2");
+assert.deepEqual(findAll(genericSavedLines, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag")).map((node) => node.textContent), ["Updated line", "New line"]);
+genericEditButton.dispatchEvent(new TestEvent("click"));
+genericForm = genericFormWindow.children[1];
+const genericDiscardedName = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "name")[0];
+genericDiscardedName.value = "Discarded";
+genericDiscardedName.dispatchEvent(new TestEvent("input"));
+assert.equal(genericDiscardButton.disabled, false);
+genericDiscardButton.dispatchEvent(new TestEvent("click"));
+genericForm = genericFormWindow.children[1];
+const genericRestoredName = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "name")[0];
+assert.equal(genericRestoredName.value, "Send Follow-up");
+assert.equal(genericFormSaveCalls.length, 1);
+assert.equal(genericFormDiscardEvents.length, 1);
+
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({
   type: "ir.actions.act_window",

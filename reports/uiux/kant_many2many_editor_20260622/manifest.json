@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-06-22T05:28:35.832Z",
+  "base_url": "http://127.0.0.1:8079/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "b1dc784c50c2c6b7579ff99f7c70d33772d9be53cbf4c8725a7e533558d22778",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 34,
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 1,
+        "x2many_widget_count": 1,
+        "x2many_editor_count": 1,
+        "x2many_editor_state": {
+          "relation": "res.groups",
+          "count": "0",
+          "input_role": "combobox",
+          "input_autocomplete": "list",
+          "tag_labels": []
+        },
+        "notebook_id": "notebook-standalone",
+        "tab_labels": [
+          "Inherited By"
+        ],
+        "selected_tabs": [
+          "true"
+        ],
+        "visible_pages": 1,
+        "inherited_field_count": 1,
+        "x2many_count": "0",
+        "x2many_relation": "res.groups",
+        "x2many_tag_labels": []
+      },
+      "duration_ms": 991
+    }
+  ],
+  "duration_ms": 1134
+}

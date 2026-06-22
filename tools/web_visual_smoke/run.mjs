@@ -161,12 +161,40 @@ export const scenarios = [
       if (!relationState.text || !relationState.res_id || !relationState.href.includes("model=ir.model")) {
         throw new Error(`TS Server Actions relation link invalid: ${JSON.stringify(relationState)}`);
       }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const relationEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions many2one editor");
+      await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
+      const relationOptionCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 1, "TS Server Actions many2one options");
+      const editorState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const input = editor?.querySelector("input");
+        const options = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option")];
+        return {
+          relation: editor?.dataset?.relation || "",
+          input_value: input?.value || "",
+          option_labels: options.map((node) => node.textContent.trim()).filter(Boolean)
+        };
+      })()`);
+      if (editorState.relation !== "ir.model" || !editorState.option_labels.length) throw new Error(`TS Server Actions relation editor invalid: ${JSON.stringify(editorState)}`);
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option");
+      const selectedState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const save = document.querySelector(".o_web_client .o_action_manager [data-form-action='save']");
+        return {
+          res_id: editor?.dataset?.resId || "",
+          save_hidden: save?.hidden === true,
+          save_disabled: save?.disabled === true
+        };
+      })()`);
+      if (!selectedState.res_id || selectedState.save_hidden) throw new Error(`TS Server Actions relation selection invalid: ${JSON.stringify(selectedState)}`);
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-many2one-link[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions readonly relation after discard");
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, relation_link_count: relationLinkCount, relation_state: relationState };
+      return { title, hash, form_count: formCount, field_count: fieldCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -210,7 +238,24 @@ export const scenarios = [
       if (state.visible_pages !== 1) throw new Error(`Groups notebook visible page mismatch: ${JSON.stringify(state)}`);
       if (state.inherited_field_count !== 1) throw new Error(`Groups notebook field duplication: ${JSON.stringify(state)}`);
       if (state.x2many_relation !== "res.groups") throw new Error(`Groups x2many relation mismatch: ${JSON.stringify(state)}`);
-      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, x2many_widget_count: x2ManyCount, ...state };
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const x2ManyEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids'][data-relation='res.groups']", 1, "TS Groups editable x2many tag widget");
+      const editorState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids']");
+        const input = editor?.querySelector("input");
+        const tags = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids'] .gorp-x2many-editor-tag")];
+        return {
+          relation: editor?.dataset?.relation || "",
+          count: editor?.dataset?.count || "",
+          input_role: input?.getAttribute("role") || "",
+          input_autocomplete: input?.getAttribute("aria-autocomplete") || "",
+          tag_labels: tags.map((node) => node.textContent.trim()).filter(Boolean)
+        };
+      })()`);
+      if (editorState.relation !== "res.groups" || editorState.input_role !== "combobox") throw new Error(`Groups editable x2many invalid: ${JSON.stringify(editorState)}`);
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']", 1, "TS Groups readonly x2many after discard");
+      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, x2many_widget_count: x2ManyCount, x2many_editor_count: x2ManyEditorCount, x2many_editor_state: editorState, ...state };
     }
   },
   {

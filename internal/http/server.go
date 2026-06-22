@@ -6849,11 +6849,87 @@ const webClientShellHTML = `<!doctype html>
 		border-bottom-color: currentColor;
 		outline: none;
 	}
+	.gorp-many2one-editor.o_field_many2one {
+		position: relative;
+		display: block;
+		min-width: 0;
+	}
+	.gorp-many2one-editor .o_input {
+		width: 100%;
+		padding-right: 28px;
+	}
+	.gorp-many2one-editor::after {
+		content: "";
+		position: absolute;
+		right: 10px;
+		top: 50%;
+		width: 7px;
+		height: 7px;
+		border-right: 1px solid currentColor;
+		border-bottom: 1px solid currentColor;
+		opacity: .55;
+		pointer-events: none;
+		transform: translateY(-62%) rotate(45deg);
+	}
+	.gorp-many2one-dropdown.o_m2o_dropdown {
+		position: absolute;
+		z-index: 30;
+		top: calc(100% + 2px);
+		left: 0;
+		right: 0;
+		display: grid;
+		gap: 0;
+		max-height: 220px;
+		overflow: auto;
+		padding: 4px 0;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: var(--panel);
+		color: var(--text);
+		box-shadow: 0 12px 28px rgba(0,0,0,.14);
+	}
+	.gorp-many2one-option.dropdown-item {
+		width: 100%;
+		min-height: 30px;
+		justify-content: flex-start;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		color: inherit;
+		padding: 6px 12px;
+		text-align: left;
+	}
+	.gorp-many2one-option.dropdown-item:hover,
+	.gorp-many2one-option.dropdown-item:focus {
+		background: var(--hover-bg);
+		outline: none;
+	}
+	.gorp-many2one-empty {
+		padding: 7px 12px;
+		font-size: 13px;
+	}
 	.gorp-x2many-tags.o_field_widget {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 4px;
 		min-width: 0;
+	}
+	.gorp-x2many-editor.o_field_many2many_tags {
+		position: relative;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px;
+		min-height: 34px;
+		width: 100%;
+		padding: 4px 6px;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: var(--panel);
+		color: var(--text);
+	}
+	.gorp-x2many-editor-tags {
+		display: contents;
 	}
 	.gorp-x2many-tag.o_tag {
 		display: inline-flex;
@@ -6877,6 +6953,163 @@ const webClientShellHTML = `<!doctype html>
 		background: #e8f6f7;
 		color: #015f63;
 		outline: none;
+	}
+	.gorp-x2many-editor-tag.o_tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		max-width: 100%;
+		min-height: 22px;
+		padding: 2px 5px 2px 8px;
+		border: 1px solid #d9dadd;
+		border-radius: 3px;
+		background: #f5f6f7;
+		color: var(--text);
+		font-size: 12px;
+		line-height: 1.25;
+	}
+	.gorp-x2many-editor-label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.gorp-x2many-editor-remove.o_delete {
+		display: inline-grid;
+		place-items: center;
+		width: 16px;
+		height: 16px;
+		border: 0;
+		border-radius: 50%;
+		background: transparent;
+		color: var(--muted);
+		font: inherit;
+		font-size: 12px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.gorp-x2many-editor-remove.o_delete:hover,
+	.gorp-x2many-editor-remove.o_delete:focus {
+		background: rgba(0,0,0,.08);
+		color: var(--text);
+		outline: none;
+	}
+	.gorp-x2many-editor-input.o_input {
+		flex: 1 1 140px;
+		min-width: 120px;
+		border: 0;
+		background: transparent;
+		padding: 3px 2px;
+		box-shadow: none;
+	}
+	.gorp-x2many-editor-input.o_input:focus {
+		outline: none;
+		box-shadow: none;
+	}
+	.gorp-x2many-dropdown.o_m2m_dropdown {
+		position: absolute;
+		z-index: 30;
+		top: calc(100% + 2px);
+		left: 0;
+		right: 0;
+		display: grid;
+		gap: 0;
+		max-height: 220px;
+		overflow: auto;
+		padding: 4px 0;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: var(--panel);
+		color: var(--text);
+		box-shadow: 0 12px 28px rgba(0,0,0,.14);
+	}
+	.gorp-x2many-option.dropdown-item {
+		width: 100%;
+		min-height: 30px;
+		justify-content: flex-start;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		color: inherit;
+		padding: 6px 12px;
+		text-align: left;
+	}
+	.gorp-x2many-option.dropdown-item:hover,
+	.gorp-x2many-option.dropdown-item:focus {
+		background: var(--hover-bg);
+		outline: none;
+	}
+	.gorp-x2many-empty {
+		padding: 7px 12px;
+		font-size: 13px;
+	}
+	.gorp-one2many-editor.o_field_one2many {
+		display: grid;
+		gap: 6px;
+		min-width: 0;
+		width: 100%;
+	}
+	.gorp-one2many-table.o_list_table {
+		width: 100%;
+		border-collapse: collapse;
+		border: 1px solid var(--line);
+		border-radius: 4px;
+		background: var(--panel);
+		overflow: hidden;
+	}
+	.gorp-one2many-table th,
+	.gorp-one2many-table td {
+		border-bottom: 1px solid var(--line);
+		padding: 6px 8px;
+		vertical-align: middle;
+	}
+	.gorp-one2many-table th {
+		background: #f8f9fa;
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 600;
+		text-align: left;
+	}
+	.gorp-one2many-table tr:last-child td {
+		border-bottom: 0;
+	}
+	.gorp-one2many-input.o_input {
+		width: 100%;
+		min-width: 90px;
+		border: 0;
+		background: transparent;
+		padding: 2px 0;
+		box-shadow: none;
+	}
+	.gorp-one2many-input.o_input:focus {
+		outline: none;
+		box-shadow: inset 0 -1px 0 var(--accent);
+	}
+	.gorp-one2many-actions-head,
+	.gorp-one2many-actions {
+		width: 1%;
+		white-space: nowrap;
+		text-align: right;
+	}
+	.gorp-one2many-remove.btn,
+	.gorp-one2many-add.btn {
+		border: 0;
+		background: transparent;
+		color: var(--accent);
+		padding: 2px 0;
+		font-size: 13px;
+	}
+	.gorp-one2many-remove.btn:hover,
+	.gorp-one2many-remove.btn:focus,
+	.gorp-one2many-add.btn:hover,
+	.gorp-one2many-add.btn:focus {
+		color: #015f63;
+		text-decoration: underline;
+		outline: none;
+	}
+	.gorp-one2many-empty-row td {
+		color: var(--muted);
+		font-style: italic;
 	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -7129,10 +7362,71 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-link.o_field_many2one:focus {
 		color: #8de1e4;
 	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-dropdown.o_m2o_dropdown {
+		border-color: #444959;
+		background: #292c3a;
+		color: var(--text);
+		box-shadow: 0 16px 32px rgba(0,0,0,.36);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-option.dropdown-item:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-option.dropdown-item:focus {
+		background: #343848;
+	}
 	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-tag.o_tag {
 		border-color: #444959;
 		background: #313544;
 		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-editor.o_field_many2many_tags {
+		border-color: #444959;
+		background: #292c3a;
+		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-editor-tag.o_tag {
+		border-color: #444959;
+		background: #313544;
+		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-editor-remove.o_delete:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-editor-remove.o_delete:focus {
+		background: #3a3f50;
+		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-dropdown.o_m2m_dropdown {
+		border-color: #444959;
+		background: #292c3a;
+		color: var(--text);
+		box-shadow: 0 16px 32px rgba(0,0,0,.36);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-option.dropdown-item:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-x2many-option.dropdown-item:focus {
+		background: #343848;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-table.o_list_table {
+		border-color: #444959;
+		background: #292c3a;
+		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-table th,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-table td {
+		border-bottom-color: #444959;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-table th {
+		background: #313544;
+		color: var(--muted);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-input.o_input {
+		color: var(--text);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-remove.btn,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-add.btn {
+		color: #54c4c9;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-remove.btn:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-remove.btn:focus,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-add.btn:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-one2many-add.btn:focus {
+		color: #8de1e4;
 	}
 	main.o_web_client[data-theme="enterprise-like"] a.gorp-x2many-tag.o_tag:hover,
 	main.o_web_client[data-theme="enterprise-like"] a.gorp-x2many-tag.o_tag:focus {
