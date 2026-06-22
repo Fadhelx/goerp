@@ -845,12 +845,14 @@ assert.equal(windowResult.activeView, "list");
 assert.equal(windowResult.resModel, "res.partner");
 assert.equal(windowResult.viewDescriptions.views.list.id, 8);
 assert.equal(windowResult.length, 1);
+assert.equal(windowResult.offset, 0);
 const windowSearchRead = windowActionRequests.find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
 assert.deepEqual(windowSearchRead.params.kwargs.domain, [
   ["active", "=", true],
   ["id", "in", [1, 2]],
   ["customer_rank", ">", 0]
 ]);
+assert.equal(windowSearchRead.params.kwargs.offset, 0);
 assert.equal(windowSearchRead.params.kwargs.context.from_search, true);
 assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
@@ -907,7 +909,14 @@ assert.equal(listOpenCalls[0].action.view_mode, "form");
 assert.deepEqual(listOpenCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 
 const controlActionCalls = [];
-const controlActionWindow = renderWindowAction(windowResult, {
+const controlActionWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __pager_offset: 25
+  },
+  offset: 25
+}, {
   services: {
     action: {
       doAction(action, options) {
@@ -921,6 +930,7 @@ findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "filter-cust
 await Promise.resolve();
 assert.equal(controlActionCalls.length, 1);
 assert.deepEqual(controlActionCalls[0].action.__search_facets, []);
+assert.equal("__pager_offset" in controlActionCalls[0].action, false);
 assert.deepEqual(controlActionCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "group-by-group_company")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
@@ -929,6 +939,7 @@ assert.deepEqual(controlActionCalls[1].action.__search_facets.map((facet) => [fa
   ["filter-customer", "filter", undefined],
   ["group-by-group_company", "groupBy", "company_id"]
 ]);
+assert.equal("__pager_offset" in controlActionCalls[1].action, false);
 assert.deepEqual(controlActionCalls[1].options, { additionalContext: {}, replaceLastAction: true });
 findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
@@ -936,10 +947,18 @@ assert.equal(controlActionCalls.length, 3);
 assert.deepEqual(controlActionCalls[2].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
 assert.equal(controlActionCalls[2].action.view_mode, "form,list");
 assert.equal(controlActionCalls[2].action.view_type, "form");
+assert.equal("__pager_offset" in controlActionCalls[2].action, false);
 assert.deepEqual(controlActionCalls[2].options, { additionalContext: {}, replaceLastAction: true });
 
 const liveSearchCalls = [];
-const liveSearchWindow = renderWindowAction(windowResult, {
+const liveSearchWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __pager_offset: 25
+  },
+  offset: 25
+}, {
   services: {
     action: {
       doAction(action, options) {
@@ -955,16 +974,60 @@ liveSearchInput.dispatchEvent(new TestEvent("input"));
 await Promise.resolve();
 assert.equal(liveSearchCalls.length, 1);
 assert.equal(liveSearchCalls[0].action.__search_query, "Azure");
+assert.equal("__pager_offset" in liveSearchCalls[0].action, false);
 assert.deepEqual(liveSearchCalls[0].action.__search_facets.map((facet) => facet.id), ["filter-customer"]);
 assert.deepEqual(liveSearchCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
+const pagedRequestStart = windowActionRequests.length;
+const pagedWindowResult = await actionServices.action.doAction({
+  ...windowResult.action,
+  __pager_offset: 25
+});
+const pagedSearchRead = windowActionRequests.slice(pagedRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.equal(pagedSearchRead.params.kwargs.offset, 25);
+assert.equal(pagedSearchRead.params.kwargs.limit, 25);
+assert.equal(pagedWindowResult.offset, 25);
+
+const pagerActionCalls = [];
+const pagerWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __pager_offset: 25
+  },
+  length: 65,
+  offset: 25
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        pagerActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const pagerPrevious = findAll(pagerWindow, (node) => String(node.className).includes("o_pager_previous"))[0];
+const pagerNext = findAll(pagerWindow, (node) => String(node.className).includes("o_pager_next"))[0];
+assert.equal(findAll(pagerWindow, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "26-50");
+pagerNext.dispatchEvent(new TestEvent("click"));
+pagerPrevious.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(pagerActionCalls.length, 2);
+assert.equal(pagerActionCalls[0].action.__pager_offset, 50);
+assert.equal(pagerActionCalls[1].action.__pager_offset, 0);
+assert.deepEqual(pagerActionCalls[0].action.__search_facets.map((facet) => facet.id), ["filter-customer"]);
+assert.deepEqual(pagerActionCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 
 const autocompleteActionCalls = [];
 const autocompleteWindow = renderWindowAction({
   ...windowResult,
   action: {
     ...windowResult.action,
-    __search_query: "Azure"
+    __search_query: "Azure",
+    __pager_offset: 25
   },
+  offset: 25,
   search: {
     ...windowResult.search,
     state: {
@@ -1011,6 +1074,7 @@ autocompleteItem.dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(autocompleteActionCalls.length, 1);
 assert.equal("__search_query" in autocompleteActionCalls[0].action, false);
+assert.equal("__pager_offset" in autocompleteActionCalls[0].action, false);
 assert.deepEqual(autocompleteActionCalls[0].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.value]), [
   ["filter-customer", "filter", undefined, undefined],
   ["text-name-Azure", "text", "name", "Azure"]

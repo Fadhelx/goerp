@@ -287,6 +287,7 @@ export interface WindowActionResult {
   search?: WindowActionSearchState;
   records: Record<string, unknown>[];
   length: number;
+  offset: number;
 }
 
 export interface WindowActionSearchState {
@@ -1488,7 +1489,8 @@ export function createWindowActionExecutor(
       viewDescriptions,
       search,
       records: data.records,
-      length: data.length
+      length: data.length,
+      offset: activeView === "form" ? 0 : actionPagerOffset(action)
     } satisfies WindowActionResult;
   };
 }
@@ -1986,6 +1988,7 @@ function createdRecordID(value: unknown): number | undefined {
 }
 
 function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement {
+  const pagerLimit = numberActionValue(result.action.limit, 80);
   const views = normalizeActionViews(result.action)
     .filter((view) => view[1] !== "search")
     .map<ActionControlPanelView>((view) => ({
@@ -1997,7 +2000,7 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     title: typeof result.action.name === "string" ? result.action.name : result.resModel,
     pager: result.activeView === "form"
       ? undefined
-      : { offset: 0, limit: numberActionValue(result.action.limit, 80), total: result.length },
+      : { offset: result.offset, limit: pagerLimit, total: result.length },
     views,
     search: {
       query: result.search?.state.query ?? "",
@@ -2055,6 +2058,21 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
         detail: { suggestion, model: result.resModel }
       }));
     },
+    onPagerPrevious: () => {
+      if (rerunActionWithPagerOffset(result, Math.max(0, result.offset - pagerLimit), options)) return;
+      root.dispatchEvent(new CustomEvent("action:pager-previous", {
+        bubbles: true,
+        detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
+      }));
+    },
+    onPagerNext: () => {
+      const nextOffset = Math.min(Math.max(0, result.length - 1), result.offset + pagerLimit);
+      if (rerunActionWithPagerOffset(result, nextOffset, options)) return;
+      root.dispatchEvent(new CustomEvent("action:pager-next", {
+        bubbles: true,
+        detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
+      }));
+    },
     onAddCustomFilter: () => dispatchSearchUtilityEvent(root, "action:search-custom-filter", result),
     onAddCustomGroup: () => dispatchSearchUtilityEvent(root, "action:search-custom-group", result),
     onAddFavorite: () => {
@@ -2079,6 +2097,7 @@ function actionWithViewType(action: Record<string, unknown>, viewType: string): 
     views: reordered,
     view_type: cleanViewType
   };
+  delete next.__pager_offset;
   if (cleanViewType !== "form") delete next.res_id;
   return next;
 }
@@ -2202,10 +2221,30 @@ function actionWithCurrentSearch(result: WindowActionResult, facets: readonly Se
     ...result.action,
     __search_facets: facets.map(cloneSearchFacet)
   };
+  delete nextAction.__pager_offset;
   const query = String(result.search?.state.query ?? "").trim();
   if (query) nextAction.__search_query = query;
   else delete nextAction.__search_query;
   return nextAction;
+}
+
+function actionWithPagerOffset(result: WindowActionResult, offset: number): Record<string, unknown> {
+  const nextAction: Record<string, unknown> = {
+    ...result.action,
+    __pager_offset: Math.max(0, Math.trunc(offset || 0))
+  };
+  const facets = result.search?.state.facets;
+  if (facets) nextAction.__search_facets = facets.map(cloneSearchFacet);
+  const query = String(result.search?.state.query ?? "").trim();
+  if (query) nextAction.__search_query = query;
+  else delete nextAction.__search_query;
+  return nextAction;
+}
+
+function rerunActionWithPagerOffset(result: WindowActionResult, offset: number, options: RenderWindowActionOptions): boolean {
+  if (!options.services?.action) return false;
+  void options.services.action.doAction(actionWithPagerOffset(result, offset), replaceActionOptions(options));
+  return true;
 }
 
 function currentSearchFavoriteName(result: WindowActionResult): string {
@@ -5537,6 +5576,7 @@ async function loadWindowActionRecords(
       context: readContext,
       specification,
       limit: numberActionValue(action.limit, 80),
+      offset: actionPagerOffset(action),
       ...(searchState?.groupBy.length ? { groupby: [...searchState.groupBy] } : {}),
       ...(typeof action.order === "string" ? { order: action.order } : {})
     }
@@ -5733,6 +5773,10 @@ function normalizeDomainExpression(value: unknown, evalContext: Record<string, u
 
 function numberActionValue(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function actionPagerOffset(action: Record<string, unknown>): number {
+  return Math.max(0, Math.trunc(numberActionValue(action.__pager_offset, 0)));
 }
 
 function envIsSmall(env: WebClientEnv | null): boolean {

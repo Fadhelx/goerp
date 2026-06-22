@@ -112,6 +112,7 @@ const root = renderControlPanel(normalized, {
   onBreadcrumb: (breadcrumb) => events.push(["breadcrumb", breadcrumb.id]),
   onSearch: (query) => events.push(["search", query]),
   onViewSwitch: (viewType) => events.push(["view", viewType]),
+  onPagerPrevious: () => events.push(["previous"]),
   onPagerNext: () => events.push(["next"]),
   onGroupBy: (item) => events.push(["groupBy", item.id]),
   onFacetRemove: (facet) => events.push(["remove", facet.id]),
@@ -189,10 +190,14 @@ assert.deepEqual(
   ["New", "Won"]
 );
 assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_facet_values_sep"))[0].textContent, "or");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_cp_pager") && hasClass(node, "o_pager")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_counter")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_previous"))[0].attributes["aria-label"], "Previous");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_previous"))[0].disabled, false);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].children[0].textContent, ">");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].disabled, false);
 assert.equal(findAll(root, (node) => node.dataset?.viewType === "list")[0].attributes["aria-label"], "list");
 assert.equal(findAll(root, (node) => node.dataset?.viewType === "form")[0].children[0].textContent, "F");
 
@@ -202,6 +207,7 @@ input.dispatchEvent(new TestEvent("input"));
 
 findAll(root, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.breadcrumbId === "root")[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_pager_previous"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.menuItemId === "create_date:week")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.searchSuggestionId === "text-name-azure")[0].dispatchEvent(new TestEvent("click"));
@@ -215,6 +221,7 @@ assert.deepEqual(events, [
   ["search", "beta"],
   ["view", "form"],
   ["breadcrumb", "root"],
+  ["previous"],
   ["next"],
   ["groupBy", "create_date:week"],
   ["suggestion", "text-name-azure", "name", "azure"],
@@ -224,6 +231,26 @@ assert.deepEqual(events, [
   ["deleteFavorite", 7],
   ["addFavorite"]
 ]);
+
+const firstPageRoot = renderControlPanel({ title: "First", pager: { offset: 0, limit: 20, total: 45 } }, {
+  onPagerPrevious: () => events.push(["firstPrevious"]),
+  onPagerNext: () => events.push(["firstNext"])
+});
+assert.equal(findAll(firstPageRoot, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "1-20");
+const firstPrevious = findAll(firstPageRoot, (node) => String(node.className).includes("o_pager_previous"))[0];
+assert.equal(firstPrevious.disabled, true);
+firstPrevious.dispatchEvent(new TestEvent("click"));
+assert.equal(events.some((event) => event[0] === "firstPrevious"), false);
+
+const lastPageRoot = renderControlPanel({ title: "Last", pager: { offset: 40, limit: 20, total: 45 } }, {
+  onPagerPrevious: () => events.push(["lastPrevious"]),
+  onPagerNext: () => events.push(["lastNext"])
+});
+assert.equal(findAll(lastPageRoot, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "41-45");
+const lastNext = findAll(lastPageRoot, (node) => String(node.className).includes("o_pager_next"))[0];
+assert.equal(lastNext.disabled, true);
+lastNext.dispatchEvent(new TestEvent("click"));
+assert.equal(events.some((event) => event[0] === "lastNext"), false);
 
 const emptyAutocompleteRoot = renderControlPanel({
   title: "Empty",

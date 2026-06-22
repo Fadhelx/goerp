@@ -151,15 +151,18 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
   if (!pager) return root;
   const first = pager.total === 0 ? 0 : pager.offset + 1;
   const last = Math.min(pager.total, pager.offset + pager.limit);
+  const counter = document.createElement("span");
+  counter.className = "o_pager_counter";
   const value = document.createElement("span");
   value.className = "o_pager_value";
   value.textContent = `${first}-${last}`;
   const limit = document.createElement("span");
   limit.className = "o_pager_limit";
   limit.textContent = String(pager.total);
+  counter.append(value, document.createTextNode(" / "), limit);
   const previous = pagerButton("previous", "Previous", pager.offset <= 0, callbacks.onPagerPrevious);
   const next = pagerButton("next", "Next", last >= pager.total, callbacks.onPagerNext);
-  root.append(value, document.createTextNode(" / "), limit, previous, next);
+  root.append(counter, previous, next);
   return root;
 }
 
@@ -489,7 +492,10 @@ function pagerButton(
   icon.textContent = direction === "previous" ? "<" : ">";
   button.append(icon);
   button.disabled = disabled;
-  button.addEventListener("click", () => callback?.());
+  button.addEventListener("click", () => {
+    if (button.disabled) return;
+    callback?.();
+  });
   return button;
 }
 
