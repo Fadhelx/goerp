@@ -1530,6 +1530,52 @@ assert.deepEqual(relationOpenCalls[0].action, {
 });
 assert.deepEqual(relationOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
 
+const dottedRelationSearchCalls = [];
+const dottedRelationWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Delegation" },
+  activeView: "form",
+  resModel: "hr.delegation",
+  viewDescriptions: {
+    fields: {
+      employee_id: { type: "many2one", relation: "hr.employee", string: "Employee" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="employee_id" domain="[('user_id.active','=', True)]" context="{'active_test': False}" limit="4"/></sheet></form>`,
+        id: 72
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 25, employee_id: false },
+  context: { lang: "en_US" },
+  services: {
+    orm: {
+      call(model, method, args, kwargs) {
+        dottedRelationSearchCalls.push({ model, method, args, kwargs });
+        return Promise.resolve([[44, "Employee"]]);
+      }
+    }
+  }
+});
+findAll(dottedRelationWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+const dottedRelationEditor = findAll(dottedRelationWindow, (node) => String(node.className ?? "").includes("gorp-many2one-editor") && node.dataset?.field === "employee_id")[0];
+const dottedRelationToggle = findAll(dottedRelationEditor, (node) => String(node.className ?? "").includes("gorp-many2one-dropdown-toggle"))[0];
+assert.equal(dottedRelationEditor.dataset.skippedDomain, "true");
+assert.deepEqual(JSON.parse(dottedRelationEditor.dataset.searchDomain), []);
+dottedRelationToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(dottedRelationSearchCalls[0], {
+  model: "hr.employee",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "", args: [], operator: "ilike", limit: 4, context: { lang: "en_US", active_test: false } }
+});
+
 const genericFormSearchCalls = [];
 const genericFormSaveCalls = [];
 const genericFormSaveEvents = [];
@@ -1561,7 +1607,7 @@ const genericFormWindow = renderWindowAction({
     },
     views: {
       form: {
-        arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="state"/><field name="code"/><field name="group_ids"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="owner_id"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
+        arch: `<form><sheet><field name="name"/><field name="model_id" domain="[('transient','=',False)]" context="{'active_test': False}" options="{'no_create': True, 'no_open': True}" limit="12"/><field name="state"/><field name="code"/><field name="group_ids" domain="[('share','=',False)]" context="{'active_test': False}" options="{'no_create': True}" limit="15"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="owner_id" domain="[('active','=',True)]" context="{'active_test': False}" options="{'no_create': True}" limit="5"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
         id: 73
       }
     }
@@ -1678,12 +1724,23 @@ assert.equal(genericCodeEditor.value.includes("log('ok')"), true);
 assert.equal(genericCodeEditor.rows, 14);
 assert.equal(genericRelation.dataset.relation, "ir.model");
 assert.equal(genericRelation.dataset.resId, "5");
+assert.deepEqual(JSON.parse(genericRelation.dataset.searchDomain), [["transient", "=", false]]);
+assert.deepEqual(JSON.parse(genericRelation.dataset.searchContext), { lang: "en_US", active_test: false });
+assert.equal(genericRelation.dataset.searchLimit, "12");
+assert.equal(genericRelation.dataset.noCreate, "true");
+assert.equal(genericRelation.dataset.noQuickCreate, "true");
+assert.equal(genericRelation.dataset.noCreateEdit, "true");
+assert.equal(genericRelation.dataset.noOpen, "true");
 assert.equal(genericRelationInput.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-expanded"], "false");
 assert.equal(genericGroups.dataset.relation, "res.groups");
 assert.equal(genericGroups.dataset.count, "1");
 assert.equal(genericGroups.dataset.mobileWidget, "many2many_tags");
+assert.deepEqual(JSON.parse(genericGroups.dataset.searchDomain), [["share", "=", false]]);
+assert.deepEqual(JSON.parse(genericGroups.dataset.searchContext), { lang: "en_US", active_test: false });
+assert.equal(genericGroups.dataset.searchLimit, "15");
+assert.equal(genericGroups.dataset.noCreate, "true");
 assert.equal(genericGroups.attributes["aria-label"], "Allowed Groups");
 assert.equal(genericGroupsInput.attributes["aria-label"], "Add Allowed Groups");
 assert.equal(genericLines.dataset.relation, "ir.actions.server.line");
@@ -1697,6 +1754,10 @@ const genericLineOwnerInput = findAll(genericLineOwner, (node) => node.tag === "
 const genericLineOwnerToggle = findAll(genericLineOwner, (node) => String(node.className ?? "").includes("gorp-many2one-dropdown-toggle"))[0];
 assert.equal(genericLineOwner.dataset.relation, "res.users");
 assert.equal(genericLineOwner.dataset.resId, "7");
+assert.deepEqual(JSON.parse(genericLineOwner.dataset.searchDomain), [["active", "=", true]]);
+assert.deepEqual(JSON.parse(genericLineOwner.dataset.searchContext), { lang: "en_US", active_test: false });
+assert.equal(genericLineOwner.dataset.searchLimit, "5");
+assert.equal(genericLineOwner.dataset.noCreate, "true");
 assert.equal(genericLineOwnerInput.value, "Administrator");
 assert.equal(genericLineOwnerInput.attributes["role"], "combobox");
 assert.equal(genericLineOwnerToggle.attributes["aria-haspopup"], "listbox");
@@ -1710,7 +1771,7 @@ assert.deepEqual(genericFormSearchCalls[0], {
   model: "ir.model",
   method: "name_search",
   args: [],
-  kwargs: { name: "", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+  kwargs: { name: "", args: [["transient", "=", false]], operator: "ilike", limit: 12, context: { lang: "en_US", active_test: false } }
 });
 assert.equal(genericRelationToggle.attributes["aria-expanded"], "true");
 assert.equal(genericRelationInput.attributes["aria-expanded"], "true");
@@ -1722,7 +1783,7 @@ assert.deepEqual(genericFormSearchCalls[1], {
   model: "ir.model",
   method: "name_search",
   args: [],
-  kwargs: { name: "mail", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+  kwargs: { name: "mail", args: [["transient", "=", false]], operator: "ilike", limit: 12, context: { lang: "en_US", active_test: false } }
 });
 const genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
 assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["mail.mail", "mail.message"]);
@@ -1738,7 +1799,7 @@ assert.deepEqual(genericFormSearchCalls[2], {
   model: "res.groups",
   method: "name_search",
   args: [],
-  kwargs: { name: "sales", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+  kwargs: { name: "sales", args: [["share", "=", false]], operator: "ilike", limit: 15, context: { lang: "en_US", active_test: false } }
 });
 const genericGroupOptions = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-option"));
 assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
@@ -1753,7 +1814,7 @@ assert.deepEqual(genericFormSearchCalls[3], {
   model: "res.users",
   method: "name_search",
   args: [],
-  kwargs: { name: "", args: [], operator: "ilike", limit: 8, context: { lang: "en_US" } }
+  kwargs: { name: "", args: [["active", "=", true]], operator: "ilike", limit: 5, context: { lang: "en_US", active_test: false } }
 });
 assert.equal(genericLineOwnerToggle.attributes["aria-expanded"], "true");
 assert.equal(genericLineOwnerInput.attributes["aria-expanded"], "true");
@@ -1804,9 +1865,11 @@ assert.deepEqual(genericFormSaveEvents[0].changes, genericFormSaveCalls[0].chang
 assert.equal(genericEditButton.hidden, false);
 assert.equal(genericSaveButton.hidden, true);
 genericForm = genericFormWindow.children[1];
-const genericSavedRelationLink = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-link") && node.dataset?.field === "model_id")[0];
-assert.equal(genericSavedRelationLink.textContent, "mail.mail");
-assert.equal(genericSavedRelationLink.dataset.resId, "81");
+const genericSavedRelationValue = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-value") && node.dataset?.field === "model_id")[0];
+assert.equal(genericSavedRelationValue.tag, "output");
+assert.equal(genericSavedRelationValue.textContent, "mail.mail");
+assert.equal(genericSavedRelationValue.dataset.resId, "81");
+assert.equal(genericSavedRelationValue.dataset.noOpen, "true");
 const genericSavedGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-tags") && node.dataset?.field === "group_ids")[0];
 assert.equal(genericSavedGroups.dataset.count, "1");
 assert.deepEqual(findAll(genericSavedGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag")).map((node) => node.textContent), ["Sales / Manager"]);

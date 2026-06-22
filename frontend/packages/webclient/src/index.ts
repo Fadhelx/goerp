@@ -7072,6 +7072,8 @@ function renderReadonlyFieldValue(
     const relation = fieldRelationValue(description);
     const data = many2OneDisplayData(value);
     if (relation && data.id !== undefined) {
+      const config = relationFieldConfig(node, evalContext, options);
+      if (config.noOpen) return renderMany2OnePlainValue(node.name, relation, data, config);
       return renderMany2OneLinkValue(node.name, relation, data, form, options);
     }
   }
@@ -7201,6 +7203,22 @@ function renderMany2OneLinkValue(
     }));
   });
   return link;
+}
+
+function renderMany2OnePlainValue(
+  fieldName: string,
+  relation: string,
+  data: { id?: number; displayName: string },
+  config?: RelationFieldConfig
+): HTMLElement {
+  const output = document.createElement("output");
+  output.className = "gorp-many2one-value o_field_widget o_field_many2one o_readonly_modifier";
+  output.dataset.field = fieldName;
+  output.dataset.relation = relation;
+  if (data.id !== undefined) output.dataset.resId = String(data.id);
+  if (config) applyRelationFieldDataset(output, config);
+  output.textContent = data.displayName;
+  return output;
 }
 
 interface X2ManyDisplayItem {
@@ -7537,11 +7555,13 @@ function renderOne2ManyMany2OneCellEditor(
 ): HTMLElement {
   const relation = fieldRelationValue(description);
   const current = many2OneDisplayData(row.values[column.name]);
+  const config = relationFieldConfig(column, row.values, options);
   const root = document.createElement("span");
   root.className = "gorp-one2many-many2one-editor gorp-many2one-editor o_field_widget o_field_many2one";
   root.dataset.field = column.name;
   if (relation) root.dataset.relation = relation;
   if (current.id !== undefined) root.dataset.resId = String(current.id);
+  applyRelationFieldDataset(root, config);
   const input = document.createElement("input");
   input.type = "text";
   input.className = "gorp-one2many-input o_input";
@@ -7618,10 +7638,10 @@ function renderOne2ManyMany2OneCellEditor(
     try {
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
         name: query,
-        args: [],
+        args: config.domain,
         operator: "ilike",
-        limit: 8,
-        context: options.context ?? {}
+        limit: config.limit,
+        context: config.context
       });
       renderItems(many2OneSearchItems(result));
     } catch (error) {
@@ -8574,6 +8594,17 @@ interface Many2OneSearchItem {
   displayName: string;
 }
 
+interface RelationFieldConfig {
+  domain: DomainExpression;
+  skippedDomain: boolean;
+  context: Record<string, unknown>;
+  limit: number;
+  noCreate: boolean;
+  noQuickCreate: boolean;
+  noCreateEdit: boolean;
+  noOpen: boolean;
+}
+
 function renderMany2OneEditor(
   node: ViewFieldNode,
   description: unknown,
@@ -8584,12 +8615,14 @@ function renderMany2OneEditor(
 ): HTMLElement {
   const relation = fieldRelationValue(description);
   const current = many2OneDisplayData(values[node.name]);
+  const config = relationFieldConfig(node, values, options);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
   root.className = "gorp-many2one-editor o_field_widget o_field_many2one";
   root.dataset.field = node.name;
   if (relation) root.dataset.relation = relation;
   if (current.id !== undefined) root.dataset.resId = String(current.id);
+  applyRelationFieldDataset(root, config);
   const input = document.createElement("input");
   input.type = "text";
   input.className = "gorp-form-control o_input";
@@ -8676,10 +8709,10 @@ function renderMany2OneEditor(
     try {
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
         name: query,
-        args: [],
+        args: config.domain,
         operator: "ilike",
-        limit: 8,
-        context: options.context ?? {}
+        limit: config.limit,
+        context: config.context
       });
       renderItems(many2OneSearchItems(result));
     } catch (error) {
@@ -8718,6 +8751,63 @@ function many2OneSearchItems(value: unknown): Many2OneSearchItem[] {
   return out;
 }
 
+function relationFieldConfig(
+  node: ViewFieldNode,
+  evalContext: Record<string, unknown>,
+  options?: Pick<RenderWindowActionOptions, "context">
+): RelationFieldConfig {
+  const fieldOptions = parseObjectLiteral(node.attrs.options || "{}", evalContext) ?? {};
+  const rawDomain = normalizeDomainExpression(node.attrs.domain, evalContext);
+  const skippedDomain = relationDomainHasDottedFieldPath(rawDomain);
+  const domain = skippedDomain ? [] : rawDomain;
+  const fieldContext = parseContextAttribute(node.attrs.context, evalContext) ?? {};
+  const context = { ...(options?.context ?? {}), ...fieldContext };
+  const limit = relationSearchLimit(node, fieldOptions);
+  const noCreate = relationOptionBool(fieldOptions.no_create) || fieldOptions.create === false;
+  const noQuickCreate = relationOptionBool(fieldOptions.no_quick_create) || noCreate;
+  const noCreateEdit = relationOptionBool(fieldOptions.no_create_edit) || noCreate;
+  const noOpen = relationOptionBool(fieldOptions.no_open) || fieldOptions.open === false;
+  return { domain, skippedDomain, context, limit, noCreate, noQuickCreate, noCreateEdit, noOpen };
+}
+
+function relationDomainHasDottedFieldPath(domain: DomainExpression): boolean {
+  for (const item of domain) {
+    if (!Array.isArray(item)) continue;
+    const fieldName = item[0];
+    if (typeof fieldName === "string" && fieldName.includes(".")) return true;
+    if (relationDomainHasDottedFieldPath(item)) return true;
+  }
+  return false;
+}
+
+function relationSearchLimit(node: ViewFieldNode, fieldOptions: Record<string, unknown>): number {
+  const attrLimit = numericAttribute(node.attrs.limit);
+  if (attrLimit !== undefined) return attrLimit;
+  const optionLimit = typeof fieldOptions.limit === "number" ? fieldOptions.limit : Number.parseInt(String(fieldOptions.limit ?? ""), 10);
+  return Number.isFinite(optionLimit) && optionLimit > 0 ? Math.trunc(optionLimit) : 8;
+}
+
+function relationOptionBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "1" || normalized === "true";
+  }
+  return false;
+}
+
+function applyRelationFieldDataset(root: HTMLElement, config: RelationFieldConfig): void {
+  root.dataset.searchDomain = JSON.stringify(config.domain);
+  root.dataset.searchContext = JSON.stringify(config.context);
+  root.dataset.searchLimit = String(config.limit);
+  if (config.skippedDomain) root.dataset.skippedDomain = "true";
+  if (config.noCreate) root.dataset.noCreate = "true";
+  if (config.noQuickCreate) root.dataset.noQuickCreate = "true";
+  if (config.noCreateEdit) root.dataset.noCreateEdit = "true";
+  if (config.noOpen) root.dataset.noOpen = "true";
+}
+
 function renderMany2ManyTagEditor(
   node: ViewFieldNode,
   description: unknown,
@@ -8727,6 +8817,7 @@ function renderMany2ManyTagEditor(
   required: boolean
 ): HTMLElement {
   const relation = fieldRelationValue(description);
+  const config = relationFieldConfig(node, values, options);
   let selected = x2ManyDisplayItems(values[node.name]).filter((item) => item.id !== undefined);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
@@ -8736,6 +8827,7 @@ function renderMany2ManyTagEditor(
   root.dataset.mobileWidget = "many2many_tags";
   if (relation) root.dataset.relation = relation;
   if (required) root.dataset.requiredField = node.name;
+  applyRelationFieldDataset(root, config);
   root.setAttribute("aria-label", fieldDisplayName);
   const tagList = document.createElement("span");
   tagList.className = "gorp-x2many-editor-tags";
@@ -8839,10 +8931,10 @@ function renderMany2ManyTagEditor(
     try {
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
         name: query,
-        args: [],
+        args: config.domain,
         operator: "ilike",
-        limit: 8,
-        context: options.context ?? {}
+        limit: config.limit,
+        context: config.context
       });
       renderItems(many2OneSearchItems(result));
     } catch (error) {

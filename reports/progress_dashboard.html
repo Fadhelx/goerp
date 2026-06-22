@@ -293,7 +293,7 @@
         <p class="sub">Tracks build progress from audit backlog, parity coverage, source inventory, and OI inventory.</p>
       </div>
       <div class="meta">
-        <span>Generated: 2026-06-22T18:21:49Z</span>
+        <span>Generated: 2026-06-22T18:33:44Z</span>
         <span>Refresh: <code>go run ./tools/progress_dashboard --out reports/progress_dashboard.html</code></span>
       </div>
     </div>
@@ -303,7 +303,7 @@
     <section class="metrics" aria-label="Build metrics">
       <div class="metric">
         <div class="label">Completed build slices</div>
-        <div class="value">582</div>
+        <div class="value">583</div>
         <div class="note">Latest line 5</div>
       </div>
       <div class="metric">
@@ -495,7 +495,7 @@
         <label>Filter completed slices and modules
           <input id="filter" type="search" placeholder="Search title, module, status, line">
         </label>
-        <p class="small" id="filter-count">582 slices, 71 modules</p>
+        <p class="small" id="filter-count">583 slices, 71 modules</p>
       </div>
       <div class="table-scroll">
         <table>
@@ -4581,6 +4581,13 @@
               <td>advanced bounded Odoo 19 custom filter dialog parity in the default TypeScript `/web` client while keeping accounting deferred to phase 2. The search dropdown now opens an Odoo-shaped custom filter dialog with field/operator/value controls, applies text facets through the action service, defaults Server Actions to the human `Model` field backed by `model_name`, displays `Model contains mail` without raw field identifiers, reruns filtered records, and restores the list when the facet is removed. Added focused frontend regression coverage plus a dedicated `default-custom-filter-dialog-desktop` browser smoke scenario. Focused frontend tests, TypeScript check, frontend build, smoke inventory tests, and local browser smoke passed.</td>
               <td><span class="badge plain">not recorded</span></td>
               <td><code>line 762</code></td>
+            </tr>
+
+            <tr class="slice-row" data-search="583 advanced bounded Odoo 19 relation field lookup parity in the default TypeScript `/web` client while keeping accounting deferred to phase 2 advanced bounded Odoo 19 relation field lookup parity in the default TypeScript `/web` client while keeping accounting deferred to phase 2. Many2one, many2many tag, and one2many child many2one editors now evaluate field `domain`, merge field `context` into action context, honor field/search `limit`, expose relation lookup metadata for smoke/UI checks, and send source-shaped `name_search` kwargs. Readonly many2one fields now honor `options.no_open` by rendering non-clickable values. Dotted relation-path domains are guarded out of autocomplete calls until backend relation-join matching exists, preventing empty dropdowns in current OI forms. Added frontend regressions for many2one, many2many, one2many relation lookup kwargs, no-open readonly rendering, and dotted-domain guard. Focused frontend tests, frontend build, focused HTTP name-search context checks, and full `make ci` passed. full CI passed line 763">
+              <td class="numeric">#583</td>
+              <td>advanced bounded Odoo 19 relation field lookup parity in the default TypeScript `/web` client while keeping accounting deferred to phase 2. Many2one, many2many tag, and one2many child many2one editors now evaluate field `domain`, merge field `context` into action context, honor field/search `limit`, expose relation lookup metadata for smoke/UI checks, and send source-shaped `name_search` kwargs. Readonly many2one fields now honor `options.no_open` by rendering non-clickable values. Dotted relation-path domains are guarded out of autocomplete calls until backend relation-join matching exists, preventing empty dropdowns in current OI forms. Added frontend regressions for many2one, many2many, one2many relation lookup kwargs, no-open readonly rendering, and dotted-domain guard. Focused frontend tests, frontend build, focused HTTP name-search context checks, and full `make ci` passed.</td>
+              <td><span class="badge good">full CI passed</span></td>
+              <td><code>line 763</code></td>
             </tr>
 
           </tbody>
