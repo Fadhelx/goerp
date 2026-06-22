@@ -12856,6 +12856,75 @@ func TestActionLoadOdooShapeAndJSONRPC(t *testing.T) {
 	}
 }
 
+func TestActionLoadActionGroupMetadataParity(t *testing.T) {
+	server := testToolbarBindingServer(t)
+	server.Actions = action.NewRegistry()
+	registryActionID, err := server.Actions.Add(action.Action{Name: "Restricted Registry", Kind: action.ActWindow, ResModel: "res.partner", Path: "restricted-registry", Groups: []int64{99}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	windowID, err := server.Env.Model("ir.actions.act_window").Create(map[string]any{
+		"name":      "Restricted Window",
+		"type":      "ir.actions.act_window",
+		"res_model": "res.partner",
+		"view_mode": "list,form",
+		"group_ids": []int64{99},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportID, err := server.Env.Model("ir.actions.report").Create(map[string]any{
+		"name":        "Restricted Report",
+		"type":        "ir.actions.report",
+		"model":       "res.partner",
+		"report_name": "x_restricted.report",
+		"report_type": "qweb-pdf",
+		"groups_id":   []int64{99},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := server.Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/action/load?id=restricted-registry", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("registry action load response %d %s", rec.Code, rec.Body.String())
+	}
+	registryPayload := decodeJSON(t, rec.Body.Bytes())
+	if int64Value(registryPayload["id"]) != registryActionID || len(int64Slice(registryPayload["group_ids"])) != 1 || int64Slice(registryPayload["group_ids"])[0] != 99 {
+		t.Fatalf("registry action payload = %#v", registryPayload)
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":41,"params":{"action_id":"ir.actions.act_window,%d","context":{"group_ids":[99]}}}`, windowID))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/action/load", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("window action load response %d %s", rec.Code, rec.Body.String())
+	}
+	windowPayload := decodeJSON(t, rec.Body.Bytes())["result"].(map[string]any)
+	if windowPayload["name"] != "Restricted Window" || len(int64Slice(windowPayload["group_ids"])) != 1 || int64Slice(windowPayload["group_ids"])[0] != 99 {
+		t.Fatalf("window action payload = %#v", windowPayload)
+	}
+
+	body = bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":42,"params":{"action_id":"ir.actions.report,%d","context":{"group_ids":[99]}}}`, reportID))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/action/load", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("report action load response %d %s", rec.Code, rec.Body.String())
+	}
+	reportPayload := decodeJSON(t, rec.Body.Bytes())["result"].(map[string]any)
+	if reportPayload["name"] != "Restricted Report" || reportPayload["report_name"] != "x_restricted.report" {
+		t.Fatalf("report action payload = %#v", reportPayload)
+	}
+	if _, ok := reportPayload["groups_id"]; ok {
+		t.Fatalf("report action leaked groups_id: %#v", reportPayload)
+	}
+	if _, ok := reportPayload["group_ids"]; ok {
+		t.Fatalf("report action leaked group_ids: %#v", reportPayload)
+	}
+}
+
 func TestActionLoadNormalizesWindowDomainContextForWebShell(t *testing.T) {
 	server := testServer(t)
 	actionID, err := server.Actions.Add(action.Action{
@@ -13193,6 +13262,41 @@ func TestCallKWGetViewsToolbarBindings(t *testing.T) {
 	}
 }
 
+func TestCallKWGetViewsToolbarGroupsCannotBeSpoofedByContextGroupIDs(t *testing.T) {
+	server := testToolbarBindingServer(t)
+	hiddenGroupID := testGroupRecordIDByName(t, server.Env, "Hidden Group")
+	handler := server.Handler()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":22,"params":{"model":"res.partner","method":"get_views","kwargs":{"views":[[101,"list"],[102,"form"]],"options":{"toolbar":true},"context":{"group_ids":[%d]}}}}`, hiddenGroupID))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/res.partner/get_views", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get_views spoof response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSON(t, rec.Body.Bytes())
+	views := payload["result"].(map[string]any)["views"].(map[string]any)
+	listToolbar := views["list"].(map[string]any)["toolbar"].(map[string]any)
+	formToolbar := views["form"].(map[string]any)["toolbar"].(map[string]any)
+	for _, item := range listToolbar["action"].([]any) {
+		if item.(map[string]any)["name"] == "Hidden Server Action" {
+			t.Fatalf("spoofed hidden server action visible: %#v", listToolbar["action"])
+		}
+	}
+	for _, item := range formToolbar["action"].([]any) {
+		if item.(map[string]any)["name"] == "Hidden Partner Wizard" {
+			t.Fatalf("spoofed hidden window action visible: %#v", formToolbar["action"])
+		}
+	}
+	for _, item := range listToolbar["print"].([]any) {
+		if item.(map[string]any)["name"] == "Hidden Partner Label" {
+			t.Fatalf("spoofed hidden report visible: %#v", listToolbar["print"])
+		}
+	}
+	if len(listToolbar["action"].([]any)) != 2 || len(formToolbar["action"].([]any)) != 1 || len(listToolbar["print"].([]any)) != 1 {
+		t.Fatalf("toolbar counts after spoof = list:%#v form:%#v", listToolbar, formToolbar)
+	}
+}
+
 func TestActionLoadReportForcesBinSizeContext(t *testing.T) {
 	registry := record.NewRegistry()
 	for _, m := range internalbase.Models() {
@@ -13523,6 +13627,7 @@ func TestCleanActionResultRejectsDirectWindowViewIDWithMultiViewMode(t *testing.
 func TestActionLoadAppliesRequestContextToEmbeddedActions(t *testing.T) {
 	server := testToolbarBindingServer(t)
 	env := server.Env
+	hiddenGroupID := testGroupRecordIDByName(t, env, "Hidden Group")
 	partnerID, err := env.Model("res.partner").Create(map[string]any{"name": "Context Partner"})
 	if err != nil {
 		t.Fatal(err)
@@ -13546,6 +13651,18 @@ func TestActionLoadAppliesRequestContextToEmbeddedActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := env.Model("ir.embedded.actions").Create(map[string]any{
+		"name":             "Hidden Context Embedded",
+		"parent_action_id": actionID,
+		"parent_res_id":    partnerID,
+		"parent_res_model": "res.partner",
+		"python_method":    "action_hidden_context_embedded",
+		"is_visible":       true,
+		"groups_ids":       []int64{hiddenGroupID},
+		"domain":           "[]",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	handler := server.Handler()
 	body := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":31,"params":{"action_id":%d}}`, actionID))
 	rec := httptest.NewRecorder()
@@ -13557,7 +13674,7 @@ func TestActionLoadAppliesRequestContextToEmbeddedActions(t *testing.T) {
 	if ids := withoutContext["embedded_action_ids"].([]any); len(ids) != 0 {
 		t.Fatalf("embedded actions without active_id = %#v", ids)
 	}
-	body = bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":32,"params":{"action_id":%d,"context":{"active_id":%d,"active_model":"res.partner"}}}`, actionID, partnerID))
+	body = bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":32,"params":{"action_id":%d,"context":{"active_id":%d,"active_model":"res.partner","group_ids":[%d]}}}`, actionID, partnerID, hiddenGroupID))
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/action/load", body))
 	if rec.Code != http.StatusOK {
@@ -13598,6 +13715,10 @@ func TestActionRunExecutesServerActionAndCleansReturnedAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	warningActionID, err := registry.Register(internalactions.ServerAction{Name: "Warned Action", Kind: internalactions.KindGo, GoActionName: "return.false", Model: "res.partner", Warning: "unsafe configuration"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	restrictedActionID, err := registry.Register(internalactions.ServerAction{Name: "Restricted Action", Kind: internalactions.KindGo, GoActionName: "return.false", Model: "res.partner", GroupIDs: []int64{7}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -13665,6 +13786,12 @@ func TestActionRunExecutesServerActionAndCleansReturnedAction(t *testing.T) {
 	}
 	if _, ok := warningEnvelope["result"]; ok {
 		t.Fatalf("warning envelope leaked result: %#v", warningEnvelope)
+	}
+	body = bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","id":36,"params":{"action_id":%d,"context":{"active_model":"res.partner","active_id":44,"group_ids":[7]}}}`, restrictedActionID))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/action/run", body))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "server action forbidden") {
+		t.Fatalf("restricted action run response %d %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -18362,6 +18489,18 @@ func testToolbarBindingServer(t *testing.T) Server {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := env.Model("ir.actions.act_window").Create(map[string]any{
+		"name":               "Hidden Partner Wizard",
+		"type":               "ir.actions.act_window",
+		"res_model":          "partner.wizard",
+		"target":             "new",
+		"binding_model_id":   partnerModelID,
+		"binding_type":       "action",
+		"binding_view_types": "form",
+		"group_ids":          []int64{groupID},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := env.Model("ir.actions.report").Create(map[string]any{
 		"name":               "Partner Label",
 		"type":               "ir.actions.report",
@@ -18372,6 +18511,19 @@ func testToolbarBindingServer(t *testing.T) Server {
 		"binding_type":       "report",
 		"binding_view_types": "list,form",
 		"domain":             `[("active","=",True)]`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.Model("ir.actions.report").Create(map[string]any{
+		"name":               "Hidden Partner Label",
+		"type":               "ir.actions.report",
+		"model":              "res.partner",
+		"report_name":        "x_partner.hidden_label",
+		"report_type":        "qweb-pdf",
+		"binding_model_id":   partnerModelID,
+		"binding_type":       "report",
+		"binding_view_types": "list,form",
+		"groups_id":          []int64{groupID},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -18400,6 +18552,22 @@ func testModelRecordID(t *testing.T, env *record.Env, modelName string) int64 {
 	}
 	if len(rows) == 0 {
 		t.Fatalf("model %s not found", modelName)
+	}
+	return int64Value(rows[0]["id"])
+}
+
+func testGroupRecordIDByName(t *testing.T, env *record.Env, name string) int64 {
+	t.Helper()
+	found, err := env.Model("res.groups").SearchWithOptions(domain.Cond("name", domain.Equal, name), record.SearchOptions{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		t.Fatalf("group %s not found", name)
 	}
 	return int64Value(rows[0]["id"])
 }

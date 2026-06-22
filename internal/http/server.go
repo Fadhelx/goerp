@@ -17441,6 +17441,9 @@ func requestContextEnvFromMap(env *record.Env, requestContext map[string]any) *r
 	ctx := env.Context()
 	ctx.Values = cloneContextValues(ctx.Values)
 	for key, value := range requestContext {
+		if requestContextSecurityKey(key) {
+			continue
+		}
 		ctx.Values[key] = value
 	}
 	if allowedCompanyIDs := int64Slice(requestContext["allowed_company_ids"]); len(allowedCompanyIDs) > 0 {
@@ -17454,6 +17457,15 @@ func requestContextEnvFromMap(env *record.Env, requestContext map[string]any) *r
 		}
 	}
 	return env.WithContext(ctx)
+}
+
+func requestContextSecurityKey(key string) bool {
+	switch key {
+	case "group_ids", "groups_id", "all_group_ids":
+		return true
+	default:
+		return false
+	}
 }
 
 func withoutContextKeyEnv(env *record.Env, key string) *record.Env {
@@ -17564,7 +17576,7 @@ func (s Server) actionRun(w http.ResponseWriter, r *http.Request) {
 		RecordID:     activeID,
 		RecordIDs:    activeIDs,
 		UserID:       runEnv.Context().UserID,
-		UserGroupIDs: groupIDsFromContext(runEnv.Context()),
+		UserGroupIDs: groupIDsFromSet(menuGroupSet(env)),
 		Values:       cloneHTTPMap(contextValues),
 		Metadata:     cloneHTTPMap(contextValues),
 		Now:          time.Now().UTC(),
@@ -20955,10 +20967,7 @@ func (s Server) contextEmbeddedActionIDs(parentActionID int64) []any {
 	if err != nil {
 		return []any{}
 	}
-	userGroups := map[int64]bool{}
-	for _, groupID := range groupIDsFromContext(ctx) {
-		userGroups[groupID] = true
-	}
+	userGroups := menuGroupSet(s.Env)
 	ids := make([]any, 0, len(rows))
 	for _, row := range rows {
 		if row["is_visible"] == false {
@@ -23352,6 +23361,15 @@ func groupSetFromContext(ctx record.Context) map[int64]bool {
 		set[id] = true
 	}
 	return set
+}
+
+func groupIDsFromSet(set map[int64]bool) []int64 {
+	ids := make([]int64, 0, len(set))
+	for id := range set {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
 }
 
 func menuGroupSet(env *record.Env) map[int64]bool {
