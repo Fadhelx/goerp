@@ -349,6 +349,46 @@ export const scenarios = [
     }
   },
   {
+    name: "default-date-groupby-menu-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&date_groupby_setup=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "date groupby TS webclient ready");
+      const fixture = await createDateGroupBySmokeAction(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=mail.message&view_type=list`) });
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "date groupby action ready");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='mail.message'][data-view='list']", 1, "date groupby mail message list");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const optionState = await waitFor(page, `(() => {
+        const parent = document.querySelector(".o_web_client .o_action_manager .o_group_by_menu [data-menu-item-id='group-by-date']");
+        const options = [...document.querySelectorAll(".o_web_client .o_action_manager .o_group_by_menu [data-parent-menu-item-id='group-by-date']")];
+        const labels = options.map((node) => node.textContent.trim()).filter(Boolean);
+        return parent && labels.length === 5 ? { parent: parent.textContent.trim(), labels } : null;
+      })()`, "date groupby interval options");
+      const expectedLabels = ["Year", "Quarter", "Month", "Week", "Day"];
+      if (JSON.stringify(optionState.labels) !== JSON.stringify(expectedLabels)) {
+        throw new Error(`date groupby intervals invalid: ${JSON.stringify(optionState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager .o_group_by_menu [data-menu-item-id='group-by-date-year']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "date groupby year action ready");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const selectedState = await waitFor(page, `(() => {
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id='group-by-date-year']");
+        const selected = document.querySelector(".o_web_client .o_action_manager .o_group_by_menu [data-menu-item-id='group-by-date-year'].selected");
+        return facet && selected ? {
+          facet_label: facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "",
+          facet_values: [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean),
+          selected_checked: selected.getAttribute("aria-checked") || ""
+        } : null;
+      })()`, "date groupby year facet selected");
+      if (selectedState.facet_label !== "Date" || selectedState.facet_values[0] !== "Year" || selectedState.selected_checked !== "true") {
+        throw new Error(`date groupby selected state invalid: ${JSON.stringify(selectedState)}`);
+      }
+      return { fixture, option_state: optionState, selected_state: selectedState };
+    }
+  },
+  {
     name: "default-search-filter-click-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -404,6 +444,61 @@ export const scenarios = [
     }
   },
   {
+    name: "default-mobile-launcher-parity",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await setViewport(page, mobileViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "mobile launcher TS webclient ready");
+      const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "mobile launcher app tiles");
+      const launcherState = await evaluate(page, `(() => {
+        const grid = document.querySelector(".o_web_client .o_home_menu .o_apps");
+        const cards = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")];
+        const cardRects = cards.map((card) => card.getBoundingClientRect());
+        const top = Math.min(...cardRects.map((rect) => Math.round(rect.top)));
+        const firstRow = cardRects.filter((rect) => Math.abs(Math.round(rect.top) - top) <= 2);
+        const icon = document.querySelector(".o_web_client .o_home_menu .o_app .o_app_icon");
+        const iconRect = icon?.getBoundingClientRect();
+        const banner = document.querySelector(".o_web_client .o_home_menu .o_home_menu_registration_banner");
+        const bannerRect = banner?.getBoundingClientRect();
+        const search = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
+        const searchStyle = search ? getComputedStyle(search) : null;
+        const avatar = document.querySelector(".o_web_client[data-view='apps'] .o_user_menu .o_user_avatar");
+        const avatarRect = avatar?.getBoundingClientRect();
+        const avatarStyle = avatar ? getComputedStyle(avatar) : null;
+        const systrayItems = [...document.querySelectorAll(".o_web_client[data-view='apps'] .o_menu_systray [role='menuitem']")];
+        const visibleSystrayItems = systrayItems.filter((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        });
+        const gridColumns = grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean) : [];
+        return {
+          grid_columns: gridColumns.length,
+          first_row_count: firstRow.length,
+          icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
+          icon_height_px: iconRect ? Math.round(iconRect.height) : 0,
+          banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
+          banner_visible: Boolean(bannerRect && bannerRect.width > 0 && bannerRect.height > 0),
+          search_hidden: Boolean(searchStyle && searchStyle.opacity === "0" && Number.parseFloat(searchStyle.maxHeight) === 0),
+          user_avatar_visible: Boolean(avatarRect && avatarRect.width >= 24 && avatarRect.height >= 24 && avatarStyle?.display !== "none"),
+          systray_visible_count: visibleSystrayItems.length,
+          horizontal_overflow_px: document.documentElement.scrollWidth - window.innerWidth
+        };
+      })()`);
+      if (launcherState.horizontal_overflow_px > 1) throw new Error(`mobile launcher horizontal overflow: ${launcherState.horizontal_overflow_px}px`);
+      if (appCount >= 4 && launcherState.grid_columns !== 4) throw new Error(`mobile launcher grid columns invalid: ${JSON.stringify(launcherState)}`);
+      if (appCount >= 4 && launcherState.first_row_count !== 4) throw new Error(`mobile launcher first row invalid: ${JSON.stringify(launcherState)}`);
+      if (launcherState.icon_width_px < 62 || launcherState.icon_width_px > 74) throw new Error(`mobile launcher icon width invalid: ${JSON.stringify(launcherState)}`);
+      if (launcherState.icon_height_px < 62 || launcherState.icon_height_px > 74) throw new Error(`mobile launcher icon height invalid: ${JSON.stringify(launcherState)}`);
+      if (!launcherState.banner_visible || launcherState.banner_width_px > 362) throw new Error(`mobile launcher banner invalid: ${JSON.stringify(launcherState)}`);
+      if (!launcherState.search_hidden) throw new Error(`mobile launcher search should start hidden: ${JSON.stringify(launcherState)}`);
+      if (!launcherState.user_avatar_visible) throw new Error(`mobile launcher user avatar hidden: ${JSON.stringify(launcherState)}`);
+      if (launcherState.systray_visible_count < 3) throw new Error(`mobile launcher systray too sparse: ${JSON.stringify(launcherState)}`);
+      return { app_count: appCount, launcher_state: launcherState };
+    }
+  },
+  {
     name: "default-webclient-mobile",
     viewport: { width: 390, height: 844, mobile: true },
     run: async (page, config) => {
@@ -452,13 +547,40 @@ export const scenarios = [
       if (formControlState.search_inputs !== 0 || formControlState.search_toggles !== 0) {
         throw new Error(`default TS mobile form exposes list search controls: ${JSON.stringify(formControlState)}`);
       }
+      const mobileFormChrome = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const mainButtons = root?.querySelector(".o_control_panel_main_buttons");
+        const actionMenu = mainButtons?.querySelector(".gorp-form-action-menu");
+        const actionToggle = actionMenu?.querySelector(".gorp-action-menu-toggle");
+        const actionToggleRect = actionToggle?.getBoundingClientRect();
+        const actionToggleStyle = actionToggle ? getComputedStyle(actionToggle) : null;
+        const looseActionMenus = root?.querySelectorAll(".gorp-form-view .gorp-form-action-menu").length || 0;
+        const visibleSwitchButtons = [...(root?.querySelectorAll(".o_cp_switch_buttons .o_switch_view") || [])].filter((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        });
+        return {
+          action_menu_in_main_buttons: Boolean(actionMenu),
+          action_toggle_width_px: actionToggleRect ? Math.round(actionToggleRect.width) : 0,
+          action_toggle_font_size_px: actionToggleStyle ? Number.parseFloat(actionToggleStyle.fontSize) || 0 : -1,
+          loose_action_menus: looseActionMenus,
+          visible_switch_buttons: visibleSwitchButtons.length
+        };
+      })()`);
+      if (!mobileFormChrome.action_menu_in_main_buttons || mobileFormChrome.loose_action_menus !== 0 || mobileFormChrome.visible_switch_buttons !== 0) {
+        throw new Error(`default TS mobile form chrome invalid: ${JSON.stringify(mobileFormChrome)}`);
+      }
+      if (mobileFormChrome.action_toggle_width_px < 32 || mobileFormChrome.action_toggle_width_px > 40 || mobileFormChrome.action_toggle_font_size_px !== 0) {
+        throw new Error(`default TS mobile form action toggle not compact: ${JSON.stringify(mobileFormChrome)}`);
+      }
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "default TS mobile form hash");
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
-      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, hash, horizontal_overflow_px: overflow };
+      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, hash, horizontal_overflow_px: overflow };
     }
   },
   {
@@ -1197,6 +1319,34 @@ async function createDelegationOne2ManySmokeRecord(page, config) {
     groupID,
     groupName
   };
+}
+
+async function createDateGroupBySmokeAction(page, config) {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const messageCreated = await webCallKW(page, config, "mail.message", "create", {
+    values: {
+      subject: `Visual Date Group ${suffix}`,
+      body: "Date group-by smoke",
+      message_type: "comment",
+      model: "res.partner",
+      res_id: 0,
+      date: "2026-06-22 09:00:00"
+    }
+  });
+  const messageID = Number(messageCreated?.id || messageCreated || 0);
+  if (!messageID) throw new Error("date groupby smoke message was not created");
+  const actionCreated = await webCallKW(page, config, "ir.actions.act_window", "create", {
+    values: {
+      name: "Message Date Grouping",
+      type: "ir.actions.act_window",
+      res_model: "mail.message",
+      view_mode: "list",
+      limit: 40
+    }
+  });
+  const actionID = Number(actionCreated?.id || actionCreated || 0);
+  if (!actionID) throw new Error(`date groupby smoke action invalid: ${JSON.stringify(actionCreated)}`);
+  return { actionID, messageID };
 }
 
 async function externalResIDs(page, config, xmlIDs) {

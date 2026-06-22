@@ -5608,6 +5608,7 @@ const webClientShellHTML = `<!doctype html>
 	.o-systray-icon {
 		display: inline-grid;
 		place-items: center;
+		position: relative;
 		width: 18px;
 		height: 18px;
 		border: 0;
@@ -5616,6 +5617,41 @@ const webClientShellHTML = `<!doctype html>
 		font-size: 13px;
 		font-weight: 700;
 		line-height: 1;
+	}
+	.o-systray-icon.oi-discuss::before {
+		content: "";
+		position: absolute;
+		inset: 3px 2px 5px;
+		border-radius: 9px;
+		background: currentColor;
+	}
+	.o-systray-icon.oi-discuss::after {
+		content: "";
+		position: absolute;
+		left: 6px;
+		bottom: 2px;
+		width: 6px;
+		height: 6px;
+		background: currentColor;
+		clip-path: polygon(0 0, 100% 0, 0 100%);
+	}
+	.o-systray-icon.oi-clock::before {
+		content: "";
+		position: absolute;
+		inset: 2px;
+		border: 2px solid currentColor;
+		border-radius: 50%;
+	}
+	.o-systray-icon.oi-clock::after {
+		content: "";
+		position: absolute;
+		left: 8px;
+		top: 5px;
+		width: 5px;
+		height: 5px;
+		border-left: 2px solid currentColor;
+		border-bottom: 2px solid currentColor;
+		transform-origin: left bottom;
 	}
 		.o-systray-counter {
 			min-width: 16px;
@@ -5935,9 +5971,7 @@ const webClientShellHTML = `<!doctype html>
 	}
 	main.o_web_client[data-view="apps"] > .o_main_navbar .o_navbar_apps_menu,
 	main.o_web_client[data-view="apps"] > .o_main_navbar .o_navbar_sections,
-	main.o_web_client[data-view="apps"] > .o_main_navbar .o-mobile-menu-toggle,
-	main.o_web_client[data-view="apps"] > .o_main_navbar .o_mail_systray_item,
-	main.o_web_client[data-view="apps"] > .o_main_navbar .o_activity_menu {
+	main.o_web_client[data-view="apps"] > .o_main_navbar .o-mobile-menu-toggle {
 		display: none;
 	}
 	main.o_web_client[data-view="apps"] > .o_main_navbar .o_menu_systray {
@@ -8035,10 +8069,82 @@ const webClientShellHTML = `<!doctype html>
 		.o-systray-counter,
 		.o-user-menu-button span { display: none; }
 		.grid { grid-template-columns: 1fr; }
-		.o-app-launcher-view { padding: 22px 12px 32px; min-width: 0; }
-		.o-app-launcher-view .app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 6px; }
-		.o-app-launcher-view .app-card { width: 100%; min-width: 0; }
-		.o-app-launcher-view .app-card strong { white-space: normal; line-height: 1.2; }
+		main.o_web_client[data-view="apps"] > .o_main_navbar .o_menu_systray {
+			height: 46px;
+			padding-right: 8px;
+		}
+		main.o_web_client[data-view="apps"] > .o_main_navbar .o-systray-item {
+			position: relative;
+			justify-content: center;
+			min-width: 34px;
+			padding: 0 7px;
+		}
+		main.o_web_client[data-view="apps"] > .o_main_navbar .o-systray-counter {
+			position: absolute;
+			top: 7px;
+			right: 2px;
+			display: inline-grid;
+			place-items: center;
+			min-width: 16px;
+			height: 16px;
+			padding: 0 4px;
+			background: #ba4a55;
+			color: #fff;
+			font-size: 10px;
+			line-height: 16px;
+		}
+		main.o_web_client[data-view="apps"] > .o_main_navbar .o-user-menu-button {
+			display: inline-grid;
+			place-items: center;
+			width: 36px;
+			min-width: 36px;
+			padding: 0 4px;
+		}
+		main.o_web_client[data-view="apps"] > .o_main_navbar .o_user_avatar {
+			display: inline-grid;
+			width: 28px;
+			height: 28px;
+		}
+		.o-app-launcher-view { padding: 68px 14px 32px; min-width: 0; }
+		.o-app-launcher-view .o-app-shell { max-width: 370px; }
+		main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_home_menu_registration_banner,
+		.o-app-launcher-view .o_home_menu_registration_banner {
+			width: min(358px, calc(100vw - 28px));
+			min-height: 72px;
+			margin: 0 auto 50px;
+			padding: 14px 38px 14px 22px;
+			text-align: center;
+			line-height: 1.35;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_home_menu_registration_close,
+		.o-app-launcher-view .o_home_menu_registration_close {
+			right: 14px;
+		}
+		.o-app-launcher-view .app-grid {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 18px 10px;
+			max-width: 360px;
+			margin-bottom: 18px;
+		}
+		.o-app-launcher-view .app-card {
+			width: 76px;
+			min-width: 0;
+			min-height: 104px;
+			padding: 0 1px;
+			gap: 8px;
+		}
+		.o-app-launcher-view .app-card strong {
+			white-space: normal;
+			line-height: 1.15;
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.o-app-launcher-view .app-card .app-icon,
+		.o-app-launcher-view .app-card::before {
+			width: 68px;
+			height: 68px;
+			border-radius: 5px;
+		}
 		.module-grid, .record-grid { grid-template-columns: 1fr; }
 		.gorp-apps-catalog-content {
 			grid-template-columns: minmax(0, 1fr);
@@ -8135,6 +8241,35 @@ const webClientShellHTML = `<!doctype html>
 		}
 		.record-panel .o_control_panel_navigation {
 			order: 3;
+		}
+		.gorp-window-action[data-view="form"] .o_cp_switch_buttons {
+			display: none;
+		}
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu {
+			display: inline-flex;
+		}
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle {
+			justify-content: center;
+			width: 36px;
+			min-width: 36px;
+			height: 34px;
+			min-height: 34px;
+			padding: 0;
+			border-color: var(--line);
+			background: var(--btn-secondary-bg);
+			color: var(--text);
+			font-size: 0;
+		}
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle i {
+			display: none;
+		}
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle::before {
+			content: "";
+			width: 16px;
+			height: 16px;
+			border: 2px solid currentColor;
+			border-radius: 50%;
+			box-shadow: inset 0 0 0 3px var(--btn-secondary-bg);
 		}
 		.o-form-control .o-breadcrumbs button {
 			max-width: 42vw;

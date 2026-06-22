@@ -792,6 +792,7 @@ const actionServices = createWebClientServices({
                 <field name="missing_field"/>
                 <filter name="customer" string="Customers" domain="[('customer_rank', '>', 0)]" context="{'group_by': 'company_id', 'from_search': True}"/>
                 <filter name="group_company" string="Company" context="{'group_by': 'company_id'}"/>
+                <filter name="group_created" string="Created" context="{'group_by': 'create_date'}"/>
               </search>
             `,
             id: 9,
@@ -814,6 +815,7 @@ const actionServices = createWebClientServices({
             fields: {
               name: { type: "char", string: "Name" },
               company_id: { type: "many2one", relation: "res.company", string: "Company" },
+              create_date: { type: "datetime", string: "Created on" },
               legacy_note: { type: "char", string: "Legacy" },
               column_note: { type: "char", string: "Column" },
               line_ids: { type: "one2many", relation: "res.partner.line", string: "Lines" }
@@ -831,7 +833,7 @@ const actionServices = createWebClientServices({
     if (request.route === "/web/dataset/call_kw/res.partner/web_search_read") {
       return Promise.resolve({
         length: 1,
-        records: [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]
+        records: [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], create_date: "2026-06-22 09:00:00", legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]
       });
     }
     return Promise.resolve({});
@@ -859,22 +861,28 @@ assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
 assert.deepEqual(windowResult.search.parsed.searchFields, ["name", "company_id", "missing_field"]);
 assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active]), [["filter-customer", true]]);
-assert.deepEqual(windowResult.search.groupBys.map((item) => item.id), ["group-by-group_company"]);
+assert.deepEqual(windowResult.search.groupBys.map((item) => [item.id, item.children?.length ?? 0]), [["group-by-group_company", 0], ["group-by-group_created", 5]]);
+assert.deepEqual(windowResult.search.groupBys[1].children.map((item) => [item.id, item.label]), [
+  ["group-by-group_created-year", "Year"],
+  ["group-by-group_created-quarter", "Quarter"],
+  ["group-by-group_created-month", "Month"],
+  ["group-by-group_created-week", "Week"],
+  ["group-by-group_created-day", "Day"]
+]);
 assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorite-14"]);
 assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, item.favorite.userId, item.favorite.actionId, item.favorite.isDefault, item.favorite.canDelete]), [
   [14, 7, 7, false, true]
 ]);
-assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
+assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], create_date: "2026-06-22 09:00:00", legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
 const renderedWindow = renderWindowAction(windowResult);
 assert.equal(renderedWindow.className, "gorp-window-action");
 assert.equal(renderedWindow.dataset.model, "res.partner");
 assert.equal(renderedWindow.dataset.view, "list");
 assert.ok(String(renderedWindow.children[0].className).includes("o_control_panel"));
-assert.deepEqual(findAll(renderedWindow, (node) => node.dataset?.menuItemId).map((node) => node.dataset.menuItemId), [
-  "filter-customer",
-  "group-by-group_company",
-  "favorite-14"
-]);
+const renderedMenuIDs = findAll(renderedWindow, (node) => node.dataset?.menuItemId).map((node) => node.dataset.menuItemId);
+for (const id of ["filter-customer", "group-by-group_company", "group-by-group_created", "group-by-group_created-month", "favorite-14"]) {
+  assert.ok(renderedMenuIDs.includes(id), `missing menu id ${id}`);
+}
 assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value")[0].textContent, "Customers");
 assert.ok(String(renderedWindow.children[1].className).includes("gorp-list-shell"));
 assert.ok(String(renderedWindow.children[1].className).includes("o-list-view"));
@@ -949,14 +957,21 @@ assert.deepEqual(controlActionCalls[1].action.__search_facets.map((facet) => [fa
 ]);
 assert.equal("__pager_offset" in controlActionCalls[1].action, false);
 assert.deepEqual(controlActionCalls[1].options, { additionalContext: {}, replaceLastAction: true });
-findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "group-by-group_created-year")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(controlActionCalls.length, 3);
-assert.deepEqual(controlActionCalls[2].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
-assert.equal(controlActionCalls[2].action.view_mode, "form,list");
-assert.equal(controlActionCalls[2].action.view_type, "form");
-assert.equal("__pager_offset" in controlActionCalls[2].action, false);
-assert.deepEqual(controlActionCalls[2].options, { additionalContext: {}, replaceLastAction: true });
+assert.deepEqual(controlActionCalls[2].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.interval, facet.categoryLabel, facet.valueLabels]), [
+  ["filter-customer", "filter", undefined, undefined, undefined, undefined],
+  ["group-by-group_created-year", "groupBy", "create_date", "year", "Created", ["Year"]]
+]);
+findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 4);
+assert.deepEqual(controlActionCalls[3].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
+assert.equal(controlActionCalls[3].action.view_mode, "form,list");
+assert.equal(controlActionCalls[3].action.view_type, "form");
+assert.equal("__pager_offset" in controlActionCalls[3].action, false);
+assert.deepEqual(controlActionCalls[3].options, { additionalContext: {}, replaceLastAction: true });
 
 const liveSearchCalls = [];
 const liveSearchWindow = renderWindowAction({
@@ -1510,6 +1525,9 @@ genericFormWindow.addEventListener("form:discard", (event) => genericFormDiscard
 const genericEditButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "edit")[0];
 const genericSaveButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "save")[0];
 const genericDiscardButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "discard")[0];
+const genericControlPanel = genericFormWindow.children[0];
+const genericControlPanelButtons = findAll(genericControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_main_buttons"))[0];
+assert.equal(findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 1);
 assert.equal(genericEditButton.hidden, false);
 assert.equal(genericSaveButton.hidden, true);
 assert.equal(genericDiscardButton.hidden, true);

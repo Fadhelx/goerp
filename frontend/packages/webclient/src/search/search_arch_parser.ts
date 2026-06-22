@@ -1,6 +1,6 @@
-import type { SearchFacet } from "./search_model.js";
+import type { SearchDateInterval, SearchFacet } from "./search_model.js";
 
-export type ParsedSearchItemType = "filter" | "groupBy" | "favorite";
+export type ParsedSearchItemType = "filter" | "dateFilter" | "groupBy" | "favorite";
 
 export interface ParsedSearchItem {
   id: string;
@@ -12,6 +12,8 @@ export interface ParsedSearchItem {
   domain?: readonly unknown[];
   context?: Record<string, unknown>;
   groupBy?: readonly string[];
+  dateField?: string;
+  fieldType?: string;
   userId?: number;
   actionId?: number;
   embeddedActionId?: number;
@@ -22,6 +24,7 @@ export interface ParsedSearchItem {
 export interface SearchArchParseOptions {
   context?: Record<string, unknown>;
   irFilters?: readonly unknown[];
+  fields?: Record<string, unknown>;
 }
 
 export interface ParsedSearchArch {
@@ -55,11 +58,12 @@ export function parseSearchArch(arch: string, options: SearchArchParseOptions = 
     }
     if (node.tag !== "filter") continue;
     const parsedContext = parseContextAttribute(node.attrs.context);
-    const groupBy = groupByFromContext(parsedContext);
+    const groupBy = normalizeGroupByDescriptors(groupByFromContext(parsedContext), options.fields);
     const name = node.attrs.name || `filter_${filters.length + groupBys.length + 1}`;
     const label = node.attrs.string || name;
     const domain = parseDomainAttribute(node.attrs.domain, context);
     if (groupBy.length && (!domain || domain.length === 0)) {
+      const [fieldName] = splitGroupByDescriptor(groupBy[0]);
       groupBys.push({
         id: `group-by-${name}`,
         name,
@@ -67,19 +71,25 @@ export function parseSearchArch(arch: string, options: SearchArchParseOptions = 
         type: "groupBy",
         context: parsedContext,
         groupBy,
+        dateField: dateGroupByField(fieldName, options.fields),
+        fieldType: fieldType(options.fields?.[fieldName]),
         isDefault: contextDefaultActive(context, name)
       });
       continue;
     }
+    const dateField = cleanFieldName(node.attrs.date);
+    const itemType: ParsedSearchItemType = dateField ? "dateFilter" : "filter";
     filters.push({
       id: `filter-${name}`,
       name,
       label,
-      type: "filter",
+      type: itemType,
       group,
       domain,
       context: parsedContext,
       groupBy,
+      dateField: dateField || undefined,
+      fieldType: fieldType(options.fields?.[dateField]),
       isDefault: contextDefaultActive(context, name)
     });
   }
@@ -98,9 +108,11 @@ export function searchItemFacet(item: ParsedSearchItem): SearchFacet {
     const descriptor = item.groupBy?.[0] || item.name;
     const [field, interval] = splitGroupByDescriptor(descriptor);
     return {
-      id: item.id,
+      id: interval ? `${item.id}-${interval}` : item.id,
       type: "groupBy",
-      label: item.label,
+      label: interval ? `${item.label}: ${dateIntervalLabel(interval)}` : item.label,
+      categoryLabel: interval ? item.label : undefined,
+      valueLabels: interval ? [dateIntervalLabel(interval)] : undefined,
       field,
       interval,
       context: item.context
@@ -118,8 +130,9 @@ export function searchItemFacet(item: ParsedSearchItem): SearchFacet {
   }
   return {
     id: item.id,
-    type: "filter",
+    type: item.type === "dateFilter" ? "dateFilter" : "filter",
     label: item.label,
+    field: item.dateField,
     domain: item.domain,
     context: item.context,
     groupBy: item.groupBy,
@@ -143,7 +156,7 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
     const embeddedActionId = numberValue(raw.embedded_action_id);
     const name = stringValue(raw.name) || stringValue(raw.id) || `favorite_${index + 1}`;
     const parsedContext = parseContextAttribute(raw.context);
-    const groupBy = groupByFromAny(raw.group_by ?? parsedContext.group_by);
+    const groupBy = normalizeGroupByDescriptors(groupByFromAny(raw.group_by ?? parsedContext.group_by), undefined);
     out.push({
       id: `favorite-${stringValue(raw.id) || name}`,
       name,
@@ -252,6 +265,35 @@ function splitGroupByDescriptor(descriptor: string): [string, SearchFacet["inter
     return [field, interval];
   }
   return [field, undefined];
+}
+
+function normalizeGroupByDescriptors(descriptors: readonly string[], fields: Record<string, unknown> | undefined): string[] {
+  return descriptors
+    .map((descriptor) => {
+      const [field, interval] = splitGroupByDescriptor(descriptor);
+      if (!field) return "";
+      if (interval) return `${field}:${interval}`;
+      return dateGroupByField(field, fields) ? `${field}:month` : field;
+    })
+    .filter(Boolean);
+}
+
+function dateGroupByField(field: string, fields: Record<string, unknown> | undefined): string | undefined {
+  if (!field || !fields) return undefined;
+  const type = fieldType(fields[field]);
+  return type === "date" || type === "datetime" ? field : undefined;
+}
+
+function fieldType(description: unknown): string {
+  return isRecord(description) && typeof description.type === "string" ? description.type : "";
+}
+
+function dateIntervalLabel(interval: SearchDateInterval): string {
+  if (interval === "year") return "Year";
+  if (interval === "quarter") return "Quarter";
+  if (interval === "month") return "Month";
+  if (interval === "week") return "Week";
+  return "Day";
 }
 
 function contextDefaultActive(context: Record<string, unknown>, name: string): boolean {

@@ -1,0 +1,77 @@
+{
+  "generated_at": "2026-06-22T07:32:26.116Z",
+  "base_url": "http://127.0.0.1:8088/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-menu-desktop.png",
+      "sha256": "c4d63f6a63aa21b67cd709c388406993d9d556543cdfeab1a883c88c225bf2e9",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 1
+      },
+      "duration_ms": 865
+    },
+    {
+      "name": "default-date-groupby-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-date-groupby-menu-desktop.png",
+      "sha256": "5a353ab6a06770a50c0417117a730181c8ad716c5557fa14f13b772fc3a42761",
+      "assertions": {
+        "fixture": {
+          "actionID": 60,
+          "messageID": 1
+        },
+        "option_state": {
+          "parent": "DateYearQuarterMonthWeekDay",
+          "labels": [
+            "Year",
+            "Quarter",
+            "Month",
+            "Week",
+            "Day"
+          ]
+        },
+        "selected_state": {
+          "facet_label": "Date",
+          "facet_values": [
+            "Year"
+          ],
+          "selected_checked": "true"
+        }
+      },
+      "duration_ms": 628
+    },
+    {
+      "name": "default-search-filter-click-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-filter-click-desktop.png",
+      "sha256": "ee8ec6c788e6148782c8f2ae8e5a40108f7add67601042381938ec391499cb7b",
+      "assertions": {
+        "facet_count": 1,
+        "selected_filter_count": 1,
+        "row_count": 19
+      },
+      "duration_ms": 585
+    }
+  ],
+  "duration_ms": 2258
+}

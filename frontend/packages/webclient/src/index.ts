@@ -9,6 +9,9 @@ import {
 } from "./services/action_stack.js";
 import {
   createSearchModel as createActionSearchModel,
+  groupByDescriptor as actionGroupByDescriptor,
+  SEARCH_DATE_INTERVALS,
+  type SearchDateInterval,
   type SearchFacet,
   type SearchModelState
 } from "./search/search_model.js";
@@ -1776,8 +1779,10 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
       formState.editing
     );
     body = renderBody();
+    moveFormActionMenuToControlPanel(controlPanel, body);
     formState.renderBody = () => {
       body = renderBody();
+      moveFormActionMenuToControlPanel(controlPanel, body);
       root.replaceChildren(controlPanel, body);
     };
   } else {
@@ -1785,10 +1790,19 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
       ? renderFormView(viewDescription, fields, result.viewDescriptions.relatedModels, values, result.resModel, options)
       : result.activeView === "kanban"
         ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
-        : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
+      : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
+    if (result.activeView === "form") moveFormActionMenuToControlPanel(controlPanel, body);
   }
   root.append(controlPanel, body);
   return root;
+}
+
+function moveFormActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLElement): void {
+  const actionMenu = findDescendantByClass(body, "gorp-form-action-menu");
+  if (!actionMenu) return;
+  const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
+  if (!mainButtons) return;
+  mainButtons.append(actionMenu);
 }
 
 export function renderWindowActionDialog(result: WindowActionResult, options: RenderWindowActionDialogOptions = {}): HTMLElement {
@@ -7084,7 +7098,8 @@ function buildWindowActionSearch(
   const searchView = viewDescriptions.views.search;
   const parsed = parseActionSearchArch(searchView?.arch ?? "", {
     context,
-    irFilters: searchView?.irFilters ?? []
+    irFilters: searchView?.irFilters ?? [],
+    fields: viewDescriptions.fields
   });
   const explicitFacets = searchFacetsFromAction(action);
   const searchFields = validSearchFields(parsed.searchFields, viewDescriptions.fields) ?? fallbackSearchFields(viewDescriptions.fields);
@@ -7097,15 +7112,16 @@ function buildWindowActionSearch(
   });
   const state = model.state;
   const activeFacetIDs = new Set(state.facets.map((facet) => facet.id));
-  const filters = searchMenuItems(parsed.filters, activeFacetIDs);
-  const groupBys = searchMenuItems(parsed.groupBys, activeFacetIDs);
+  const activeGroupByDescriptors = new Set(state.groupBy);
+  const filters = searchMenuItems(parsed.filters, activeFacetIDs, viewDescriptions.fields, activeGroupByDescriptors);
+  const groupBys = searchMenuItems(parsed.groupBys, activeFacetIDs, viewDescriptions.fields, activeGroupByDescriptors);
   return {
     parsed,
     state,
     suggestions: searchAutocompleteSuggestions(state.query, searchFields, viewDescriptions.fields),
     filters: filters.length ? filters : fallbackFilterMenuItems(viewDescriptions.fields),
-    groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields),
-    favorites: searchMenuItems(parsed.favorites, activeFacetIDs)
+    groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields, activeGroupByDescriptors),
+    favorites: searchMenuItems(parsed.favorites, activeFacetIDs, viewDescriptions.fields, activeGroupByDescriptors)
   };
 }
 
@@ -7153,14 +7169,76 @@ function searchAutocompleteSuggestions(
     });
 }
 
-function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem[] {
-  return items.map((item) => ({
+function searchMenuItems(
+  items: readonly ParsedSearchItem[],
+  activeFacetIDs: ReadonlySet<string>,
+  fields: Record<string, unknown> = {},
+  activeGroupByDescriptors: ReadonlySet<string> = new Set()
+): ActionControlPanelMenuItem[] {
+  return items.map((item) => {
+    const dateGroup = dateGroupByMenuItem(item, fields, activeFacetIDs, activeGroupByDescriptors);
+    if (dateGroup) return dateGroup;
+    const facet = parsedSearchItemFacet(item);
+    return {
+      id: item.id,
+      label: item.label,
+      facet,
+      active: activeFacetIDs.has(facet.id),
+      ...(item.type === "favorite" ? { favorite: parsedFavoriteMetadata(item) } : {})
+    };
+  });
+}
+
+function dateGroupByMenuItem(
+  item: ParsedSearchItem,
+  fields: Record<string, unknown>,
+  activeFacetIDs: ReadonlySet<string>,
+  activeGroupByDescriptors: ReadonlySet<string>
+): ActionControlPanelMenuItem | null {
+  if (item.type !== "groupBy") return null;
+  const descriptor = item.groupBy?.[0] || "";
+  const [field, descriptorInterval] = splitGroupByDescriptorValue(descriptor);
+  if (!field || !dateFieldForMenu(field, fields) && !descriptorInterval) return null;
+  const label = item.label || fieldLabel(fields, field);
+  const children = SEARCH_DATE_INTERVALS.map((interval) => {
+    const id = `${item.id}-${interval.id}`;
+    const groupBy = actionGroupByDescriptor(field, interval.id);
+    const active = activeFacetIDs.has(id) || activeGroupByDescriptors.has(groupBy);
+    return {
+      id,
+      label: interval.label,
+      active,
+      facet: {
+        id,
+        type: "groupBy" as const,
+        label: `${label}: ${interval.label}`,
+        categoryLabel: label,
+        valueLabels: [interval.label],
+        field,
+        interval: interval.id,
+        context: item.context ? { ...item.context } : undefined
+      }
+    };
+  });
+  return {
     id: item.id,
-    label: item.label,
-    facet: parsedSearchItemFacet(item),
-    active: activeFacetIDs.has(parsedSearchItemFacet(item).id),
-    ...(item.type === "favorite" ? { favorite: parsedFavoriteMetadata(item) } : {})
-  }));
+    label,
+    active: children.some((child) => child.active),
+    children
+  };
+}
+
+function splitGroupByDescriptorValue(descriptor: string): [string, SearchDateInterval | undefined] {
+  const [field, interval] = String(descriptor ?? "").split(":");
+  if (interval === "year" || interval === "quarter" || interval === "month" || interval === "week" || interval === "day") {
+    return [field, interval];
+  }
+  return [field, undefined];
+}
+
+function dateFieldForMenu(field: string, fields: Record<string, unknown>): boolean {
+  const type = fieldTypeValue(fields[field]);
+  return type === "date" || type === "datetime";
 }
 
 function parsedFavoriteMetadata(item: ParsedSearchItem): ActionControlPanelMenuItem["favorite"] {
@@ -7190,7 +7268,10 @@ function fallbackFilterMenuItems(fields: Record<string, unknown>): ActionControl
   return dedupeMenuItems(items);
 }
 
-function fallbackGroupByMenuItems(fields: Record<string, unknown>): ActionControlPanelMenuItem[] {
+function fallbackGroupByMenuItems(
+  fields: Record<string, unknown>,
+  activeGroupByDescriptors: ReadonlySet<string> = new Set()
+): ActionControlPanelMenuItem[] {
   const preferred: Array<[string, string]> = [
     ["model_id", "group-by-group_model"],
     ["binding_model_id", "group-by-binding_model"],
@@ -7201,13 +7282,45 @@ function fallbackGroupByMenuItems(fields: Record<string, unknown>): ActionContro
   ];
   const items: ActionControlPanelMenuItem[] = [];
   for (const [name, id] of preferred) {
-    if (fields[name]) items.push({ id, label: fieldLabel(fields, name), facet: { id, type: "groupBy", label: fieldLabel(fields, name), field: name } });
+    if (fields[name]) {
+      items.push({
+        id,
+        label: fieldLabel(fields, name),
+        active: activeGroupByDescriptors.has(name),
+        facet: { id, type: "groupBy", label: fieldLabel(fields, name), field: name }
+      });
+    }
+  }
+  for (const [name, description] of Object.entries(fields)) {
+    if (!dateFieldForMenu(name, fields)) continue;
+    const label = fieldLabel({ [name]: description }, name);
+    const children = SEARCH_DATE_INTERVALS.map((interval) => ({
+      id: `group-by-${name}-${interval.id}`,
+      label: interval.label,
+      active: activeGroupByDescriptors.has(actionGroupByDescriptor(name, interval.id)),
+      facet: {
+        id: `group-by-${name}-${interval.id}`,
+        type: "groupBy" as const,
+        label: `${label}: ${interval.label}`,
+        categoryLabel: label,
+        valueLabels: [interval.label],
+        field: name,
+        interval: interval.id
+      }
+    }));
+    items.push({ id: `group-by-${name}`, label, active: children.some((child) => child.active), children });
+    if (items.length >= 5) break;
   }
   if (!items.length) {
     for (const [name, description] of Object.entries(fields)) {
       if (name === "id" || name === "display_name") continue;
       if (!["many2one", "selection", "boolean"].includes(fieldTypeValue(description))) continue;
-      items.push({ id: `group-by-${name}`, label: fieldLabel(fields, name), facet: { id: `group-by-${name}`, type: "groupBy", label: fieldLabel(fields, name), field: name } });
+      items.push({
+        id: `group-by-${name}`,
+        label: fieldLabel(fields, name),
+        active: activeGroupByDescriptors.has(name),
+        facet: { id: `group-by-${name}`, type: "groupBy", label: fieldLabel(fields, name), field: name }
+      });
       if (items.length >= 3) break;
     }
   }
