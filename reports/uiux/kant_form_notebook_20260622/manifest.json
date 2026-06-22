@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-06-22T04:12:58.367Z",
+  "base_url": "http://127.0.0.1:8075/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "ad945a766d6291b92513b21f20b4c78856baece17f9cc7c84a1009320cdb1ac8",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "form_count": 1,
+        "field_count": 6
+      },
+      "duration_ms": 880
+    },
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "d678a766b66df4fd69326a15c17b0f52c415798166f0d32f0cf4326ba6eaf4a2",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 34,
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 1,
+        "notebook_id": "notebook-standalone",
+        "tab_labels": [
+          "Inherited By"
+        ],
+        "selected_tabs": [
+          "true"
+        ],
+        "visible_pages": 1,
+        "inherited_field_count": 1
+      },
+      "duration_ms": 556
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "d00f827cf559d991704ea3c5f04881f35b089127dbc01028a1bebc361aa20ccd",
+      "assertions": {
+        "card_count": 20,
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 612
+    }
+  ],
+  "duration_ms": 2207
+}

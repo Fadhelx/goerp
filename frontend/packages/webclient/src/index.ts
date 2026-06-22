@@ -4357,13 +4357,16 @@ function renderFormView(
   if (actionMenu) form.append(actionMenu);
   const buttons = parseViewButtonNodes(arch).filter((node) => !nodeInvisible(node.attrs, recordValues));
   const nodes = allFieldNodes.filter((node) => !fieldInvisible(node, recordValues));
+  const mainNodes = parseFormMainFieldNodes(arch).filter((node) => !fieldInvisible(node, recordValues));
   const fieldNodes: ViewFieldNode[] = nodes.length
     ? nodes
     : Object.keys(fields)
       .filter((name) => name !== "id" && name !== "display_name")
       .slice(0, 6)
       .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
+  const mainFieldNodes = mainNodes.length || arch ? mainNodes : fieldNodes;
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
+  const notebooks = parseFormNotebooks(arch);
   if (buttons.length || statusbarNodes.length) {
     const header = document.createElement("div");
     header.className = "gorp-form-header o_form_statusbar";
@@ -4383,32 +4386,120 @@ function renderFormView(
   if (title) sheet.append(title);
   const group = document.createElement("div");
   group.className = "gorp-form-fields record-grid o_group o_inner_group";
-  for (const node of fieldNodes) {
-    const name = node.name;
-    if (statusbarNodes.includes(node)) continue;
-    if (node.attrs.widget === "res_user_group_ids" && name === "group_ids") {
-      group.append(renderResUserGroupIdsField(node, fields, recordValues, form, options.onUpdate));
-      continue;
-    }
-    const label = document.createElement("label");
-    label.className = "gorp-form-field o_wrap_field";
-    label.dataset.field = name;
-    const caption = document.createElement("span");
-    caption.className = "o_form_label";
-    caption.textContent = fieldLabel(fields, name);
-    const required = formFieldRequired(node, fields[name], recordValues);
-    if (required) label.dataset.required = "true";
-    const value = required && formFieldEditable(node, fields[name], recordValues)
-      ? renderEditableFormField(node, fields[name], recordValues, form, options)
-      : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues);
-    label.append(caption, value);
-    group.append(label);
+  for (const node of mainFieldNodes) {
+    if (isStatusbarFieldNode(node, fields[node.name])) continue;
+    group.append(renderFormFieldNode(node, fields, recordValues, form, options));
   }
-  sheet.append(group);
+  if (group.children.length) sheet.append(group);
+  for (const notebook of notebooks) {
+    const rendered = renderFormNotebook(notebook, fields, recordValues, form, options);
+    if (rendered) sheet.append(rendered);
+  }
   body.append(sheet);
   form.append(body);
   if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
   return form;
+}
+
+function renderFormFieldNode(
+  node: ViewFieldNode,
+  fields: Record<string, unknown>,
+  recordValues: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions
+): HTMLElement {
+  const name = node.name;
+  if (node.attrs.widget === "res_user_group_ids" && name === "group_ids") {
+    return renderResUserGroupIdsField(node, fields, recordValues, form, options.onUpdate);
+  }
+  const label = document.createElement("label");
+  label.className = "gorp-form-field o_wrap_field";
+  label.dataset.field = name;
+  const caption = document.createElement("span");
+  caption.className = "o_form_label";
+  caption.textContent = fieldLabel(fields, name);
+  const required = formFieldRequired(node, fields[name], recordValues);
+  if (required) label.dataset.required = "true";
+  const value = required && formFieldEditable(node, fields[name], recordValues)
+    ? renderEditableFormField(node, fields[name], recordValues, form, options)
+    : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues);
+  label.append(caption, value);
+  return label;
+}
+
+function renderFormNotebook(
+  notebook: FormNotebook,
+  fields: Record<string, unknown>,
+  recordValues: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions
+): HTMLElement | null {
+  const pages = notebook.pages.filter((page) => !nodeInvisible(page.attrs, recordValues));
+  if (!pages.length) return null;
+  const root = document.createElement("section");
+  root.className = "gorp-form-notebook o_notebook";
+  root.dataset.notebook = notebook.id;
+  const tabs = document.createElement("div");
+  tabs.className = "gorp-form-notebook-tabs nav nav-tabs";
+  tabs.setAttribute("role", "tablist");
+  const panes = document.createElement("div");
+  panes.className = "gorp-form-notebook-content tab-content";
+  const buttons: HTMLElement[] = [];
+  const pageElements: HTMLElement[] = [];
+  const activate = (activeIndex: number) => {
+    buttons.forEach((button, index) => {
+      const active = index === activeIndex;
+      button.className = toggleClassToken(String(button.className ?? ""), "active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    pageElements.forEach((page, index) => {
+      const active = index === activeIndex;
+      page.className = toggleClassToken(String(page.className ?? ""), "active", active);
+      if (active) {
+        page.hidden = false;
+        page.removeAttribute("hidden");
+      } else {
+        page.hidden = true;
+        page.setAttribute("hidden", "hidden");
+      }
+    });
+  };
+  pages.forEach((page, index) => {
+    const selected = index === 0;
+    const pageID = `${notebook.id}-${page.id || index}`;
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = `gorp-form-notebook-tab nav-link${selected ? " active" : ""}`;
+    tab.dataset.notebookPage = page.id || String(index);
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", selected ? "true" : "false");
+    tab.setAttribute("aria-controls", pageID);
+    tab.textContent = page.label;
+    tab.addEventListener("click", () => activate(index));
+    const pane = document.createElement("section");
+    pane.className = `gorp-form-notebook-page tab-pane${selected ? " active" : ""}`;
+    pane.dataset.notebookPage = page.id || String(index);
+    pane.id = pageID;
+    pane.setAttribute("role", "tabpanel");
+    if (!selected) {
+      pane.hidden = true;
+      pane.setAttribute("hidden", "hidden");
+    }
+    const group = document.createElement("div");
+    group.className = "gorp-form-fields record-grid o_group o_inner_group";
+    for (const node of page.fields) {
+      if (isStatusbarFieldNode(node, fields[node.name])) continue;
+      if (fieldInvisible(node, recordValues)) continue;
+      group.append(renderFormFieldNode(node, fields, recordValues, form, options));
+    }
+    pane.append(group);
+    buttons.push(tab);
+    pageElements.push(pane);
+    tabs.append(tab);
+    panes.append(pane);
+  });
+  root.append(tabs, panes);
+  return root;
 }
 
 function renderFormTitle(values: Record<string, unknown>): HTMLElement | null {
@@ -5865,6 +5956,18 @@ interface ViewFieldNode {
   childViewAttrs: Record<string, string>;
 }
 
+interface FormNotebookPage {
+  id: string;
+  label: string;
+  attrs: Record<string, string>;
+  fields: ViewFieldNode[];
+}
+
+interface FormNotebook {
+  id: string;
+  pages: FormNotebookPage[];
+}
+
 export interface ViewButtonNode {
   attrs: Record<string, string>;
 }
@@ -5881,6 +5984,32 @@ function parseViewFieldNodes(arch: string): ViewFieldNode[] {
     }
   }
   return fieldNodesFromXMLText(arch);
+}
+
+function parseFormMainFieldNodes(arch: string): ViewFieldNode[] {
+  if (!arch) return [];
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      return formMainFieldNodesFromElement(doc.documentElement);
+    } catch {
+      return formMainFieldNodesFromXMLText(arch);
+    }
+  }
+  return formMainFieldNodesFromXMLText(arch);
+}
+
+function parseFormNotebooks(arch: string): FormNotebook[] {
+  if (!arch) return [];
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      return formNotebooksFromElement(doc.documentElement);
+    } catch {
+      return formNotebooksFromXMLText(arch);
+    }
+  }
+  return formNotebooksFromXMLText(arch);
 }
 
 function parseViewButtonNodes(arch: string): ViewButtonNode[] {
@@ -5934,6 +6063,117 @@ function fieldNodesFromElement(element: Element): ViewFieldNode[] {
     }
   }
   return out;
+}
+
+function formMainFieldNodesFromElement(element: Element): ViewFieldNode[] {
+  const out: ViewFieldNode[] = [];
+  for (const child of Array.from(element.children)) {
+    const tagName = child.tagName.toLowerCase();
+    if (tagName === "notebook" || tagName === "page") continue;
+    if (tagName === "field" && child.getAttribute("name")) {
+      const nestedView = Array.from(child.children).find((node) => viewContainerTags.has(node.tagName.toLowerCase()));
+      out.push({
+        name: child.getAttribute("name") ?? "",
+        attrs: elementAttributes(child),
+        children: nestedView ? fieldNodesFromElement(nestedView) : [],
+        childViewAttrs: nestedView ? elementAttributes(nestedView) : {}
+      });
+      continue;
+    }
+    out.push(...formMainFieldNodesFromElement(child));
+  }
+  return out;
+}
+
+function formNotebooksFromElement(root: Element): FormNotebook[] {
+  const out: FormNotebook[] = [];
+  const notebookElements = Array.from(root.getElementsByTagName("notebook"));
+  notebookElements.forEach((element, index) => {
+    const pages = formNotebookPagesFromElement(element, index);
+    if (pages.length) out.push({ id: formNotebookID(elementAttributes(element), index), pages });
+  });
+  const standalonePages = Array.from(root.getElementsByTagName("page"))
+    .filter((element) => !element.closest("notebook"))
+    .map((element, index) => formNotebookPageFromElement(element, index))
+    .filter((page) => page.fields.length);
+  if (standalonePages.length) out.push({ id: "notebook-standalone", pages: standalonePages });
+  return out;
+}
+
+function formNotebookPagesFromElement(notebook: Element, notebookIndex: number): FormNotebookPage[] {
+  const pages: FormNotebookPage[] = [];
+  for (const child of Array.from(notebook.children)) {
+    if (child.tagName.toLowerCase() !== "page") continue;
+    pages.push(formNotebookPageFromElement(child, pages.length, notebookIndex));
+  }
+  return pages;
+}
+
+function formNotebookPageFromElement(page: Element, index: number, notebookIndex = 0): FormNotebookPage {
+  const attrs = elementAttributes(page);
+  return {
+    id: formNotebookPageID(attrs, index, notebookIndex),
+    label: formNotebookPageLabel(attrs, index),
+    attrs,
+    fields: fieldNodesFromElement(page)
+  };
+}
+
+function formNotebooksFromXMLText(arch: string): FormNotebook[] {
+  const notebooks: FormNotebook[] = [];
+  let notebookIndex = 0;
+  for (const match of arch.matchAll(/<notebook\b([^>]*)>([\s\S]*?)<\/notebook>/gi)) {
+    const attrs = xmlAttributes(`<notebook${match[1]}>`);
+    const pages = formNotebookPagesFromXMLText(match[2], notebookIndex);
+    if (pages.length) notebooks.push({ id: formNotebookID(attrs, notebookIndex), pages });
+    notebookIndex += 1;
+  }
+  if (notebooks.length) return notebooks;
+  const pages = formNotebookPagesFromXMLText(arch, 0);
+  return pages.length ? [{ id: "notebook-standalone", pages }] : [];
+}
+
+function formMainFieldNodesFromXMLText(arch: string): ViewFieldNode[] {
+  return fieldNodesFromXMLText(stripFormNotebookXMLText(arch));
+}
+
+function stripFormNotebookXMLText(arch: string): string {
+  return arch
+    .replace(/<notebook\b[^>]*>[\s\S]*?<\/notebook>/gi, "")
+    .replace(/<page\b[^>]*>[\s\S]*?<\/page>/gi, "");
+}
+
+function formNotebookPagesFromXMLText(xml: string, notebookIndex: number): FormNotebookPage[] {
+  const pages: FormNotebookPage[] = [];
+  for (const match of xml.matchAll(/<page\b([^>]*)>([\s\S]*?)<\/page>/gi)) {
+    const attrs = xmlAttributes(`<page${match[1]}>`);
+    const fields = fieldNodesFromXMLText(match[2]);
+    if (!fields.length) continue;
+    const index = pages.length;
+    pages.push({
+      id: formNotebookPageID(attrs, index, notebookIndex),
+      label: formNotebookPageLabel(attrs, index),
+      attrs,
+      fields
+    });
+  }
+  return pages;
+}
+
+function formNotebookID(attrs: Record<string, string>, index: number): string {
+  return `notebook-${slugID(attrs.name || attrs.string || String(index)) || index}`;
+}
+
+function formNotebookPageID(attrs: Record<string, string>, index: number, notebookIndex: number): string {
+  return `page-${notebookIndex}-${slugID(attrs.name || attrs.string || String(index)) || index}`;
+}
+
+function formNotebookPageLabel(attrs: Record<string, string>, index: number): string {
+  return attrs.string || attrs.name || `Page ${index + 1}`;
+}
+
+function slugID(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function buttonNodesFromElement(element: Element): ViewButtonNode[] {

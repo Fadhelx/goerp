@@ -1311,6 +1311,65 @@ assert.equal(nonFormSwitchCalls[1].action.view_mode, "kanban,form,list");
 assert.equal(nonFormSwitchCalls[1].action.view_type, "kanban");
 assert.equal("res_id" in nonFormSwitchCalls[1].action, false);
 
+const notebookFormWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Partner" },
+  activeView: "form",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" },
+      phone: { type: "char", string: "Phone" },
+      internal_note: { type: "text", string: "Internal Note" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `
+          <form>
+            <sheet>
+              <group><field name="name"/><field name="email"/></group>
+              <notebook>
+                <page string="Contacts" name="contacts_page"><field name="phone"/><field name="name"/></page>
+                <page string="Internal" name="internal_page"><field name="internal_note"/></page>
+              </notebook>
+            </sheet>
+          </form>
+        `,
+        id: 70
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 1,
+    display_name: "Azure Interior",
+    name: "Azure Interior",
+    email: "info@example.test",
+    phone: "+973 1700 0000",
+    internal_note: "VIP"
+  }
+});
+const notebook = findAll(notebookFormWindow, (node) => String(node.className ?? "").includes("o_notebook"))[0];
+assert.equal(notebook.dataset.notebook, "notebook-0");
+const notebookTabs = findAll(notebook, (node) => node.tag === "button" && String(node.className ?? "").includes("gorp-form-notebook-tab"));
+assert.deepEqual(notebookTabs.map((node) => node.textContent), ["Contacts", "Internal"]);
+assert.deepEqual(notebookTabs.map((node) => node.attributes["aria-selected"]), ["true", "false"]);
+const notebookPages = findAll(notebook, (node) => String(node.className ?? "").includes("gorp-form-notebook-page"));
+assert.deepEqual(notebookPages.map((node) => node.dataset.notebookPage), ["page-0-contacts_page", "page-0-internal_page"]);
+assert.equal(notebookPages[0].hidden, undefined);
+assert.equal(notebookPages[1].hidden, true);
+assert.equal(findAll(notebookFormWindow, (node) => node.dataset?.field === "phone").length, 1);
+assert.equal(findAll(notebookFormWindow, (node) => node.dataset?.field === "internal_note").length, 1);
+assert.equal(findAll(notebookFormWindow, (node) => node.dataset?.field === "name").length, 2);
+notebookTabs[1].dispatchEvent(new TestEvent("click"));
+assert.deepEqual(notebookTabs.map((node) => node.attributes["aria-selected"]), ["false", "true"]);
+assert.equal(notebookPages[0].hidden, true);
+assert.equal(notebookPages[1].hidden, false);
+
 const groupedRequestStart = windowActionRequests.length;
 const groupedWindowResult = await actionServices.action.doAction({
   ...windowResult.action,

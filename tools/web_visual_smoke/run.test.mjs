@@ -52,6 +52,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-webclient-action-desktop",
     "default-technical-search-desktop",
     "default-technical-form-desktop",
+    "default-groups-form-notebook-desktop",
     "default-search-menu-desktop",
     "default-search-filter-click-desktop",
     "default-view-switch-desktop",

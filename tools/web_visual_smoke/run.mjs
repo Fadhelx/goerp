@@ -157,6 +157,43 @@ export const scenarios = [
     }
   },
   {
+    name: "default-groups-form-notebook-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Groups notebook TS webclient ready");
+      await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "Groups");
+      const actionCardCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", 1, "TS Groups action card");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Groups", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Groups list action ready");
+      const listCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list']", 1, "TS Groups list");
+      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 1, "TS Groups rows");
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Groups form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-view", 1, "TS Groups form");
+      const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook.o_notebook", 1, "TS Groups form notebook");
+      const tabCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']", 1, "TS Groups form notebook tabs");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-form-notebook.o_notebook");
+        const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
+        const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
+        const inheritedFields = [...document.querySelectorAll(".o_web_client .o_action_manager [data-field='inherited_by_ids']")];
+        return {
+          notebook_id: root?.dataset?.notebook || "",
+          tab_labels: tabs.map((node) => node.textContent.trim()),
+          selected_tabs: tabs.map((node) => node.getAttribute("aria-selected")),
+          visible_pages: pages.filter((node) => !node.hidden).length,
+          inherited_field_count: inheritedFields.length
+        };
+      })()`);
+      if (!state.tab_labels.includes("Inherited By")) throw new Error(`Groups notebook tab missing: ${JSON.stringify(state)}`);
+      if (state.visible_pages !== 1) throw new Error(`Groups notebook visible page mismatch: ${JSON.stringify(state)}`);
+      if (state.inherited_field_count !== 1) throw new Error(`Groups notebook field duplication: ${JSON.stringify(state)}`);
+      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
+    }
+  },
+  {
     name: "default-search-menu-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

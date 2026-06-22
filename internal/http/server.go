@@ -6781,6 +6781,43 @@ const webClientShellHTML = `<!doctype html>
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 12px 24px;
 	}
+	.gorp-form-notebook.o_notebook {
+		margin-top: 18px;
+		border-top: 1px solid var(--line);
+	}
+	.gorp-form-notebook-tabs.nav-tabs {
+		display: flex;
+		gap: 2px;
+		margin: 0 0 14px;
+		padding: 0;
+		border-bottom: 1px solid var(--line);
+		overflow-x: auto;
+	}
+	.gorp-form-notebook-tab.nav-link {
+		position: relative;
+		margin-bottom: -1px;
+		padding: 10px 14px;
+		border: 1px solid transparent;
+		border-radius: 4px 4px 0 0;
+		background: transparent;
+		color: var(--muted);
+		font: inherit;
+		font-weight: 500;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.gorp-form-notebook-tab.nav-link.active {
+		border-color: var(--line);
+		border-bottom-color: #fff;
+		background: #fff;
+		color: var(--text);
+	}
+	.gorp-form-notebook-page.tab-pane[hidden] {
+		display: none !important;
+	}
+	.gorp-form-notebook-page .gorp-form-fields.o_inner_group {
+		margin-top: 0;
+	}
 	.gorp-form-field.o_wrap_field {
 		display: grid;
 		grid-template-columns: minmax(110px, .38fr) minmax(0, 1fr);
@@ -7327,6 +7364,9 @@ const webClientShellHTML = `<!doctype html>
 		.gorp-form-fields.o_inner_group,
 		.gorp-form-field.o_wrap_field {
 			grid-template-columns: minmax(0, 1fr);
+		}
+		.gorp-form-notebook-tab.nav-link {
+			padding: 9px 12px;
 		}
 		.toolbar { display: grid; }
 		.field.small { max-width: none; }
