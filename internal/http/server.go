@@ -5104,6 +5104,7 @@ const webClientShellHTML = `<!doctype html>
 		--topbar-hover: #604058;
 		--sidebar: #f7f7f7;
 			--home-bg: #eef0f3;
+			--home-bg-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIwIDEwODAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIHNsaWNlIj48cmVjdCB3aWR0aD0iMTkyMCIgaGVpZ2h0PSIxMDgwIiBmaWxsPSIjZWVmMGYzIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNLTEyMCAyNDBDMjEwIDYwIDQ4MCA4MCA3NjAgMjA1UzEzMjUgMzM1IDIwNDAgODAiIHN0cm9rZT0iI2RmZTRlYSIgc3Ryb2tlLXdpZHRoPSIxODAiIG9wYWNpdHk9Ii40OCIvPjxwYXRoIGQ9Ik0tMTYwIDcyMEMxODAgNTIwIDQ1NSA1MzAgNzYwIDY2MHM2NDUgMTcwIDEyOTAtNDAiIHN0cm9rZT0iI2Y4ZmFmYyIgc3Ryb2tlLXdpZHRoPSIyMTAiIG9wYWNpdHk9Ii43MiIvPjxwYXRoIGQ9Ik0xMjIwLTExMGMxOTAgMTQyIDM1MCAzMTUgNDgwIDUxNXMyMTggNDI1IDI2NiA2NzIiIHN0cm9rZT0iI2Q3ZGNlMyIgc3Ryb2tlLXdpZHRoPSIxNTAiIG9wYWNpdHk9Ii4zMiIvPjxwYXRoIGQ9Ik0tODAgMTAxMGMzNTAtNjQgNjQ0LTY1IDkwMi0yczUwOCAxMTAgODAyLTgiIHN0cm9rZT0iI2Q2ZTZlNiIgc3Ryb2tlLXdpZHRoPSI5MiIgb3BhY2l0eT0iLjI4Ii8+PC9nPjxnIG9wYWNpdHk9Ii4zNCI+PGNpcmNsZSBjeD0iMzIwIiBjeT0iMjEwIiByPSI5IiBmaWxsPSIjY2ZkNmRmIi8+PGNpcmNsZSBjeD0iMTUyMCIgY3k9IjE4MiIgcj0iNyIgZmlsbD0iI2Q4ZGRlNSIvPjxjaXJjbGUgY3g9IjE3MDUiIGN5PSI3NTAiIHI9IjEwIiBmaWxsPSIjZDRkY2U0Ii8+PGNpcmNsZSBjeD0iMTA0MCIgY3k9IjMxOCIgcj0iNiIgZmlsbD0iI2QwZDdkZiIvPjxjaXJjbGUgY3g9IjYwMCIgY3k9IjgzNSIgcj0iNyIgZmlsbD0iI2RkZTJlOCIvPjwvZz48L3N2Zz4=");
 			--home-panel: #ffffff;
 			--home-line: #cfd4dc;
 			--home-text: #1f2933;
@@ -6046,6 +6047,11 @@ const webClientShellHTML = `<!doctype html>
 		position: relative;
 		background: var(--home-bg);
 	}
+	body.o_home_menu_background,
+	body[data-view="apps"] {
+		background: var(--home-bg) !important;
+		color: var(--home-text);
+	}
 	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar {
 		position: absolute;
 		top: 0;
@@ -6464,15 +6470,19 @@ const webClientShellHTML = `<!doctype html>
 		padding: 14px 18px 24px;
 	}
 	.o-app-launcher-view {
-		background-color: #eef0f3;
-		background-image:
-			radial-gradient(circle at 22px 18px, rgba(31,41,51,.055) 0 1px, transparent 1.4px),
-			radial-gradient(circle at 72px 68px, rgba(31,41,51,.035) 0 1px, transparent 1.4px);
+		min-height: 100dvh;
+		background-color: var(--home-bg) !important;
+		background-image: var(--home-bg-image);
 		background-attachment: fixed;
-		background-size: 96px 96px;
+		background-position: center;
+		background-repeat: no-repeat;
+		background-size: cover;
 		box-shadow: inset 0 1px 0 rgba(255,255,255,.66);
 		color: var(--home-text);
 		padding: 76px 24px 44px;
+	}
+	.o_home_menu_registration_banner {
+		display: none !important;
 	}
 	body[data-theme="standard"] .o-app-launcher-view {
 		background: #eef0f3;
@@ -6525,7 +6535,7 @@ const webClientShellHTML = `<!doctype html>
 		align-items: flex-start;
 		justify-content: flex-start;
 		gap: 0;
-		margin: 48px auto 18px;
+		margin: 44px auto 18px;
 		max-width: 850px;
 		padding: 0;
 	}
@@ -6544,7 +6554,7 @@ const webClientShellHTML = `<!doctype html>
 		border: 0;
 		border-radius: 4px;
 		background: transparent !important;
-		color: #1f2933;
+		color: var(--home-text);
 		padding: 8px 4px;
 		text-decoration: none;
 		overflow: hidden;
@@ -6577,6 +6587,13 @@ const webClientShellHTML = `<!doctype html>
 			0 8px 8px rgba(0,0,0,.02),
 			0 16px 16px rgba(0,0,0,.02);
 		overflow: hidden;
+	}
+	.o-app-launcher-view .o_app .o_caption,
+	.o-app-launcher-view .o_app .o_app_name {
+		color: var(--home-text);
+		font-size: 14px;
+		line-height: 1.18;
+		font-weight: 500;
 	}
 	.o-app-launcher-view .o_app:nth-child(4n+2) .o_app_icon { background: #017e84; }
 	.o-app-launcher-view .o_app:nth-child(4n+3) .o_app_icon { background: #5f6f94; }
@@ -7017,6 +7034,19 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--brand);
 		font-weight: 600;
 		text-align: center;
+	}
+	.o_kanban_template_details,
+	.o_kanban_template_body {
+		display: grid;
+		gap: 6px;
+		min-width: 0;
+	}
+	.o_kanban_template_body > * {
+		min-width: 0;
+	}
+	.o_kanban_template_field output {
+		display: inline;
+		margin: 0;
 	}
 	.o_kanban_progressbar {
 		display: grid;
@@ -8210,6 +8240,7 @@ const webClientShellHTML = `<!doctype html>
 		--topbar-hover: #604058;
 		--sidebar: #181b25;
 			--home-bg: #eef0f3;
+			--home-bg-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIwIDEwODAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIHNsaWNlIj48cmVjdCB3aWR0aD0iMTkyMCIgaGVpZ2h0PSIxMDgwIiBmaWxsPSIjZWVmMGYzIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNLTEyMCAyNDBDMjEwIDYwIDQ4MCA4MCA3NjAgMjA1UzEzMjUgMzM1IDIwNDAgODAiIHN0cm9rZT0iI2RmZTRlYSIgc3Ryb2tlLXdpZHRoPSIxODAiIG9wYWNpdHk9Ii40OCIvPjxwYXRoIGQ9Ik0tMTYwIDcyMEMxODAgNTIwIDQ1NSA1MzAgNzYwIDY2MHM2NDUgMTcwIDEyOTAtNDAiIHN0cm9rZT0iI2Y4ZmFmYyIgc3Ryb2tlLXdpZHRoPSIyMTAiIG9wYWNpdHk9Ii43MiIvPjxwYXRoIGQ9Ik0xMjIwLTExMGMxOTAgMTQyIDM1MCAzMTUgNDgwIDUxNXMyMTggNDI1IDI2NiA2NzIiIHN0cm9rZT0iI2Q3ZGNlMyIgc3Ryb2tlLXdpZHRoPSIxNTAiIG9wYWNpdHk9Ii4zMiIvPjxwYXRoIGQ9Ik0tODAgMTAxMGMzNTAtNjQgNjQ0LTY1IDkwMi0yczUwOCAxMTAgODAyLTgiIHN0cm9rZT0iI2Q2ZTZlNiIgc3Ryb2tlLXdpZHRoPSI5MiIgb3BhY2l0eT0iLjI4Ii8+PC9nPjxnIG9wYWNpdHk9Ii4zNCI+PGNpcmNsZSBjeD0iMzIwIiBjeT0iMjEwIiByPSI5IiBmaWxsPSIjY2ZkNmRmIi8+PGNpcmNsZSBjeD0iMTUyMCIgY3k9IjE4MiIgcj0iNyIgZmlsbD0iI2Q4ZGRlNSIvPjxjaXJjbGUgY3g9IjE3MDUiIGN5PSI3NTAiIHI9IjEwIiBmaWxsPSIjZDRkY2U0Ii8+PGNpcmNsZSBjeD0iMTA0MCIgY3k9IjMxOCIgcj0iNiIgZmlsbD0iI2QwZDdkZiIvPjxjaXJjbGUgY3g9IjYwMCIgY3k9IjgzNSIgcj0iNyIgZmlsbD0iI2RkZTJlOCIvPjwvZz48L3N2Zz4=");
 			--home-panel: #ffffff;
 			--home-line: #cfd4dc;
 			--home-text: #1f2933;
@@ -8535,12 +8566,12 @@ const webClientShellHTML = `<!doctype html>
 		color: #45c4c1;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view {
-		background-color: #eef0f3;
-		background-image:
-			radial-gradient(circle at 22px 18px, rgba(31,41,51,.055) 0 1px, transparent 1.4px),
-			radial-gradient(circle at 72px 68px, rgba(31,41,51,.035) 0 1px, transparent 1.4px);
+		background-color: var(--home-bg) !important;
+		background-image: var(--home-bg-image);
 		background-attachment: fixed;
-		background-size: 96px 96px;
+		background-position: center;
+		background-repeat: no-repeat;
+		background-size: cover;
 		box-shadow: inset 0 1px 0 rgba(255,255,255,.66);
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-search { margin-bottom: 0; }
@@ -8551,38 +8582,9 @@ const webClientShellHTML = `<!doctype html>
 		color: #1f2933;
 		box-shadow: 0 8px 18px rgba(16,24,40,.08);
 	}
-	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 16px;
-		width: min(820px, calc(100vw - 48px));
-		min-height: 54px;
-		margin: 0 auto 54px;
-		padding: 13px 54px 13px 28px;
-		border: 1px solid rgba(125, 168, 215, .32);
-		border-left: 4px solid #61a8e8;
-		border-radius: 4px;
-		background: rgba(48, 68, 96, .96);
-		color: #ffffff;
-		font-weight: 500;
-		box-shadow: 0 12px 24px rgba(0,0,0,.22);
-	}
-	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner[hidden] {
-		display: none;
-	}
+	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner,
 	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_close {
-		position: absolute;
-		top: 50%;
-		right: 16px;
-		transform: translateY(-50%);
-		border: 0;
-		background: transparent;
-		color: rgba(255,255,255,.88);
-		font-size: 16px;
-		font-weight: 700;
-		line-height: 1;
+		display: none !important;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_app {
 		border-color: transparent;
@@ -8738,19 +8740,6 @@ const webClientShellHTML = `<!doctype html>
 		}
 		.o-app-launcher-view { padding: 68px 14px 32px; min-width: 0; }
 		.o-app-launcher-view .o-app-shell { max-width: 370px; }
-		main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_home_menu_registration_banner,
-		.o-app-launcher-view .o_home_menu_registration_banner {
-			width: min(358px, calc(100vw - 28px));
-			min-height: 72px;
-			margin: 0 auto 50px;
-			padding: 14px 38px 14px 22px;
-			text-align: center;
-			line-height: 1.35;
-		}
-		main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_home_menu_registration_close,
-		.o-app-launcher-view .o_home_menu_registration_close {
-			right: 14px;
-		}
 		.o-app-launcher-view .o_apps {
 			display: grid;
 			grid-template-columns: repeat(4, minmax(0, 1fr));

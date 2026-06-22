@@ -333,6 +333,11 @@ interface KanbanDragContext {
   groupRaw: unknown;
 }
 
+type KanbanTemplateNode =
+  | { type: "text"; text: string }
+  | { type: "field"; name: string; attrs: Record<string, string> }
+  | { type: "element"; tag: string; attrs: Record<string, string>; children: KanbanTemplateNode[] };
+
 export interface RenderWindowActionOptions {
   records?: readonly Record<string, unknown>[];
   values?: Record<string, unknown>;
@@ -3190,6 +3195,7 @@ function renderKanbanView(
   const arch = viewDescription?.arch ?? "";
   const fieldNodes = kanbanViewFieldNodes(arch, fields, records[0] ?? {});
   const progressBar = parseKanbanProgressBarNode(arch);
+  const template = parseKanbanBoxTemplate(arch);
   const titleField = kanbanTitleField(fieldNodes, fields);
   const groupDescriptor = groupBy[0] ?? "";
   const [groupField] = splitGroupByDescriptorValue(groupDescriptor);
@@ -3242,7 +3248,7 @@ function renderKanbanView(
           groupField,
           groupKey: group.key,
           groupRaw: group.raw
-        });
+        }, template);
         if (index >= groupLimit) setKanbanGroupRecordHidden(card, true);
         body.append(card);
       });
@@ -3288,7 +3294,7 @@ function renderKanbanView(
   const progress = renderKanbanProgressBar(progressBar, records, fields, model);
   if (progress) renderer.append(progress);
   for (const record of records) {
-    renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer, viewDescription?.actionMenus));
+    renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer, viewDescription?.actionMenus, undefined, template));
   }
   const quickCreate = renderKanbanQuickCreate(action, options, renderer);
   if (quickCreate) renderer.append(quickCreate);
@@ -3561,7 +3567,8 @@ function renderKanbanRecordCard(
   options: RenderWindowActionOptions,
   renderer: HTMLElement,
   actionMenus?: Record<string, unknown>,
-  dragContext?: KanbanDragContext
+  dragContext?: KanbanDragContext,
+  template?: KanbanTemplateNode[]
 ): HTMLElement {
   const card = document.createElement("article");
   card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
@@ -3589,23 +3596,30 @@ function renderKanbanRecordCard(
   });
   const main = document.createElement("div");
   main.className = "oe_kanban_details";
-  const title = document.createElement("strong");
-  title.className = "o_kanban_record_title";
-  title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
-  main.append(title);
-  for (const node of fieldNodes) {
-    if (node.name === titleField || node.name === "id") continue;
-    const line = document.createElement("div");
-    line.className = "o_kanban_record_field";
-    line.dataset.field = node.name;
-    const label = document.createElement("span");
-    label.className = "o_kanban_field_label";
-    label.textContent = fieldLabel(fields, node.name, model);
-    const value = document.createElement("span");
-    value.className = "o_kanban_field_value";
-    value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
-    line.append(label, value);
-    main.append(line);
+  const renderedTemplate = template?.length ? renderKanbanTemplate(template, record, fields, model) : null;
+  if (renderedTemplate?.children.length) {
+    main.className = "oe_kanban_details o_kanban_template_details";
+    main.dataset.kanbanTemplate = "kanban-box";
+    main.append(renderedTemplate);
+  } else {
+    const title = document.createElement("strong");
+    title.className = "o_kanban_record_title";
+    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
+    main.append(title);
+    for (const node of fieldNodes) {
+      if (node.name === titleField || node.name === "id") continue;
+      const line = document.createElement("div");
+      line.className = "o_kanban_record_field";
+      line.dataset.field = node.name;
+      const label = document.createElement("span");
+      label.className = "o_kanban_field_label";
+      label.textContent = fieldLabel(fields, node.name, model);
+      const value = document.createElement("span");
+      value.className = "o_kanban_field_value";
+      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
+      line.append(label, value);
+      main.append(line);
+    }
   }
   if (model === "ir.module.module" && recordID !== undefined) {
     main.append(renderModuleInfoButton(record, recordID, action, options, renderer));
@@ -4009,6 +4023,154 @@ function kanbanGroupKey(value: unknown): string {
   if (Array.isArray(value)) return value.length ? String(value[0] ?? "") : "";
   if (value === undefined || value === null || value === false || value === "") return "__undefined__";
   return String(value);
+}
+
+function renderKanbanTemplate(
+  template: readonly KanbanTemplateNode[],
+  record: Record<string, unknown>,
+  fields: Record<string, unknown>,
+  model: string
+): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "o_kanban_template_body";
+  root.dataset.kanbanTemplateBody = "true";
+  const context = kanbanTemplateEvalContext(record, fields, model);
+  for (const node of template) {
+    const rendered = renderKanbanTemplateNode(node, record, fields, model, context);
+    if (rendered) root.append(rendered);
+  }
+  return root;
+}
+
+function renderKanbanTemplateNode(
+  node: KanbanTemplateNode,
+  record: Record<string, unknown>,
+  fields: Record<string, unknown>,
+  model: string,
+  context: Record<string, unknown>
+): Node | null {
+  if (node.type === "text") {
+    const text = collapseTemplateText(node.text);
+    return text ? document.createTextNode(text) : null;
+  }
+  if (node.type === "field") {
+    if (!node.name || !fields[node.name]) return null;
+    const wrapper = document.createElement("span");
+    wrapper.className = "o_kanban_template_field";
+    if (node.attrs.class) wrapper.className += ` ${node.attrs.class}`;
+    wrapper.dataset.field = node.name;
+    wrapper.append(renderReadonlyFieldValue(
+      { name: node.name, attrs: node.attrs, children: [], childViewAttrs: {} },
+      fields[node.name],
+      record[node.name],
+      record,
+      undefined,
+      undefined,
+      model
+    ));
+    return wrapper;
+  }
+  if (!kanbanTemplateNodeVisible(node.attrs, context)) return null;
+  if (node.attrs["t-esc"] || node.attrs["t-out"]) {
+    const value = kanbanTemplateExpressionValue(node.attrs["t-esc"] || node.attrs["t-out"] || "", context);
+    if (node.tag.toLowerCase() === "t") return document.createTextNode(formatCellValue(value));
+    const element = document.createElement(kanbanTemplateSafeTag(node.tag));
+    element.className = kanbanTemplateClassName(node.attrs, context);
+    element.append(document.createTextNode(formatCellValue(value)));
+    return element;
+  }
+  const tag = kanbanTemplateSafeTag(node.tag);
+  const element = document.createElement(tag);
+  element.className = kanbanTemplateClassName(node.attrs, context);
+  if (tag === "strong") element.className = `${element.className} o_kanban_record_title`.trim();
+  if (node.attrs.title) element.setAttribute("title", node.attrs.title);
+  if (node.attrs["aria-label"]) element.setAttribute("aria-label", node.attrs["aria-label"]);
+  if (node.attrs.name) element.dataset.templateName = node.attrs.name;
+  for (const child of node.children) {
+    const rendered = renderKanbanTemplateNode(child, record, fields, model, context);
+    if (rendered) element.append(rendered);
+  }
+  if (!element.children.length && !element.textContent.trim()) return null;
+  return element;
+}
+
+function kanbanTemplateEvalContext(record: Record<string, unknown>, fields: Record<string, unknown>, model: string): Record<string, unknown> {
+  const recordContext: Record<string, unknown> = {};
+  for (const [name, description] of Object.entries(fields)) {
+    const raw = record[name];
+    recordContext[name] = {
+      raw_value: raw,
+      value: fieldDisplayText(description, raw, model, name)
+    };
+  }
+  return {
+    record: recordContext,
+    raw_record: record,
+    id: record.id,
+    true: true,
+    false: false
+  };
+}
+
+function kanbanTemplateNodeVisible(attrs: Record<string, string>, context: Record<string, unknown>): boolean {
+  const expression = attrs["t-if"] || attrs["t-elif"];
+  if (!expression) return true;
+  const value = kanbanTemplateExpressionValue(expression, context);
+  return pythonTruthy(value);
+}
+
+function kanbanTemplateExpressionValue(expression: string, context: Record<string, unknown>): unknown {
+  const trimmed = expression.trim();
+  const dotted = kanbanTemplateDottedValue(trimmed, context);
+  if (dotted.found) return dotted.value;
+  try {
+    return evaluateExpr(trimmed, context);
+  } catch {
+    return "";
+  }
+}
+
+function kanbanTemplateDottedValue(expression: string, context: Record<string, unknown>): { found: boolean; value?: unknown } {
+  if (!/^[a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)+$/.test(expression)) return { found: false };
+  let current: unknown = context;
+  for (const part of expression.split(".")) {
+    if (!isRecord(current) || !(part in current)) return { found: false };
+    current = current[part];
+  }
+  return { found: true, value: current };
+}
+
+function kanbanTemplateClassName(attrs: Record<string, string>, context: Record<string, unknown>): string {
+  const classes = [attrs.class || ""];
+  if (attrs["t-att-class"]) {
+    const value = kanbanTemplateExpressionValue(attrs["t-att-class"], context);
+    if (typeof value === "string") classes.push(value);
+    else if (Array.isArray(value)) classes.push(value.filter(Boolean).map(String).join(" "));
+    else if (isRecord(value)) classes.push(Object.entries(value).filter(([, active]) => pythonTruthy(active)).map(([name]) => name).join(" "));
+  }
+  if (attrs["t-attf-class"]) {
+    classes.push(renderKanbanTemplateFormatString(attrs["t-attf-class"], context));
+  }
+  return classes.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function renderKanbanTemplateFormatString(value: string, context: Record<string, unknown>): string {
+  return value.replace(/#\{([^}]+)\}|\{\{([^}]+)\}\}/g, (_match, hashExpression, braceExpression) => {
+    const evaluated = kanbanTemplateExpressionValue(String(hashExpression || braceExpression || ""), context);
+    return formatCellValue(evaluated);
+  });
+}
+
+function kanbanTemplateSafeTag(tag: string): string {
+  const normalized = tag.toLowerCase();
+  if (["div", "span", "strong", "b", "em", "i", "small", "p", "section", "header", "footer", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6"].includes(normalized)) {
+    return normalized;
+  }
+  return "span";
+}
+
+function collapseTemplateText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function kanbanViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {
@@ -9061,6 +9223,116 @@ function parseKanbanProgressColors(value: string | undefined): Record<string, st
     return out;
   }
   return {};
+}
+
+function parseKanbanBoxTemplate(arch: string): KanbanTemplateNode[] {
+  if (!arch) return [];
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      for (const node of Array.from(doc.getElementsByTagName("t"))) {
+        if (node.getAttribute("t-name") === "kanban-box") return kanbanTemplateNodesFromDOMChildren(node);
+      }
+    } catch {
+      return kanbanTemplateNodesFromXMLText(arch);
+    }
+  }
+  return kanbanTemplateNodesFromXMLText(arch);
+}
+
+function kanbanTemplateNodesFromDOMChildren(parent: Element): KanbanTemplateNode[] {
+  const out: KanbanTemplateNode[] = [];
+  for (const child of Array.from(parent.childNodes)) {
+    const node = kanbanTemplateNodeFromDOM(child);
+    if (node) out.push(node);
+  }
+  return out;
+}
+
+function kanbanTemplateNodeFromDOM(node: ChildNode): KanbanTemplateNode | null {
+  if (node.nodeType === 3) {
+    const text = collapseTemplateText(node.textContent || "");
+    return text ? { type: "text", text } : null;
+  }
+  if (node.nodeType !== 1) return null;
+  const element = node as Element;
+  const tag = element.tagName.toLowerCase();
+  const attrs = elementAttributes(element);
+  if (tag === "field" && attrs.name) return { type: "field", name: attrs.name, attrs };
+  return {
+    type: "element",
+    tag,
+    attrs,
+    children: kanbanTemplateNodesFromDOMChildren(element)
+  };
+}
+
+function kanbanTemplateNodesFromXMLText(arch: string): KanbanTemplateNode[] {
+  const content = kanbanBoxTemplateXMLText(arch);
+  if (!content) return [];
+  const roots: KanbanTemplateNode[] = [];
+  const stack: KanbanTemplateNode[][] = [roots];
+  const tokenPattern = /<\/?[\w:.-]+(?:\s+[^<>]*)?\/?>/g;
+  let previousIndex = 0;
+  for (const match of content.matchAll(tokenPattern)) {
+    const token = match[0];
+    appendKanbanTemplateText(stack[stack.length - 1], content.slice(previousIndex, match.index ?? 0));
+    previousIndex = (match.index ?? 0) + token.length;
+    if (/^<\//.test(token)) {
+      if (stack.length > 1) stack.pop();
+      continue;
+    }
+    const tagMatch = token.match(/^<([\w:.-]+)/);
+    if (!tagMatch) continue;
+    const tag = tagMatch[1].toLowerCase();
+    const attrs = xmlAttributes(token);
+    const selfClosing = /\/>$/.test(token);
+    if (tag === "field" && attrs.name) {
+      stack[stack.length - 1].push({ type: "field", name: attrs.name, attrs });
+      continue;
+    }
+    const node: KanbanTemplateNode = { type: "element", tag, attrs, children: [] };
+    stack[stack.length - 1].push(node);
+    if (!selfClosing) stack.push(node.children);
+  }
+  appendKanbanTemplateText(stack[stack.length - 1], content.slice(previousIndex));
+  return roots;
+}
+
+function appendKanbanTemplateText(nodes: KanbanTemplateNode[], text: string): void {
+  const collapsed = collapseTemplateText(text);
+  if (collapsed) nodes.push({ type: "text", text: collapsed });
+}
+
+function kanbanBoxTemplateXMLText(arch: string): string {
+  const tokenPattern = /<\/?[\w:.-]+(?:\s+[^<>]*)?\/?>/g;
+  let found = false;
+  let depth = 0;
+  let contentStart = 0;
+  for (const match of arch.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    const open = !/^<\//.test(token);
+    const tagMatch = token.match(/^<\/?([\w:.-]+)/);
+    if (!tagMatch || tagMatch[1].toLowerCase() !== "t") continue;
+    if (open) {
+      const attrs = xmlAttributes(token);
+      const selfClosing = /\/>$/.test(token);
+      if (!found && attrs["t-name"] === "kanban-box") {
+        found = true;
+        depth = selfClosing ? 0 : 1;
+        contentStart = index + token.length;
+        if (selfClosing) return "";
+        continue;
+      }
+      if (found && !selfClosing) depth += 1;
+      continue;
+    }
+    if (!found) continue;
+    depth -= 1;
+    if (depth <= 0) return arch.slice(contentStart, index);
+  }
+  return "";
 }
 
 function kanbanAuxiliaryFieldNames(arch: string, fields: Record<string, unknown>): string[] {

@@ -2633,6 +2633,50 @@ assert.equal(kanbanProgressCards[0].dataset.kanbanColor, "2");
 assert.ok(String(kanbanProgressCards[0].className).includes("o_kanban_color_2"));
 assert.ok(String(kanbanProgressCards[1].className).includes("o_kanban_color_5"));
 
+const kanbanTemplateWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Template Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" },
+      state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-attf-class="state-#{record.state.raw_value}"><strong class="tmpl-title"><field name="display_name"/></strong><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/></div></t></templates></kanban>`,
+        id: 29
+      },
+      form: { arch: `<form><field name="display_name"/></form>`, id: 30 }
+    }
+  },
+  records: [{ id: 41, display_name: "Template Partner", email: "template@example.test", state: "new" }],
+  length: 1
+});
+const kanbanTemplateCard = findAll(kanbanTemplateWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
+const kanbanTemplateDetails = findAll(kanbanTemplateCard, (node) => node.dataset?.kanbanTemplate === "kanban-box")[0];
+const kanbanTemplateBody = findAll(kanbanTemplateCard, (node) => node.dataset?.kanbanTemplateBody === "true")[0];
+const kanbanTemplateRoot = findAll(kanbanTemplateCard, (node) => String(node.className ?? "").includes("tmpl-card"))[0];
+const kanbanTemplateTitle = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-title"))[0];
+const kanbanTemplateEmail = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-email"))[0];
+const kanbanTemplateState = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-state"))[0];
+assert.equal(kanbanTemplateDetails.dataset.kanbanTemplate, "kanban-box");
+assert.ok(String(kanbanTemplateDetails.className).includes("o_kanban_template_details"));
+assert.equal(kanbanTemplateBody.dataset.kanbanTemplateBody, "true");
+assert.ok(String(kanbanTemplateRoot.className).includes("state-new"));
+assert.equal(findAll(kanbanTemplateTitle, (node) => node.dataset?.field === "display_name")[0].children[0].textContent, "Template Partner");
+assert.equal(findAll(kanbanTemplateEmail, (node) => node.dataset?.field === "email")[0].children[0].textContent, "template@example.test");
+assert.equal(kanbanTemplateState.children[0].textContent, "New");
+assert.equal(findAll(kanbanTemplateCard, (node) => String(node.className ?? "").includes("o_kanban_record_field")).length, 0);
+
 const groupedKanbanCreateCalls = [];
 const groupedKanbanWriteCalls = [];
 const groupedKanbanDropEvents = [];

@@ -1215,6 +1215,78 @@ export const scenarios = [
     }
   },
   {
+    name: "default-kanban-template-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_template=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban template TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Kanban Template",
+            res_model: "res.partner",
+            view_mode: "kanban,form",
+            views: [[false, "kanban"], [false, "form"]]
+          },
+          activeView: "kanban",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              display_name: { type: "char", string: "Name" },
+              email: { type: "char", string: "Email" },
+              state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] }
+            },
+            relatedModels: {},
+            views: {
+              kanban: {
+                arch: "<kanban><field name='display_name'/><field name='email'/><field name='state'/><templates><t t-name='kanban-box'><div class='tmpl-card' t-attf-class='state-#{record.state.raw_value}'><strong class='tmpl-title'><field name='display_name'/></strong><t t-if='record.email.raw_value'><span class='tmpl-email'><field name='email'/></span></t><span class='tmpl-state' t-esc='record.state.value'/></div></t></templates></kanban>",
+                id: 760
+              },
+              form: { arch: "<form><field name='display_name'/></form>", id: 761 }
+            }
+          },
+          records: [
+            { id: 762, display_name: "Template A", email: "template-a@example.test", state: "new" },
+            { id: 763, display_name: "Template B", email: "", state: "done" }
+          ],
+          length: 2,
+          offset: 0,
+          countLimited: false
+        });
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "kanban-template";
+        const cards = [...root.querySelectorAll(".o_kanban_record")].map((card) => ({
+          id: card.dataset.id || "",
+          template: card.querySelector(".o_kanban_template_details")?.dataset.kanbanTemplate || "",
+          body_count: card.querySelectorAll(".o_kanban_template_body[data-kanban-template-body='true']").length,
+          fallback_field_count: card.querySelectorAll(".o_kanban_record_field").length,
+          title: card.querySelector(".tmpl-title")?.textContent?.trim() || "",
+          email_count: card.querySelectorAll(".tmpl-email").length,
+          email: card.querySelector(".tmpl-email")?.textContent?.trim() || "",
+          state: card.querySelector(".tmpl-state")?.textContent?.trim() || "",
+          root_class: card.querySelector(".tmpl-card")?.className || ""
+        }));
+        return { card_count: cards.length, cards };
+      })()`);
+      const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-template'] .o_kanban_record", 2, "Kanban template cards");
+      const templateCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-template'] .o_kanban_template_body[data-kanban-template-body='true']", 2, "Kanban template bodies");
+      if (renderedState.card_count !== 2 || renderedState.cards.some((card) => card.template !== "kanban-box" || card.body_count !== 1 || card.fallback_field_count !== 0)) {
+        throw new Error(`kanban template body invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.title === "Template A" && card.email === "template-a@example.test" && card.state === "New" && card.root_class.includes("state-new"))) {
+        throw new Error(`kanban template first card invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "763" && card.title === "Template B" && card.email_count === 0 && card.state === "Done" && card.root_class.includes("state-done"))) {
+        throw new Error(`kanban template conditional card invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { rendered_state: renderedState, card_count: cardCount, template_count: templateCount };
+    }
+  },
+  {
     name: "default-kanban-groupby-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -1321,6 +1393,8 @@ export const scenarios = [
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "mobile launcher app tiles");
       const launcherState = await evaluate(page, `(() => {
         const grid = document.querySelector(".o_web_client .o_home_menu .o_apps");
+        const launcher = document.querySelector(".o_web_client .o-app-launcher-view");
+        const launcherStyle = launcher ? getComputedStyle(launcher) : null;
         const wrappers = [...document.querySelectorAll(".o_web_client .o_home_menu .o_draggable")];
         const cards = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")];
         const cardRects = wrappers.length ? wrappers.map((card) => card.getBoundingClientRect()) : cards.map((card) => card.getBoundingClientRect());
@@ -1341,6 +1415,8 @@ export const scenarios = [
           return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
         });
         return {
+          launcher_bg: launcherStyle?.backgroundColor || "",
+          launcher_bg_image: launcherStyle?.backgroundImage || "",
           draggable_count: wrappers.length,
           first_row_count: firstRow.length,
           icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
@@ -1353,6 +1429,8 @@ export const scenarios = [
           horizontal_overflow_px: document.documentElement.scrollWidth - window.innerWidth
         };
       })()`);
+      if (isDarkLauncherBackground(launcherState.launcher_bg)) throw new Error(`mobile launcher dark background: ${JSON.stringify(launcherState)}`);
+      if (!isEnterpriseHomeBackgroundImage(launcherState.launcher_bg_image)) throw new Error(`mobile launcher enterprise background missing: ${JSON.stringify(launcherState)}`);
       if (launcherState.horizontal_overflow_px > 1) throw new Error(`mobile launcher horizontal overflow: ${launcherState.horizontal_overflow_px}px`);
       if (launcherState.draggable_count < appCount) throw new Error(`mobile launcher wrapper contract invalid: ${JSON.stringify(launcherState)}`);
       if (appCount >= 4 && launcherState.first_row_count !== 4) throw new Error(`mobile launcher first row invalid: ${JSON.stringify(launcherState)}`);
@@ -2041,7 +2119,9 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
 	  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
 	  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
+	  if (isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`dark launcher background ${snapshot.launcher_bg_color}`);
 	  if (snapshot.launcher_bg_color.replace(/\s+/g, "") !== "rgb(238,240,243)") issues.push(`launcher background ${snapshot.launcher_bg_color}`);
+	  if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
 	  if (!snapshot.launcher_box_shadow || snapshot.launcher_box_shadow === "none") issues.push("launcher shading missing");
 	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
 	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
@@ -2058,6 +2138,23 @@ async function assertEnterpriseLauncherSnapshot(page) {
   if (snapshot.app_icon_text) issues.push(`synthetic app icon text ${snapshot.app_icon_text}`);
   if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);
   return snapshot;
+}
+
+function isDarkLauncherBackground(value) {
+  const match = String(value || "").match(/rgba?\(([^)]+)\)/i);
+  if (!match) return false;
+  const [red, green, blue] = match[1]
+    .split(",")
+    .slice(0, 3)
+    .map((part) => Number.parseFloat(part.trim()));
+  if (![red, green, blue].every(Number.isFinite)) return false;
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  return luminance < 120;
+}
+
+function isEnterpriseHomeBackgroundImage(value) {
+  const image = String(value || "").toLowerCase();
+  return image.includes("data:image/svg+xml") && !image.includes("radial-gradient");
 }
 
 async function main() {
