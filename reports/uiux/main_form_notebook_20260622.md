@@ -24,6 +24,7 @@ Commands passed:
 - `go test ./tools/progress_dashboard`
 - `git diff --check`
 - `node tools/web_visual_smoke/run.mjs --base-url=http://127.0.0.1:8076 --out=reports/uiux/main_form_notebook_20260622 --scenario=default-technical-form-desktop --scenario=default-mobile-server-actions-flow --scenario=default-groups-form-notebook-desktop --timeout-ms=60000`
+- `make ci`
 
 Remaining gaps:
 - Exact Enterprise notebook spacing and icons without proprietary assets.
