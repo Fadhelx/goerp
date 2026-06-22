@@ -313,6 +313,19 @@ export interface WindowActionSearchState {
   favorites: readonly ActionControlPanelMenuItem[];
 }
 
+interface KanbanLoadMorePager {
+  offset: number;
+  length: number;
+  countLimited: boolean;
+  search?: WindowActionSearchState;
+}
+
+interface KanbanProgressBarNode {
+  field: string;
+  sumField?: string;
+  colors: Record<string, string>;
+}
+
 export interface RenderWindowActionOptions {
   records?: readonly Record<string, unknown>[];
   values?: Record<string, unknown>;
@@ -1803,7 +1816,12 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     body = result.activeView === "form"
       ? renderFormView(viewDescription, fields, result.viewDescriptions.relatedModels, values, result.resModel, options)
       : result.activeView === "kanban"
-        ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, result.search?.state.groupBy ?? [], options)
+        ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, result.search?.state.groupBy ?? [], options, {
+          offset: result.offset,
+          length: result.length,
+          countLimited: result.countLimited,
+          search: result.search
+        })
       : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
     if (result.activeView === "form") moveFormActionMenuToControlPanel(controlPanel, body);
   }
@@ -3159,10 +3177,12 @@ function renderKanbanView(
   model: string,
   action: Record<string, unknown>,
   groupBy: readonly string[] = [],
-  options: RenderWindowActionOptions = {}
+  options: RenderWindowActionOptions = {},
+  pager?: KanbanLoadMorePager
 ): HTMLElement {
   const arch = viewDescription?.arch ?? "";
   const fieldNodes = kanbanViewFieldNodes(arch, fields, records[0] ?? {});
+  const progressBar = parseKanbanProgressBarNode(arch);
   const titleField = kanbanTitleField(fieldNodes, fields);
   const groupDescriptor = groupBy[0] ?? "";
   const [groupField] = splitGroupByDescriptorValue(groupDescriptor);
@@ -3238,18 +3258,213 @@ function renderKanbanView(
       });
       header.append(title, counter, foldToggle);
       column.append(header, body);
+      const progress = renderKanbanProgressBar(progressBar, group.records, fields, model);
+      if (progress) column.insertBefore(progress, body);
       if (quickCreate) column.append(quickCreate);
       setFolded(false);
       renderer.append(column);
     }
+    const loadMore = renderKanbanLoadMore(model, action, records.length, pager, options, renderer);
+    if (loadMore) renderer.append(loadMore);
     return renderer;
   }
+  const progress = renderKanbanProgressBar(progressBar, records, fields, model);
+  if (progress) renderer.append(progress);
   for (const record of records) {
     renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer));
   }
   const quickCreate = renderKanbanQuickCreate(action, options, renderer);
   if (quickCreate) renderer.append(quickCreate);
+  const loadMore = renderKanbanLoadMore(model, action, records.length, pager, options, renderer);
+  if (loadMore) renderer.append(loadMore);
   return renderer;
+}
+
+function renderKanbanProgressBar(
+  progressBar: KanbanProgressBarNode | undefined,
+  records: readonly Record<string, unknown>[],
+  fields: Record<string, unknown>,
+  model: string
+): HTMLElement | null {
+  if (!progressBar || !records.length || !fields[progressBar.field]) return null;
+  const buckets = kanbanProgressBuckets(progressBar, records, fields, model);
+  if (!buckets.length) return null;
+  const root = document.createElement("div");
+  root.className = "o_kanban_progressbar";
+  root.dataset.field = progressBar.field;
+  if (progressBar.sumField) root.dataset.sumField = progressBar.sumField;
+  root.setAttribute("role", "group");
+  root.setAttribute("aria-label", `${fieldLabel(fields, progressBar.field, model)} progress`);
+  const track = document.createElement("div");
+  track.className = "o_kanban_progressbar_track";
+  for (const bucket of buckets) {
+    const segment = document.createElement("span");
+    segment.className = `o_kanban_progressbar_segment o_kanban_progress_color_${bucket.color}`;
+    segment.dataset.value = bucket.key;
+    segment.dataset.label = bucket.label;
+    segment.dataset.count = String(bucket.count);
+    if (bucket.sum !== undefined) segment.dataset.sum = String(bucket.sum);
+    segment.setAttribute("title", `${bucket.label}: ${bucket.metricLabel}`);
+    segment.setAttribute("style", `width: ${bucket.percent.toFixed(2)}%;`);
+    track.append(segment);
+  }
+  const legend = document.createElement("div");
+  legend.className = "o_kanban_progressbar_legend";
+  for (const bucket of buckets.slice(0, 6)) {
+    const item = document.createElement("span");
+    item.className = `o_kanban_progressbar_legend_item o_kanban_progress_color_${bucket.color}`;
+    item.dataset.value = bucket.key;
+    const marker = document.createElement("span");
+    marker.className = "o_kanban_progressbar_legend_marker";
+    const text = document.createElement("span");
+    text.className = "o_kanban_progressbar_legend_text";
+    text.textContent = `${bucket.label} ${bucket.metricLabel}`;
+    item.append(marker, text);
+    legend.append(item);
+  }
+  root.append(track, legend);
+  return root;
+}
+
+function kanbanProgressBuckets(
+  progressBar: KanbanProgressBarNode,
+  records: readonly Record<string, unknown>[],
+  fields: Record<string, unknown>,
+  model: string
+): Array<{ key: string; label: string; count: number; sum?: number; percent: number; metricLabel: string; color: string }> {
+  const byKey = new Map<string, { raw: unknown; count: number; sum: number }>();
+  for (const record of records) {
+    const raw = record[progressBar.field];
+    const key = kanbanProgressKey(raw);
+    const bucket = byKey.get(key) ?? { raw, count: 0, sum: 0 };
+    bucket.count += 1;
+    if (progressBar.sumField) bucket.sum += numericProgressValue(record[progressBar.sumField]);
+    byKey.set(key, bucket);
+  }
+  const useSum = Boolean(progressBar.sumField) && [...byKey.values()].some((bucket) => bucket.sum > 0);
+  const total = [...byKey.values()].reduce((sum, bucket) => sum + (useSum ? bucket.sum : bucket.count), 0);
+  if (total <= 0) return [];
+  return [...byKey.entries()].map(([key, bucket], index) => {
+    const metric = useSum ? bucket.sum : bucket.count;
+    const label = fieldDisplayText(fields[progressBar.field], bucket.raw, model, progressBar.field) || "Undefined";
+    return {
+      key,
+      label,
+      count: bucket.count,
+      sum: useSum ? bucket.sum : undefined,
+      percent: Math.max(0, Math.min(100, metric / total * 100)),
+      metricLabel: useSum ? formatProgressMetric(bucket.sum) : String(bucket.count),
+      color: kanbanProgressColor(progressBar, key, index)
+    };
+  });
+}
+
+function kanbanProgressKey(value: unknown): string {
+  if (Array.isArray(value)) return value.length ? String(value[0] ?? "") : "";
+  if (value === undefined || value === null || value === false || value === "") return "__undefined__";
+  return String(value);
+}
+
+function kanbanProgressColor(progressBar: KanbanProgressBarNode, key: string, index: number): string {
+  const explicit = progressBar.colors[key] ?? progressBar.colors[String(key)] ?? "";
+  const normalized = normalizeKanbanColorToken(explicit);
+  if (normalized) return normalized;
+  return ["success", "info", "warning", "danger", "primary", "muted"][index % 6];
+}
+
+function normalizeKanbanColorToken(value: unknown): string {
+  const token = String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!token) return "";
+  if (token === "secondary" || token === "default") return "muted";
+  if (["success", "info", "warning", "danger", "primary", "muted"].includes(token)) return token;
+  return "muted";
+}
+
+function numericProgressValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return 0;
+}
+
+function formatProgressMetric(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function renderKanbanLoadMore(
+  model: string,
+  action: Record<string, unknown>,
+  recordCount: number,
+  pager: KanbanLoadMorePager | undefined,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement | null {
+  if (!pager || recordCount <= 0) return null;
+  const offset = Math.max(0, Math.trunc(numberActionValue(pager.offset, 0)));
+  const loaded = Math.max(0, Math.trunc(recordCount));
+  const loadedEnd = offset + loaded;
+  const total = Math.max(loadedEnd, Math.trunc(numberActionValue(pager.length, loadedEnd)));
+  const countLimited = Boolean(pager.countLimited);
+  if (!countLimited && loadedEnd >= total) return null;
+  const currentLimit = Math.max(1, Math.trunc(numberActionValue(action.limit, loaded || 80)));
+  const nextLimit = kanbanNextLoadLimit(currentLimit, loaded, offset, total, countLimited);
+  const wrapper = document.createElement("div");
+  wrapper.className = "o_kanban_load_more_wrapper";
+  wrapper.dataset.kanbanLoaded = String(loaded);
+  wrapper.dataset.kanbanTotal = countLimited ? `${total}+` : String(total);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o_kanban_load_more btn btn-secondary";
+  button.dataset.kanbanLoadMore = "true";
+  button.dataset.loaded = String(loaded);
+  button.dataset.total = countLimited ? `${total}+` : String(total);
+  button.dataset.nextLimit = String(nextLimit);
+  button.setAttribute("aria-label", "Load more records");
+  button.textContent = "Load more";
+  button.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    const nextAction = actionWithKanbanLoadMore(action, pager, nextLimit);
+    const detail = { model, offset, loaded, limit: currentLimit, nextLimit, total, countLimited, action: nextAction };
+    if (options.services?.action) {
+      button.disabled = true;
+      button.dataset.loading = "true";
+      await options.services.action.doAction(nextAction, replaceActionOptions(options));
+      return;
+    }
+    root.dispatchEvent(new CustomEvent("action:kanban-load-more", {
+      bubbles: true,
+      detail
+    }));
+  });
+  wrapper.append(button);
+  return wrapper;
+}
+
+function kanbanNextLoadLimit(currentLimit: number, loaded: number, offset: number, total: number, countLimited: boolean): number {
+  const step = Math.max(1, currentLimit);
+  const target = Math.max(currentLimit + step, loaded + step);
+  if (countLimited) return target;
+  return Math.max(loaded + 1, Math.min(Math.max(loaded, total - offset), target));
+}
+
+function actionWithKanbanLoadMore(
+  action: Record<string, unknown>,
+  pager: KanbanLoadMorePager,
+  nextLimit: number
+): Record<string, unknown> {
+  const nextAction: Record<string, unknown> = {
+    ...action,
+    limit: nextLimit,
+    __pager_offset: Math.max(0, Math.trunc(numberActionValue(pager.offset, 0)))
+  };
+  const facets = pager.search?.state.facets;
+  if (facets) nextAction.__search_facets = facets.map(cloneSearchFacet);
+  const query = String(pager.search?.state.query ?? "").trim();
+  if (query) nextAction.__search_query = query;
+  else delete nextAction.__search_query;
+  return nextAction;
 }
 
 function renderKanbanRecordCard(
@@ -3264,10 +3479,14 @@ function renderKanbanRecordCard(
 ): HTMLElement {
   const card = document.createElement("article");
   card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
+  const colorClass = kanbanRecordColorClass(record);
+  if (colorClass) card.className += ` ${colorClass}`;
   card.setAttribute("role", "link");
   card.setAttribute("tabindex", "0");
   const recordID = numberRecordID(record.id);
   if (recordID !== undefined) card.dataset.id = String(recordID);
+  const colorValue = kanbanRecordColorValue(record);
+  if (colorValue !== undefined) card.dataset.kanbanColor = String(colorValue);
   card.dataset.model = model;
   card.addEventListener("click", async () => {
     if (recordID === undefined) return;
@@ -3307,6 +3526,23 @@ function renderKanbanRecordCard(
   }
   card.append(main);
   return card;
+}
+
+function kanbanRecordColorClass(record: Record<string, unknown>): string {
+  const value = kanbanRecordColorValue(record);
+  if (value === undefined) return "";
+  const normalized = kanbanColorIndex(value);
+  return normalized !== undefined ? `o_kanban_color_${normalized}` : `o_kanban_color_${slugID(String(value))}`;
+}
+
+function kanbanRecordColorValue(record: Record<string, unknown>): unknown {
+  return firstValue(record.color) ?? firstValue(record.kanban_color) ?? firstValue(record.color_index);
+}
+
+function kanbanColorIndex(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.min(11, Math.trunc(value)));
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Math.max(0, Math.min(11, Math.trunc(Number(value))));
+  return undefined;
 }
 
 function renderKanbanRecordMenu(
@@ -3364,6 +3600,46 @@ function renderKanbanRecordMenu(
     setOpen(false);
     await openKanbanRecord(model, id, action, options, root);
   });
+  const duplicate = document.createElement("button");
+  duplicate.type = "button";
+  duplicate.className = "dropdown-item o_kanban_record_menu_item";
+  duplicate.dataset.kanbanRecordMenuAction = "duplicate";
+  duplicate.setAttribute("role", "menuitem");
+  duplicate.textContent = "Duplicate";
+  duplicate.disabled = !options.services?.orm;
+  duplicate.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    if (!options.services?.orm) return;
+    setOpen(false);
+    const newID = await options.services.orm.call(model, "copy", [id, {}]);
+    await options.onRefresh?.();
+    root.dispatchEvent(new CustomEvent("action-menu:duplicate", {
+      bubbles: true,
+      detail: { model, ids: [id], newId: newID }
+    }));
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "dropdown-item o_kanban_record_menu_item text-danger";
+  remove.dataset.kanbanRecordMenuAction = "delete";
+  remove.setAttribute("role", "menuitem");
+  remove.textContent = "Delete";
+  remove.disabled = !options.services?.orm;
+  remove.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    if (!options.services?.orm) return;
+    const accepted = await confirmStaticAction(options, "Are you sure you want to delete this record?");
+    if (!accepted) return;
+    setOpen(false);
+    await options.services.orm.unlink(model, [id]);
+    await options.onRefresh?.();
+    root.dispatchEvent(new CustomEvent("action-menu:delete", {
+      bubbles: true,
+      detail: { model, ids: [id] }
+    }));
+  });
   menu.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     event.preventDefault?.();
@@ -3372,7 +3648,7 @@ function renderKanbanRecordMenu(
     toggle.focus?.();
   });
   wrapper.append(toggle, menu);
-  menu.append(open);
+  menu.append(open, duplicate, remove);
   return wrapper;
 }
 
@@ -8275,20 +8551,28 @@ function readSpecification(
   viewType?: string
 ): ReadSpecification {
   const nodes = parseViewFieldNodes(arch).filter((node) => !fieldInvisible(node, evalContext));
+  let specification: ReadSpecification;
   if (shouldUseDefaultModelFieldNodes(model, nodes, viewType)) {
-    return fieldNodesToSpecification(
+    specification = fieldNodesToSpecification(
       defaultViewFieldNodes(model, viewDescriptions.fields, viewType),
       viewDescriptions.fields,
       viewDescriptions,
       evalContext
     );
+  } else {
+    specification = fieldNodesToSpecification(
+      nodes.length ? nodes : defaultViewFieldNodes(model, viewDescriptions.fields, viewType),
+      viewDescriptions.fields,
+      viewDescriptions,
+      evalContext
+    );
   }
-  return fieldNodesToSpecification(
-    nodes.length ? nodes : defaultViewFieldNodes(model, viewDescriptions.fields, viewType),
-    viewDescriptions.fields,
-    viewDescriptions,
-    evalContext
-  );
+  if (viewType === "kanban") {
+    for (const fieldName of kanbanAuxiliaryFieldNames(arch, viewDescriptions.fields)) {
+      if (specification[fieldName] === undefined) specification[fieldName] = {};
+    }
+  }
+  return specification;
 }
 
 function normalizeDomainExpression(value: unknown, evalContext: Record<string, unknown> = {}): DomainExpression {
@@ -8462,6 +8746,53 @@ function parseViewButtonNodes(arch: string): ViewButtonNode[] {
     }
   }
   return buttonNodesFromXMLText(arch);
+}
+
+function parseKanbanProgressBarNode(arch: string): KanbanProgressBarNode | undefined {
+  if (!arch) return undefined;
+  let attrs: Record<string, string> | undefined;
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      const node = doc.getElementsByTagName("progressbar")[0];
+      if (node) attrs = elementAttributes(node);
+    } catch {
+      attrs = undefined;
+    }
+  }
+  if (!attrs) {
+    const match = arch.match(/<progressbar\b(?:\s+[^<>]*)?\/?>/i);
+    if (match) attrs = xmlAttributes(match[0]);
+  }
+  const field = attrs?.field?.trim();
+  if (!field) return undefined;
+  return {
+    field,
+    sumField: attrs?.sum_field?.trim() || attrs?.sum?.trim() || undefined,
+    colors: parseKanbanProgressColors(attrs?.colors)
+  };
+}
+
+function parseKanbanProgressColors(value: string | undefined): Record<string, string> {
+  if (!value?.trim()) return {};
+  const parsed = parsePythonLiteral(value);
+  if (parsed.ok && isRecord(parsed.value)) {
+    const out: Record<string, string> = {};
+    for (const [key, raw] of Object.entries(parsed.value)) out[String(key)] = String(raw);
+    return out;
+  }
+  return {};
+}
+
+function kanbanAuxiliaryFieldNames(arch: string, fields: Record<string, unknown>): string[] {
+  const names = new Set<string>();
+  const progress = parseKanbanProgressBarNode(arch);
+  if (progress?.field && fields[progress.field]) names.add(progress.field);
+  if (progress?.sumField && fields[progress.sumField]) names.add(progress.sumField);
+  for (const colorField of ["color", "kanban_color", "color_index"]) {
+    if (fields[colorField]) names.add(colorField);
+  }
+  return [...names];
 }
 
 function parseFormFooterButtonNodes(arch: string): ViewButtonNode[] {

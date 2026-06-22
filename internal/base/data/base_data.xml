@@ -96,7 +96,66 @@
             <field name="name">res.config.settings.view.form</field>
             <field name="model">res.config.settings</field>
             <field name="type">form</field>
-            <field name="arch" type="xml"><form><sheet><group><field name="company_id"/><field name="group_multi_currency"/></group></sheet></form></field>
+            <field name="arch" type="xml">
+                <form>
+                    <app name="general_settings" string="General Settings">
+                        <block title="Users" name="users">
+                            <setting string="Invite New Users" help="Enter an email">
+                                <field name="active_user_count" readonly="1" string="1 Active User"/>
+                            </setting>
+                            <setting string="Manage Users" help="Create, activate, and review internal users.">
+                                <field name="show_effect"/>
+                            </setting>
+                        </block>
+                        <block title="Languages" name="languages">
+                            <setting string="1 Language" help="Add Languages and Manage Languages.">
+                                <field name="language_count" readonly="1"/>
+                            </setting>
+                        </block>
+                        <block title="Companies" name="companies">
+                            <setting string="My Company" help="Update Info">
+                                <field name="company_name"/>
+                            </setting>
+                            <setting string="1 Company" help="Manage Companies">
+                                <field name="company_count" readonly="1"/>
+                            </setting>
+                            <setting string="Document Layout" help="Choose the layout of your documents.">
+                                <field name="external_report_layout_id"/>
+                            </setting>
+                        </block>
+                    </app>
+                    <app name="users_companies" string="Users &amp; Companies">
+                        <block title="Users" name="users_companies_users">
+                            <setting string="Users" help="Manage user access and preferences.">
+                                <field name="active_user_count" readonly="1"/>
+                            </setting>
+                            <setting string="Companies" help="Manage companies available to users.">
+                                <field name="company_count" readonly="1"/>
+                            </setting>
+                        </block>
+                    </app>
+                    <app name="translations" string="Translations">
+                        <block title="Languages" name="translations_languages">
+                            <setting string="Languages" help="Add languages and maintain translations.">
+                                <field name="language_count" readonly="1"/>
+                            </setting>
+                        </block>
+                    </app>
+                    <app name="technical" string="Technical">
+                        <block title="Technical" name="technical">
+                            <setting string="Import &amp; Export" help="Allow importing data from files.">
+                                <field name="module_base_import"/>
+                            </setting>
+                            <setting string="OAuth Authentication" help="Enable OAuth sign-in providers.">
+                                <field name="module_auth_oauth"/>
+                            </setting>
+                            <setting string="LDAP Authentication" help="Enable LDAP sign-in.">
+                                <field name="module_auth_ldap"/>
+                            </setting>
+                        </block>
+                    </app>
+                </form>
+            </field>
         </record>
 
         <record id="action_currency_form" model="ir.actions.act_window">

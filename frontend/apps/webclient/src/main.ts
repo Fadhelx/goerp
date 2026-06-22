@@ -24,6 +24,7 @@ import {
   cleanAppName,
   homeMenuEntry,
   isAppsCatalogApp,
+  normalizeHomeMenuApps,
   type HomeMenuApp,
   type HomeMenuEntry,
   type HomeMenuPayload
@@ -68,7 +69,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
       session,
       menus,
       onOpenApp: (app, outlet) => {
-        void openMenuApp(env, app, outlet).catch((error) => renderActionError(outlet, error));
+        void openMenuApp(env, menus as HomeMenuPayload, app, outlet).catch((error) => renderActionError(outlet, error));
       },
       onSystrayAction: runSystrayAction
     }).render();
@@ -234,16 +235,31 @@ function sessionUserContext(session: Record<string, unknown>): Record<string, un
   return isRecord(session.user_context) ? { ...session.user_context } : {};
 }
 
-async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, outlet: HTMLElement): Promise<void> {
+async function openMenuApp(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  app: HomeMenuApp,
+  outlet: HTMLElement
+): Promise<void> {
   const actionID = menuActionID(app);
   if (isAppsCatalogLikeApp(app)) {
     updateBrowserRoute({
-      action: actionID,
+      ...(actionID !== undefined ? { action: actionID } : {}),
       model: "ir.module.module",
       view_type: "kanban",
       menu_id: app.id
     });
     await renderAppsCatalog(env, outlet, cleanAppName(app.name) || "Apps");
+    return;
+  }
+  if (isSettingsLikeApp(app)) {
+    updateBrowserRoute({
+      ...(actionID !== undefined ? { action: actionID } : {}),
+      model: "res.config.settings",
+      view_type: "form",
+      menu_id: app.id
+    });
+    await renderGeneralSettingsApp(env, menus, app, outlet, actionID);
     return;
   }
   if (actionID === undefined) {
@@ -265,34 +281,264 @@ function isAppsCatalogLikeApp(app: HomeMenuApp): boolean {
   return name === "apps";
 }
 
-function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMenuApp): Record<string, unknown> {
-  if (action.type !== "ir.actions.act_window" || action.res_model !== "ir.module.module") {
-    return { ...action, menu_id: app.id };
-  }
+function isSettingsLikeApp(app: HomeMenuApp): boolean {
+  return cleanAppName(app.name).toLowerCase() === "settings";
+}
+
+interface SettingsNavigationTarget {
+  id: string;
+  names: readonly string[];
+  model?: string;
+  query?: string;
+}
+
+function renderGeneralSettingsApp(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  app: HomeMenuApp,
+  outlet: HTMLElement,
+  actionID: string | number | undefined
+): void {
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading("Settings"));
+  const view = renderWindowAction(generalSettingsWindowAction(actionID, app.id), {
+    services: env.services as unknown as WebClientServices
+  });
+  view.className = `${view.className} o_settings_view`;
+  attachGeneralSettingsNavigation(view, env, menus, app, outlet);
+  outlet.dataset.tsActionStatus = "ready";
+  outlet.replaceChildren(view);
+}
+
+function generalSettingsWindowAction(actionID: string | number | undefined, menuID: string | number): WindowActionResult {
   return {
-    ...action,
-    menu_id: app.id,
-    view_mode: "kanban,list,form",
-    views: appsWindowActionViews(action),
-    view_type: "kanban",
-    context: {
-      ...(isRecord(action.context) ? action.context : {}),
-      search_default_app: 1
-    }
+    type: "ir.actions.act_window",
+    action: {
+      ...(actionID !== undefined ? { id: actionID } : {}),
+      name: "Settings",
+      res_model: "res.config.settings",
+      type: "ir.actions.act_window",
+      view_mode: "form",
+      views: [[false, "form"]],
+      menu_id: menuID,
+      context: { active_app: "general_settings" }
+    },
+    activeView: "form",
+    resModel: "res.config.settings",
+    viewDescriptions: {
+      fields: generalSettingsFields(),
+      relatedModels: {},
+      views: {
+        form: {
+          id: false,
+          arch: generalSettingsArch()
+        }
+      }
+    },
+    records: [generalSettingsValues()],
+    length: 1,
+    offset: 0,
+    countLimited: false
   };
 }
 
-function appsWindowActionViews(action: Record<string, unknown>): [number | false, string][] {
-  const ids = new Map<string, number | false>();
-  if (Array.isArray(action.views)) {
-    for (const rawView of action.views) {
-      if (!Array.isArray(rawView) || rawView.length < 2) continue;
-      const type = typeof rawView[1] === "string" ? rawView[1].trim() : "";
-      if (!type || ids.has(type)) continue;
-      ids.set(type, typeof rawView[0] === "number" && rawView[0] > 0 ? rawView[0] : false);
-    }
+function generalSettingsArch(): string {
+  return `<form>
+    <app name="general_settings" string="General Settings">
+      <block title="Users & Companies">
+        <setting id="users" string="Users" help="Create users, assign companies, and control login access."><field name="active_user_count" readonly="1"/></setting>
+        <setting id="groups" string="Groups" help="Manage security groups and inherited permissions."><field name="security_group_count" readonly="1"/></setting>
+        <setting id="companies" string="Companies" help="Configure company records available to users."><field name="company_count" readonly="1"/></setting>
+      </block>
+    </app>
+    <app name="users_companies" string="Users & Companies">
+      <block title="Users">
+        <setting id="users_access" string="Users" help="Open the users list and profile forms."><field name="active_user_count" readonly="1"/></setting>
+        <setting id="groups_access" string="Groups" help="Open access groups and implied groups."><field name="security_group_count" readonly="1"/></setting>
+      </block>
+      <block title="Companies">
+        <setting id="company_records" string="Companies" help="Open company records."><field name="company_count" readonly="1"/></setting>
+      </block>
+    </app>
+    <app name="technical" string="Technical">
+      <block title="Actions">
+        <setting id="server_actions" string="Server Actions" help="Create and maintain server actions."><field name="server_action_count" readonly="1"/></setting>
+        <setting id="scheduled_actions" string="Scheduled Actions" help="Configure cron jobs and automated schedules."><field name="scheduled_action_count" readonly="1"/></setting>
+        <setting id="automation_rules" string="Automation Rules" help="Configure automated actions and triggers."><field name="automation_rule_count" readonly="1"/></setting>
+      </block>
+      <block title="User Interface">
+        <setting id="views" string="Views" help="Open view definitions and XML architecture."><field name="view_count" readonly="1"/></setting>
+      </block>
+      <block title="Security">
+        <setting id="access_rights" string="Access Rights" help="Open model access rights."><field name="access_right_count" readonly="1"/></setting>
+        <setting id="record_rules" string="Record Rules" help="Open record rules and domains."><field name="record_rule_count" readonly="1"/></setting>
+      </block>
+      <block title="Email">
+        <setting id="email_templates" string="Email Templates" help="Open reusable email templates."><field name="email_template_count" readonly="1"/></setting>
+      </block>
+    </app>
+    <app name="apps_ai" string="Apps & AI">
+      <block title="Apps">
+        <setting id="apps" string="Apps" help="Install, upgrade, and remove applications."><field name="installed_module_count" readonly="1"/></setting>
+        <setting id="ai" string="AI" help="Open AI-related modules in the Apps catalog."><field name="ai_module_count" readonly="1"/></setting>
+      </block>
+    </app>
+  </form>`;
+}
+
+function generalSettingsFields(): Record<string, unknown> {
+  return {
+    active_user_count: readonlyIntegerField("Active Users"),
+    security_group_count: readonlyIntegerField("Groups"),
+    company_count: readonlyIntegerField("Companies"),
+    server_action_count: readonlyIntegerField("Server Actions"),
+    scheduled_action_count: readonlyIntegerField("Scheduled Actions"),
+    automation_rule_count: readonlyIntegerField("Automation Rules"),
+    view_count: readonlyIntegerField("Views"),
+    access_right_count: readonlyIntegerField("Access Rights"),
+    record_rule_count: readonlyIntegerField("Record Rules"),
+    email_template_count: readonlyIntegerField("Email Templates"),
+    installed_module_count: readonlyIntegerField("Installed Apps"),
+    ai_module_count: readonlyIntegerField("AI Modules")
+  };
+}
+
+function readonlyIntegerField(label: string): Record<string, unknown> {
+  return { type: "integer", string: label, readonly: true };
+}
+
+function generalSettingsValues(): Record<string, unknown> {
+  return {
+    id: 1,
+    active_user_count: 1,
+    security_group_count: 0,
+    company_count: 1,
+    server_action_count: 0,
+    scheduled_action_count: 0,
+    automation_rule_count: 0,
+    view_count: 0,
+    access_right_count: 0,
+    record_rule_count: 0,
+    email_template_count: 0,
+    installed_module_count: 0,
+    ai_module_count: 0
+  };
+}
+
+function attachGeneralSettingsNavigation(
+  root: HTMLElement,
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  settingsApp: HomeMenuApp,
+  outlet: HTMLElement
+): void {
+  for (const target of settingsNavigationTargets()) {
+    const box = findDescendantByDataset(root, "settingId", target.id);
+    if (!box) continue;
+    const pane = findDescendantByClass(box, "o_setting_right_pane") ?? box;
+    const actions = document.createElement("div");
+    actions.className = "o_setting_buttons";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-secondary o_setting_link";
+    button.dataset.settingsTarget = target.id;
+    if (target.model) button.dataset.settingsTargetModel = target.model;
+    button.textContent = "Open";
+    button.addEventListener("click", () => {
+      void openSettingsNavigationTarget(env, menus, settingsApp, outlet, target).catch((error) => {
+        renderActionError(outlet, error);
+      });
+    });
+    actions.append(button);
+    pane.append(actions);
   }
-  return ["kanban", "list", "form"].map((type) => [ids.get(type) ?? false, type]);
+}
+
+function settingsNavigationTargets(): SettingsNavigationTarget[] {
+  return [
+    { id: "users", names: ["Users"], model: "res.users" },
+    { id: "groups", names: ["Groups"], model: "res.groups" },
+    { id: "companies", names: ["Companies"], model: "res.company" },
+    { id: "users_access", names: ["Users"], model: "res.users" },
+    { id: "groups_access", names: ["Groups"], model: "res.groups" },
+    { id: "company_records", names: ["Companies"], model: "res.company" },
+    { id: "server_actions", names: ["Server Actions"], model: "ir.actions.server" },
+    { id: "scheduled_actions", names: ["Scheduled Actions"], model: "ir.cron" },
+    { id: "automation_rules", names: ["Automation Rules", "Automated Actions"], model: "base.automation" },
+    { id: "views", names: ["Views"], model: "ir.ui.view" },
+    { id: "access_rights", names: ["Access Rights"], model: "ir.model.access" },
+    { id: "record_rules", names: ["Record Rules"], model: "ir.rule" },
+    { id: "email_templates", names: ["Email Templates"], model: "mail.template" },
+    { id: "apps", names: ["Apps"], model: "ir.module.module" },
+    { id: "ai", names: ["Apps"], model: "ir.module.module", query: "ai" }
+  ];
+}
+
+async function openSettingsNavigationTarget(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  settingsApp: HomeMenuApp,
+  outlet: HTMLElement,
+  target: SettingsNavigationTarget
+): Promise<void> {
+  if (target.model === "ir.module.module") {
+    const appsMenu = findSettingsTargetMenuApp(menus, settingsApp, target);
+    const actionID = menuActionID(appsMenu ?? settingsApp);
+    updateBrowserRoute({
+      ...(actionID !== undefined ? { action: actionID } : {}),
+      menu_id: appsMenu?.id ?? settingsApp.id,
+      model: "ir.module.module",
+      view_type: "kanban"
+    });
+    await renderAppsCatalog(env, outlet, "Apps", target.query ?? "");
+    return;
+  }
+  const targetApp = findSettingsTargetMenuApp(menus, settingsApp, target);
+  if (targetApp && menuActionID(targetApp) !== undefined) {
+    await openMenuApp(env, menus, targetApp, outlet);
+    return;
+  }
+  if (!target.model) throw new Error(`${target.names[0]} menu is not available`);
+  await openFallbackSettingsTarget(env, outlet, settingsApp.id, target);
+}
+
+function findSettingsTargetMenuApp(
+  menus: HomeMenuPayload,
+  settingsApp: HomeMenuApp,
+  target: SettingsNavigationTarget
+): HomeMenuApp | undefined {
+  const names = target.names.map((name) => cleanAppName(name).toLowerCase());
+  const apps = normalizeHomeMenuApps(menus, { includeDescendantActions: true });
+  const candidates = apps.filter((candidate) => {
+    const name = cleanAppName(candidate.name).toLowerCase();
+    if (!names.includes(name)) return false;
+    if (target.model === "ir.module.module") return true;
+    return candidate.rootId === undefined || String(candidate.rootId) === String(settingsApp.id);
+  });
+  return candidates.find((candidate) => menuActionID(candidate) !== undefined) ?? candidates[0];
+}
+
+async function openFallbackSettingsTarget(
+  env: ReturnType<typeof makeEnv>,
+  outlet: HTMLElement,
+  menuID: number | string,
+  target: SettingsNavigationTarget
+): Promise<void> {
+  if (!target.model) return;
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading(target.names[0]));
+  const actionHost = createActionHost(env, outlet);
+  await actionHost.doAction({
+    name: target.names[0],
+    res_model: target.model,
+    type: "ir.actions.act_window",
+    view_mode: "list,form",
+    views: [[false, "list"], [false, "form"]],
+    menu_id: menuID
+  }, {
+    additionalContext: { menu_id: menuID },
+    stackPosition: "clear"
+  });
 }
 
 async function handleSystrayAction(

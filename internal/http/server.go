@@ -5103,11 +5103,11 @@ const webClientShellHTML = `<!doctype html>
 		--topbar: #714b67;
 		--topbar-hover: #604058;
 		--sidebar: #f7f7f7;
-		--home-bg: #070a15;
-		--home-panel: rgba(45, 63, 88, .96);
-		--home-line: rgba(116, 154, 195, .35);
-		--home-text: #ffffff;
-		--home-muted: rgba(255,255,255,.68);
+			--home-bg: #eef0f3;
+			--home-panel: #ffffff;
+			--home-line: #cfd4dc;
+			--home-text: #1f2933;
+			--home-muted: #4b5563;
 	}
 	body[data-theme="standard"] {
 		--bg: #f5f5f5;
@@ -5793,6 +5793,18 @@ const webClientShellHTML = `<!doctype html>
 		white-space: nowrap;
 		border: 0;
 	}
+	.visually-hidden,
+	.o_search_hidden {
+		position: absolute !important;
+		width: 1px !important;
+		height: 1px !important;
+		padding: 0 !important;
+		margin: -1px !important;
+		overflow: hidden !important;
+		clip: rect(0, 0, 0, 0) !important;
+		white-space: nowrap !important;
+		border: 0 !important;
+	}
 	header {
 		position: sticky;
 		top: 0;
@@ -5841,12 +5853,23 @@ const webClientShellHTML = `<!doctype html>
 	body[data-view="apps"] .layout {
 		display: block;
 		background: var(--home-bg);
+		min-height: 100vh;
 	}
 	body[data-view="apps"] aside {
 		display: none;
 	}
 	body:not([data-view="apps"]) aside {
 		display: none;
+	}
+	body[data-view="apps"] > .o_navbar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 20;
+	}
+	body[data-view="apps"] #appGrid.o_apps {
+		margin-top: 104px;
 	}
 	aside {
 		background: #f7f7f7;
@@ -6002,6 +6025,14 @@ const webClientShellHTML = `<!doctype html>
 		height: 46px;
 		min-height: 46px;
 	}
+	main.o_web_client[data-view="apps"] > .o_navbar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 20;
+		flex: 0 0 auto;
+	}
 	main.o_web_client:not([data-view="apps"]) > .o_navbar > .o_main_navbar {
 		position: relative;
 		background: var(--topbar);
@@ -6050,7 +6081,7 @@ const webClientShellHTML = `<!doctype html>
 	}
 	main.o_web_client[data-view="apps"] > .o_action_manager > .o-app-launcher-view {
 		min-height: 100vh;
-		padding-top: 76px;
+		padding-top: 70px;
 	}
 	.panel {
 		background: transparent;
@@ -6433,27 +6464,29 @@ const webClientShellHTML = `<!doctype html>
 		padding: 14px 18px 24px;
 	}
 	.o-app-launcher-view {
-		background:
-			radial-gradient(circle at 14% 3%, rgba(20, 72, 87, .48), transparent 34%),
-			linear-gradient(115deg, rgba(9, 43, 54, .72), rgba(7, 10, 21, .96) 46%, rgba(4, 5, 13, 1)),
-			var(--home-bg);
-		box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+		background-color: #eef0f3;
+		background-image:
+			radial-gradient(circle at 22px 18px, rgba(31,41,51,.055) 0 1px, transparent 1.4px),
+			radial-gradient(circle at 72px 68px, rgba(31,41,51,.035) 0 1px, transparent 1.4px);
+		background-attachment: fixed;
+		background-size: 96px 96px;
+		box-shadow: inset 0 1px 0 rgba(255,255,255,.66);
 		color: var(--home-text);
-		padding: 70px 24px 44px;
+		padding: 76px 24px 44px;
 	}
 	body[data-theme="standard"] .o-app-launcher-view {
 		background: #eef0f3;
 		color: var(--text);
 	}
 	.o-app-shell {
-		max-width: 980px;
+		max-width: 850px;
 		margin: 0 auto;
 	}
 	.o-app-search {
 		max-width: 520px;
 		height: 0;
 		max-height: 0;
-		margin: 0 auto 84px;
+		margin: 0 auto 0;
 		opacity: 0;
 		overflow: hidden;
 		pointer-events: none;
@@ -6484,31 +6517,42 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--home-muted);
 	}
 	.o-app-launcher-view .muted {
-		color: var(--home-muted);
+		color: #4b5563;
 	}
 	.o-app-launcher-view .o_apps {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-		gap: 24px 18px;
-		margin: 0 auto 18px;
-		max-width: 760px;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: flex-start;
+		gap: 0;
+		margin: 48px auto 18px;
+		max-width: 850px;
+		padding: 0;
+	}
+	.o-app-launcher-view .o_draggable {
+		width: 16.666667%;
+		margin-bottom: 16px;
+		padding: 0;
 	}
 	.o-app-launcher-view .o_app {
-		display: inline-grid;
-		grid-template-rows: 70px auto;
-		place-items: center;
-		gap: 8px;
-		width: 96px;
-		min-height: 108px;
-		justify-self: center;
-		align-self: start;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		width: 100%;
+		min-height: 104px;
 		border: 0;
-		border-radius: 6px;
+		border-radius: 4px;
 		background: transparent !important;
-		color: var(--home-text);
-		padding: 4px 2px 2px;
+		color: #1f2933;
+		padding: 8px 4px;
+		text-decoration: none;
 		overflow: hidden;
 		transition: color 160ms ease, transform 120ms ease, background 120ms ease;
+	}
+	.o-app-launcher-view .o_app:hover,
+	.o-app-launcher-view .o_app:focus-visible {
+		text-decoration: none;
 	}
 	.o-app-launcher-view .o_app_icon {
 		display: inline-grid;
@@ -6525,7 +6569,13 @@ const webClientShellHTML = `<!doctype html>
 		color: #fff;
 		font-size: 0;
 		font-weight: 600;
-		box-shadow: inset 0 -10px 18px rgba(0,0,0,.16), 0 8px 18px rgba(0,0,0,.18);
+		box-shadow:
+			inset 0 0 0 1px rgba(0,0,0,.18),
+			0 1px 1px rgba(0,0,0,.02),
+			0 2px 2px rgba(0,0,0,.02),
+			0 4px 4px rgba(0,0,0,.02),
+			0 8px 8px rgba(0,0,0,.02),
+			0 16px 16px rgba(0,0,0,.02);
 		overflow: hidden;
 	}
 	.o-app-launcher-view .o_app:nth-child(4n+2) .o_app_icon { background: #017e84; }
@@ -6631,9 +6681,8 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-app-launcher-view .o_app:hover {
 		background: rgba(255,255,255,.08);
-		border-color: rgba(255,255,255,.10);
+		border-color: transparent;
 		color: var(--home-text);
-		transform: translateY(-1px);
 	}
 	body[data-theme="standard"] .o-app-search input {
 		border-color: #cfd4dc;
@@ -6655,6 +6704,8 @@ const webClientShellHTML = `<!doctype html>
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-weight: 500;
+		text-decoration: none;
+		text-shadow: none;
 	}
 	.o-app-launcher-view .badge {
 		display: none;
@@ -6941,6 +6992,67 @@ const webClientShellHTML = `<!doctype html>
 		gap: 10px;
 		padding: 10px;
 	}
+	.o_kanban_progressbar {
+		display: grid;
+		gap: 6px;
+		min-width: 0;
+		padding: 10px;
+		border-bottom: 1px solid var(--line);
+	}
+	.o_kanban_renderer.o_kanban_ungrouped > .o_kanban_progressbar {
+		grid-column: 1 / -1;
+		padding: 0 0 2px;
+		border-bottom: 0;
+	}
+	.o_kanban_progressbar_track {
+		display: flex;
+		width: 100%;
+		height: 8px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: var(--soft);
+	}
+	.o_kanban_progressbar_segment {
+		display: block;
+		min-width: 2px;
+		height: 100%;
+		background: var(--kanban-progress-color);
+	}
+	.o_kanban_progressbar_legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 10px;
+		min-width: 0;
+	}
+	.o_kanban_progressbar_legend_item {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+		max-width: 100%;
+		color: var(--muted);
+		font-size: 11px;
+		line-height: 1.2;
+	}
+	.o_kanban_progressbar_legend_marker {
+		flex: 0 0 auto;
+		width: 7px;
+		height: 7px;
+		border-radius: 999px;
+		background: var(--kanban-progress-color);
+	}
+	.o_kanban_progressbar_legend_text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.o_kanban_progress_color_success { --kanban-progress-color: #00a09d; color: #017e84; }
+	.o_kanban_progress_color_info { --kanban-progress-color: #2f80ed; color: #2367bf; }
+	.o_kanban_progress_color_warning { --kanban-progress-color: #f0ad4e; color: #946200; }
+	.o_kanban_progress_color_danger { --kanban-progress-color: #d9534f; color: #a94442; }
+	.o_kanban_progress_color_primary { --kanban-progress-color: #714b67; color: #714b67; }
+	.o_kanban_progress_color_muted { --kanban-progress-color: #9aa3af; color: #667085; }
 	.o_kanban_quick_add {
 		width: calc(100% - 20px);
 		min-height: 34px;
@@ -6965,6 +7077,32 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--brand-strong);
 		text-decoration: none;
 	}
+	.o_kanban_load_more_wrapper {
+		grid-column: 1 / -1;
+		display: flex;
+		justify-content: center;
+		padding: 6px 0 2px;
+	}
+	.o_kanban_grouped > .o_kanban_load_more_wrapper {
+		flex: 0 0 220px;
+		align-self: stretch;
+		align-items: center;
+	}
+	.o_kanban_load_more {
+		min-width: 132px;
+		min-height: 32px;
+		border-color: var(--line);
+		background: #fff;
+		color: var(--brand);
+		font-size: 13px;
+		font-weight: 500;
+	}
+	.o_kanban_load_more:hover,
+	.o_kanban_load_more:focus {
+		border-color: rgba(113,75,103,.45);
+		background: rgba(113,75,103,.06);
+		color: var(--brand-strong);
+	}
 	.o_kanban_record {
 		position: relative;
 		display: grid;
@@ -6975,7 +7113,24 @@ const webClientShellHTML = `<!doctype html>
 		background: #fff;
 		padding: 12px;
 		cursor: pointer;
+		--kanban-card-color: transparent;
 	}
+	.o_kanban_record[data-kanban-color] {
+		border-left: 3px solid var(--kanban-card-color);
+		padding-left: 10px;
+	}
+	.o_kanban_color_0 { --kanban-card-color: transparent; }
+	.o_kanban_color_1 { --kanban-card-color: #00a09d; }
+	.o_kanban_color_2 { --kanban-card-color: #f0ad4e; }
+	.o_kanban_color_3 { --kanban-card-color: #d9534f; }
+	.o_kanban_color_4 { --kanban-card-color: #2f80ed; }
+	.o_kanban_color_5 { --kanban-card-color: #714b67; }
+	.o_kanban_color_6 { --kanban-card-color: #6f7d95; }
+	.o_kanban_color_7 { --kanban-card-color: #20c997; }
+	.o_kanban_color_8 { --kanban-card-color: #fd7e14; }
+	.o_kanban_color_9 { --kanban-card-color: #e83e8c; }
+	.o_kanban_color_10 { --kanban-card-color: #17a2b8; }
+	.o_kanban_color_11 { --kanban-card-color: #6c757d; }
 	.o_kanban_record:hover {
 		border-color: rgba(113,75,103,.35);
 		box-shadow: 0 2px 8px rgba(15,23,42,.06);
@@ -7046,68 +7201,95 @@ const webClientShellHTML = `<!doctype html>
 		min-height: 58px;
 	}
 	.o_settings_content {
-		padding: 18px;
-		background: #f6f7f8;
+		padding: 0;
+		background: var(--bg);
 	}
 	.o_settings_container {
 		display: grid;
-		grid-template-columns: 220px minmax(0, 1fr);
-		gap: 16px;
-		max-width: 1180px;
-		margin: 0 auto;
+		grid-template-columns: 182px minmax(0, 1fr);
+		gap: 0;
+		max-width: none;
+		margin: 0;
 	}
 	.o_settings_search_panel {
-		grid-column: 1 / -1;
+		grid-column: 2;
 		display: flex;
-		justify-content: flex-end;
+		justify-content: center;
+		padding: 0 28px 16px;
 	}
 	.o_settings_search_panel .o_settings_search {
-		max-width: 360px;
+		width: min(414px, 100%);
+		max-width: 414px;
 		height: 34px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
-		background: #fff;
+		background: var(--panel);
 		padding: 0 10px;
+		color: var(--text);
 	}
 	.o_settings_sidebar {
 		display: grid;
 		align-content: start;
-		gap: 2px;
+		gap: 0;
 		border-right: 1px solid var(--line);
-		padding-right: 12px;
+		background: var(--sidebar);
+		min-height: calc(100vh - 108px);
+		padding: 0;
 	}
 	.o_settings_tab {
-		min-height: 34px;
+		min-height: 42px;
 		border: 0;
-		border-radius: 4px;
+		border-left: 3px solid transparent;
+		border-radius: 0;
 		background: transparent;
 		color: var(--text);
-		padding: 7px 10px;
+		padding: 0 14px;
 		text-align: left;
+		font-weight: 600;
 	}
 	.o_settings_tab:hover,
 	.o_settings_tab.active {
-		background: var(--hover-bg);
-		color: var(--accent);
+		background: rgba(0,160,157,.16);
+		border-left-color: var(--accent-2);
+		color: var(--text);
 	}
 	.o_setting_container {
 		display: grid;
-		gap: 16px;
+		gap: 0;
 		min-width: 0;
 	}
 	.app_settings_block {
 		display: grid;
-		gap: 12px;
-		padding: 16px;
-		border: 1px solid var(--line);
-		border-radius: 4px;
-		background: #fff;
-		box-shadow: 0 1px 0 rgba(16,24,40,.03);
+		gap: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+	}
+	.o_settings_app_title {
+		display: none;
 	}
 	.app_settings_block h3 {
 		margin: 0;
 		font-size: 16px;
 		font-weight: 600;
+	}
+	.o_settings_block {
+		display: grid;
+		gap: 0;
+	}
+	.o_settings_block_title {
+		min-height: 42px;
+		margin: 0;
+		padding: 12px 32px;
+		background: var(--control-bg);
+		border-top: 1px solid var(--line);
+		border-bottom: 1px solid var(--line);
+		color: var(--text);
+		font-size: 14px;
+		font-weight: 700;
+		line-height: 18px;
 	}
 	.o_setting_grid {
 		display: grid;
@@ -7119,10 +7301,11 @@ const webClientShellHTML = `<!doctype html>
 		grid-template-columns: 24px minmax(0, 1fr);
 		gap: 10px;
 		min-height: 82px;
-		padding: 12px;
-		border: 1px solid var(--line-soft);
-		border-radius: 4px;
-		background: #fff;
+		padding: 24px 72px;
+		border: 0;
+		border-bottom: 1px solid var(--line);
+		border-radius: 0;
+		background: transparent;
 	}
 	.o_setting_left_pane {
 		width: 16px;
@@ -8000,11 +8183,11 @@ const webClientShellHTML = `<!doctype html>
 		--topbar: #714b67;
 		--topbar-hover: #604058;
 		--sidebar: #181b25;
-		--home-bg: #070a15;
-		--home-panel: rgba(45, 63, 88, .96);
-		--home-line: rgba(116, 154, 195, .35);
-		--home-text: #ffffff;
-		--home-muted: rgba(255,255,255,.68);
+			--home-bg: #eef0f3;
+			--home-panel: #ffffff;
+			--home-line: #cfd4dc;
+			--home-text: #1f2933;
+			--home-muted: #4b5563;
 	}
 	main.o_web_client[data-theme="enterprise-like"] {
 		color: var(--text);
@@ -8273,15 +8456,21 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--muted);
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o_kanban_quick_add,
-	body[data-theme="enterprise"] .o_kanban_quick_add {
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_load_more,
+	body[data-theme="enterprise"] .o_kanban_quick_add,
+	body[data-theme="enterprise"] .o_kanban_load_more {
 		background: rgba(255,255,255,.04);
 		border-color: var(--line);
 		color: #00a09d;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o_kanban_quick_add:hover,
 	main.o_web_client[data-theme="enterprise-like"] .o_kanban_quick_add:focus,
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_load_more:hover,
+	main.o_web_client[data-theme="enterprise-like"] .o_kanban_load_more:focus,
 	body[data-theme="enterprise"] .o_kanban_quick_add:hover,
-	body[data-theme="enterprise"] .o_kanban_quick_add:focus {
+	body[data-theme="enterprise"] .o_kanban_quick_add:focus,
+	body[data-theme="enterprise"] .o_kanban_load_more:hover,
+	body[data-theme="enterprise"] .o_kanban_load_more:focus {
 		background: rgba(0,160,157,.1);
 		border-color: rgba(0,160,157,.4);
 		color: #45c4c1;
@@ -8305,15 +8494,20 @@ const webClientShellHTML = `<!doctype html>
 		color: #45c4c1;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view {
-		background: var(--home-bg);
-		box-shadow: inset 0 1px 0 rgba(16,24,40,.04);
+		background-color: #eef0f3;
+		background-image:
+			radial-gradient(circle at 22px 18px, rgba(31,41,51,.055) 0 1px, transparent 1.4px),
+			radial-gradient(circle at 72px 68px, rgba(31,41,51,.035) 0 1px, transparent 1.4px);
+		background-attachment: fixed;
+		background-size: 96px 96px;
+		box-shadow: inset 0 1px 0 rgba(255,255,255,.66);
 	}
-	main.o_web_client[data-theme="enterprise-like"] .o-app-search { margin-bottom: 36px; }
+	main.o_web_client[data-theme="enterprise-like"] .o-app-search { margin-bottom: 0; }
 	main.o_web_client[data-theme="enterprise-like"] .o-app-search.is-active { margin: 8px auto 48px; }
 	main.o_web_client[data-theme="enterprise-like"] .o-app-search input {
-		background: var(--home-panel);
-		border-color: var(--home-line);
-		color: var(--home-text);
+		background: #fff;
+		border-color: #cfd4dc;
+		color: #1f2933;
 		box-shadow: 0 8px 18px rgba(16,24,40,.08);
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner {
@@ -8326,13 +8520,13 @@ const webClientShellHTML = `<!doctype html>
 		min-height: 54px;
 		margin: 0 auto 54px;
 		padding: 13px 54px 13px 28px;
-		border: 1px solid #c9d7e8;
-		border-left: 4px solid #4c8ec9;
+		border: 1px solid rgba(125, 168, 215, .32);
+		border-left: 4px solid #61a8e8;
 		border-radius: 4px;
-		background: #eaf3ff;
-		color: #1f2933;
+		background: rgba(48, 68, 96, .96);
+		color: #ffffff;
 		font-weight: 500;
-		box-shadow: 0 8px 20px rgba(16,24,40,.08);
+		box-shadow: 0 12px 24px rgba(0,0,0,.22);
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner[hidden] {
 		display: none;
@@ -8344,7 +8538,7 @@ const webClientShellHTML = `<!doctype html>
 		transform: translateY(-50%);
 		border: 0;
 		background: transparent;
-		color: #375f8f;
+		color: rgba(255,255,255,.88);
 		font-size: 16px;
 		font-weight: 700;
 		line-height: 1;
@@ -8352,13 +8546,13 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_app {
 		border-color: transparent;
 		background: transparent;
+		color: var(--home-text);
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_app:hover,
 	main.o_web_client[data-theme="enterprise-like"] .o-app-launcher-view .o_app:focus-visible {
-		background: rgba(113,75,103,.07);
+		background: rgba(17,24,39,.06);
 		border-color: transparent;
 		color: var(--home-text);
-		transform: translateY(-1px);
 	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar {
@@ -8397,7 +8591,7 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:focus-visible,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:hover,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:focus-visible {
-		background: rgba(113,75,103,.08);
+		background: rgba(255,255,255,.08);
 		color: var(--home-text);
 	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_user_menu_name,
@@ -8427,7 +8621,8 @@ const webClientShellHTML = `<!doctype html>
 		.layout { grid-template-columns: minmax(0, 1fr); }
 		aside { border-right: 0; border-bottom: 1px solid var(--line); }
 		.grid { grid-template-columns: 1fr 1fr; }
-		.o-app-launcher-view .o_apps, .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.o-app-launcher-view .o_draggable { width: 33.333333%; }
+		.module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 		header { padding: 0 8px; }
 		.o-mobile-menu-toggle { display: inline-grid; }
 		.o-nav { display: none; }
@@ -8516,15 +8711,23 @@ const webClientShellHTML = `<!doctype html>
 			right: 14px;
 		}
 		.o-app-launcher-view .o_apps {
+			display: grid;
 			grid-template-columns: repeat(4, minmax(0, 1fr));
+			justify-content: center;
 			gap: 18px 10px;
 			max-width: 360px;
 			margin-bottom: 18px;
+		}
+		.o-app-launcher-view .o_draggable {
+			width: auto;
+			min-width: 0;
+			margin-bottom: 0;
 		}
 		.o-app-launcher-view .o_app {
 			width: 76px;
 			min-width: 0;
 			min-height: 104px;
+			justify-self: center;
 			padding: 0 1px;
 			gap: 8px;
 		}
@@ -8705,8 +8908,8 @@ const webClientShellHTML = `<!doctype html>
       <button type="button" id="navApps" class="o_menu_toggle o-launcher-button border-0" data-view="apps" aria-label="Apps" accesskey="h"><span class="o_menu_toggle_icon o-launcher" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button>
       <h1 class="o_menu_brand">Odoo</h1>
     </div>
-    <button type="button" id="mobileMenu" class="o-mobile-menu-toggle" aria-label="Menu" aria-expanded="false"><span aria-hidden="true"></span></button>
-    <nav class="o-nav o_navbar_sections" id="topMenu" aria-label="Application"></nav>
+    <button type="button" id="mobileMenu" class="o-mobile-menu-toggle o_mobile_menu_toggle" aria-label="Menu" aria-expanded="false"><span aria-hidden="true"></span></button>
+    <nav class="o-nav o_navbar_sections o_menu_sections" id="topMenu" aria-label="Application"></nav>
     <label class="o-search">
       <span class="sr-only">Search</span>
       <input id="globalSearch" placeholder="Search records">
@@ -8731,7 +8934,7 @@ const webClientShellHTML = `<!doctype html>
         <span id="topCompany" class="oe_topbar_name">My Company</span>
       </button>
       <button type="button" class="o-systray-item o_debug_manager dropdown-toggle" id="debugIndicator" role="menuitem" hidden>Debug</button>
-      <button type="button" class="o-systray-item o_user_menu o-user-menu-button dropdown-toggle" id="topUser" aria-label="User menu" role="menuitem"><span>Administrator</span></button>
+      <button type="button" class="o-systray-item o_user_menu o-user-menu-button dropdown-toggle" id="topUser" aria-label="User menu" role="menuitem"><span class="o_user_menu_name">Administrator</span></button>
     </div>
   </nav>
   </header>
@@ -9572,7 +9775,7 @@ const webClientShellHTML = `<!doctype html>
       appPanel.id = "appsView";
       appPanel.className = "panel view-panel active o-app-launcher-view o_app_launcher o_home_menu_background";
       appPanel.dataset.view = "apps";
-      appPanel.innerHTML = '<div class="o-app-shell o_home_menu h-100 overflow-auto"><div class="o-app-search o_home_menu_search"><label><span class="sr-only">Search apps</span><input id="appSearch" class="o_app_search_input o_searchview_input" placeholder="Search apps"></label></div><div id="appGrid" class="o_apps row user-select-none mt-5 mx-0" role="listbox"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div>';
+      appPanel.innerHTML = '<div class="o-app-shell o_home_menu h-100 overflow-auto"><div class="container o_home_menu_container"><div class="o-app-search o_home_menu_search" data-search-active="false"><label><span class="sr-only">Search apps</span><input id="appSearch" type="text" class="o_app_search_input o_search_hidden visually-hidden" data-allow-hotkeys="true" aria-label="Search apps and menus" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false"></label></div><div id="appGrid" class="o_apps row user-select-none mt-5 mx-0" role="listbox"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div></div>';
       main.insertBefore(appPanel, modelPanel);
 
       const settingsPanel = document.createElement("section");
@@ -9598,10 +9801,18 @@ const webClientShellHTML = `<!doctype html>
 
       document.getElementById("reloadApps").addEventListener("click", loadInstallApps);
       document.getElementById("moduleSearch").addEventListener("input", loadInstallApps);
-      document.getElementById("appSearch").addEventListener("input", () => renderApps(workbench.menus));
+      const appSearch = document.getElementById("appSearch");
+      appSearch.addEventListener("input", () => {
+        setLegacyAppSearchActive(Boolean(appSearch.value.trim()));
+        renderApps(workbench.menus);
+      });
+      appSearch.addEventListener("blur", () => {
+        if (!appSearch.value.trim()) setLegacyAppSearchActive(false);
+      });
+      appPanel.addEventListener("keydown", handleLegacyLauncherKeydown);
       document.getElementById("settingsSearch").addEventListener("input", () => renderSettingsView(workbench.action || {}));
       document.getElementById("settingsDiscard").addEventListener("click", () => renderSettingsView(workbench.action || {}));
-      document.getElementById("appSearch").addEventListener("keydown", (event) => {
+      appSearch.addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
         const cards = Array.from(document.querySelectorAll("#appGrid .o_app"));
         if (cards.length === 1) cards[0].click();
@@ -9739,6 +9950,42 @@ const webClientShellHTML = `<!doctype html>
       let hash = 0;
       for (const char of cleanAppName(name)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
       return colors[hash % colors.length];
+    }
+
+    function setLegacyAppSearchActive(active) {
+      const wrap = document.querySelector("#appsView .o_home_menu_search");
+      const input = document.getElementById("appSearch");
+      const grid = document.getElementById("appGrid");
+      if (!wrap || !input) return;
+      wrap.classList.toggle("is-active", active);
+      wrap.dataset.searchActive = active ? "true" : "false";
+      input.className = active ? "o_app_search_input" : "o_app_search_input o_search_hidden visually-hidden";
+      input.setAttribute("aria-expanded", active && grid && grid.querySelector(".o_app") ? "true" : "false");
+    }
+
+    function handleLegacyLauncherKeydown(event) {
+      if (document.body.dataset.view !== "apps") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const tag = (event.target && event.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (event.key === "Escape") {
+        const input = document.getElementById("appSearch");
+        if (input) {
+          input.value = "";
+          input.blur();
+          renderApps(workbench.menus);
+        }
+        setLegacyAppSearchActive(false);
+        return;
+      }
+      if (event.key.length !== 1 || !/\S/.test(event.key)) return;
+      const input = document.getElementById("appSearch");
+      if (!input) return;
+      event.preventDefault();
+      setLegacyAppSearchActive(true);
+      input.focus();
+      input.value += event.key;
+      input.dispatchEvent(new Event("input", {bubbles: true}));
     }
 
     function appSearchText(menu) {
@@ -9943,12 +10190,18 @@ const webClientShellHTML = `<!doctype html>
       grid.replaceChildren();
       function appendAppCard(app, clickHandler) {
         const name = cleanAppName(app.name);
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "o_app o_menuitem has-icon";
+        const wrapper = document.createElement("div");
+        wrapper.className = "col-3 col-md-2 o_draggable mb-3 px-0";
+        const button = document.createElement("a");
+        button.className = "o_app o_menuitem has-icon d-flex flex-column rounded-3 justify-content-start align-items-center w-100 p-1 p-md-2";
         button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", "false");
+        const menuID = app.menu && app.menu.id ? app.menu.id : app.id;
+        button.setAttribute("href", menuID ? "#menu_id=" + encodeURIComponent(String(menuID)) : "#");
         button.dataset.appName = name;
         button.dataset.appKey = app.key || appKey(name);
+        if (menuID) button.dataset.menuId = String(menuID);
+        if (app.menu && app.menu.xmlid) button.dataset.menuXmlid = app.menu.xmlid;
         button.innerHTML = '<span class="o_app_icon" aria-hidden="true"></span><strong class="o_app_name"></strong>';
         const icon = button.querySelector(".o_app_icon");
         icon.dataset.iconToken = appIconToken(name);
@@ -9959,8 +10212,12 @@ const webClientShellHTML = `<!doctype html>
           path.textContent = app.subtitle;
           button.append(path);
         }
-        button.addEventListener("click", clickHandler);
-        grid.append(button);
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          clickHandler();
+        });
+        wrapper.append(button);
+        grid.append(wrapper);
         found++;
       }
       const apps = normalizedApps(payload);
@@ -9974,6 +10231,8 @@ const webClientShellHTML = `<!doctype html>
           appendAppCard({
             name: menu.name || path,
             key: "menu-" + menu.id,
+            id: menu.id,
+            menu,
             initials: appInitials(menu.name || path),
             subtitle: path
 	          }, () => openMenu(menu.id));
@@ -9981,7 +10240,7 @@ const webClientShellHTML = `<!doctype html>
 	      }
 	      const catalogMenu = appsCatalogMenu(payload);
 	      if (catalogMenu && (!needle || "apps applications modules install".includes(needle)) && !apps.some((app) => app.key === "apps")) {
-	        appendAppCard({name: "Apps", key: "apps", initials: "A"}, () => openMenu(catalogMenu.id));
+	        appendAppCard({name: "Apps", key: "apps", id: catalogMenu.id, menu: catalogMenu, initials: "A"}, () => openMenu(catalogMenu.id));
 	      }
       if (!found) {
         const empty = document.createElement("p");

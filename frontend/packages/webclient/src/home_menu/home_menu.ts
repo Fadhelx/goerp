@@ -24,24 +24,31 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   const shell = document.createElement("div");
   shell.className = "o-app-shell o_home_menu h-100 overflow-auto";
 
+  const container = document.createElement("div");
+  container.className = "container o_home_menu_container";
+
   const searchWrap = document.createElement("div");
   searchWrap.className = "o-app-search o_home_menu_search";
   const search = document.createElement("input");
-  search.type = "search";
-  search.className = "o_app_search_input o_searchview_input";
-  search.setAttribute("placeholder", "Search...");
+  search.type = "text";
+  search.className = "o_app_search_input o_search_hidden visually-hidden";
+  search.setAttribute("data-allow-hotkeys", "true");
   search.setAttribute("aria-label", "Search apps and menus");
+  search.setAttribute("role", "combobox");
+  search.setAttribute("aria-autocomplete", "list");
+  search.setAttribute("aria-haspopup", "listbox");
   search.value = options.query ?? "";
   searchWrap.append(search);
 
   const grid = document.createElement("div");
   grid.className = "o_apps row user-select-none mt-5 mx-0";
   grid.setAttribute("role", "listbox");
-  const notice = renderRegistrationNotice();
 
   const setSearchActive = (active: boolean) => {
     searchWrap.className = active ? "o-app-search o_home_menu_search is-active" : "o-app-search o_home_menu_search";
+    search.className = active ? "o_app_search_input" : "o_app_search_input o_search_hidden visually-hidden";
     searchWrap.dataset.searchActive = active ? "true" : "false";
+    search.setAttribute("aria-expanded", active && grid.children.length ? "true" : "false");
   };
   const renderGrid = () => {
     const query = search.value.trim().toLowerCase();
@@ -81,6 +88,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
       empty.textContent = query ? "No apps found." : "No menus loaded.";
       grid.append(empty);
     }
+    search.setAttribute("aria-expanded", query && grid.querySelector?.(".o_app") ? "true" : "false");
   };
   const showSearch = () => setSearchActive(true);
   const hideSearchIfEmpty = () => {
@@ -113,27 +121,10 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   });
   renderGrid();
 
-  shell.append(searchWrap, notice, grid);
+  container.append(searchWrap, grid);
+  shell.append(container);
   section.append(shell);
   return section;
-}
-
-function renderRegistrationNotice(): HTMLElement {
-  const notice = document.createElement("div");
-  notice.className = "o_home_menu_registration_banner alert alert-info";
-  notice.setAttribute("role", "status");
-  const text = document.createElement("span");
-  text.textContent = "You will be able to register your database once you have installed your first app.";
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "o_home_menu_registration_close";
-  close.setAttribute("aria-label", "Dismiss");
-  close.textContent = "x";
-  close.addEventListener("click", () => {
-    notice.hidden = true;
-  });
-  notice.append(text, close);
-  return notice;
 }
 
 function isTextInput(target: EventTarget | null): boolean {
@@ -142,13 +133,18 @@ function isTextInput(target: EventTarget | null): boolean {
 }
 
 export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "o_app o_menuitem has-icon";
+  const wrapper = document.createElement("div");
+  wrapper.className = "col-3 col-md-2 o_draggable mb-3 px-0";
+
+  const button = document.createElement("a");
+  button.className = "o_app o_menuitem has-icon d-flex flex-column rounded-3 justify-content-start align-items-center w-100 p-1 p-md-2";
   button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", "false");
+  button.setAttribute("href", appHref(app));
   button.dataset.appName = app.name;
   button.dataset.appKey = app.key || appKey(app.name);
   button.dataset.menuId = String(app.id);
+  if (typeof app.menu.xmlid === "string" && app.menu.xmlid) button.dataset.menuXmlid = app.menu.xmlid;
   if (app.rootId !== undefined) button.dataset.rootMenuId = String(app.rootId);
   if (app.parentPath) button.dataset.menuPath = app.parentPath;
   if (app.isMenuAction) button.dataset.menuAction = "true";
@@ -156,12 +152,12 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   button.setAttribute("aria-label", app.name);
 
   const icon = document.createElement("span");
-  icon.className = "o_app_icon";
+  icon.className = "o_app_icon position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
   icon.dataset.iconToken = app.iconToken;
   icon.setAttribute("aria-hidden", "true");
 
   const name = document.createElement("strong");
-  name.className = "o_app_name";
+  name.className = "o_caption o_app_name w-100 text-center text-truncate mt-2";
   name.textContent = app.name;
   const iconImage = appIconImage(app);
   button.append(iconImage ?? icon, name);
@@ -172,8 +168,12 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
     path.textContent = app.parentPath;
     button.append(path);
   }
-  if (onClick) button.addEventListener("click", onClick);
-  return button;
+  if (onClick) button.addEventListener("click", (event) => {
+    event?.preventDefault?.();
+    onClick();
+  });
+  wrapper.append(button);
+  return wrapper;
 }
 
 const APPS_CATALOG_SEARCH_TEXT = "apps applications modules install";
@@ -185,12 +185,19 @@ function shouldAppendAppsCatalog(query: string, visible: readonly HomeMenuApp[],
   return APPS_CATALOG_SEARCH_TEXT.includes(query) || catalogApp.searchText.includes(query);
 }
 
+function appHref(app: HomeMenuApp): string {
+  const actionID = app.menu.actionID || app.menu.actionId || app.menu.directActionID;
+  const menuID = encodeURIComponent(String(app.id));
+  if (actionID) return `#menu_id=${menuID}&action=${encodeURIComponent(String(actionID))}`;
+  return `#menu_id=${menuID}`;
+}
+
 function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
   const source = typeof app.menu.webIconData === "string" ? app.menu.webIconData.trim() : "";
   const iconSource = appIconSource(source, app.menu.webIconDataMimetype);
   if (!iconSource) return null;
   const image = document.createElement("img");
-  image.className = "o_app_icon";
+  image.className = "o_app_icon rounded-3";
   image.alt = "";
   image.src = iconSource;
   image.setAttribute("aria-hidden", "true");

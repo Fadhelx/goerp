@@ -124,7 +124,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   };
 
   const nav = document.createElement("nav");
-  nav.className = "o-nav o_navbar_sections";
+  nav.className = "o-nav o_navbar_sections o_menu_sections";
   nav.setAttribute("aria-label", "Application");
   renderNavEntries(currentApps);
 
@@ -224,7 +224,7 @@ function renderLauncherIcon(): HTMLElement {
 function renderMobileMenuToggle(onToggle: (expanded: boolean) => void): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "o-mobile-menu-toggle";
+  button.className = "o-mobile-menu-toggle o_mobile_menu_toggle";
   button.setAttribute("aria-label", "Menu");
   button.setAttribute("aria-expanded", "false");
   const line = document.createElement("span");

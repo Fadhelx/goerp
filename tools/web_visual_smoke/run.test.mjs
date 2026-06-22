@@ -64,6 +64,8 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-search-filter-click-desktop",
     "default-view-switch-desktop",
     "default-kanban-view-desktop",
+    "default-kanban-load-more-desktop",
+    "default-kanban-progressbar-desktop",
     "default-kanban-groupby-desktop",
     "default-hash-route-desktop",
     "default-mobile-launcher-parity",

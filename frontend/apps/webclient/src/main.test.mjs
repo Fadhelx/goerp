@@ -189,8 +189,8 @@ globalThis.fetch = async (route, options = {}) => {
     return { ok: true, status: 200, async json() { return {
       all_menu_ids: [1, 2, 4],
       root: { children: [1, 2, 4] },
-      1: { id: 1, name: "Settings", children: [], actionID: 3 },
-      2: { id: 2, name: "Server Actions", children: [] },
+      1: { id: 1, name: "Settings", children: [2], actionID: 3 },
+      2: { id: 2, name: "Server Actions", children: [], actionID: 7 },
       4: { id: 4, name: "Apps", children: [], actionID: 91, actionPath: "apps", xmlid: "base.menu_ir_module_module" }
     }; } };
   }
@@ -459,25 +459,34 @@ findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).
 await new Promise((resolve) => setTimeout(resolve, 0));
 const actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
 assert.equal(actionManager.dataset.tsActionStatus, "ready");
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action")).length, 1);
-findAll(actionManager, (node) => node.dataset?.workflowAction === "base.open_wizard")[0].dispatchEvent(new CustomEvent("click"));
-await new Promise((resolve) => setTimeout(resolve, 0));
-assert.equal(actionManager.dataset.tsDialogStatus, "ready");
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog-backdrop")).length, 1);
-assert.equal(globalThis.document.body.classList.contains("modal-open"), true);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog") && node.dataset?.model === "partner.wizard").length, 1);
-findAll(actionManager, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
-await new Promise((resolve) => setTimeout(resolve, 0));
-assert.equal(actionManager.dataset.tsDialogStatus, "closed");
-assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && String(node.className).includes("o_settings_view")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_settings_container")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("app_settings_block")).length, 4);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_setting_box")).length, 15);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "server_actions" && node.dataset?.settingsTargetModel === "ir.actions.server").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users" && node.dataset?.settingsTargetModel === "res.users").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "groups" && node.dataset?.settingsTargetModel === "res.groups").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "access_rights" && node.dataset?.settingsTargetModel === "ir.model.access").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "record_rules" && node.dataset?.settingsTargetModel === "ir.rule").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "views" && node.dataset?.settingsTargetModel === "ir.ui.view").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "scheduled_actions" && node.dataset?.settingsTargetModel === "ir.cron").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "email_templates" && node.dataset?.settingsTargetModel === "mail.template").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
+assert.match(allText(actionManager), /General Settings/);
+assert.match(allText(actionManager), /Users & Companies/);
+assert.match(allText(actionManager), /Technical/);
+assert.match(allText(actionManager), /Apps & AI/);
+assert.equal(globalThis.location.hash.includes("model=res.config.settings"), true);
+assert.equal(globalThis.location.hash.includes("view_type=form"), true);
 
-findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).includes("o_nav_entry"))[0].dispatchEvent(new CustomEvent("click"));
+findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps")[0].dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
 assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module").length, 0);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_apps_view")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_app_name")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_app_icon")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 0);
 assert.equal(globalThis.location.hash.includes("action=91"), true);
 assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);
 assert.equal(globalThis.location.hash.includes("view_type=kanban"), true);

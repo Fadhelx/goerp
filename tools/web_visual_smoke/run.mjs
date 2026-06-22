@@ -21,7 +21,8 @@ export const scenarios = [
       await openWeb(page, config, desktopViewport());
       const appCount = await waitForCount(page, "#appGrid .o_app", 2, "launcher app tiles");
       const systrayCount = await waitForCount(page, ".o_menu_systray [role='menuitem']", 3, "systray entries");
-      return { app_count: appCount, systray_count: systrayCount };
+      const launcherChrome = await assertLegacyLauncherChromeSnapshot(page);
+      return { app_count: appCount, systray_count: systrayCount, launcher_chrome: launcherChrome };
     }
   },
   {
@@ -52,17 +53,21 @@ export const scenarios = [
         const input = document.querySelector(".o_web_client .o_home_menu .o_app_search_input");
         if (!node || !input) return { ok: false, reason: "missing launcher search" };
         const style = getComputedStyle(node);
-        const hidden = node.dataset.searchActive === "false" && style.opacity === "0" && Number.parseFloat(style.maxHeight) === 0;
+        const hidden = node.dataset.searchActive === "false" && style.opacity === "0" && Number.parseFloat(style.maxHeight) === 0 && Number.parseFloat(style.marginBottom) <= 1;
         const rect = input.getBoundingClientRect();
         const visible = rect.width >= 300 && rect.height >= 30 && style.display !== "none" && style.visibility !== "hidden";
-        return { ok: hidden || visible, hidden, visible, width: rect.width, height: rect.height, search_active: node.dataset.searchActive || "" };
+        return { ok: hidden || visible, hidden, visible, width: rect.width, height: rect.height, margin_bottom_px: Math.round(Number.parseFloat(style.marginBottom) || 0), search_active: node.dataset.searchActive || "" };
       })()`);
       if (!searchState.ok) throw new Error(`TS app search is not usable: ${JSON.stringify(searchState)}`);
+      const typedSearchState = await assertLauncherSearchActivation(page);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&launcher_idle=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "launcher idle TS webclient ready");
+      await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "launcher idle app tiles");
       const launcherStyle = await assertEnterpriseLauncherSnapshot(page);
       const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
-      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, ...launcherStyle, action_count: actionCount };
+      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, typed_search_state: typedSearchState, ...launcherStyle, action_count: actionCount };
     }
   },
   {
@@ -145,6 +150,17 @@ export const scenarios = [
       const controlPanelCount = await waitForCount(page, ".o_web_client .o_action_manager .o_control_panel", 1, "TS action control panel");
       const settingsCount = await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "TS settings renderer");
       const settingsLabelAudit = await assertSettingsLabelSnapshot(page, ".o_web_client .o_action_manager .o_settings_container", "default TS Settings labels");
+      const settingsTargets = await evaluate(page, `(() => {
+        const required = ["users", "groups", "access_rights", "record_rules", "views", "server_actions", "scheduled_actions", "email_templates", "apps", "ai"];
+        const buttons = [...document.querySelectorAll(".o_web_client .o_action_manager [data-settings-target]")];
+        const ids = buttons.map((button) => button.dataset.settingsTarget).filter(Boolean);
+        const models = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.dataset.settingsTargetModel || ""]));
+        const missing = required.filter((id) => !ids.includes(id));
+        return { count: buttons.length, ids, models, missing };
+      })()`);
+      if (settingsTargets.missing.length) {
+        throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
+      }
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
       const topbarState = await evaluate(page, `(() => {
@@ -165,7 +181,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
     }
   },
   {
@@ -674,7 +690,8 @@ export const scenarios = [
         const recordMenu = card?.querySelector(".o_kanban_record_menu_dropdown");
         const recordMenuItems = [...(recordMenu?.querySelectorAll("[role='menuitem']") || [])].map((node) => ({
           action: node.dataset.kanbanRecordMenuAction || "",
-          label: node.textContent.trim()
+          label: node.textContent.trim(),
+          disabled: Boolean(node.disabled)
         }));
         const switches = [...document.querySelectorAll(".o_web_client .o_action_manager .o_switch_view")]
           .map((node) => ({ view: node.dataset.viewType || "", active: node.classList.contains("active"), label: node.getAttribute("aria-label") || node.textContent.trim() }));
@@ -702,7 +719,15 @@ export const scenarios = [
       if (!state.switches.some((item) => item.view === "kanban" && item.active)) {
         throw new Error(`kanban switch not active: ${JSON.stringify(state)}`);
       }
-      if (state.record_menu.toggle_count !== 1 || state.record_menu.expanded !== "false" || state.record_menu.hidden !== true || !state.record_menu.items.some((item) => item.action === "open" && item.label === "Open")) {
+      if (state.record_menu.toggle_count !== 1 || state.record_menu.expanded !== "false" || state.record_menu.hidden !== true) {
+        throw new Error(`kanban record menu invalid: ${JSON.stringify(state)}`);
+      }
+      for (const expected of [["open", "Open"], ["duplicate", "Duplicate"], ["delete", "Delete"]]) {
+        if (!state.record_menu.items.some((item) => item.action === expected[0] && item.label === expected[1] && item.disabled === false)) {
+          throw new Error(`kanban record menu action missing: ${JSON.stringify({ expected, state })}`);
+        }
+      }
+      if (state.record_menu.items.length !== 3) {
         throw new Error(`kanban record menu invalid: ${JSON.stringify(state)}`);
       }
       await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_record .o_kanban_record_menu_toggle");
@@ -722,6 +747,144 @@ export const scenarios = [
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS kanban opened form hash");
       return { fixture, kanban_count: kanbanCount, card_count: cardCount, state, menu_state: menuState, form_count: formCount, form_hash: formHash };
+    }
+  },
+  {
+    name: "default-kanban-load-more-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_load_more_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "kanban load-more setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      await ensureKanbanSmokeRecordCount(page, config, 3);
+      const fixture = await createKanbanSmokeAction(page, config, { limit: 1 });
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=ir.actions.server&view_type=kanban`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban load-more TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban load-more action ready");
+      const initialState = await waitFor(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='kanban']");
+        const cards = [...(root?.querySelectorAll(".o_kanban_record") || [])];
+        const button = root?.querySelector(".o_kanban_load_more[data-kanban-load-more='true']");
+        return root && cards.length === 1 && button ? {
+          card_count: cards.length,
+          loaded: button.dataset.loaded || "",
+          total: button.dataset.total || "",
+          next_limit: button.dataset.nextLimit || "",
+          label: button.textContent.trim(),
+          hash: window.location.hash || ""
+        } : null;
+      })()`, "Kanban load-more initial button");
+      if (initialState.loaded !== "1" || initialState.next_limit !== "2" || initialState.label !== "Load more") {
+        throw new Error(`kanban load-more initial invalid: ${JSON.stringify(initialState)}`);
+      }
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_load_more[data-kanban-load-more='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban load-more rerender ready");
+      const loadedState = await waitFor(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='kanban']");
+        const cards = [...(root?.querySelectorAll(".o_kanban_record") || [])];
+        const button = root?.querySelector(".o_kanban_load_more[data-kanban-load-more='true']");
+        return root && cards.length >= 2 ? {
+          card_count: cards.length,
+          load_more_visible: Boolean(button),
+          loaded: button?.dataset.loaded || "",
+          next_limit: button?.dataset.nextLimit || "",
+          hash: window.location.hash || ""
+        } : null;
+      })()`, "Kanban load-more increases cards");
+      if (loadedState.card_count <= initialState.card_count) {
+        throw new Error(`kanban load-more did not increase cards: ${JSON.stringify({ initialState, loadedState })}`);
+      }
+      if (!loadedState.hash.includes("view_type=kanban")) {
+        throw new Error(`kanban load-more lost route state: ${JSON.stringify(loadedState)}`);
+      }
+      return { fixture, initial_state: initialState, loaded_state: loadedState };
+    }
+  },
+  {
+    name: "default-kanban-progressbar-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_progressbar=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban progressbar TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Kanban Progress",
+            res_model: "res.partner",
+            view_mode: "kanban",
+            views: [[false, "kanban"]]
+          },
+          activeView: "kanban",
+          resModel: "res.partner",
+          viewDescriptions: {
+            fields: {
+              display_name: { type: "char", string: "Name" },
+              state: { type: "selection", string: "State", selection: [["code", "Execute Code"], ["multi", "Multi Actions"], ["webhook", "Webhook"]] },
+              amount: { type: "float", string: "Amount" },
+              color: { type: "integer", string: "Color" }
+            },
+            relatedModels: {},
+            views: {
+              kanban: {
+                arch: "<kanban><progressbar field='state' colors=\\\"{'code':'success','multi':'warning','webhook':'danger'}\\\" sum_field='amount'/><field name='display_name'/><field name='state'/><field name='amount'/><field name='color'/></kanban>",
+                id: 700
+              }
+            }
+          },
+          records: [
+            { id: 701, display_name: "Progress A", state: "code", amount: 10, color: 1 },
+            { id: 702, display_name: "Progress B", state: "multi", amount: 5, color: 2 },
+            { id: 703, display_name: "Progress C", state: "webhook", amount: 5, color: 3 },
+            { id: 704, display_name: "Progress D", state: "code", amount: 10, color: 1 }
+          ],
+          length: 4,
+          offset: 0,
+          countLimited: false
+        });
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "kanban-progressbar";
+        const progress = root.querySelector(".o_kanban_progressbar");
+        const segments = [...(progress?.querySelectorAll(".o_kanban_progressbar_segment") || [])].map((node) => ({
+          value: node.dataset.value || "",
+          label: node.dataset.label || "",
+          count: node.dataset.count || "",
+          sum: node.dataset.sum || "",
+          width: node.style.width,
+          className: node.className
+        }));
+        const cards = [...root.querySelectorAll(".o_kanban_record")].map((node) => ({
+          id: node.dataset.id || "",
+          color: node.dataset.kanbanColor || "",
+          className: node.className
+        }));
+        return {
+          progress_field: progress?.dataset.field || "",
+          progress_sum_field: progress?.dataset.sumField || "",
+          segment_count: segments.length,
+          segments,
+          cards
+        };
+      })()`);
+      const progressCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-progressbar'] .o_kanban_progressbar", 1, "Kanban progressbar");
+      const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='kanban-progressbar'] .o_kanban_record[data-kanban-color]", 4, "Kanban colored cards");
+      if (renderedState.progress_field !== "state" || renderedState.progress_sum_field !== "amount" || renderedState.segment_count !== 3) {
+        throw new Error(`kanban progressbar metadata invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.segments.some((item) => item.value === "code" && item.label === "Execute Code" && item.sum === "20" && item.width === "66.67%")) {
+        throw new Error(`kanban progressbar code segment invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.segments.some((item) => item.value === "multi" && item.className.includes("o_kanban_progress_color_warning"))) {
+        throw new Error(`kanban progressbar color invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.every((card) => card.color && card.className.includes("o_kanban_color_" + card.color))) {
+        throw new Error(`kanban card color invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { rendered_state: renderedState, progress_count: progressCount, card_count: cardCount };
     }
   },
   {
@@ -831,16 +994,16 @@ export const scenarios = [
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "mobile launcher app tiles");
       const launcherState = await evaluate(page, `(() => {
         const grid = document.querySelector(".o_web_client .o_home_menu .o_apps");
+        const wrappers = [...document.querySelectorAll(".o_web_client .o_home_menu .o_draggable")];
         const cards = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")];
-        const cardRects = cards.map((card) => card.getBoundingClientRect());
+        const cardRects = wrappers.length ? wrappers.map((card) => card.getBoundingClientRect()) : cards.map((card) => card.getBoundingClientRect());
         const top = Math.min(...cardRects.map((rect) => Math.round(rect.top)));
         const firstRow = cardRects.filter((rect) => Math.abs(Math.round(rect.top) - top) <= 2);
         const icon = document.querySelector(".o_web_client .o_home_menu .o_app .o_app_icon");
         const iconRect = icon?.getBoundingClientRect();
-        const banner = document.querySelector(".o_web_client .o_home_menu .o_home_menu_registration_banner");
-        const bannerRect = banner?.getBoundingClientRect();
         const search = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
         const searchStyle = search ? getComputedStyle(search) : null;
+        const hiddenSearch = document.querySelector(".o_web_client .o_home_menu .o_search_hidden");
         const avatar = document.querySelector(".o_web_client[data-view='apps'] .o_user_menu .o_user_avatar");
         const avatarRect = avatar?.getBoundingClientRect();
         const avatarStyle = avatar ? getComputedStyle(avatar) : null;
@@ -850,14 +1013,13 @@ export const scenarios = [
           const style = getComputedStyle(node);
           return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
         });
-        const gridColumns = grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean) : [];
         return {
-          grid_columns: gridColumns.length,
+          draggable_count: wrappers.length,
           first_row_count: firstRow.length,
           icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
           icon_height_px: iconRect ? Math.round(iconRect.height) : 0,
-          banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
-          banner_visible: Boolean(bannerRect && bannerRect.width > 0 && bannerRect.height > 0),
+          hidden_search_count: hiddenSearch ? 1 : 0,
+          banner_count: document.querySelectorAll(".o_web_client .o_home_menu .o_home_menu_registration_banner").length,
           search_hidden: Boolean(searchStyle && searchStyle.opacity === "0" && Number.parseFloat(searchStyle.maxHeight) === 0),
           user_avatar_visible: Boolean(avatarRect && avatarRect.width >= 24 && avatarRect.height >= 24 && avatarStyle?.display !== "none"),
           systray_visible_count: visibleSystrayItems.length,
@@ -865,11 +1027,12 @@ export const scenarios = [
         };
       })()`);
       if (launcherState.horizontal_overflow_px > 1) throw new Error(`mobile launcher horizontal overflow: ${launcherState.horizontal_overflow_px}px`);
-      if (appCount >= 4 && launcherState.grid_columns !== 4) throw new Error(`mobile launcher grid columns invalid: ${JSON.stringify(launcherState)}`);
+      if (launcherState.draggable_count < appCount) throw new Error(`mobile launcher wrapper contract invalid: ${JSON.stringify(launcherState)}`);
       if (appCount >= 4 && launcherState.first_row_count !== 4) throw new Error(`mobile launcher first row invalid: ${JSON.stringify(launcherState)}`);
       if (launcherState.icon_width_px < 62 || launcherState.icon_width_px > 74) throw new Error(`mobile launcher icon width invalid: ${JSON.stringify(launcherState)}`);
       if (launcherState.icon_height_px < 62 || launcherState.icon_height_px > 74) throw new Error(`mobile launcher icon height invalid: ${JSON.stringify(launcherState)}`);
-      if (!launcherState.banner_visible || launcherState.banner_width_px > 362) throw new Error(`mobile launcher banner invalid: ${JSON.stringify(launcherState)}`);
+      if (launcherState.banner_count !== 0) throw new Error(`mobile launcher unexpected banner: ${JSON.stringify(launcherState)}`);
+      if (launcherState.hidden_search_count !== 1) throw new Error(`mobile launcher hidden search missing: ${JSON.stringify(launcherState)}`);
       if (!launcherState.search_hidden) throw new Error(`mobile launcher search should start hidden: ${JSON.stringify(launcherState)}`);
       if (!launcherState.user_avatar_visible) throw new Error(`mobile launcher user avatar hidden: ${JSON.stringify(launcherState)}`);
       if (launcherState.systray_visible_count < 3) throw new Error(`mobile launcher systray too sparse: ${JSON.stringify(launcherState)}`);
@@ -1411,37 +1574,122 @@ async function assertEnterprisePolishSnapshot(page) {
   return snapshot;
 }
 
+async function assertLauncherSearchActivation(page) {
+  const snapshot = await evaluate(page, `(() => {
+    const root = document.querySelector(".o_web_client .o-app-launcher-view");
+    const input = document.querySelector(".o_web_client .o_home_menu .o_app_search_input");
+    const wrap = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
+    if (!root || !input || !wrap) return { ok: false, reason: "missing launcher search nodes" };
+    root.focus?.();
+    root.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true }));
+    const activeStyle = getComputedStyle(wrap);
+    const activeRect = input.getBoundingClientRect();
+    const visibleAppCount = document.querySelectorAll(".o_web_client .o_home_menu .o_app").length;
+    const activeDataset = wrap.dataset.searchActive || "";
+    const activeValue = input.value;
+    const active = activeDataset === "true" && activeValue === "a" && activeRect.width >= 300 && activeRect.height >= 30 && visibleAppCount >= 1;
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+    const idleStyle = getComputedStyle(wrap);
+    const idle = wrap.dataset.searchActive === "false" && Number.parseFloat(idleStyle.maxHeight) === 0 && Number.parseFloat(idleStyle.marginBottom) <= 1;
+    return {
+      ok: active && idle,
+      active,
+      idle,
+      active_dataset: activeDataset,
+      active_value: activeValue,
+      active_width_px: Math.round(activeRect.width),
+      active_height_px: Math.round(activeRect.height),
+      active_max_height_px: Math.round(Number.parseFloat(activeStyle.maxHeight) || 0),
+      idle_margin_bottom_px: Math.round(Number.parseFloat(idleStyle.marginBottom) || 0),
+      visible_app_count: visibleAppCount
+    };
+  })()`);
+  if (!snapshot.ok) throw new Error(`launcher search activation invalid: ${JSON.stringify(snapshot)}`);
+  return snapshot;
+}
+
+async function assertLegacyLauncherChromeSnapshot(page) {
+  const snapshot = await evaluate(page, `(() => {
+    const header = document.querySelector("body[data-view='apps'] > .o_navbar");
+    const navbar = document.querySelector("body[data-view='apps'] > .o_navbar > .o_main_navbar");
+    const launcher = document.querySelector("body[data-view='apps'] #appsView.o-app-launcher-view");
+    const grid = document.querySelector("body[data-view='apps'] #appGrid.o_apps");
+    const headerStyle = header ? getComputedStyle(header) : null;
+    const navbarStyle = navbar ? getComputedStyle(navbar) : null;
+    const launcherRect = launcher?.getBoundingClientRect();
+    const gridRect = grid?.getBoundingClientRect();
+    return {
+      header_position: headerStyle?.position || "",
+      navbar_bg: navbarStyle?.backgroundColor || "",
+      launcher_top_px: launcherRect ? Math.round(launcherRect.top) : -1,
+      grid_top_px: gridRect ? Math.round(gridRect.top) : -1
+    };
+  })()`);
+  const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
+  const issues = [];
+  if (snapshot.header_position !== "absolute") issues.push(`header position ${snapshot.header_position}`);
+  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
+  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
+  if (snapshot.grid_top_px < 145 || snapshot.grid_top_px > 250) issues.push(`grid top ${snapshot.grid_top_px}`);
+  if (issues.length) throw new Error(`legacy launcher chrome audit failed: ${issues.join("; ")}`);
+  return snapshot;
+}
+
 async function assertEnterpriseLauncherSnapshot(page) {
   const snapshot = await evaluate(page, `(() => {
     const navbar = document.querySelector(".o_navbar > .o_main_navbar");
     const webclient = document.querySelector(".o_web_client");
     const home = document.querySelector(".o_web_client .o_home_menu");
-    const banner = document.querySelector(".o_web_client .o_home_menu_registration_banner");
-    const userName = document.querySelector(".o_web_client .o_user_menu_name");
-    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
-    const icon = card?.querySelector(".o_app_icon");
-    const navbarStyle = navbar ? getComputedStyle(navbar) : null;
+    const launcher = document.querySelector(".o_web_client .o-app-launcher-view");
+	    const search = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
+	    const banner = document.querySelector(".o_web_client .o_home_menu_registration_banner");
+	    const userName = document.querySelector(".o_web_client .o_user_menu_name");
+	    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
+	    const wrapper = document.querySelector(".o_web_client .o_home_menu .o_draggable");
+	    const icon = card?.querySelector(".o_app_icon");
+	    const hiddenSearch = document.querySelector(".o_web_client .o_home_menu .o_search_hidden");
+	    const navbarStyle = navbar ? getComputedStyle(navbar) : null;
     const homeStyle = home ? getComputedStyle(home.closest(".o-app-launcher-view") || home) : null;
+    const searchStyle = search ? getComputedStyle(search) : null;
     const bannerStyle = banner ? getComputedStyle(banner) : null;
     const userNameStyle = userName ? getComputedStyle(userName) : null;
     const cardStyle = card ? getComputedStyle(card) : null;
     const iconStyle = icon ? getComputedStyle(icon) : null;
     const navbarRect = navbar?.getBoundingClientRect();
-    const bannerRect = banner?.getBoundingClientRect();
-    const rect = card?.getBoundingClientRect();
-    const iconRect = icon?.getBoundingClientRect();
-    return {
+    const launcherRect = launcher?.getBoundingClientRect();
+    const searchRect = search?.getBoundingClientRect();
+	    const bannerRect = banner?.getBoundingClientRect();
+	    const rect = card?.getBoundingClientRect();
+	    const wrapperRect = wrapper?.getBoundingClientRect();
+	    const iconRect = icon?.getBoundingClientRect();
+	    return {
       navbar_height_px: navbarRect ? Math.round(navbarRect.height) : 0,
       navbar_contract: Boolean(document.querySelector(".o_navbar > .o_main_navbar")),
-      home_background_class: Boolean(webclient?.classList?.contains("o_home_menu_background")),
-      legacy_card_count: document.querySelectorAll(".o_web_client .o_home_menu .app-card").length,
-      navbar_bg: navbarStyle?.backgroundColor || "",
+	      home_background_class: Boolean(webclient?.classList?.contains("o_home_menu_background")),
+	      legacy_card_count: document.querySelectorAll(".o_web_client .o_home_menu .app-card").length,
+	      draggable_count: document.querySelectorAll(".o_web_client .o_home_menu .o_draggable").length,
+	      hidden_search_count: document.querySelectorAll(".o_web_client .o_home_menu .o_search_hidden").length,
+	      menu_sections_contract: Boolean(document.querySelector(".o_web_client .o_navbar .o_menu_sections")),
+	      mobile_toggle_contract: Boolean(document.querySelector(".o_web_client .o_navbar .o_mobile_menu_toggle")),
+	      app_tag: card?.tagName || "",
+	      app_href: card?.getAttribute("href") || "",
+	      hidden_search_role: hiddenSearch?.getAttribute("role") || "",
+	      navbar_bg: navbarStyle?.backgroundColor || "",
+	      launcher_top_px: launcherRect ? Math.round(launcherRect.top) : -1,
       launcher_bg_color: homeStyle?.backgroundColor || "",
+      launcher_bg_image: homeStyle?.backgroundImage || "",
       launcher_box_shadow: homeStyle?.boxShadow || "",
-      banner_visible: Boolean(banner) && !banner.hidden && bannerStyle?.display !== "none" && (bannerRect?.width || 0) > 400,
-      banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
-      user_name_display: userNameStyle?.display || "",
-      app_card_width_px: rect ? Math.round(rect.width) : 0,
+      search_height_px: searchRect ? Math.round(searchRect.height) : 0,
+      search_margin_bottom_px: searchStyle ? Math.round(Number.parseFloat(searchStyle.marginBottom) || 0) : -1,
+	      banner_visible: Boolean(banner) && !banner.hidden && bannerStyle?.display !== "none" && (bannerRect?.width || 0) > 400,
+	      banner_count: document.querySelectorAll(".o_web_client .o_home_menu_registration_banner").length,
+	      banner_top_px: bannerRect ? Math.round(bannerRect.top) : 0,
+	      banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
+	      user_name_display: userNameStyle?.display || "",
+	      app_card_left_px: wrapperRect ? Math.round(wrapperRect.left) : rect ? Math.round(rect.left) : 0,
+	      app_card_top_px: wrapperRect ? Math.round(wrapperRect.top) : rect ? Math.round(rect.top) : 0,
+	      app_card_width_px: rect ? Math.round(rect.width) : 0,
       app_card_height_px: rect ? Math.round(rect.height) : 0,
       app_card_bg: cardStyle?.backgroundColor || "",
       app_card_border_color: cardStyle?.borderTopColor || "",
@@ -1454,17 +1702,27 @@ async function assertEnterpriseLauncherSnapshot(page) {
   })()`);
   const issues = [];
   const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
-  const acceptedNavbarBG = new Set([...transparent, "rgb(113, 75, 103)"]);
   if (!snapshot.navbar_contract) issues.push("navbar contract missing");
-  if (!snapshot.home_background_class) issues.push("home background class missing");
-  if (snapshot.legacy_card_count !== 0) issues.push(`legacy app-card count ${snapshot.legacy_card_count}`);
-  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
-  if (!acceptedNavbarBG.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
-  if (snapshot.launcher_bg_color !== "rgb(244, 245, 247)") issues.push(`launcher background ${snapshot.launcher_bg_color}`);
-  if (!snapshot.launcher_box_shadow || snapshot.launcher_box_shadow === "none") issues.push("launcher shading missing");
-  if (!snapshot.banner_visible || snapshot.banner_width_px < 700 || snapshot.banner_width_px > 860) issues.push(`registration banner ${JSON.stringify({ visible: snapshot.banner_visible, width: snapshot.banner_width_px })}`);
-  if (snapshot.app_card_width_px < 88 || snapshot.app_card_width_px > 104) issues.push(`app card width ${snapshot.app_card_width_px}`);
-  if (snapshot.app_card_height_px < 98 || snapshot.app_card_height_px > 118) issues.push(`app card height ${snapshot.app_card_height_px}`);
+	  if (!snapshot.home_background_class) issues.push("home background class missing");
+	  if (snapshot.legacy_card_count !== 0) issues.push(`legacy app-card count ${snapshot.legacy_card_count}`);
+	  if (snapshot.draggable_count < 2) issues.push(`draggable wrapper count ${snapshot.draggable_count}`);
+	  if (snapshot.hidden_search_count < 1 || snapshot.hidden_search_role !== "combobox") issues.push(`hidden search contract ${JSON.stringify({ count: snapshot.hidden_search_count, role: snapshot.hidden_search_role })}`);
+	  if (!snapshot.menu_sections_contract) issues.push("menu sections contract missing");
+	  if (!snapshot.mobile_toggle_contract) issues.push("mobile toggle contract missing");
+	  if (snapshot.app_tag !== "A") issues.push(`app tag ${snapshot.app_tag}`);
+	  if (!snapshot.app_href.startsWith("#menu_id=")) issues.push(`app href ${snapshot.app_href}`);
+	  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
+	  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
+	  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
+	  if (snapshot.launcher_bg_color.replace(/\s+/g, "") !== "rgb(238,240,243)") issues.push(`launcher background ${snapshot.launcher_bg_color}`);
+	  if (!snapshot.launcher_box_shadow || snapshot.launcher_box_shadow === "none") issues.push("launcher shading missing");
+	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
+	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
+	  if (snapshot.banner_count !== 0 || snapshot.banner_visible) issues.push(`unexpected registration banner ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);
+	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
+	  if (snapshot.app_card_top_px < 90 || snapshot.app_card_top_px > 180) issues.push(`app card top ${snapshot.app_card_top_px}`);
+	  if (snapshot.app_card_width_px < 120 || snapshot.app_card_width_px > 150) issues.push(`app card width ${snapshot.app_card_width_px}`);
+	  if (snapshot.app_card_height_px < 98 || snapshot.app_card_height_px > 122) issues.push(`app card height ${snapshot.app_card_height_px}`);
   if (!transparent.has(snapshot.app_card_bg)) issues.push(`app card background ${snapshot.app_card_bg}`);
   if (!transparent.has(snapshot.app_card_border_color)) issues.push(`app card border ${snapshot.app_card_border_color}`);
   if (snapshot.app_icon_width_px < 66 || snapshot.app_icon_width_px > 74) issues.push(`app icon width ${snapshot.app_icon_width_px}`);
@@ -1636,9 +1894,11 @@ async function openDefaultServerActionsList(page, config, viewport) {
 
 async function openDefaultAppsCatalogForModule(page, config, moduleName, marker) {
   await setViewport(page, desktopViewport());
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&${marker}_auth=1`) });
+  await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "Apps catalog auth document ready");
+  await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
   await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&${marker}=1`) });
   await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Apps catalog TS webclient ready");
-  await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "install");
   await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Apps", ".o_app_name");
   await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Apps catalog action ready");
   await waitForCount(page, ".o_web_client .gorp-apps-catalog", 1, "TS Apps catalog");
@@ -1917,19 +2177,48 @@ async function createDateFilterSmokeAction(page, config) {
   return { actionID, messageID };
 }
 
-async function createKanbanSmokeAction(page, config) {
+async function createKanbanSmokeAction(page, config, options = {}) {
+  const limit = Number.isFinite(options.limit) ? Math.max(1, Math.trunc(options.limit)) : 40;
   const actionCreated = await webCallKW(page, config, "ir.actions.act_window", "create", {
     values: {
       name: "Server Actions Kanban",
       type: "ir.actions.act_window",
       res_model: "ir.actions.server",
       view_mode: "kanban,form,list",
-      limit: 40
+      limit
     }
   });
   const actionID = Number(actionCreated?.id || actionCreated || 0);
   if (!actionID) throw new Error(`kanban smoke action invalid: ${JSON.stringify(actionCreated)}`);
   return { actionID };
+}
+
+async function ensureKanbanSmokeRecordCount(page, config, minimum) {
+  const existing = await webCallKW(page, config, "ir.actions.server", "search_read", {
+    args: [[]],
+    kwargs: { fields: ["id"], limit: minimum }
+  });
+  if (Array.isArray(existing) && existing.length >= minimum) return existing.length;
+  const modelRows = await webCallKW(page, config, "ir.model", "search_read", {
+    args: [[["model", "=", "ir.actions.server"]]],
+    kwargs: { fields: ["id", "model"], limit: 1 }
+  });
+  const modelID = Number(modelRows?.[0]?.id || 0);
+  const current = Array.isArray(existing) ? existing.length : 0;
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  for (let index = current; index < minimum; index += 1) {
+    await webCallKW(page, config, "ir.actions.server", "create", {
+      values: {
+        name: `Visual Kanban Load More ${suffix}-${index}`,
+        active: true,
+        state: "code",
+        model_id: modelID || undefined,
+        model_name: "ir.actions.server",
+        code: ""
+      }
+    });
+  }
+  return minimum;
 }
 
 async function externalResIDs(page, config, xmlIDs) {

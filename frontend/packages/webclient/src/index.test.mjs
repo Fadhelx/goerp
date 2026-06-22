@@ -2332,6 +2332,9 @@ assert.equal(kanbanRecordMenuToggle.attributes["aria-expanded"], "true");
 assert.equal(kanbanRecordMenuDropdown.hidden, false);
 assert.ok(String(kanbanRecordMenuDropdown.className).includes("show"));
 const kanbanRecordMenuOpen = findAll(kanbanRecordMenuDropdown, (node) => node.dataset?.kanbanRecordMenuAction === "open")[0];
+assert.deepEqual(findAll(kanbanRecordMenuDropdown, (node) => node.dataset?.kanbanRecordMenuAction).map((node) => [node.dataset.kanbanRecordMenuAction, node.textContent]), [["open", "Open"], ["duplicate", "Duplicate"], ["delete", "Delete"]]);
+assert.equal(findAll(kanbanRecordMenuDropdown, (node) => node.dataset?.kanbanRecordMenuAction === "duplicate")[0].disabled, true);
+assert.equal(findAll(kanbanRecordMenuDropdown, (node) => node.dataset?.kanbanRecordMenuAction === "delete")[0].disabled, true);
 kanbanRecordMenuOpen.dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(kanbanOpenEvents.length, 1);
@@ -2353,6 +2356,187 @@ await Promise.resolve();
 assert.equal(kanbanQuickCreateEvents.length, 1);
 assert.deepEqual(kanbanQuickCreateEvents[0].action.views, [[false, "form"]]);
 assert.deepEqual(kanbanQuickCreateEvents[0].context, {});
+
+const kanbanActionCalls = [];
+const kanbanActionEvents = [];
+const kanbanConfirmMessages = [];
+let kanbanRefreshCount = 0;
+const kanbanActionsWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: { arch: `<kanban><field name="display_name"/><field name="email"/></kanban>`, id: 22 },
+      form: { arch: `<form><field name="display_name"/></form>`, id: 23 }
+    }
+  },
+  records: [{ id: 15, display_name: "Ready Mat", email: "ready@example.test" }],
+  length: 1
+}, {
+  confirm(message) {
+    kanbanConfirmMessages.push(message);
+    return true;
+  },
+  onRefresh() {
+    kanbanRefreshCount += 1;
+  },
+  services: {
+    orm: {
+      call(model, method, args) {
+        kanbanActionCalls.push({ model, method, args });
+        return Promise.resolve(115);
+      },
+      unlink(model, ids) {
+        kanbanActionCalls.push({ model, method: "unlink", ids });
+        return Promise.resolve(true);
+      }
+    }
+  }
+});
+const kanbanActionsRenderer = findAll(kanbanActionsWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+kanbanActionsRenderer.addEventListener("action-menu:duplicate", (event) => kanbanActionEvents.push(["duplicate", event.detail]));
+kanbanActionsRenderer.addEventListener("action-menu:delete", (event) => kanbanActionEvents.push(["delete", event.detail]));
+const kanbanActionsCard = findAll(kanbanActionsRenderer, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
+const kanbanActionsMenuToggle = findAll(kanbanActionsCard, (node) => node.dataset?.kanbanRecordMenu === "true")[0];
+const kanbanActionsDuplicate = findAll(kanbanActionsCard, (node) => node.dataset?.kanbanRecordMenuAction === "duplicate")[0];
+const kanbanActionsDelete = findAll(kanbanActionsCard, (node) => node.dataset?.kanbanRecordMenuAction === "delete")[0];
+assert.equal(kanbanActionsDuplicate.disabled, false);
+assert.equal(kanbanActionsDelete.disabled, false);
+kanbanActionsMenuToggle.dispatchEvent(new TestEvent("click"));
+kanbanActionsDuplicate.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(kanbanActionCalls[0], { model: "res.partner", method: "copy", args: [15, {}] });
+assert.deepEqual(kanbanActionEvents[0], ["duplicate", { model: "res.partner", ids: [15], newId: 115 }]);
+kanbanActionsMenuToggle.dispatchEvent(new TestEvent("click"));
+kanbanActionsDelete.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(kanbanConfirmMessages, ["Are you sure you want to delete this record?"]);
+assert.deepEqual(kanbanActionCalls[1], { model: "res.partner", method: "unlink", ids: [15] });
+assert.deepEqual(kanbanActionEvents[1], ["delete", { model: "res.partner", ids: [15] }]);
+assert.equal(kanbanRefreshCount, 2);
+
+const kanbanLoadMoreActions = [];
+const kanbanLoadMoreWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]],
+    limit: 2
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: { arch: `<kanban><field name="display_name"/><field name="email"/></kanban>`, id: 24 },
+      form: { arch: `<form><field name="display_name"/></form>`, id: 25 }
+    }
+  },
+  records: [
+    { id: 16, display_name: "First", email: "first@example.test" },
+    { id: 17, display_name: "Second", email: "second@example.test" }
+  ],
+  length: 5,
+  offset: 0,
+  countLimited: false
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        kanbanLoadMoreActions.push({ action, options });
+        return Promise.resolve(true);
+      }
+    }
+  }
+});
+const kanbanLoadMoreButton = findAll(kanbanLoadMoreWindow, (node) => node.dataset?.kanbanLoadMore === "true")[0];
+assert.equal(kanbanLoadMoreButton.textContent, "Load more");
+assert.equal(kanbanLoadMoreButton.dataset.loaded, "2");
+assert.equal(kanbanLoadMoreButton.dataset.total, "5");
+assert.equal(kanbanLoadMoreButton.dataset.nextLimit, "4");
+kanbanLoadMoreButton.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(kanbanLoadMoreActions.length, 1);
+assert.equal(kanbanLoadMoreActions[0].action.limit, 4);
+assert.equal(kanbanLoadMoreActions[0].action.__pager_offset, 0);
+assert.equal(kanbanLoadMoreActions[0].action.res_model, "res.partner");
+assert.deepEqual(kanbanLoadMoreActions[0].options, { additionalContext: {}, replaceLastAction: true });
+assert.equal(kanbanLoadMoreButton.disabled, true);
+
+const kanbanProgressWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban",
+    views: [[false, "kanban"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      state: { type: "selection", string: "State", selection: [["code", "Execute Code"], ["multi", "Multi Actions"]] },
+      amount: { type: "float", string: "Amount" },
+      color: { type: "integer", string: "Color" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><progressbar field="state" colors="{'code':'success','multi':'warning'}" sum_field="amount"/><field name="display_name"/><field name="state"/><field name="amount"/><field name="color"/></kanban>`,
+        id: 26
+      }
+    }
+  },
+  records: [
+    { id: 18, display_name: "First", state: "code", amount: 10, color: 2 },
+    { id: 19, display_name: "Second", state: "multi", amount: 5, color: 5 },
+    { id: 20, display_name: "Third", state: "code", amount: 5, color: 2 }
+  ],
+  length: 3,
+  offset: 0,
+  countLimited: false
+});
+const kanbanProgress = findAll(kanbanProgressWindow, (node) => String(node.className ?? "").includes("o_kanban_progressbar"))[0];
+assert.equal(kanbanProgress.dataset.field, "state");
+assert.equal(kanbanProgress.dataset.sumField, "amount");
+assert.equal(kanbanProgress.attributes.role, "group");
+const kanbanProgressSegments = findAll(kanbanProgress, (node) => String(node.className ?? "").includes("o_kanban_progressbar_segment"));
+assert.deepEqual(kanbanProgressSegments.map((node) => [node.dataset.value, node.dataset.label, node.dataset.count, node.dataset.sum]), [
+  ["code", "Execute Code", "2", "15"],
+  ["multi", "Multi Actions", "1", "5"]
+]);
+assert.ok(String(kanbanProgressSegments[0].className).includes("o_kanban_progress_color_success"));
+assert.ok(String(kanbanProgressSegments[1].className).includes("o_kanban_progress_color_warning"));
+assert.equal(kanbanProgressSegments[0].attributes.style, "width: 75.00%;");
+assert.equal(kanbanProgressSegments[1].attributes.style, "width: 25.00%;");
+const kanbanProgressLegend = findAll(kanbanProgress, (node) => String(node.className ?? "").includes("o_kanban_progressbar_legend_item"));
+assert.deepEqual(
+  kanbanProgressLegend.map((node) => findAll(node, (child) => String(child.className ?? "").includes("o_kanban_progressbar_legend_text"))[0].textContent),
+  ["Execute Code 15", "Multi Actions 5"]
+);
+const kanbanProgressCards = findAll(kanbanProgressWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"));
+assert.equal(kanbanProgressCards[0].dataset.kanbanColor, "2");
+assert.ok(String(kanbanProgressCards[0].className).includes("o_kanban_color_2"));
+assert.ok(String(kanbanProgressCards[1].className).includes("o_kanban_color_5"));
 
 const groupedKanbanCreateCalls = [];
 const groupedKanbanWindow = renderWindowAction({

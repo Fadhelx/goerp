@@ -9,8 +9,8 @@ export const enterpriseLikeTheme: ThemeTokens = {
     accent: "#714b67",
     focus: "#017e84",
     navbar: "#714b67",
-    home: "#070a15",
-    homeText: "#ffffff"
+    home: "#eef0f3",
+    homeText: "#1f2933"
   },
   typography: {
     body: "ui-sans-serif, system-ui",
