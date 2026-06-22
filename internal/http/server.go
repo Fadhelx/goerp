@@ -6831,6 +6831,22 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--text);
 		overflow-wrap: anywhere;
 	}
+	.gorp-many2one-link.o_field_many2one {
+		display: inline-flex;
+		align-items: center;
+		width: fit-content;
+		max-width: 100%;
+		color: #017e84;
+		text-decoration: none;
+		border-bottom: 1px solid transparent;
+		transition: color .12s ease, border-color .12s ease;
+	}
+	.gorp-many2one-link.o_field_many2one:hover,
+	.gorp-many2one-link.o_field_many2one:focus {
+		color: #015f63;
+		border-bottom-color: currentColor;
+		outline: none;
+	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	}
@@ -7074,6 +7090,13 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"] {
 		color: var(--text);
 		background: var(--bg);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-link.o_field_many2one {
+		color: #54c4c9;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-link.o_field_many2one:hover,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-many2one-link.o_field_many2one:focus {
+		color: #8de1e4;
 	}
 	main.o_web_client[data-theme="enterprise-like"] > .o_main_navbar,
 	body[data-theme="enterprise"] > header {

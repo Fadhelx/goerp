@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-06-22T04:37:15.266Z",
+  "base_url": "http://127.0.0.1:8077/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "054c9b90a277d55fd1443829cbe5149e64255d8d48d9ecebd55da11677d97944",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=25&menu_id=8",
+        "form_count": 1,
+        "field_count": 6,
+        "relation_link_count": 1,
+        "relation_state": {
+          "text": "mail.mail",
+          "res_id": "81",
+          "href": "#model=ir.model&view_type=form&id=81"
+        }
+      },
+      "duration_ms": 975
+    }
+  ],
+  "duration_ms": 1108
+}

@@ -144,16 +144,28 @@ export const scenarios = [
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
       await openDefaultServerActionsList(page, config, desktopViewport());
-      await clickFirst(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=7&model=ir.actions.server&view_type=form&id=25&menu_id=8`) });
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
       const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
+      const relationLinkCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-many2one-link[data-field='model_id'][data-relation='ir.model']", 1, "TS Server Actions many2one relation link");
+      const relationState = await evaluate(page, `(() => {
+        const link = document.querySelector(".o_web_client .o_action_manager .gorp-form-view .gorp-many2one-link[data-field='model_id'][data-relation='ir.model']");
+        return {
+          text: link?.textContent?.trim() || "",
+          res_id: link?.dataset?.resId || "",
+          href: link?.getAttribute("href") || ""
+        };
+      })()`);
+      if (!relationState.text || !relationState.res_id || !relationState.href.includes("model=ir.model")) {
+        throw new Error(`TS Server Actions relation link invalid: ${JSON.stringify(relationState)}`);
+      }
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount };
+      return { title, hash, form_count: formCount, field_count: fieldCount, relation_link_count: relationLinkCount, relation_state: relationState };
     }
   },
   {

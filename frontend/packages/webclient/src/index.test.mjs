@@ -1370,6 +1370,64 @@ assert.deepEqual(notebookTabs.map((node) => node.attributes["aria-selected"]), [
 assert.equal(notebookPages[0].hidden, true);
 assert.equal(notebookPages[1].hidden, false);
 
+const relationOpenCalls = [];
+const many2OneFormWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Server Action" },
+  activeView: "form",
+  resModel: "ir.actions.server",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "Model" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="model_id"/></sheet></form>`,
+        id: 71
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 23,
+    display_name: "Update Records",
+    name: "Update Records",
+    model_id: [5, "Contact"]
+  },
+  context: { lang: "en_US" },
+  services: {
+    action: {
+      doAction(action, options) {
+        relationOpenCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const modelLink = findAll(many2OneFormWindow, (node) => String(node.className ?? "").includes("gorp-many2one-link"))[0];
+assert.equal(modelLink.tag, "a");
+assert.equal(modelLink.dataset.field, "model_id");
+assert.equal(modelLink.dataset.relation, "ir.model");
+assert.equal(modelLink.dataset.resId, "5");
+assert.equal(modelLink.textContent, "Contact");
+assert.equal(modelLink.href, "#model=ir.model&view_type=form&id=5");
+modelLink.dispatchEvent(new TestEvent("click"));
+assert.equal(relationOpenCalls.length, 1);
+assert.deepEqual(relationOpenCalls[0].action, {
+  type: "ir.actions.act_window",
+  name: "Contact",
+  res_model: "ir.model",
+  res_id: 5,
+  views: [[false, "form"]],
+  view_mode: "form",
+  target: "current"
+});
+assert.deepEqual(relationOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
+
 const groupedRequestStart = windowActionRequests.length;
 const groupedWindowResult = await actionServices.action.doAction({
   ...windowResult.action,

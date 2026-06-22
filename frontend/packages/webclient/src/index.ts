@@ -4422,7 +4422,7 @@ function renderFormFieldNode(
   if (required) label.dataset.required = "true";
   const value = required && formFieldEditable(node, fields[name], recordValues)
     ? renderEditableFormField(node, fields[name], recordValues, form, options)
-    : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues);
+    : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues, form, options);
   label.append(caption, value);
   return label;
 }
@@ -4519,7 +4519,9 @@ function renderReadonlyFieldValue(
   node: ViewFieldNode,
   description: unknown,
   value: unknown,
-  evalContext: Record<string, unknown>
+  evalContext: Record<string, unknown>,
+  form?: HTMLElement,
+  options?: RenderWindowActionOptions
 ): HTMLElement {
   if (node.attrs.widget === "many2one_avatar_employee" && fieldTypeValue(description) === "many2one") {
     return renderMany2OneAvatarValue(node.name, fieldRelationValue(description) || "hr.employee", value);
@@ -4527,10 +4529,55 @@ function renderReadonlyFieldValue(
   if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
     return renderBadgeValue(node, description, value, evalContext);
   }
+  if (fieldTypeValue(description) === "many2one") {
+    const relation = fieldRelationValue(description);
+    const data = many2OneDisplayData(value);
+    if (relation && data.id !== undefined) {
+      return renderMany2OneLinkValue(node.name, relation, data, form, options);
+    }
+  }
   const output = document.createElement("output");
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value);
   return output;
+}
+
+function renderMany2OneLinkValue(
+  fieldName: string,
+  relation: string,
+  data: { id?: number; displayName: string },
+  form?: HTMLElement,
+  options?: RenderWindowActionOptions
+): HTMLElement {
+  const link = document.createElement("a");
+  link.className = "gorp-many2one-link o_field_widget o_field_many2one o_readonly_modifier";
+  link.dataset.field = fieldName;
+  link.dataset.relation = relation;
+  if (data.id !== undefined) link.dataset.resId = String(data.id);
+  link.href = data.id !== undefined ? `#model=${encodeURIComponent(relation)}&view_type=form&id=${encodeURIComponent(String(data.id))}` : "#";
+  link.textContent = data.displayName;
+  link.addEventListener("click", (event) => {
+    if (data.id === undefined) return;
+    event.preventDefault?.();
+    const action: Record<string, unknown> = {
+      type: "ir.actions.act_window",
+      name: data.displayName || relation,
+      res_model: relation,
+      res_id: data.id,
+      views: [[false, "form"]],
+      view_mode: "form",
+      target: "current"
+    };
+    if (options?.services?.action) {
+      void options.services.action.doAction(action, replaceActionOptions(options));
+      return;
+    }
+    form?.dispatchEvent(new CustomEvent("action:open-record", {
+      bubbles: true,
+      detail: { action, model: relation, id: data.id }
+    }));
+  });
+  return link;
 }
 
 function renderMany2OneAvatarValue(fieldName: string, relation: string, value: unknown): HTMLElement {
