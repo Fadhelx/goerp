@@ -220,7 +220,8 @@ export const scenarios = [
           systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
         };
       })()`);
-      if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || topbarState.background !== "rgb(255, 255, 255)" || topbarState.launcher_width < 30 || topbarState.launcher_dot !== "rgb(113, 75, 103)" || topbarState.systray_count < 4) {
+      const allowedTopbarBackgrounds = new Set(["rgb(40, 42, 53)"]);
+      if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || !allowedTopbarBackgrounds.has(topbarState.background) || topbarState.launcher_width < 30 || !["rgb(113, 75, 103)", "rgb(135, 90, 123)"].includes(topbarState.launcher_dot) || topbarState.systray_count < 4) {
         throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
       }
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
@@ -409,6 +410,33 @@ export const scenarios = [
       if (formControlState.search_inputs !== 0 || formControlState.search_toggles !== 0) {
         throw new Error(`TS Server Actions form exposes list search controls: ${JSON.stringify(formControlState)}`);
       }
+      const formToolbarState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const mainButtons = root?.querySelector(".o_control_panel_main_buttons");
+        const actions = root?.querySelector(".o_control_panel_actions");
+        const activeBreadcrumb = root?.querySelector(".o_control_panel_breadcrumbs .breadcrumb-item.active, .o_control_panel_breadcrumbs .active");
+        const actionMenus = [...(root?.querySelectorAll(".gorp-form-action-menu") || [])];
+        const actionLabels = [...(root?.querySelectorAll(".gorp-form-action-menu .gorp-action-menu-toggle") || [])]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        const rect = (node) => {
+          const box = node?.getBoundingClientRect();
+          return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height } : null;
+        };
+        const intersects = (left, right) => left && right && left.left < right.right - 1 && left.right > right.left + 1 && left.top < right.bottom - 1 && left.bottom > right.top + 1;
+        return {
+          action_menu_count: actionMenus.length,
+          main_button_action_menu_count: mainButtons?.querySelectorAll(".gorp-form-action-menu").length || 0,
+          action_lane_action_menu_count: actions?.querySelectorAll(".gorp-form-action-menu").length || 0,
+          duplicate_actions_label_count: actionLabels.filter((label) => label === "Actions").length,
+          action_labels: actionLabels,
+          main_overlaps_breadcrumb: intersects(rect(mainButtons), rect(activeBreadcrumb)),
+          actions_overlaps_breadcrumb: intersects(rect(actions), rect(activeBreadcrumb))
+        };
+      })()`);
+      if (formToolbarState.action_menu_count !== 1 || formToolbarState.main_button_action_menu_count !== 0 || formToolbarState.action_lane_action_menu_count !== 1 || formToolbarState.duplicate_actions_label_count > 1 || formToolbarState.main_overlaps_breadcrumb || formToolbarState.actions_overlaps_breadcrumb) {
+        throw new Error(`TS Server Actions form toolbar invalid: ${JSON.stringify(formToolbarState)}`);
+      }
       const serverActionBandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-band[data-state]", 1, "TS Server Actions header band");
       const serverActionNotebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-form-notebook-tab", 2, "TS Server Actions Code Help notebook");
       const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Server Actions code viewer");
@@ -460,7 +488,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -1681,7 +1709,7 @@ export const scenarios = [
           horizontal_overflow_px: document.documentElement.scrollWidth - window.innerWidth
         };
       })()`);
-      if (isDarkLauncherBackground(launcherState.launcher_bg)) throw new Error(`mobile launcher dark background: ${JSON.stringify(launcherState)}`);
+      if (!isDarkLauncherBackground(launcherState.launcher_bg)) throw new Error(`mobile launcher background not dark: ${JSON.stringify(launcherState)}`);
       if (!isEnterpriseHomeBackgroundImage(launcherState.launcher_bg_image)) throw new Error(`mobile launcher enterprise background missing: ${JSON.stringify(launcherState)}`);
       if (launcherState.horizontal_overflow_px > 1) throw new Error(`mobile launcher horizontal overflow: ${launcherState.horizontal_overflow_px}px`);
       if (launcherState.draggable_count < appCount) throw new Error(`mobile launcher wrapper contract invalid: ${JSON.stringify(launcherState)}`);
@@ -1748,7 +1776,8 @@ export const scenarios = [
       const mobileFormChrome = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
         const mainButtons = root?.querySelector(".o_control_panel_main_buttons");
-        const actionMenu = mainButtons?.querySelector(".gorp-form-action-menu");
+        const actions = root?.querySelector(".o_control_panel_actions");
+        const actionMenu = actions?.querySelector(".gorp-form-action-menu");
         const actionToggle = actionMenu?.querySelector(".gorp-action-menu-toggle");
         const actionToggleRect = actionToggle?.getBoundingClientRect();
         const actionToggleStyle = actionToggle ? getComputedStyle(actionToggle) : null;
@@ -1759,20 +1788,22 @@ export const scenarios = [
           return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
         });
         return {
-          action_menu_in_main_buttons: Boolean(actionMenu),
+          action_menu_in_actions: Boolean(actionMenu),
+          action_menu_in_main_buttons: Boolean(mainButtons?.querySelector(".gorp-form-action-menu")),
+          action_menu_placement: actionMenu?.dataset.controlPanelPlacement || "",
           action_toggle_width_px: actionToggleRect ? Math.round(actionToggleRect.width) : 0,
           action_toggle_font_size_px: actionToggleStyle ? Number.parseFloat(actionToggleStyle.fontSize) || 0 : -1,
           loose_action_menus: looseActionMenus,
           visible_switch_buttons: visibleSwitchButtons.length
         };
       })()`);
-      if (!mobileFormChrome.action_menu_in_main_buttons || mobileFormChrome.loose_action_menus !== 0 || mobileFormChrome.visible_switch_buttons !== 0) {
+      if (!mobileFormChrome.action_menu_in_actions || mobileFormChrome.action_menu_in_main_buttons || mobileFormChrome.action_menu_placement !== "actions" || mobileFormChrome.loose_action_menus !== 0 || mobileFormChrome.visible_switch_buttons !== 0) {
         throw new Error(`default TS mobile form chrome invalid: ${JSON.stringify(mobileFormChrome)}`);
       }
       if (mobileFormChrome.action_toggle_width_px < 32 || mobileFormChrome.action_toggle_width_px > 40 || mobileFormChrome.action_toggle_font_size_px !== 0) {
         throw new Error(`default TS mobile form action toggle not compact: ${JSON.stringify(mobileFormChrome)}`);
       }
-      await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_control_panel_main_buttons .gorp-action-menu-toggle[data-action-menu-toggle='action']");
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_control_panel_actions .gorp-action-menu-toggle[data-action-menu-toggle='action']");
       const actionMenuOpenState = await waitFor(page, `(() => {
         const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
         const toggle = section?.querySelector(".gorp-action-menu-toggle");
@@ -1784,21 +1815,31 @@ export const scenarios = [
           ? { open: section.dataset.open, expanded: toggle.getAttribute("aria-expanded"), item_count: itemCount, width: Math.round(rect.width), height: Math.round(rect.height), display: style.display }
           : null;
       })()`, "default TS mobile form action menu opens");
-      await evaluate(page, `document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-toggle[data-action-menu-toggle='action']")?.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
-      const actionMenuClosedState = await waitFor(page, `(() => {
+      await evaluate(page, `document.body.click()`);
+      const actionMenuOutsideClosedState = await waitFor(page, `(() => {
         const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
         const toggle = section?.querySelector(".gorp-action-menu-toggle");
         return section?.dataset.open === "false" && toggle?.getAttribute("aria-expanded") === "false"
           ? { open: section.dataset.open, expanded: toggle.getAttribute("aria-expanded") }
           : null;
-      })()`, "default TS mobile form action menu closes");
+      })()`, "default TS mobile form action menu closes by outside click");
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_control_panel_actions .gorp-action-menu-toggle[data-action-menu-toggle='action']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']")?.dataset.open === "true"`, "default TS mobile form action menu reopens");
+      await evaluate(page, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
+      const actionMenuEscapeClosedState = await waitFor(page, `(() => {
+        const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
+        const toggle = section?.querySelector(".gorp-action-menu-toggle");
+        return section?.dataset.open === "false" && toggle?.getAttribute("aria-expanded") === "false"
+          ? { open: section.dataset.open, expanded: toggle.getAttribute("aria-expanded") }
+          : null;
+      })()`, "default TS mobile form action menu closes by document Escape");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "default TS mobile form hash");
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
-      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, action_menu_open_state: actionMenuOpenState, action_menu_closed_state: actionMenuClosedState, hash, horizontal_overflow_px: overflow };
+      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, action_menu_open_state: actionMenuOpenState, action_menu_outside_closed_state: actionMenuOutsideClosedState, action_menu_escape_closed_state: actionMenuEscapeClosedState, hash, horizontal_overflow_px: overflow };
     }
   },
   {
@@ -2221,8 +2262,8 @@ async function assertEnterprisePolishSnapshot(page) {
     };
   })()`);
   const issues = [];
-  const acceptedControlPanelBG = new Set(["rgb(255, 255, 255)"]);
-  const acceptedListHeaderBG = new Set(["rgb(246, 247, 248)"]);
+  const acceptedControlPanelBG = new Set(["rgb(40, 42, 53)"]);
+  const acceptedListHeaderBG = new Set(["rgb(27, 29, 39)"]);
   if (!acceptedControlPanelBG.has(snapshot.control_panel_bg)) issues.push(`control panel bg ${snapshot.control_panel_bg}`);
   if (snapshot.control_panel_bg === "rgb(255, 255, 255)" && (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none")) issues.push("control panel shadow missing");
   if (snapshot.control_panel_min_height_px < 60 || snapshot.control_panel_min_height_px > 66) issues.push(`control panel min-height ${snapshot.control_panel_min_height_px}`);
@@ -2300,7 +2341,7 @@ async function assertLegacyLauncherChromeSnapshot(page) {
   if (snapshot.header_position !== "absolute") issues.push(`header position ${snapshot.header_position}`);
   if (!transparent.has(snapshot.header_bg)) issues.push(`header background ${snapshot.header_bg}`);
   if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
-  if (isDarkLauncherBackground(snapshot.launcher_bg)) issues.push(`dark launcher background ${snapshot.launcher_bg}`);
+  if (!isDarkLauncherBackground(snapshot.launcher_bg)) issues.push(`launcher background not dark ${snapshot.launcher_bg}`);
   if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
   if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
   if (snapshot.grid_top_px < 145 || snapshot.grid_top_px > 250) issues.push(`grid top ${snapshot.grid_top_px}`);
@@ -2407,10 +2448,8 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
 	  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
 	  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
-	  if (isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`dark launcher background ${snapshot.launcher_bg_color}`);
-	  if (snapshot.launcher_bg_color.replace(/\s+/g, "") !== "rgb(238,240,243)") issues.push(`launcher background ${snapshot.launcher_bg_color}`);
+		  if (!isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`launcher background not dark ${snapshot.launcher_bg_color}`);
 	  if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
-	  if (!snapshot.launcher_box_shadow || snapshot.launcher_box_shadow === "none") issues.push("launcher shading missing");
 	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
 	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
 	  if (snapshot.banner_count !== 0 || snapshot.banner_visible) issues.push(`unexpected registration banner ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);

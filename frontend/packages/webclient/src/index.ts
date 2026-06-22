@@ -1860,9 +1860,36 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
 function moveFormActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLElement): void {
   const actionMenu = findDescendantByClass(body, "gorp-form-action-menu");
   if (!actionMenu) return;
+  for (const existing of findDescendantsByClass(controlPanel, "gorp-form-action-menu")) removeDescendant(controlPanel, existing);
+  const actions = findDescendantByClass(controlPanel, "o_control_panel_actions");
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
-  if (!mainButtons) return;
-  mainButtons.append(actionMenu);
+  const target = actions ?? mainButtons;
+  if (!target) return;
+  actionMenu.dataset.controlPanelPlacement = actions ? "actions" : "main_buttons";
+  target.append(actionMenu);
+}
+
+function removeDescendant(root: HTMLElement, target: HTMLElement): void {
+  if (typeof target.remove === "function") {
+    target.remove();
+    return;
+  }
+  if (target.parentElement && typeof target.parentElement.removeChild === "function") {
+    target.parentElement.removeChild(target);
+    return;
+  }
+  removeDescendantFromTestTree(root, target);
+}
+
+function removeDescendantFromTestTree(root: HTMLElement, target: HTMLElement): boolean {
+  const children = (root as unknown as { children?: unknown }).children;
+  if (!Array.isArray(children)) return false;
+  const index = children.indexOf(target);
+  if (index >= 0) {
+    children.splice(index, 1);
+    return true;
+  }
+  return children.some((child) => removeDescendantFromTestTree(child as HTMLElement, target));
 }
 
 export function renderWindowActionDialog(result: WindowActionResult, options: RenderWindowActionDialogOptions = {}): HTMLElement {
@@ -2833,6 +2860,12 @@ function findDescendantByClass(root: HTMLElement, className: string): HTMLElemen
     if (found) return found;
   }
   return null;
+}
+
+function findDescendantsByClass(root: HTMLElement, className: string, out: HTMLElement[] = []): HTMLElement[] {
+  if (classNameIncludes(root.className, className)) out.push(root);
+  for (const child of Array.from(root.children)) findDescendantsByClass(child as HTMLElement, className, out);
+  return out;
 }
 
 function classNameIncludes(className: string, target: string): boolean {
@@ -4563,16 +4596,25 @@ function renderActionMenus(params: {
   toolbar.className = `${params.className} gorp-action-menus o_cp_action_menus`;
   toolbar.setAttribute("role", "toolbar");
   toolbar.dataset.model = params.model;
+  const sections: HTMLElement[] = [];
+  const lifecycle: ActionMenuSectionLifecycle = {
+    onBeforeOpen(section) {
+      closeActionMenuSections(sections, section);
+    }
+  };
   const printItems = actionMenuRecords(params.actionMenus, "print");
   if (printItems.length) {
-    toolbar.append(renderPrintActionMenuSection(
+    const section = renderPrintActionMenuSection(
       params.model,
       printItems,
       params.getActiveIds,
       params.requiresSelection,
       params.root,
-      params.options
-    ));
+      params.options,
+      lifecycle
+    );
+    sections.push(section);
+    toolbar.append(section);
   }
   const actionButtons = [
     ...params.staticActionButtons,
@@ -4581,8 +4623,11 @@ function renderActionMenus(params: {
     )
   ].sort(compareActionMenuButtons);
   if (actionButtons.length) {
-    toolbar.append(renderActionMenuSection("action", "Actions", "fa fa-cog", actionButtons));
+    const section = renderActionMenuSection("action", "Actions", "fa fa-cog", actionButtons, lifecycle);
+    sections.push(section);
+    toolbar.append(section);
   }
+  bindActionMenuToolbarLifecycle(toolbar, sections);
   return toolbar;
 }
 
@@ -4592,29 +4637,37 @@ function renderPrintActionMenuSection(
   getActiveIds: () => number[],
   requiresSelection: boolean,
   root: HTMLElement,
-  options: RenderWindowActionOptions
+  options: RenderWindowActionOptions,
+  lifecycle: ActionMenuSectionLifecycle = {}
 ): HTMLElement {
-  const section = renderActionMenuSection("print", "Print", "fa fa-print", []);
-  const toggle = section.children[0] as HTMLElement;
-  const menu = section.children[1] as HTMLElement;
-  toggle.addEventListener("click", async () => {
-    const activeIds = await actionMenuActiveIds(model, getActiveIds(), options);
-    const items = await availablePrintActionButtons(model, printItems, activeIds, getActiveIds, requiresSelection, root, options);
-    clearElementChildren(menu);
-    appendActionMenuItems(menu, items.length ? items : [renderNoPrintReportsItem()]);
-    root.dispatchEvent(new CustomEvent("action-menu:print-loaded", {
-      bubbles: true,
-      detail: {
-        model,
-        ids: activeIds,
-        availableIds: items.map((item) => item.dataset.actionId).filter(Boolean)
-      }
-    }));
+  const section = renderActionMenuSection("print", "Print", "fa fa-print", [], {
+    ...lifecycle,
+    async beforeOpen() {
+      const activeIds = await actionMenuActiveIds(model, getActiveIds(), options);
+      const items = await availablePrintActionButtons(model, printItems, activeIds, getActiveIds, requiresSelection, root, options);
+      clearElementChildren(menu);
+      appendActionMenuItems(menu, items.length ? items : [renderNoPrintReportsItem()]);
+      root.dispatchEvent(new CustomEvent("action-menu:print-loaded", {
+        bubbles: true,
+        detail: {
+          model,
+          ids: activeIds,
+          availableIds: items.map((item) => item.dataset.actionId).filter(Boolean)
+        }
+      }));
+    }
   });
+  const menu = section.children[1] as HTMLElement;
   return section;
 }
 
-function renderActionMenuSection(kind: string, title: string, iconClass: string, items: readonly HTMLElement[]): HTMLElement {
+interface ActionMenuSectionLifecycle {
+  onBeforeOpen?: (section: HTMLElement) => void;
+  beforeOpen?: (section: HTMLElement) => void | Promise<void>;
+  onOpen?: (section: HTMLElement) => void | Promise<void>;
+}
+
+function renderActionMenuSection(kind: string, title: string, iconClass: string, items: readonly HTMLElement[], lifecycle: ActionMenuSectionLifecycle = {}): HTMLElement {
   const section = document.createElement("div");
   section.className = "gorp-action-menu-section";
   section.dataset.menu = kind;
@@ -4636,7 +4689,7 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
   appendActionMenuItems(menu, items);
   toggle.addEventListener("click", (event) => {
     event.preventDefault?.();
-    setActionMenuOpen(section, toggle, !actionMenuOpen(section));
+    void toggleActionMenuSection(section, toggle, !actionMenuOpen(section), lifecycle);
   });
   toggle.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -4646,7 +4699,7 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
     }
     if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
       event.preventDefault?.();
-      setActionMenuOpen(section, toggle, true);
+      void toggleActionMenuSection(section, toggle, true, lifecycle);
     }
   });
   menu.addEventListener("click", (event) => {
@@ -4657,6 +4710,17 @@ function renderActionMenuSection(kind: string, title: string, iconClass: string,
   return section;
 }
 
+async function toggleActionMenuSection(section: HTMLElement, toggle: HTMLElement, open: boolean, lifecycle: ActionMenuSectionLifecycle): Promise<void> {
+  const wasOpen = actionMenuOpen(section);
+  if (open && !wasOpen) {
+    lifecycle.onBeforeOpen?.(section);
+    const beforeOpen = lifecycle.beforeOpen?.(section);
+    if (beforeOpen) await beforeOpen;
+  }
+  setActionMenuOpen(section, toggle, open);
+  if (open && !wasOpen) void lifecycle.onOpen?.(section);
+}
+
 function actionMenuOpen(section: HTMLElement): boolean {
   return section.dataset.open === "true";
 }
@@ -4665,6 +4729,51 @@ function setActionMenuOpen(section: HTMLElement, toggle: HTMLElement, open: bool
   section.dataset.open = open ? "true" : "false";
   section.className = toggleClassToken(String(section.className ?? ""), "open", open);
   toggle.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function bindActionMenuToolbarLifecycle(toolbar: HTMLElement, sections: readonly HTMLElement[]): void {
+  const documentTarget = globalThis.document;
+  if (!documentTarget || typeof documentTarget.addEventListener !== "function") return;
+  const closeIfOutside = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (target && elementContains(toolbar, target)) return;
+    closeActionMenuSections(sections);
+  };
+  documentTarget.addEventListener("pointerdown", closeIfOutside);
+  documentTarget.addEventListener("click", closeIfOutside);
+  documentTarget.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    closeActionMenuSections(sections);
+  });
+  const windowTarget = globalThis.window;
+  if (windowTarget && typeof windowTarget.addEventListener === "function") {
+    windowTarget.addEventListener("popstate", () => closeActionMenuSections(sections));
+    windowTarget.addEventListener("blur", () => closeActionMenuSections(sections));
+  }
+}
+
+function closeActionMenuSections(sections: readonly HTMLElement[], except?: HTMLElement): void {
+  for (const section of sections) {
+    if (section === except) continue;
+    const toggle = actionMenuToggle(section);
+    if (toggle) setActionMenuOpen(section, toggle, false);
+  }
+}
+
+function actionMenuToggle(section: HTMLElement): HTMLElement | null {
+  for (const child of Array.from(section.children)) {
+    const element = child as HTMLElement;
+    if (element.dataset?.actionMenuToggle) return element;
+  }
+  return null;
+}
+
+function elementContains(root: HTMLElement, target: HTMLElement): boolean {
+  if (root === target) return true;
+  for (const child of Array.from(root.children)) {
+    if (elementContains(child as HTMLElement, target)) return true;
+  }
+  return false;
 }
 
 function appendActionMenuItems(menu: HTMLElement, items: readonly HTMLElement[]): void {

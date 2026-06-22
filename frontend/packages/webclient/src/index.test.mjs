@@ -75,6 +75,7 @@ function testDataTransfer() {
   };
 }
 
+const documentListeners = {};
 globalThis.document = {
   implementation: {
     createDocument() {
@@ -146,6 +147,20 @@ globalThis.document = {
         return !event.defaultPrevented;
       }
     };
+  },
+  addEventListener(type, listener) {
+    documentListeners[type] = [...(documentListeners[type] ?? []), listener];
+  },
+  removeEventListener(type, listener) {
+    documentListeners[type] = (documentListeners[type] ?? []).filter((item) => item !== listener);
+  },
+  dispatchEvent(event) {
+    try {
+      event.target ??= this;
+      event.currentTarget = this;
+    } catch {}
+    for (const listener of documentListeners[event.type] ?? []) listener.call(this, event);
+    return !event.defaultPrevented;
   }
 };
 
@@ -1585,14 +1600,26 @@ const genericSaveButton = findAll(genericFormWindow, (node) => node.dataset?.for
 const genericDiscardButton = findAll(genericFormWindow, (node) => node.dataset?.formAction === "discard")[0];
 const genericControlPanel = genericFormWindow.children[0];
 const genericControlPanelButtons = findAll(genericControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_main_buttons"))[0];
-assert.equal(findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 1);
-const genericActionMenuSection = findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
+const genericControlPanelActions = findAll(genericControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_actions"))[0];
+assert.equal(findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 0);
+assert.equal(findAll(genericControlPanelActions, (node) => String(node.className ?? "").includes("gorp-form-action-menu") && node.dataset?.controlPanelPlacement === "actions").length, 1);
+const genericActionMenuSection = findAll(genericControlPanelActions, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
 const genericActionMenuToggle = findAll(genericActionMenuSection, (node) => node.dataset?.actionMenuToggle === "action")[0];
 assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
 genericActionMenuToggle.dispatchEvent(new TestEvent("click"));
 assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "true");
 assert.equal(genericActionMenuSection.dataset.open, "true");
 assert.equal(String(genericActionMenuSection.className).split(/\s+/).includes("open"), true);
+globalThis.document.dispatchEvent(new TestEvent("click"));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
+assert.equal(genericActionMenuSection.dataset.open, "false");
+genericActionMenuToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "true");
+globalThis.document.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
+assert.equal(genericActionMenuSection.dataset.open, "false");
+genericActionMenuToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "true");
 genericActionMenuToggle.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
 assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
 assert.equal(genericActionMenuSection.dataset.open, "false");
@@ -3626,10 +3653,23 @@ const serverActionMenuWindow = renderWindowAction({
 const serverActionMenuShell = serverActionMenuWindow.children[1];
 const serverActionMenu = findAll(serverActionMenuShell, (node) => String(node.className ?? "").includes("gorp-action-menus"))[0];
 assert.deepEqual(findAll(serverActionMenu, (node) => node.dataset?.menu).map((node) => node.dataset.menu), ["print", "action"]);
+const serverPrintSection = findAll(serverActionMenu, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "print")[0];
+const serverActionSection = findAll(serverActionMenu, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
 const serverExportButton = findAll(serverActionMenu, (node) => node.dataset?.actionId === "310")[0];
 const serverPrintToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "print")[0];
+const serverActionToggle = findAll(serverActionMenu, (node) => node.dataset?.actionMenuToggle === "action")[0];
 assert.equal(findAll(serverActionMenu, (node) => node.dataset?.actionId === "320").length, 0);
 assert.deepEqual([serverExportButton.disabled], [true]);
+serverPrintToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(serverPrintSection.dataset.open, "true");
+serverActionToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(serverActionSection.dataset.open, "true");
+assert.equal(serverPrintSection.dataset.open, "false");
+assert.equal(findAll(serverActionMenu, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.open === "true").length, 1);
+globalThis.document.dispatchEvent(new TestEvent("click"));
+assert.equal(serverActionSection.dataset.open, "false");
+assert.equal(serverPrintSection.dataset.open, "false");
 const serverActionMenuCheckbox = findAll(serverActionMenuShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "82")[0];
 serverActionMenuCheckbox.checked = true;
 serverActionMenuCheckbox.dispatchEvent(new TestEvent("change"));
@@ -3839,9 +3879,11 @@ const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "
 reportDomainCheckbox.checked = true;
 reportDomainCheckbox.dispatchEvent(new TestEvent("change"));
 const reportDomainToggle = findAll(reportDomainShell, (node) => node.dataset?.actionMenuToggle === "print")[0];
+assert.equal(reportDomainCalls.length, 0);
 reportDomainToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(reportDomainCalls[0], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
+assert.equal(reportDomainCalls.length, 1);
 assert.equal(reportDomainActionCalls.length, 0);
 assert.deepEqual(printLoadedEvent.availableIds, []);
 const emptyPrintItem = findAll(reportDomainShell, (node) => node.dataset?.actionMenuEmpty === "print")[0];
@@ -3850,6 +3892,12 @@ assert.equal(emptyPrintItem.disabled, true);
 validDomainReports = [domainReportID];
 reportDomainToggle.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(reportDomainCalls.length, 1);
+assert.equal(reportDomainToggle.attributes["aria-expanded"], "false");
+reportDomainToggle.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(reportDomainCalls[1], { model: "ir.actions.report", method: "get_valid_action_reports", args: [[domainReportID], "res.partner", [84]] });
+assert.equal(reportDomainCalls.length, 2);
 const reportDomainButton = findAll(reportDomainShell, (node) => node.dataset?.actionId === domainReportID)[0];
 assert.deepEqual(printLoadedEvent.availableIds, [domainReportID]);
 reportDomainButton.dispatchEvent(new TestEvent("click"));
@@ -4621,8 +4669,9 @@ const formServerMenuWindow = renderWindowAction({
     }
   }
 });
-const formServerMenu = findAll(formServerMenuWindow.children[1], (node) => String(node.className ?? "").includes("gorp-form-action-menu"))[0];
+const formServerMenu = findAll(formServerMenuWindow.children[0], (node) => String(node.className ?? "").includes("gorp-form-action-menu"))[0];
 assert.ok(String(formServerMenu.className).includes("o_cp_action_menus"));
+assert.equal(formServerMenu.dataset.controlPanelPlacement, "actions");
 const formServerButton = findAll(formServerMenu, (node) => node.dataset?.actionId === "410")[0];
 assert.equal(formServerButton.textContent, "Partner Action");
 formServerButton.dispatchEvent(new TestEvent("click"));

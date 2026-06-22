@@ -6891,8 +6891,6 @@ const webClientShellHTML = `<!doctype html>
 		box-shadow: var(--dropdown-shadow);
 		padding: 4px;
 	}
-	.gorp-action-menu-section:hover .gorp-action-menu-items,
-	.gorp-action-menu-section:focus-within .gorp-action-menu-items,
 	.gorp-action-menu-section.open .gorp-action-menu-items {
 		display: grid;
 		gap: 2px;
@@ -6917,6 +6915,23 @@ const webClientShellHTML = `<!doctype html>
 	.gorp-action-menu-item:disabled {
 		color: var(--muted);
 		opacity: .65;
+	}
+	.gorp-window-action[data-view="form"] .o_control_panel_actions {
+		justify-content: flex-start;
+	}
+	.gorp-window-action[data-view="form"] .o_control_panel_actions .gorp-form-action-menu {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.gorp-window-action[data-view="form"] .gorp-form-action-menu .gorp-action-menu-toggle {
+		min-width: 36px;
+		height: 34px;
+		min-height: 34px;
+		padding: 0 10px;
+		border-color: var(--line);
+		background: var(--btn-secondary-bg);
+		color: var(--text);
 	}
 	.o_mobile_list_cards {
 		display: none;
@@ -9281,10 +9296,12 @@ const webClientShellHTML = `<!doctype html>
 		.gorp-window-action[data-view="form"] .o_cp_switch_buttons {
 			display: none;
 		}
-		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu {
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu,
+		.gorp-window-action[data-view="form"] .o_control_panel_actions .gorp-form-action-menu {
 			display: inline-flex;
 		}
-		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle {
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle,
+		.gorp-window-action[data-view="form"] .o_control_panel_actions .gorp-form-action-menu .gorp-action-menu-toggle {
 			justify-content: center;
 			width: 36px;
 			min-width: 36px;
@@ -9296,10 +9313,12 @@ const webClientShellHTML = `<!doctype html>
 			color: var(--text);
 			font-size: 0;
 		}
-		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle i {
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle i,
+		.gorp-window-action[data-view="form"] .o_control_panel_actions .gorp-form-action-menu .gorp-action-menu-toggle i {
 			display: none;
 		}
-		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle::before {
+		.gorp-window-action[data-view="form"] .o_control_panel_main_buttons .gorp-form-action-menu .gorp-action-menu-toggle::before,
+		.gorp-window-action[data-view="form"] .o_control_panel_actions .gorp-form-action-menu .gorp-action-menu-toggle::before {
 			content: "";
 			width: 16px;
 			height: 16px;
