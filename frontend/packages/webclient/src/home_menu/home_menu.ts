@@ -151,16 +151,10 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   button.title = app.name;
   button.setAttribute("aria-label", app.name);
 
-  const icon = document.createElement("span");
-  icon.className = "o_app_icon position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
-  icon.dataset.iconToken = app.iconToken;
-  icon.setAttribute("aria-hidden", "true");
-
   const name = document.createElement("strong");
   name.className = "o_caption o_app_name w-100 text-center text-truncate mt-2";
   name.textContent = app.name;
-  const iconImage = appIconImage(app);
-  button.append(iconImage ?? icon, name);
+  button.append(appIconElement(app), name);
 
   if (app.parentPath) {
     const path = document.createElement("span");
@@ -205,6 +199,78 @@ function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
     image.dataset.mimetype = app.menu.webIconDataMimetype.trim();
   }
   return image;
+}
+
+function appIconElement(app: HomeMenuApp): HTMLElement {
+  const image = appIconImage(app);
+  if (image) return image;
+  const icon = document.createElement("span");
+  icon.className = "o_app_icon o_app_icon_fallback position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
+  icon.dataset.iconToken = app.iconToken;
+  icon.setAttribute("aria-hidden", "true");
+  const webIcon = appWebIcon(app);
+  if (webIcon) {
+    icon.className = "o_app_icon o_app_icon_with_glyph position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
+    icon.dataset.webIcon = webIcon.iconClass;
+    icon.setAttribute("style", `background-color: ${webIcon.backgroundColor}; --app-icon-bg: ${webIcon.backgroundColor}; color: ${webIcon.color};`);
+    const glyph = document.createElement("i");
+    glyph.className = `${webIcon.iconClass} o_app_icon_glyph`;
+    icon.append(glyph);
+  }
+  return icon;
+}
+
+interface ParsedWebIcon {
+  iconClass: string;
+  color: string;
+  backgroundColor: string;
+}
+
+function appWebIcon(app: HomeMenuApp): ParsedWebIcon | null {
+  const source = typeof app.menu.webIcon === "string" ? app.menu.webIcon.trim() : "";
+  const parts = source.split(",").map((part) => part.trim());
+  if (parts.length < 3) return defaultAppWebIcon(app);
+  const iconClass = appIconClass(parts[0]);
+  const color = safeIconColor(parts[1]) || "#ffffff";
+  const backgroundColor = safeIconColor(parts[2]) || defaultAppIconBackground(app);
+  if (!iconClass) return defaultAppWebIcon(app);
+  return { iconClass, color, backgroundColor };
+}
+
+function defaultAppWebIcon(app: HomeMenuApp): ParsedWebIcon | null {
+  const key = app.key.split(":")[0];
+  const name = app.name.toLowerCase();
+  const iconClass =
+    key === "settings" || name.includes("setting") || name.includes("technical") ? "fa fa-cog" :
+    key === "apps" || name === "apps" ? "fa fa-th-large" :
+    name.includes("approval") ? "fa fa-check-square-o" :
+    name.includes("delegation") ? "fa fa-exchange" :
+    "";
+  if (!iconClass) return null;
+  return { iconClass, color: "#ffffff", backgroundColor: defaultAppIconBackground(app) };
+}
+
+function appIconClass(value: string): string {
+  const raw = value.trim();
+  if (!/^fa(?:\s+fa-[a-z0-9_-]+|-[a-z0-9_-]+)(?:\s+fa-[a-z0-9_-]+)*$/i.test(raw)) return "";
+  return raw.startsWith("fa ") ? raw : `fa ${raw}`;
+}
+
+function safeIconColor(value: string): string {
+  const color = value.trim();
+  return /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(color) ? color : "";
+}
+
+function defaultAppIconBackground(app: HomeMenuApp): string {
+  switch (app.iconToken) {
+    case "teal": return "#017e84";
+    case "purple": return "#875a7b";
+    case "blue": return "#5f6f94";
+    case "terracotta": return "#b05f4a";
+    case "green": return "#228b65";
+    case "slate": return "#56616f";
+    default: return "#875a7b";
+  }
 }
 
 function appIconSource(source: string, mimetype: unknown): string {

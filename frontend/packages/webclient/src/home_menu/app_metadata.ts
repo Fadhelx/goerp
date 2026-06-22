@@ -8,6 +8,7 @@ export interface HomeMenuEntry {
   xmlid?: string | false;
   actionPath?: string | false;
   action_path?: string | false;
+  webIcon?: string | false;
   webIconData?: string | false;
   webIconDataMimetype?: string | false;
 }

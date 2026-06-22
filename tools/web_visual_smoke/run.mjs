@@ -2026,6 +2026,7 @@ async function assertLegacyLauncherChromeSnapshot(page) {
     const gridRect = grid?.getBoundingClientRect();
     return {
       header_position: headerStyle?.position || "",
+      header_bg: headerStyle?.backgroundColor || "",
       navbar_bg: navbarStyle?.backgroundColor || "",
       launcher_top_px: launcherRect ? Math.round(launcherRect.top) : -1,
       grid_top_px: gridRect ? Math.round(gridRect.top) : -1
@@ -2034,6 +2035,7 @@ async function assertLegacyLauncherChromeSnapshot(page) {
   const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
   const issues = [];
   if (snapshot.header_position !== "absolute") issues.push(`header position ${snapshot.header_position}`);
+  if (!transparent.has(snapshot.header_bg)) issues.push(`header background ${snapshot.header_bg}`);
   if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
   if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
   if (snapshot.grid_top_px < 145 || snapshot.grid_top_px > 250) issues.push(`grid top ${snapshot.grid_top_px}`);
