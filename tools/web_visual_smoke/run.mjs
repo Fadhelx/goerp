@@ -34,7 +34,22 @@ export const scenarios = [
       await waitFor(page, `document.body.dataset.view === "settings"`, "settings view");
       const blockCount = await waitForCount(page, "#settingsBlocks .app_settings_block", 1, "settings blocks");
       const boxCount = await waitForCount(page, "#settingsBlocks .o_setting_box", 1, "settings boxes");
-      return { settings_blocks: blockCount, setting_boxes: boxCount };
+      const settingsState = await evaluate(page, `(() => {
+        const buttons = [...document.querySelectorAll("#settingsBlocks .o_setting_action")];
+        const labels = buttons.map((button) => button.textContent.trim()).filter(Boolean);
+        return {
+          labels,
+          generic_open_count: labels.filter((label) => label === "Open").length,
+          grid_count: document.querySelectorAll("#settingsBlocks .o_setting_grid").length,
+          has_manage_users: labels.includes("Manage Users"),
+          has_open_server_actions: labels.includes("Open Server Actions"),
+          has_open_apps: labels.includes("Open Apps")
+        };
+      })()`);
+      if (settingsState.generic_open_count || !settingsState.labels.includes("Open Automated Actions") || !settingsState.has_manage_users || !settingsState.has_open_server_actions || !settingsState.has_open_apps || settingsState.grid_count < 3) {
+        throw new Error(`legacy settings layout invalid: ${JSON.stringify(settingsState)}`);
+      }
+      return { settings_blocks: blockCount, setting_boxes: boxCount, settings_state: settingsState };
     }
   },
   {
@@ -155,12 +170,39 @@ export const scenarios = [
         const buttons = [...document.querySelectorAll(".o_web_client .o_action_manager [data-settings-target]")];
         const ids = buttons.map((button) => button.dataset.settingsTarget).filter(Boolean);
         const models = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.dataset.settingsTargetModel || ""]));
+        const labels = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.textContent.trim()]));
+        const gridCount = document.querySelectorAll(".o_web_client .o_action_manager .o_setting_grid").length;
+        const actionBoxCount = document.querySelectorAll(".o_web_client .o_action_manager .o_setting_box[data-has-settings-action='true']").length;
         const missing = required.filter((id) => !ids.includes(id));
-        return { count: buttons.length, ids, models, missing };
+        return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, missing };
       })()`);
       if (settingsTargets.missing.length) {
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
+      if (settingsTargets.gridCount < 4 || settingsTargets.actionBoxCount < 10 || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.server_actions !== "Open Server Actions" || settingsTargets.labels.automation_rules !== "Open Automated Actions" || settingsTargets.labels.ai !== "Open AI Apps") {
+        throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager .o_settings_tab[data-app-id='technical']");
+      const settingsTabState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .o_settings_container");
+        const technicalTab = document.querySelector(".o_web_client .o_action_manager .o_settings_tab[data-app-id='technical']");
+        const generalBlock = document.querySelector(".o_web_client .o_action_manager .app_settings_block[data-app-id='general_settings']");
+        const technicalBlock = document.querySelector(".o_web_client .o_action_manager .app_settings_block[data-app-id='technical']");
+        const serverActions = document.querySelector(".o_web_client .o_action_manager .o_setting_box[data-setting-id='server_actions']");
+        const users = document.querySelector(".o_web_client .o_action_manager .o_setting_box[data-setting-id='users']");
+        return {
+          active_app: root?.dataset?.activeApp || "",
+          technical_pressed: technicalTab?.getAttribute("aria-pressed") || "",
+          technical_visible: technicalBlock?.hidden === false,
+          general_hidden: generalBlock?.hidden === true,
+          server_actions_hidden: serverActions?.hidden === true,
+          users_hidden: users?.hidden === true
+        };
+      })()`);
+      if (settingsTabState.active_app !== "technical" || settingsTabState.technical_pressed !== "true" || !settingsTabState.technical_visible || !settingsTabState.general_hidden || settingsTabState.server_actions_hidden || !settingsTabState.users_hidden) {
+        throw new Error(`TS Settings tab switch invalid: ${JSON.stringify(settingsTabState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager .o_settings_tab[data-app-id='apps_ai']");
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
       const topbarState = await evaluate(page, `(() => {
@@ -186,7 +228,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, settings_tab_state: settingsTabState, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
     }
   },
   {
@@ -527,6 +569,72 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
       await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines']", 1, "TS Delegation readonly one2many after discard");
       return { form_count: formCount, readonly_count: readonlyCount, editor_count: editorCount, fixture, readonly_state: readonlyState, editor_state: editorState };
+    }
+  },
+  {
+    name: "default-mobile-delegation-one2many",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await setViewport(page, mobileViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&delegation_one2many_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "mobile delegation one2many setup document ready");
+      await createDelegationAdminSession(page, config);
+      const fixture = await createDelegationOne2ManySmokeRecord(page, config);
+      const menuParam = fixture.menuID ? `&menu_id=${fixture.menuID}` : "";
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=delegation&view_type=form&id=${fixture.delegationID}${menuParam}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "mobile delegation one2many TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "mobile delegation one2many form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='delegation'][data-view='form'] .gorp-form-view", 1, "mobile TS Delegation form");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const editorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines'][data-relation='delegation.line']", 1, "mobile TS Delegation editable one2many");
+      const state = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines']");
+        const table = editor?.querySelector(".gorp-one2many-table");
+        const thead = table?.querySelector("thead");
+        const rows = [...(editor?.querySelectorAll("tbody tr.o_data_row") || [])];
+        const firstRow = rows[0];
+        const cells = [...(firstRow?.querySelectorAll("td[data-field]") || [])];
+        const actionCell = firstRow?.querySelector("td.gorp-one2many-actions");
+        const tableStyle = table ? getComputedStyle(table) : null;
+        const theadStyle = thead ? getComputedStyle(thead) : null;
+        const firstRowStyle = firstRow ? getComputedStyle(firstRow) : null;
+        const editorRect = editor?.getBoundingClientRect();
+        const rowRect = firstRow?.getBoundingClientRect();
+        return {
+          field: editor?.dataset?.field || "",
+          relation: editor?.dataset?.relation || "",
+          field_type: editor?.dataset?.fieldType || "",
+          mobile_widget: editor?.dataset?.mobileWidget || "",
+          mobile_layout: editor?.dataset?.mobileLayout || "",
+          table_mobile_layout: table?.dataset?.mobileLayout || "",
+          table_display: tableStyle?.display || "",
+          thead_display: theadStyle?.display || "",
+          row_display: firstRowStyle?.display || "",
+          row_count: rows.length,
+          labels: cells.map((node) => node.dataset.label || "").filter(Boolean),
+          action_label: actionCell?.dataset?.label || "",
+          input_count: editor?.querySelectorAll(".gorp-one2many-input, .gorp-one2many-readonly").length || 0,
+          editor_width_px: editorRect ? Math.round(editorRect.width) : 0,
+          row_width_px: rowRect ? Math.round(rowRect.width) : 0,
+          viewport_width_px: window.innerWidth,
+          overflow_px: document.documentElement.scrollWidth - window.innerWidth
+        };
+      })()`);
+      if (state.field !== "lines" || state.relation !== "delegation.line" || state.field_type !== "one2many") {
+        throw new Error(`mobile delegation one2many identity invalid: ${JSON.stringify(state)}`);
+      }
+      if (state.mobile_widget !== "one2many_list" || state.mobile_layout !== "cards" || state.table_mobile_layout !== "cards") {
+        throw new Error(`mobile delegation one2many metadata invalid: ${JSON.stringify(state)}`);
+      }
+      if (state.thead_display !== "none" || state.table_display !== "block" || state.row_display !== "block") {
+        throw new Error(`mobile delegation one2many layout invalid: ${JSON.stringify(state)}`);
+      }
+      if (state.row_count < 1 || state.input_count < 1 || !state.labels.includes("Group") || state.overflow_px > 1 || state.row_width_px > state.viewport_width_px) {
+        throw new Error(`mobile delegation one2many content invalid: ${JSON.stringify(state)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines']", 1, "mobile TS Delegation readonly one2many after discard");
+      return { form_count: formCount, editor_count: editorCount, fixture, state };
     }
   },
   {
@@ -1757,6 +1865,7 @@ export const scenarios = [
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Apps catalog action ready");
       const catalogCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog", 1, "TS Apps catalog");
       await setInput(page, ".o_web_client .gorp-apps-catalog .o_searchview_input", "ai");
+      const catalogIconState = await assertAppsCatalogIconState(page);
       const beforeState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled state");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
       const afterInstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module installed state");
@@ -1772,7 +1881,7 @@ export const scenarios = [
       const afterUninstallState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "uninstalled" ? "uninstalled" : ""`, "AI module uninstalled after uninstall action");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_install_button");
       const restoredState = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_state")?.textContent?.trim() === "installed" ? "installed" : ""`, "AI module restored installed state");
-      return { module: "ai", catalog_count: catalogCount, before_state: beforeState, after_install_state: afterInstallState, after_upgrade_state: afterUpgradeState, after_uninstall_state: afterUninstallState, restored_state: restoredState };
+      return { module: "ai", catalog_count: catalogCount, catalog_icon_state: catalogIconState, before_state: beforeState, after_install_state: afterInstallState, after_upgrade_state: afterUpgradeState, after_uninstall_state: afterUninstallState, restored_state: restoredState };
     }
   },
   {
@@ -1787,6 +1896,7 @@ export const scenarios = [
       const activeFilter = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog")?.dataset.activeFilter === "installed" ? "installed" : ""`, "Apps catalog installed filter active");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='all']");
       const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai']", 1, "AI module card for detail");
+      const catalogIconState = await assertAppsCatalogIconState(page);
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_info_button");
       const modalCount = await waitForCount(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'][data-dialog-open='true']", 1, "Apps Module Info modal");
       const modalTitle = await textContent(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .modal-title");
@@ -1799,7 +1909,7 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .btn-close");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-detail .o_module_info_close");
       const detailClosed = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-detail")?.hidden === true ? "closed" : ""`, "Apps detail panel closes");
-      return { module: "ai", sidebar_count: sidebarCount, filter_count: filterCount, category_count: categoryCount, active_filter: activeFilter, card_count: cardCount, modal_count: modalCount, detail_module: detailModule, detail_closed: detailClosed };
+      return { module: "ai", sidebar_count: sidebarCount, filter_count: filterCount, category_count: categoryCount, active_filter: activeFilter, card_count: cardCount, catalog_icon_state: catalogIconState, modal_count: modalCount, detail_module: detailModule, detail_closed: detailClosed };
     }
   },
   {
@@ -2079,12 +2189,21 @@ async function assertLegacyLauncherChromeSnapshot(page) {
     const navbarStyle = navbar ? getComputedStyle(navbar) : null;
     const launcherRect = launcher?.getBoundingClientRect();
     const gridRect = grid?.getBoundingClientRect();
+    const launcherStyle = launcher ? getComputedStyle(launcher) : null;
+    const firstIcon = document.querySelector("body[data-view='apps'] #appGrid .o_app .o_app_icon");
+    const firstIconRect = firstIcon?.getBoundingClientRect();
     return {
       header_position: headerStyle?.position || "",
       header_bg: headerStyle?.backgroundColor || "",
       navbar_bg: navbarStyle?.backgroundColor || "",
+      launcher_bg: launcherStyle?.backgroundColor || "",
+      launcher_bg_image: launcherStyle?.backgroundImage || "",
       launcher_top_px: launcherRect ? Math.round(launcherRect.top) : -1,
-      grid_top_px: gridRect ? Math.round(gridRect.top) : -1
+      grid_top_px: gridRect ? Math.round(gridRect.top) : -1,
+      icon_width_px: firstIconRect ? Math.round(firstIconRect.width) : 0,
+      icon_height_px: firstIconRect ? Math.round(firstIconRect.height) : 0,
+      icon_text: firstIcon?.textContent?.trim() || "",
+      generic_card_count: document.querySelectorAll("body[data-view='apps'] #appGrid .app-card").length
     };
   })()`);
   const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
@@ -2092,9 +2211,32 @@ async function assertLegacyLauncherChromeSnapshot(page) {
   if (snapshot.header_position !== "absolute") issues.push(`header position ${snapshot.header_position}`);
   if (!transparent.has(snapshot.header_bg)) issues.push(`header background ${snapshot.header_bg}`);
   if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
+  if (isDarkLauncherBackground(snapshot.launcher_bg)) issues.push(`dark launcher background ${snapshot.launcher_bg}`);
+  if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
   if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
   if (snapshot.grid_top_px < 145 || snapshot.grid_top_px > 250) issues.push(`grid top ${snapshot.grid_top_px}`);
+  if (snapshot.icon_width_px < 66 || snapshot.icon_width_px > 74 || snapshot.icon_height_px < 66 || snapshot.icon_height_px > 74) issues.push(`icon size ${snapshot.icon_width_px}x${snapshot.icon_height_px}`);
+  if (snapshot.icon_text) issues.push(`synthetic icon text ${snapshot.icon_text}`);
+  if (snapshot.generic_card_count) issues.push(`generic card count ${snapshot.generic_card_count}`);
   if (issues.length) throw new Error(`legacy launcher chrome audit failed: ${issues.join("; ")}`);
+  return snapshot;
+}
+
+async function assertAppsCatalogIconState(page) {
+  const snapshot = await evaluate(page, `(() => {
+    const icons = [...document.querySelectorAll(".o_web_client .gorp-apps-catalog-card .o_app_icon")];
+    const first = icons[0];
+    const rect = first?.getBoundingClientRect();
+    return {
+      count: icons.length,
+      text_count: icons.filter((icon) => icon.textContent.trim()).length,
+      first_width_px: rect ? Math.round(rect.width) : 0,
+      first_height_px: rect ? Math.round(rect.height) : 0
+    };
+  })()`);
+  if (snapshot.count < 1 || snapshot.text_count || snapshot.first_width_px < 38 || snapshot.first_height_px < 38) {
+    throw new Error(`Apps catalog icons invalid: ${JSON.stringify(snapshot)}`);
+  }
   return snapshot;
 }
 

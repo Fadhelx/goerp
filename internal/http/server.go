@@ -7337,15 +7337,29 @@ const webClientShellHTML = `<!doctype html>
 		display: grid;
 		gap: 0;
 		min-width: 0;
+		align-self: flex-start;
+		align-content: flex-start;
+		align-items: flex-start;
+		grid-auto-rows: max-content;
 	}
 	.app_settings_block {
 		display: grid;
 		gap: 0;
+		align-self: flex-start;
+		align-content: flex-start;
+		align-items: flex-start;
+		grid-template-rows: max-content;
 		padding: 0;
 		border: 0;
 		border-radius: 0;
 		background: transparent;
 		box-shadow: none;
+	}
+	.app_settings_block[hidden],
+	.o_settings_block[hidden],
+	.o_setting_box[hidden],
+	.o_settings_no_result[hidden] {
+		display: none !important;
 	}
 	.o_settings_app_title {
 		display: none;
@@ -7358,6 +7372,10 @@ const webClientShellHTML = `<!doctype html>
 	.o_settings_block {
 		display: grid;
 		gap: 0;
+		align-self: flex-start;
+		align-content: flex-start;
+		align-items: flex-start;
+		grid-template-rows: max-content max-content;
 	}
 	.o_settings_block_title {
 		min-height: 42px;
@@ -7373,19 +7391,28 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o_setting_grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-		gap: 10px;
+		grid-template-columns: repeat(2, minmax(280px, 1fr));
+		grid-auto-rows: minmax(104px, max-content);
+		align-self: flex-start;
+		align-items: flex-start;
+		gap: 0;
+		border-bottom: 1px solid var(--line);
 	}
 	.o_setting_box {
 		display: grid;
 		grid-template-columns: 24px minmax(0, 1fr);
-		gap: 10px;
-		min-height: 82px;
-		padding: 24px 72px;
+		align-items: start;
+		gap: 12px;
+		min-height: 104px;
+		padding: 18px 28px;
 		border: 0;
-		border-bottom: 1px solid var(--line);
+		border-right: 1px solid var(--line);
 		border-radius: 0;
 		background: transparent;
+	}
+	.o_setting_grid .o_setting_box:nth-child(2n),
+	.o_setting_grid .o_setting_box:last-child {
+		border-right: 0;
 	}
 	.o_setting_left_pane {
 		width: 16px;
@@ -7394,6 +7421,10 @@ const webClientShellHTML = `<!doctype html>
 		border: 1px solid var(--accent-2);
 		border-radius: 50%;
 		background: rgba(1,126,132,.12);
+	}
+	.o_setting_left_pane_empty {
+		border-color: transparent;
+		background: transparent;
 	}
 	.o_setting_right_pane {
 		display: grid;
@@ -7410,6 +7441,22 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o_setting_action {
 		justify-self: start;
+	}
+	.o_setting_buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 6px;
+	}
+	.o_setting_link {
+		min-height: 28px;
+		padding: 3px 9px;
+		border-radius: 4px;
+		border-color: var(--line);
+		background: var(--panel);
+		color: var(--accent);
+		font-size: 12px;
+		font-weight: 600;
 	}
 	.gorp-form-body.o_form_sheet_bg {
 		padding: 16px 18px 26px;
@@ -7946,6 +7993,116 @@ const webClientShellHTML = `<!doctype html>
 	.gorp-one2many-empty-row td {
 		color: var(--muted);
 		font-style: italic;
+	}
+	.gorp-one2many-table td::before {
+		display: none;
+	}
+	@media (max-width: 600px) {
+		.gorp-x2many-editor.o_field_many2many_tags {
+			align-items: flex-start;
+			gap: 5px;
+			min-height: 40px;
+			padding: 6px;
+		}
+		.gorp-x2many-editor-tags {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+			min-width: 0;
+		}
+		.gorp-x2many-editor-tag.o_tag {
+			max-width: 100%;
+			min-height: 26px;
+		}
+		.gorp-x2many-editor-label {
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
+		.gorp-x2many-editor-remove.o_delete {
+			width: 22px;
+			height: 22px;
+		}
+		.gorp-x2many-editor-input.o_input {
+			flex: 1 1 100%;
+			min-width: 0;
+			min-height: 28px;
+		}
+		.gorp-x2many-dropdown.o_m2m_dropdown {
+			max-height: 260px;
+		}
+		.gorp-one2many-editor.o_field_one2many {
+			gap: 8px;
+		}
+		.gorp-one2many-table.o_list_table {
+			display: block;
+			border: 0;
+			background: transparent;
+			overflow: visible;
+		}
+		.gorp-one2many-table.o_list_table thead {
+			display: none;
+		}
+		.gorp-one2many-table.o_list_table tbody {
+			display: grid;
+			gap: 8px;
+			width: 100%;
+		}
+		.gorp-one2many-table.o_list_table tr {
+			display: block;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-row {
+			padding: 4px 8px;
+			border: 1px solid var(--line);
+			border-radius: 4px;
+			background: var(--panel);
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-row td {
+			display: grid;
+			grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+			gap: 8px;
+			align-items: center;
+			width: 100%;
+			padding: 8px 0;
+			border-bottom: 1px solid var(--line);
+			box-sizing: border-box;
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-row td::before {
+			display: block;
+			content: attr(data-label);
+			min-width: 0;
+			color: var(--muted);
+			font-size: 12px;
+			font-weight: 600;
+			line-height: 16px;
+			overflow-wrap: anywhere;
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-row td.gorp-one2many-actions {
+			display: flex;
+			justify-content: flex-end;
+			padding-top: 6px;
+			border-bottom: 0;
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-row td.gorp-one2many-actions::before {
+			display: none;
+			content: "";
+		}
+		.gorp-one2many-table.o_list_table tr.gorp-one2many-empty-row td {
+			display: block;
+			padding: 10px;
+			border: 1px solid var(--line);
+			border-radius: 4px;
+			background: var(--panel);
+		}
+		.gorp-one2many-input.o_input,
+		.gorp-one2many-readonly.o_field_widget {
+			min-width: 0;
+		}
+		.gorp-one2many-remove.btn,
+		.gorp-one2many-add.btn {
+			min-height: 28px;
+		}
 	}
 	.module-grid {
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -8979,6 +9136,8 @@ const webClientShellHTML = `<!doctype html>
 		.o_settings_container { grid-template-columns: minmax(0, 1fr); }
 		.o_settings_search_panel { justify-content: stretch; }
 		.o_settings_search_panel .o_settings_search { max-width: none; }
+		.o_setting_grid { grid-template-columns: minmax(0, 1fr); }
+		.o_setting_box { border-right: 0; padding: 16px 18px; }
 		.o_settings_sidebar {
 			display: flex;
 			overflow-x: auto;
@@ -10005,7 +10164,7 @@ const webClientShellHTML = `<!doctype html>
       settingsPanel.id = "settingsView";
       settingsPanel.className = "panel view-panel o_form_view o_settings_view";
       settingsPanel.dataset.view = "settings";
-      settingsPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="settingsSave" class="btn btn-primary o_form_button_save">Save</button><button id="settingsDiscard" class="btn btn-secondary o_form_button_cancel">Discard</button></div><h2 class="o_breadcrumb active">Settings</h2></div><div class="o_control_panel_actions"><div class="o_cp_searchview d-flex input-group" role="search"><div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list"><button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button><div class="o_searchview_input_container"><label class="field"><span class="sr-only">Search settings</span><input id="settingsSearch" class="o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0" placeholder="Search..." role="searchbox"></label></div></div><button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button></div></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap" id="settingsPager"></div></div></div></div><div class="o_settings_content o_form_sheet_bg"><div id="settingsBlocks" class="o_settings_container"></div></div>';
+      settingsPanel.innerHTML = '<div class="o-control-panel o_control_panel o-form-control"><div class="o_control_panel_main"><div class="o_control_panel_breadcrumbs"><div class="o_control_panel_main_buttons d-print-none"><button id="settingsSave" class="btn btn-primary o_form_button_save">Save</button><button id="settingsDiscard" class="btn btn-secondary o_form_button_cancel">Discard</button></div><h2 class="o_breadcrumb active">Settings</h2></div><div class="o_control_panel_actions"><div class="o_cp_searchview d-flex input-group" role="search"><div class="o_searchview form-control d-flex align-items-center py-1 border-end-0" role="search" aria-autocomplete="list"><button type="button" class="d-print-none btn border-0 p-0" aria-label="Search..." title="Search..."><i class="o_searchview_icon oi oi-search" role="img"></i></button><div class="o_searchview_input_container"><label class="field"><span class="sr-only">Search settings</span><input id="settingsSearch" class="o_searchview_input o_input d-print-none flex-grow-1 w-auto border-0" placeholder="Search..." role="searchbox"></label></div></div><button type="button" class="o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0" aria-label="Search options"></button></div></div><div class="o_control_panel_navigation"><div class="o_cp_pager o_pager text-nowrap" id="settingsPager"></div></div></div></div><div class="o_settings_content o_form_sheet_bg"><div id="settingsBlocks" class="o_setting_container o_legacy_settings_blocks"></div></div>';
       main.insertBefore(settingsPanel, modelPanel);
 
       const modulePanel = document.createElement("section");
@@ -10295,39 +10454,40 @@ const webClientShellHTML = `<!doctype html>
         {
           title: "Users & Companies",
           entries: [
-            {label: "Users", names: ["Users"]},
-            {label: "Groups", names: ["Groups"]},
-            {label: "Companies", names: ["Companies"]}
+            {label: "Users", names: ["Users"], actionLabel: "Manage Users"},
+            {label: "Groups", names: ["Groups"], actionLabel: "Manage Groups"},
+            {label: "Companies", names: ["Companies"], actionLabel: "Manage Companies"}
           ]
         },
         {
           title: "Technical",
           entries: [
-            {label: "Server Actions", names: ["Server Actions"]},
-            {label: "Automated Actions", names: ["Automated Actions", "Automation Rules"]},
-            {label: "Scheduled Actions", names: ["Scheduled Actions"]},
-            {label: "Views", names: ["Views"]},
-            {label: "Models", names: ["Models"]},
-            {label: "Access Rights", names: ["Access Rights"]},
-            {label: "Record Rules", names: ["Record Rules"]},
-            {label: "Outgoing Mail Servers", names: ["Outgoing Mail Servers", "Mail Servers"]},
-            {label: "Email Templates", names: ["Email Templates"]}
+            {label: "Server Actions", names: ["Server Actions"], actionLabel: "Open Server Actions"},
+            {label: "Automated Actions", names: ["Automated Actions", "Automation Rules"], actionLabel: "Open Automated Actions"},
+            {label: "Scheduled Actions", names: ["Scheduled Actions"], actionLabel: "Open Scheduled Actions"},
+            {label: "Views", names: ["Views"], actionLabel: "Open Views"},
+            {label: "Models", names: ["Models"], actionLabel: "Open Models"},
+            {label: "Access Rights", names: ["Access Rights"], actionLabel: "Open Access Rights"},
+            {label: "Record Rules", names: ["Record Rules"], actionLabel: "Open Record Rules"},
+            {label: "Outgoing Mail Servers", names: ["Outgoing Mail Servers", "Mail Servers"], actionLabel: "Open Outgoing Mail Servers"},
+            {label: "Email Templates", names: ["Email Templates"], actionLabel: "Open Email Templates"}
           ]
         },
         {
           title: "Apps",
           entries: [
-            {label: "Apps", names: ["Apps", "Modules"]},
-            {label: "AI", names: ["AI", "AI Settings"]}
+            {label: "Apps", names: ["Apps", "Modules"], actionLabel: "Open Apps"},
+            {label: "AI", names: ["AI", "AI Settings"], actionLabel: "Open AI Apps"}
           ]
         }
       ];
       let visibleCount = 0;
       for (const section of sections) {
         const block = document.createElement("section");
-        block.className = "app_settings_block";
+        block.className = "app_settings_block o_settings_block";
         block.dataset.string = section.title;
         const heading = document.createElement("h3");
+        heading.className = "o_settings_block_title";
         heading.textContent = section.title;
         const grid = document.createElement("div");
         grid.className = "o_setting_grid";
@@ -10350,8 +10510,8 @@ const webClientShellHTML = `<!doctype html>
           description.textContent = menu ? menuPath(menu) : "Not available";
           const button = document.createElement("button");
           button.type = "button";
-          button.className = "btn btn-secondary o_setting_action";
-          button.textContent = menu ? "Open" : "Unavailable";
+          button.className = "btn btn-secondary o_setting_action o_setting_link";
+          button.textContent = menu ? (entry.actionLabel || ("Open " + entry.label)) : "Unavailable";
           button.disabled = !menu;
           if (menu) {
             button.dataset.menuId = String(menu.id);
@@ -10568,7 +10728,8 @@ const webClientShellHTML = `<!doctype html>
           const icon = document.createElement("span");
           icon.className = "app-icon o_app_icon";
           icon.dataset.iconToken = appIconToken(displayName);
-          icon.textContent = appInitials(displayName);
+          icon.dataset.initials = appInitials(displayName);
+          icon.setAttribute("aria-hidden", "true");
           const title = document.createElement("strong");
           title.className = "o_app_name";
           title.textContent = displayName || "Module";

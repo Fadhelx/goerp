@@ -160,8 +160,12 @@ assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_panel")).
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_tab")).length, 2);
 assert.equal(findAll(root, (node) => hasClass(node, "app_settings_block")).length, 2);
+assert.equal(findAll(root, (node) => hasClass(node, "o_setting_grid")).length, 2);
+assert.deepEqual(findAll(root, (node) => hasClass(node, "o_setting_grid")).map((node) => node.dataset.settingCount), ["3", "1"]);
+assert.equal(root.dataset.activeApp, "workflow");
 assert.equal(findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "app_settings_block"))[0].hidden, true);
 assert.equal(findAll(root, (node) => node.dataset?.appId === "workflow" && hasClass(node, "app_settings_block"))[0].hidden, false);
+assert.equal(findAll(root, (node) => hasClass(node, "o_setting_left_pane_empty")).length, 2);
 const settingsSearch = findAll(root, (node) => hasClass(node, "o_settings_search"))[0];
 settingsSearch.value = "expenses";
 settingsSearch.dispatchEvent(new TestEvent("input"));
@@ -188,7 +192,15 @@ assert.deepEqual(providerSelect.children.map((node) => node.textContent), ["Open
 providerSelect.value = "openai";
 providerSelect.dispatchEvent(new TestEvent("change"));
 
-findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "o_settings_tab"))[0].dispatchEvent(new TestEvent("click"));
+const generalSettingsTab = findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "o_settings_tab"))[0];
+const workflowTab = findAll(root, (node) => node.dataset?.appId === "workflow" && hasClass(node, "o_settings_tab"))[0];
+generalSettingsTab.dispatchEvent(new TestEvent("click"));
+assert.equal(root.dataset.activeApp, "general_settings");
+assert.equal(generalSettingsTab.attributes["aria-pressed"], "true");
+assert.equal(workflowTab.attributes["aria-pressed"], "false");
+assert.equal(findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "app_settings_block"))[0].hidden, false);
+assert.equal(findAll(root, (node) => node.dataset?.appId === "workflow" && hasClass(node, "app_settings_block"))[0].hidden, true);
+assert.equal(findAll(root, (node) => node.dataset?.settingId === "company")[0].hidden, false);
 
 assert.deepEqual(events, [
   ["field", "module_oi_workflow_expense", false],

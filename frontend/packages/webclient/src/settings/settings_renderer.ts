@@ -93,6 +93,8 @@ export function renderSettingsView(
   const root = document.createElement("section");
   root.className = "o_settings_container o_form_view";
   root.dataset.search = state.search;
+  let activeAppId = state.activeAppId;
+  if (activeAppId) root.dataset.activeApp = activeAppId;
 
   const toolbar = document.createElement("div");
   toolbar.className = "o_settings_search_panel";
@@ -110,11 +112,17 @@ export function renderSettingsView(
 
   const content = document.createElement("div");
   content.className = "o_setting_container";
+  const tabs = new Map<string, HTMLElement>();
+  const articles = new Map<string, HTMLElement>();
 
   for (const app of state.apps) {
     const active = app.id === state.activeAppId;
-    sidebar.append(renderAppTab(app, active, callbacks));
-    content.append(renderApp(app, active, callbacks, root, state.search));
+    const tab = renderAppTab(app, active, () => selectSettingsApp(app, true));
+    const article = renderApp(app, active, callbacks, root, state.search);
+    tabs.set(app.id, tab);
+    articles.set(app.id, article);
+    sidebar.append(tab);
+    content.append(article);
   }
 
   const empty = document.createElement("p");
@@ -127,33 +135,48 @@ export function renderSettingsView(
     const query = cleanText(search.value).toLowerCase();
     root.dataset.search = query;
     let visibleSettingCount = 0;
-    for (const block of findByClass(root, "o_settings_block")) {
-      let blockVisible = false;
-      for (const setting of findByClass(block, "o_setting_box")) {
-        const text = (setting.dataset.searchText ?? textContent(setting)).toLowerCase();
-        const visible = !query || text.includes(query);
-        setting.hidden = !visible;
-        blockVisible ||= visible;
-        if (visible) visibleSettingCount += 1;
+    for (const [appId, article] of articles) {
+      const appActive = appId === activeAppId;
+      article.hidden = !appActive;
+      for (const block of findByClass(article, "o_settings_block")) {
+        let blockVisible = false;
+        for (const setting of findByClass(block, "o_setting_box")) {
+          const text = (setting.dataset.searchText ?? textContent(setting)).toLowerCase();
+          const visible = appActive && (!query || text.includes(query));
+          setting.hidden = !visible;
+          blockVisible ||= visible;
+          if (visible) visibleSettingCount += 1;
+        }
+        block.hidden = !blockVisible;
       }
-      block.hidden = !blockVisible;
     }
     empty.hidden = visibleSettingCount > 0;
   };
+  function selectSettingsApp(app: SettingsApp, emit: boolean): void {
+    activeAppId = app.id;
+    root.dataset.activeApp = app.id;
+    for (const [id, tab] of tabs) {
+      const active = id === app.id;
+      tab.className = active ? "o_settings_tab active" : "o_settings_tab";
+      tab.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    applySearch();
+    if (emit) callbacks.onAppSelect?.(app);
+  }
   search.addEventListener("input", applySearch);
   root.append(toolbar, sidebar, content);
   applySearch();
   return root;
 }
 
-function renderAppTab(app: SettingsApp, active: boolean, callbacks: SettingsRendererCallbacks): HTMLElement {
+function renderAppTab(app: SettingsApp, active: boolean, onSelect: () => void): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = active ? "o_settings_tab active" : "o_settings_tab";
   button.dataset.appId = app.id;
   button.textContent = app.label;
   button.setAttribute("aria-pressed", active ? "true" : "false");
-  button.addEventListener("click", () => callbacks.onAppSelect?.(app));
+  button.addEventListener("click", onSelect);
   return button;
 }
 
@@ -206,9 +229,14 @@ function renderBlock(
     section.append(title);
   }
 
+  const grid = document.createElement("div");
+  grid.className = "o_setting_grid";
+  grid.dataset.blockId = block.id;
+  grid.dataset.settingCount = String(block.settings.length);
   for (const setting of block.settings) {
-    section.append(renderSetting(setting, callbacks, eventRoot, search));
+    grid.append(renderSetting(setting, callbacks, eventRoot, search));
   }
+  section.append(grid);
   return section;
 }
 
@@ -235,6 +263,9 @@ function renderSetting(
   const primaryBoolean = setting.fields.find((field) => field.type === "boolean" && !field.readonly);
   if (primaryBoolean) {
     left.append(renderFieldControl(primaryBoolean, callbacks, eventRoot, false));
+  } else {
+    left.className = "o_setting_left_pane o_setting_left_pane_empty";
+    left.setAttribute("aria-hidden", "true");
   }
 
   if (setting.label) {

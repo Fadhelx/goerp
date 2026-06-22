@@ -394,7 +394,7 @@ function generalSettingsArch(): string {
       <block title="Actions">
         <setting id="server_actions" string="Server Actions" help="Create and maintain server actions."><field name="server_action_count" readonly="1"/></setting>
         <setting id="scheduled_actions" string="Scheduled Actions" help="Configure cron jobs and automated schedules."><field name="scheduled_action_count" readonly="1"/></setting>
-        <setting id="automation_rules" string="Automation Rules" help="Configure automated actions and triggers."><field name="automation_rule_count" readonly="1"/></setting>
+        <setting id="automation_rules" string="Automated Actions" help="Configure automated actions and triggers."><field name="automation_rule_count" readonly="1"/></setting>
       </block>
       <block title="User Interface">
         <setting id="views" string="Views" help="Open view definitions and XML architecture."><field name="view_count" readonly="1"/></setting>
@@ -423,7 +423,7 @@ function generalSettingsFields(): Record<string, unknown> {
     company_count: readonlyIntegerField("Companies"),
     server_action_count: readonlyIntegerField("Server Actions"),
     scheduled_action_count: readonlyIntegerField("Scheduled Actions"),
-    automation_rule_count: readonlyIntegerField("Automation Rules"),
+    automation_rule_count: readonlyIntegerField("Automated Actions"),
     view_count: readonlyIntegerField("Views"),
     access_right_count: readonlyIntegerField("Access Rights"),
     record_rule_count: readonlyIntegerField("Record Rules"),
@@ -466,14 +466,16 @@ function attachGeneralSettingsNavigation(
     const box = findDescendantByDataset(root, "settingId", target.id);
     if (!box) continue;
     const pane = findDescendantByClass(box, "o_setting_right_pane") ?? box;
+    box.dataset.hasSettingsAction = "true";
     const actions = document.createElement("div");
     actions.className = "o_setting_buttons";
+    actions.dataset.settingsActions = target.id;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn btn-secondary o_setting_link";
     button.dataset.settingsTarget = target.id;
     if (target.model) button.dataset.settingsTargetModel = target.model;
-    button.textContent = "Open";
+    button.textContent = settingsTargetButtonLabel(target);
     button.addEventListener("click", () => {
       void openSettingsNavigationTarget(env, menus, settingsApp, outlet, target).catch((error) => {
         renderActionError(outlet, error);
@@ -502,6 +504,27 @@ function settingsNavigationTargets(): SettingsNavigationTarget[] {
     { id: "apps", names: ["Apps"], model: "ir.module.module" },
     { id: "ai", names: ["Apps"], model: "ir.module.module", query: "ai" }
   ];
+}
+
+function settingsTargetButtonLabel(target: SettingsNavigationTarget): string {
+  const labels: Record<string, string> = {
+    users: "Manage Users",
+    groups: "Manage Groups",
+    companies: "Manage Companies",
+    users_access: "Manage Users",
+    groups_access: "Manage Groups",
+    company_records: "Manage Companies",
+    server_actions: "Open Server Actions",
+    scheduled_actions: "Open Scheduled Actions",
+    automation_rules: "Open Automated Actions",
+    views: "Open Views",
+    access_rights: "Open Access Rights",
+    record_rules: "Open Record Rules",
+    email_templates: "Open Email Templates",
+    apps: "Open Apps",
+    ai: "Open AI Apps"
+  };
+  return labels[target.id] || `Open ${target.names[0] || target.id}`;
 }
 
 async function openSettingsNavigationTarget(

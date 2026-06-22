@@ -58,6 +58,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-automation-form-desktop",
     "default-groups-form-notebook-desktop",
     "default-delegation-one2many-desktop",
+    "default-mobile-delegation-one2many",
     "default-search-menu-desktop",
     "default-date-groupby-menu-desktop",
     "default-date-filter-period-menu-desktop",

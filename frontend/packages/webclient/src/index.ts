@@ -8107,12 +8107,15 @@ function renderMany2ManyTagEditor(
 ): HTMLElement {
   const relation = fieldRelationValue(description);
   let selected = x2ManyDisplayItems(values[node.name]).filter((item) => item.id !== undefined);
+  const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
   root.className = "gorp-x2many-editor o_field_widget o_field_many2many_tags";
   root.dataset.field = node.name;
   root.dataset.fieldType = "many2many";
+  root.dataset.mobileWidget = "many2many_tags";
   if (relation) root.dataset.relation = relation;
   if (required) root.dataset.requiredField = node.name;
+  root.setAttribute("aria-label", fieldDisplayName);
   const tagList = document.createElement("span");
   tagList.className = "gorp-x2many-editor-tags";
   const input = document.createElement("input");
@@ -8123,6 +8126,7 @@ function renderMany2ManyTagEditor(
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-expanded", "false");
+  input.setAttribute("aria-label", `Add ${fieldDisplayName}`);
   input.placeholder = "Add a line";
   const dropdown = document.createElement("div");
   dropdown.className = "gorp-x2many-dropdown o_m2m_dropdown dropdown-menu";
@@ -8269,21 +8273,27 @@ function renderOne2ManyListEditor(
   const childFields = relation ? relatedModelFields(relatedModels, relation) : {};
   let virtualID = 0;
   const rows = one2ManyEditorRows(values[node.name]);
+  const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("div");
   root.className = "gorp-one2many-editor o_field_widget o_field_one2many";
   root.dataset.field = node.name;
   root.dataset.fieldType = "one2many";
+  root.dataset.mobileWidget = "one2many_list";
+  root.dataset.mobileLayout = "cards";
   if (relation) root.dataset.relation = relation;
+  root.setAttribute("aria-label", fieldDisplayName);
   const table = document.createElement("table");
   table.className = "gorp-one2many-table o_list_table table table-sm";
+  table.dataset.mobileLayout = "cards";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
   const columns = one2ManyEditorColumns(node, childFields, rows);
+  const columnLabels = new Map(columns.map((column) => [column.name, fieldLabel(childFields, column.name, relation)]));
   for (const column of columns) {
     const th = document.createElement("th");
     th.scope = "col";
     th.dataset.field = column.name;
-    th.textContent = fieldLabel(childFields, column.name);
+    th.textContent = columnLabels.get(column.name) || fieldLabel(childFields, column.name, relation);
     headerRow.append(th);
   }
   const actionHeader = document.createElement("th");
@@ -8329,6 +8339,7 @@ function renderOne2ManyListEditor(
       for (const column of columns) {
         const td = document.createElement("td");
         td.dataset.field = column.name;
+        td.dataset.label = columnLabels.get(column.name) || fieldLabel(childFields, column.name, relation);
         td.append(renderOne2ManyCellEditor(column, childFields[column.name], row, () => {
           row.dirty = true;
           syncValue();
@@ -8337,6 +8348,7 @@ function renderOne2ManyListEditor(
       }
       const actionCell = document.createElement("td");
       actionCell.className = "gorp-one2many-actions";
+      actionCell.dataset.label = "";
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "gorp-one2many-remove btn btn-link";

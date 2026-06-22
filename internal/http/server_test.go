@@ -11982,10 +11982,10 @@ func TestWebAliasesAndAssets(t *testing.T) {
 		`o_app_launcher`,
 		`settingsPanel.id = "settingsView";`,
 		`settingsPanel.className = "panel view-panel o_form_view o_settings_view";`,
-		`id="settingsBlocks" class="o_settings_container"`,
-		`block.className = "app_settings_block";`,
+		`id="settingsBlocks" class="o_setting_container o_legacy_settings_blocks"`,
+		`block.className = "app_settings_block o_settings_block";`,
 		`box.className = "o_setting_box";`,
-		`button.className = "btn btn-secondary o_setting_action";`,
+		`button.className = "btn btn-secondary o_setting_action o_setting_link";`,
 		`if (model === "res.config.settings")`,
 		`wrapper.className = "col-3 col-md-2 o_draggable mb-3 px-0";`,
 		`button.className = "o_app o_menuitem has-icon d-flex flex-column rounded-3 justify-content-start align-items-center w-100 p-1 p-md-2";`,
@@ -12115,6 +12115,9 @@ func TestWebAliasesAndAssets(t *testing.T) {
 	}
 	if strings.Contains(body, `callKW("ir.module.module", "write", {args: [[id], {state: "installed"}]})`) {
 		t.Fatalf("web client still writes module state directly")
+	}
+	if strings.Contains(body, `icon.textContent = appInitials(displayName);`) || strings.Contains(body, `button.textContent = menu ? "Open" : "Unavailable";`) {
+		t.Fatalf("web client still exposes generic legacy Apps/Settings UI")
 	}
 	for _, needle := range []string{"Create Demo Partner", "Demo Partner", "Backend connected.", "scrollIntoView", "Developer RPC", "Build dashboard", "linear-gradient", "bokeh", `id="navDeveloper"`, `>Install Apps</button>`, `<span class="technical"></span>`, `<h1>GoERP</h1>`, `<h1>Gorp</h1>`} {
 		if strings.Contains(body, needle) {
