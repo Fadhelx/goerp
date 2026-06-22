@@ -1,0 +1,43 @@
+{
+  "base_url": "http://127.0.0.1:8073/",
+  "captured_at": "2026-06-22T10:04:50Z",
+  "users_list": {
+    "url": "http://127.0.0.1:8073/web?users_evidence=1#action=4&model=res.users&view_type=list&menu_id=2",
+    "status": "ready",
+    "model": "res.users",
+    "view": "list",
+    "headers": ["Name", "Login", "Email", "Company", "Groups", "Active"],
+    "visible_row_count": 1,
+    "blank_visible_row_count": 0,
+    "visible_row_heights_px": [38],
+    "table_height_px": 74,
+    "sample_visible_row": ["Administrator", "admin", "My Company", "10", "true"]
+  },
+  "users_form": {
+    "url": "http://127.0.0.1:8073/web?users_form_evidence=1#action=4&model=res.users&view_type=form&id=2&menu_id=2",
+    "model": "res.users",
+    "view": "form",
+    "sheet_height_px": 1760,
+    "field_count": 8,
+    "labels": ["Name", "Login", "Email", "Company", "Role", "Active", "Notification", "Signature"],
+    "contains_access_rights_widget_text": true,
+    "contains_identity_value": true
+  },
+  "users_form_edit": {
+    "url": "http://127.0.0.1:8073/web?users_form_edit_evidence=1#action=4&model=res.users&view_type=form&id=2&menu_id=2",
+    "input_count": 39,
+    "text_inputs": [
+      { "name": "name", "value": "Administrator" },
+      { "name": "login", "value": "admin" },
+      { "name": "email", "value": "" },
+      { "name": "company_id", "value": "My Company" },
+      { "name": "signature", "value": "<div>Administrator</div>" }
+    ]
+  },
+  "smoke": {
+    "scenario": "default-users-flow-desktop",
+    "status": "passed",
+    "screenshot": "default-users-flow-desktop.png",
+    "sha256": "1d4dcb59347f7cebd3618faed1ce16c6de0e0540faede898fa8837cc658d400f"
+  }
+}

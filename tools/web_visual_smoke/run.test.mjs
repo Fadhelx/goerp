@@ -49,10 +49,13 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "settings-desktop",
     "default-webclient-takeover",
     "default-systray-dropdowns-desktop",
+    "default-user-preferences-dialog-desktop",
     "default-webclient-action-desktop",
     "default-action-dialog-desktop",
     "default-technical-search-desktop",
     "default-technical-form-desktop",
+    "default-scheduled-action-form-desktop",
+    "default-automation-form-desktop",
     "default-groups-form-notebook-desktop",
     "default-delegation-one2many-desktop",
     "default-search-menu-desktop",
@@ -60,6 +63,8 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-date-filter-period-menu-desktop",
     "default-search-filter-click-desktop",
     "default-view-switch-desktop",
+    "default-kanban-view-desktop",
+    "default-kanban-groupby-desktop",
     "default-hash-route-desktop",
     "default-mobile-launcher-parity",
     "default-webclient-mobile",
@@ -74,6 +79,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "normal-user-launcher-desktop",
     "default-apps-install-desktop",
     "default-apps-catalog-detail-desktop",
+    "default-users-flow-desktop",
     "default-apps-lifecycle-cancel-desktop"
   ]);
 });

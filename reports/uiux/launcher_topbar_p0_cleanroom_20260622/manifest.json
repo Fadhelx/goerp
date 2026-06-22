@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-06-22T09:21:43.361Z",
+  "base_url": "http://127.0.0.1:8074/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-takeover.png",
+      "sha256": "0c76d8286b1281d9935c09a069a434023fef0be79f1a493d3bf293d3d971f019",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "search_count": 1,
+        "search_state": {
+          "ok": true,
+          "hidden": true,
+          "visible": true,
+          "width": 520,
+          "height": 40,
+          "search_active": "false"
+        },
+        "navbar_height_px": 46,
+        "navbar_contract": true,
+        "home_background_class": true,
+        "legacy_card_count": 0,
+        "navbar_bg": "rgba(0, 0, 0, 0)",
+        "launcher_bg_color": "rgb(244, 245, 247)",
+        "launcher_box_shadow": "rgba(16, 24, 40, 0.04) 0px 1px 0px 0px inset",
+        "banner_visible": true,
+        "banner_width_px": 820,
+        "user_name_display": "none",
+        "app_card_width_px": 96,
+        "app_card_height_px": 108,
+        "app_card_bg": "rgba(0, 0, 0, 0)",
+        "app_card_border_color": "rgba(0, 0, 0, 0)",
+        "app_card_border_radius_px": 6,
+        "app_icon_width_px": 70,
+        "app_icon_height_px": 70,
+        "app_icon_radius_px": 6,
+        "app_icon_text": "",
+        "action_count": 1
+      },
+      "duration_ms": 297
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "6e86a11adab5b3768eb715e24414103da75f7cd6f4b82215ef23eafb09bfc798",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "topbar_state": {
+          "contract": true,
+          "height": 47,
+          "background": "rgb(113, 75, 103)",
+          "systray_count": 17
+        },
+        "visible_setting_count": 12,
+        "visible_label_count": 12,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 417
+    }
+  ],
+  "duration_ms": 869
+}

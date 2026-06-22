@@ -60,13 +60,15 @@ const navbar = renderNavbar({
 });
 
 assert.deepEqual(defaultSystrayItems().map((item) => item.key), ["messages", "activities"]);
-assert.match(navbar.className, /o_main_navbar/);
+assert.match(navbar.className, /o_navbar/);
+assert.equal(navbar.children[0]?.className, "o_main_navbar d-print-none");
 assert.equal(findAll(navbar, (node) => String(node.className).startsWith("o_menu_toggle ")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_toggle_icon")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_navbar_apps_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(navbar, (node) => node.dataset?.menuId === "7" && node.attributes?.["aria-current"] === "page").length, 1);
 assert.equal(navbar.dataset.activeMenuId, "7");
+assert.equal(navbar.children[0].dataset.activeMenuId, "7");
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Sales").length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_menu_systray")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item")).length, 1);

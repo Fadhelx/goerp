@@ -1710,6 +1710,145 @@ assert.equal(genericRestoredName.value, "Send Follow-up");
 assert.equal(genericFormSaveCalls.length, 1);
 assert.equal(genericFormDiscardEvents.length, 1);
 
+const cronWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Scheduled Actions" },
+  activeView: "form",
+  resModel: "ir.cron",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "name" },
+      active: { type: "boolean", string: "active" },
+      interval_number: { type: "integer", string: "interval_number" },
+      interval_type: { type: "selection", string: "interval_type" },
+      nextcall: { type: "datetime", string: "nextcall" },
+      user_id: { type: "many2one", relation: "res.users", string: "user_id" },
+      state: { type: "selection", string: "state" },
+      code: { type: "text", string: "code" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="active"/><field name="interval_number"/><field name="interval_type"/><field name="nextcall"/><field name="user_id"/><field name="state"/><field name="code"/></sheet></form>`,
+        id: 75
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 41,
+    display_name: "Mail: Email Queue Manager",
+    name: "Mail: Email Queue Manager",
+    active: true,
+    interval_number: 4,
+    interval_type: "hours",
+    nextcall: "2026-06-22 12:00:00",
+    user_id: [1, "Administrator"],
+    state: "code",
+    code: "model._process_queue()"
+  }
+});
+let cronForm = cronWindow.children[1];
+const cronBand = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-scheduled-action-band"))[0];
+assert.equal(cronBand.dataset.model, "ir.cron");
+assert.equal(cronBand.dataset.state, "code");
+assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-badge"))[0].textContent, "Scheduled Action");
+assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
+assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-meta-value"))[0].textContent, "4 Hours");
+assert.deepEqual(findAll(cronForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 7), [
+  "Name",
+  "Active",
+  "Repeat Every",
+  "Interval Unit",
+  "Next Execution Date",
+  "Run As",
+  "Action Type"
+]);
+const cronNotebook = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-scheduled-action-notebook"))[0];
+assert.deepEqual(findAll(cronNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
+assert.equal(findAll(cronNotebook, (node) => String(node.className ?? "").includes("gorp-code-viewer") && node.dataset?.field === "code").length, 1);
+const cronEditButton = findAll(cronWindow, (node) => node.dataset?.formAction === "edit")[0];
+cronEditButton.dispatchEvent(new TestEvent("click"));
+cronForm = cronWindow.children[1];
+const cronStateRadio = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "state")[0];
+const cronIntervalRadio = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "interval_type")[0];
+const cronCodeEditor = findAll(cronForm, (node) => node.tag === "textarea" && String(node.className ?? "").includes("gorp-code-editor") && node.dataset?.field === "code")[0];
+assert.equal(cronStateRadio.dataset.value, "code");
+assert.deepEqual(findAll(cronIntervalRadio, (node) => node.tag === "input").map((node) => [node.value, node.checked]), [
+  ["minutes", false],
+  ["hours", true],
+  ["days", false],
+  ["weeks", false],
+  ["months", false]
+]);
+assert.equal(cronCodeEditor.value, "model._process_queue()");
+
+const automationWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Automation Rules" },
+  activeView: "form",
+  resModel: "base.automation",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "name" },
+      active: { type: "boolean", string: "active" },
+      model_id: { type: "many2one", relation: "ir.model", string: "model_id" },
+      model_name: { type: "char", string: "model_name" },
+      trigger: { type: "selection", string: "trigger" },
+      action_server_id: { type: "many2one", relation: "ir.actions.server", string: "action_server_id" },
+      description: { type: "text", string: "description" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="active"/><field name="model_id"/><field name="model_name"/><field name="trigger"/><field name="action_server_id"/><field name="description"/></sheet></form>`,
+        id: 76
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 42,
+    display_name: "Post Message",
+    name: "Post Message",
+    active: true,
+    model_id: [9, "Mail"],
+    model_name: "mail.mail",
+    trigger: "create_or_write",
+    action_server_id: [15, "Send Follow-up"],
+    description: "Run after mail changes"
+  }
+});
+let automationForm = automationWindow.children[1];
+const automationBand = findAll(automationForm, (node) => String(node.className ?? "").includes("gorp-automation-action-band"))[0];
+assert.equal(automationBand.dataset.model, "base.automation");
+assert.equal(automationBand.dataset.trigger, "create_or_write");
+assert.equal(findAll(automationBand, (node) => String(node.className ?? "").includes("gorp-server-action-badge"))[0].textContent, "Automation Rule");
+assert.equal(findAll(automationBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "On Creation & Update");
+assert.deepEqual(findAll(automationForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 7), [
+  "Name",
+  "Active",
+  "Model",
+  "Model",
+  "Trigger",
+  "Server Action",
+  "Description"
+]);
+const automationTriggerPills = findAll(automationForm, (node) => String(node.className ?? "").includes("gorp-selection-pills") && node.dataset?.field === "trigger")[0];
+assert.equal(automationTriggerPills.dataset.value, "create_or_write");
+assert.equal(findAll(automationTriggerPills, (node) => node.textContent === "On Creation & Update")[0].dataset.selected, "true");
+const automationEditButton = findAll(automationWindow, (node) => node.dataset?.formAction === "edit")[0];
+automationEditButton.dispatchEvent(new TestEvent("click"));
+automationForm = automationWindow.children[1];
+const automationTriggerRadio = findAll(automationForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "trigger")[0];
+assert.equal(automationTriggerRadio.dataset.value, "create_or_write");
+assert.equal(findAll(automationTriggerRadio, (node) => node.tag === "input" && node.value === "manual")[0].checked, false);
+assert.equal(findAll(automationTriggerRadio, (node) => node.textContent === "Based on Timed Condition").length, 1);
+
 const serverActionListWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Server Actions" },
@@ -1899,11 +2038,84 @@ assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-dialog")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-body") && String(node.className).includes("o_act_window")).length, 1);
-assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("gorp-window-action")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).split(/\s+/).includes("gorp-window-action")).length, 2);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("gorp-dialog-window-action")).length, 1);
+assert.equal(findAll(renderedDialog, (node) => String(node.className).split(/\s+/).includes("o_control_panel")).length, 1);
 assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
 findAll(renderedDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new TestEvent("click"));
 assert.equal(renderedDialog.dataset.dialogOpen, "false");
 assert.deepEqual(dialogCloseEvents, [{ model: "res.partner" }]);
+
+const formDialog = renderWindowActionDialog({
+  ...windowResult,
+  activeView: "form",
+  action: { ...windowResult.action, name: "Partner Wizard Form", target: "new" },
+  viewDescriptions: {
+    ...windowResult.viewDescriptions,
+    views: {
+      ...windowResult.viewDescriptions.views,
+      form: {
+        arch: `<form><sheet><field name="name"/></sheet><footer><button name="action_confirm" string="Confirm" type="object"/></footer></form>`,
+        id: 91
+      }
+    }
+  },
+  records: [{ id: 42, name: "Azure Interior", display_name: "Azure Interior" }]
+});
+const formDialogFooter = findAll(formDialog, (node) => String(node.className).includes("gorp-action-dialog-footer"))[0];
+assert.ok(formDialogFooter);
+assert.equal(findAll(formDialog, (node) => String(node.className).split(/\s+/).includes("o_control_panel")).length, 0);
+assert.equal(findAll(formDialogFooter, (node) => node.dataset?.formAction === "edit").length, 0);
+assert.equal(findAll(formDialogFooter, (node) => node.dataset?.formAction === "save").length, 1);
+assert.equal(findAll(formDialogFooter, (node) => node.dataset?.formAction === "discard").length, 1);
+assert.equal(findAll(formDialogFooter, (node) => node.dataset?.workflowAction === "action_confirm").length, 1);
+assert.equal(findAll(formDialog, (node) => String(node.className).includes("gorp-form-header") && node.textContent.includes("Confirm")).length, 0);
+const requiredDialogCalls = [];
+const requiredDialogValues = { id: 43, name: "" };
+const requiredDialog = renderWindowActionDialog({
+  ...windowResult,
+  activeView: "form",
+  action: { ...windowResult.action, name: "Required Footer Dialog", target: "new" },
+  viewDescriptions: {
+    ...windowResult.viewDescriptions,
+    fields: {
+      ...windowResult.viewDescriptions.fields,
+      name: { type: "char", string: "Name", required: true }
+    },
+    views: {
+      ...windowResult.viewDescriptions.views,
+      form: {
+        arch: `<form><sheet><field name="name"/></sheet><footer><button name="action_confirm" string="Confirm" type="object"/></footer></form>`,
+        id: 92
+      }
+    }
+  },
+  records: [requiredDialogValues]
+}, {
+  services: {
+    dataset: {
+      callButton(model, method, args, kwargs) {
+        requiredDialogCalls.push({ model, method, args, kwargs });
+        return Promise.resolve(true);
+      }
+    }
+  }
+});
+const requiredDialogFooter = findAll(requiredDialog, (node) => String(node.className).includes("gorp-action-dialog-footer"))[0];
+const requiredDialogName = findAll(requiredDialog, (node) => node.dataset?.requiredField === "name")[0];
+const requiredDialogConfirm = findAll(requiredDialogFooter, (node) => node.dataset?.workflowAction === "action_confirm")[0];
+assert.equal(requiredDialogName.required, true);
+assert.equal(requiredDialogName.getAttribute("aria-invalid"), "false");
+requiredDialogConfirm.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(requiredDialogCalls, []);
+assert.equal(requiredDialogName.getAttribute("aria-invalid"), "true");
+assert.equal(requiredDialogName.focused, true);
+requiredDialogName.value = "Ready";
+requiredDialogName.dispatchEvent(new TestEvent("input"));
+requiredDialogConfirm.dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(requiredDialogCalls, [{ model: "res.partner", method: "action_confirm", args: [[43]], kwargs: {} }]);
 const createActionCalls = [];
 const createActionWindow = renderWindowAction(windowResult, {
   context: { active_id: 42 },
@@ -2099,7 +2311,9 @@ const kanbanCreateButton = findAll(kanbanWindow, (node) => node.dataset?.createA
 assert.ok(String(kanbanCreateButton.className).includes("o-kanban-button-new"));
 assert.equal(kanbanCreateButton.attributes.accesskey, "c");
 const kanbanRenderer = findAll(kanbanWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+const kanbanQuickCreateEvents = [];
 kanbanRenderer.addEventListener("action:open-record", (event) => kanbanOpenEvents.push(event.detail));
+kanbanRenderer.addEventListener("action:create", (event) => kanbanQuickCreateEvents.push(event.detail));
 assert.ok(String(kanbanRenderer.className).includes("o_kanban_ungrouped"));
 assert.equal(kanbanRenderer.dataset.model, "res.partner");
 const kanbanCard = findAll(kanbanRenderer, (node) => String(node.className ?? "").includes("o_kanban_record"))[0];
@@ -2109,11 +2323,189 @@ assert.equal(kanbanCard.attributes.role, "link");
 assert.equal(kanbanCard.dataset.id, "11");
 assert.equal(findAll(kanbanCard, (node) => String(node.className ?? "").includes("o_kanban_record_title"))[0].textContent, "Azure Interior");
 assert.deepEqual(findAll(kanbanCard, (node) => String(node.className ?? "").includes("o_kanban_record_field")).map((node) => node.dataset.field), ["email", "company_id"]);
-kanbanCard.dispatchEvent(new TestEvent("click"));
+const kanbanRecordMenuToggle = findAll(kanbanCard, (node) => node.dataset?.kanbanRecordMenu === "true")[0];
+assert.equal(kanbanRecordMenuToggle.attributes["aria-expanded"], "false");
+const kanbanRecordMenuDropdown = findAll(kanbanCard, (node) => String(node.className ?? "").includes("o_kanban_record_menu_dropdown"))[0];
+assert.equal(kanbanRecordMenuDropdown.hidden, true);
+kanbanRecordMenuToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(kanbanRecordMenuToggle.attributes["aria-expanded"], "true");
+assert.equal(kanbanRecordMenuDropdown.hidden, false);
+assert.ok(String(kanbanRecordMenuDropdown.className).includes("show"));
+const kanbanRecordMenuOpen = findAll(kanbanRecordMenuDropdown, (node) => node.dataset?.kanbanRecordMenuAction === "open")[0];
+kanbanRecordMenuOpen.dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(kanbanOpenEvents.length, 1);
 assert.equal(kanbanOpenEvents[0].action.res_id, 11);
-assert.deepEqual(kanbanOpenEvents[0].action.views, [[false, "form"]]);
+assert.equal(kanbanRecordMenuToggle.attributes["aria-expanded"], "false");
+kanbanCard.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(kanbanOpenEvents.length, 2);
+assert.equal(kanbanOpenEvents[1].action.res_id, 11);
+assert.deepEqual(kanbanOpenEvents[1].action.views, [[false, "form"]]);
+kanbanCard.dispatchEvent(new TestEvent("keydown", { key: "Enter" }));
+await Promise.resolve();
+assert.equal(kanbanOpenEvents.length, 3);
+assert.equal(kanbanOpenEvents[2].action.res_id, 11);
+const kanbanQuickCreate = findAll(kanbanRenderer, (node) => node.dataset?.kanbanQuickCreate === "true")[0];
+assert.equal(kanbanQuickCreate.textContent, "+ Add");
+kanbanQuickCreate.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(kanbanQuickCreateEvents.length, 1);
+assert.deepEqual(kanbanQuickCreateEvents[0].action.views, [[false, "form"]]);
+assert.deepEqual(kanbanQuickCreateEvents[0].context, {});
+
+const groupedKanbanCreateCalls = [];
+const groupedKanbanWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    name: "Partners",
+    res_model: "res.partner",
+    view_mode: "kanban,form",
+    views: [[false, "kanban"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "res.partner",
+  viewDescriptions: {
+    fields: {
+      display_name: { type: "char", string: "Name" },
+      email: { type: "char", string: "Email" },
+      company_id: { type: "many2one", relation: "res.company", string: "Company" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="company_id"/></kanban>`,
+        id: 20
+      },
+      form: {
+        arch: `<form><field name="display_name"/></form>`,
+        id: 21
+      }
+    }
+  },
+  search: {
+    state: { query: "", facets: [], groupBy: ["company_id"], domain: [] },
+    suggestions: [],
+    filters: [],
+    groupBys: [],
+    favorites: []
+  },
+  records: [
+    { id: 12, display_name: "Azure Interior", email: "azure@example.test", company_id: [3, "My Company"] },
+    { id: 13, display_name: "Deco Addict", email: "deco@example.test", company_id: [4, "Second Company"] },
+    { id: 14, display_name: "Open Space", email: "space@example.test", company_id: [3, "My Company"] }
+  ],
+  length: 3
+}, {
+  context: { active_id: 77 },
+  services: {
+    action: {
+      doAction(action, options) {
+        groupedKanbanCreateCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const groupedKanbanRenderer = findAll(groupedKanbanWindow, (node) => String(node.className ?? "").includes("o_kanban_renderer"))[0];
+assert.ok(String(groupedKanbanRenderer.className).includes("o_kanban_grouped"));
+assert.equal(groupedKanbanRenderer.dataset.groupby, "company_id");
+const groupedKanbanGroups = findAll(groupedKanbanRenderer, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_group"));
+assert.deepEqual(groupedKanbanGroups.map((node) => findAll(node, (child) => String(child.className ?? "").includes("o_kanban_header_title"))[0].textContent), ["My Company", "Second Company"]);
+assert.deepEqual(groupedKanbanGroups.map((node) => findAll(node, (child) => String(child.className ?? "").includes("o_kanban_counter"))[0].textContent), ["2", "1"]);
+assert.deepEqual(groupedKanbanGroups.map((node) => findAll(node, (child) => String(child.className ?? "").split(/\s+/).includes("o_kanban_record")).length), [2, 1]);
+const firstGroupFoldToggle = findAll(groupedKanbanGroups[0], (node) => node.dataset?.kanbanGroupFold === "true")[0];
+const firstGroupRecords = findAll(groupedKanbanGroups[0], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_records"))[0];
+assert.equal(groupedKanbanGroups[0].dataset.folded, "false");
+assert.equal(firstGroupFoldToggle.attributes["aria-expanded"], "true");
+assert.equal(firstGroupRecords.hidden, false);
+firstGroupFoldToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(groupedKanbanGroups[0].dataset.folded, "true");
+assert.ok(String(groupedKanbanGroups[0].className).includes("o_column_folded"));
+assert.equal(firstGroupFoldToggle.attributes["aria-expanded"], "false");
+assert.equal(firstGroupFoldToggle.attributes["aria-label"], "Unfold column");
+assert.equal(firstGroupRecords.hidden, true);
+firstGroupFoldToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(groupedKanbanGroups[0].dataset.folded, "false");
+assert.equal(firstGroupFoldToggle.attributes["aria-expanded"], "true");
+assert.equal(firstGroupRecords.hidden, false);
+const groupedQuickCreateButtons = groupedKanbanGroups.map((node) => findAll(node, (child) => child.dataset?.kanbanQuickCreate === "true")[0]);
+assert.equal(groupedQuickCreateButtons.length, 2);
+assert.deepEqual(groupedQuickCreateButtons.map((node) => node.dataset.groupField), ["company_id", "company_id"]);
+assert.deepEqual(groupedQuickCreateButtons.map((node) => node.dataset.groupDefault), ["3", "4"]);
+groupedQuickCreateButtons[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(groupedKanbanCreateCalls.length, 1);
+assert.deepEqual(groupedKanbanCreateCalls[0].action.views, [[false, "form"]]);
+assert.deepEqual(groupedKanbanCreateCalls[0].options, { additionalContext: { active_id: 77, default_company_id: 3 }, replaceLastAction: true });
+
+const moduleInfoCalls = [];
+const moduleKanbanWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    id: 91,
+    name: "Apps",
+    path: "apps",
+    res_model: "ir.module.module",
+    view_mode: "kanban,list,form",
+    views: [[false, "kanban"], [false, "list"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "ir.module.module",
+  viewDescriptions: {
+    fields: {
+      shortdesc: { type: "char", string: "Name" },
+      name: { type: "char", string: "Technical Name" },
+      state: { type: "selection", string: "Status" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban create="false" can_open="0" class="o_modules_kanban"><field name="shortdesc"/><field name="name"/><field name="state"/></kanban>`,
+        id: 91
+      },
+      form: {
+        arch: `<form><sheet><field name="shortdesc"/><field name="name"/><field name="state"/></sheet></form>`,
+        id: 92
+      }
+    }
+  },
+  records: [{ id: 5, shortdesc: "Base", name: "base", display_name: "Base", state: "installed" }],
+  length: 1
+}, {
+  context: { search_default_app: 1 },
+  services: {
+    action: {
+      doAction(action, options) {
+        moduleInfoCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const moduleInfoButton = findAll(moduleKanbanWindow, (node) => node.dataset?.moduleInfo === "base" && String(node.className ?? "").includes("o_module_info_button"))[0];
+assert.equal(moduleInfoButton.textContent, "Module Info");
+moduleInfoButton.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(moduleInfoCalls.length, 1);
+assert.deepEqual(moduleInfoCalls[0].action, {
+  id: 91,
+  name: "Module Info",
+  path: "apps",
+  res_model: "ir.module.module",
+  view_mode: "form",
+  views: [[false, "form"]],
+  res_id: 5,
+  target: "new"
+});
+assert.deepEqual(moduleInfoCalls[0].options, {
+  additionalContext: {
+    search_default_app: 1,
+    active_model: "ir.module.module",
+    active_id: 5,
+    active_ids: [5]
+  }
+});
 
 const delegationWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -4006,6 +4398,189 @@ assert.deepEqual(userGroupSpecRequests[1].params.kwargs.specification, {
   view_group_hierarchy: {},
   role: {}
 });
+
+const usersFallbackFields = {
+  name: { type: "char", string: "name" },
+  login: { type: "char", string: "login" },
+  email: { type: "char", string: "email" },
+  company_id: { type: "many2one", relation: "res.company", string: "company_id" },
+  groups_count: { type: "integer", string: "groups_count" },
+  role: { type: "selection", string: "role" },
+  group_ids: { type: "many2many", relation: "res.groups", string: "group_ids" },
+  all_group_ids: { type: "many2many", relation: "res.groups", string: "all_group_ids" },
+  view_group_hierarchy: { type: "json", string: "view_group_hierarchy" },
+  active: { type: "boolean", string: "active" },
+  notification_type: { type: "selection", string: "notification_type" },
+  signature: { type: "text", string: "signature" },
+  password: { type: "char", string: "password" }
+};
+const usersListSpecRequests = [];
+const usersListSpecServices = createWebClientServices({
+  transport(request) {
+    usersListSpecRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/res.users/get_views") {
+      return Promise.resolve({
+        views: { list: { arch: "<list/>", id: false } },
+        models: { "res.users": { fields: usersFallbackFields } }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.users/web_search_read") {
+      return Promise.resolve({
+        length: 1,
+        records: [{
+          id: 7,
+          name: "Administrator",
+          login: "admin",
+          email: "admin@example.test",
+          company_id: [1, "My Company"],
+          groups_count: 2,
+          active: true
+        }]
+      });
+    }
+    return Promise.resolve({});
+  }
+});
+const usersListResult = await usersListSpecServices.action.doAction({
+  type: "ir.actions.act_window",
+  name: "Users",
+  res_model: "res.users",
+  target: "current",
+  views: [[false, "list"]]
+});
+const usersSearchRead = usersListSpecRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_search_read");
+assert.deepEqual(Object.keys(usersSearchRead.params.kwargs.specification), ["name", "login", "email", "company_id", "groups_count", "active"]);
+assert.deepEqual(usersSearchRead.params.kwargs.specification.company_id, { fields: { display_name: {} } });
+const usersListWindow = renderWindowAction(usersListResult);
+const usersListTable = findAll(usersListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Email", "Company", "Groups", "Active"]);
+assert.deepEqual(findAll(usersListTable.children[1].children[0], (node) => node.tag === "output").map((node) => node.textContent), ["Administrator", "admin", "admin@example.test", "2", "true"]);
+assert.equal(findAll(usersListTable.children[1].children[0], (node) => String(node.className ?? "").includes("gorp-many2one-link"))[0].textContent, "My Company");
+
+const usersFormSpecRequests = [];
+const usersFormSpecServices = createWebClientServices({
+  transport(request) {
+    usersFormSpecRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/res.users/get_views") {
+      return Promise.resolve({
+        views: { form: { arch: "<form/>", id: false } },
+        models: { "res.users": { fields: usersFallbackFields } }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.users/web_read") {
+      return Promise.resolve([{
+        id: 7,
+        display_name: "Administrator",
+        name: "Administrator",
+        login: "admin",
+        email: "admin@example.test",
+        company_id: [1, "My Company"],
+        role: "group_system",
+        group_ids: [[10, "Administration / Settings"]],
+        all_group_ids: [[10, "Administration / Settings"]],
+        view_group_hierarchy: { groups: {}, privileges: {}, categories: [] },
+        active: true,
+        notification_type: "email",
+        signature: "Admin"
+      }]);
+    }
+    return Promise.resolve({});
+  }
+});
+const usersFormResult = await usersFormSpecServices.action.doAction({
+  type: "ir.actions.act_window",
+  name: "Users",
+  res_model: "res.users",
+  res_id: 7,
+  target: "current",
+  views: [[false, "form"]]
+});
+const usersWebRead = usersFormSpecRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
+assert.deepEqual(Object.keys(usersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+assert.deepEqual(usersWebRead.params.kwargs.specification.company_id, { fields: { display_name: {} } });
+const usersFormWindow = renderWindowAction(usersFormResult);
+let usersForm = usersFormWindow.children[1];
+assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-sheet")).length, 1);
+assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Name", "Login", "Email", "Company", "Role"]);
+assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
+assert.equal(findAll(usersForm, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+findAll(usersFormWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+usersForm = usersFormWindow.children[1];
+assert.equal(findAll(usersForm, (node) => node.tag === "input" && node.dataset?.field === "login")[0].value, "admin");
+assert.equal(findAll(usersForm, (node) => node.tag === "input" && node.dataset?.field === "email")[0].value, "admin@example.test");
+
+const usersBadArchRequests = [];
+const usersBadArchServices = createWebClientServices({
+  transport(request) {
+    usersBadArchRequests.push(request);
+    if (request.route === "/web/dataset/call_kw/res.users/get_views") {
+      return Promise.resolve({
+        views: {
+          list: { arch: "<list><field name=\"accesses_count\"/><field name=\"active_groups_count\"/><field name=\"active_group_ids\"/></list>", id: 25 },
+          form: { arch: "<form><sheet><field name=\"accesses_count\"/></sheet></form>", id: 26 }
+        },
+        models: { "res.users": { fields: usersFallbackFields } }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.users/web_search_read") {
+      return Promise.resolve({
+        length: 1,
+        records: [{
+          id: 7,
+          name: "Administrator",
+          login: "admin",
+          email: "admin@example.test",
+          company_id: [1, "My Company"],
+          groups_count: 2,
+          active: true
+        }]
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.users/web_read") {
+      return Promise.resolve([{
+        id: 7,
+        name: "Administrator",
+        login: "admin",
+        email: "admin@example.test",
+        company_id: [1, "My Company"],
+        role: "group_system",
+        group_ids: [[10, "Administration / Settings"]],
+        all_group_ids: [[10, "Administration / Settings"]],
+        view_group_hierarchy: { groups: {}, privileges: {}, categories: [] },
+        active: true,
+        notification_type: "email",
+        signature: "Admin"
+      }]);
+    }
+    return Promise.resolve({});
+  }
+});
+const badUsersListResult = await usersBadArchServices.action.doAction({
+  type: "ir.actions.act_window",
+  name: "Users",
+  res_model: "res.users",
+  target: "current",
+  views: [[25, "list"]]
+});
+const badUsersSearchRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_search_read");
+assert.deepEqual(Object.keys(badUsersSearchRead.params.kwargs.specification), ["name", "login", "email", "company_id", "groups_count", "active"]);
+const badUsersListWindow = renderWindowAction(badUsersListResult);
+assert.deepEqual(findAll(badUsersListWindow, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Email", "Company", "Groups", "Active"]);
+assert.equal(findAll(badUsersListWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+const badUsersFormResult = await usersBadArchServices.action.doAction({
+  type: "ir.actions.act_window",
+  name: "Users",
+  res_model: "res.users",
+  res_id: 7,
+  target: "current",
+  views: [[26, "form"]]
+});
+const badUsersWebRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
+assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+const badUsersFormWindow = renderWindowAction(badUsersFormResult);
+assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Name", "Login", "Email", "Company"]);
+assert.equal(findAll(badUsersFormWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+
 assert.equal(windowActionRequests[0].route, "/web/action/load");
 assert.deepEqual(windowActionRequests[0].params.context, { active_id: 42, active_ids: [1, 2], lang: "en_US", from_context: 7 });
 assert.equal(windowActionRequests[1].route, "/web/dataset/call_kw/res.partner/get_views");

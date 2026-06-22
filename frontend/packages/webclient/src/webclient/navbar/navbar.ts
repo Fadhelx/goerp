@@ -87,7 +87,9 @@ export function defaultSystrayItems(store?: Record<string, unknown>): SystrayIte
 
 export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const header = document.createElement("header") as RenderedNavbar;
-  header.className = "o_main_navbar d-print-none";
+  header.className = "o_navbar";
+  const mainNavbar = document.createElement("nav");
+  mainNavbar.className = "o_main_navbar d-print-none";
   let setMobileMenuExpanded = (_expanded: boolean) => {};
   const appButtons = new Map<string, HTMLElement>();
   const dropdowns: HTMLElement[] = [];
@@ -155,7 +157,8 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderCompanySwitcherMenu(options.systray, options.companyName ?? "My Company", options.onSystrayAction));
   appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
 
-  header.append(brand, mobileMenu, nav, systray);
+  mainNavbar.append(brand, mobileMenu, nav, systray);
+  header.append(mainNavbar);
   bindSystrayAutoClose(header, closeDropdowns);
   header.setActiveApp = setActiveApp;
   header.setApps = setApps;
@@ -172,8 +175,10 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     const activeKey = appId === undefined || appId === null ? "" : String(appId);
     if (activeKey) {
       header.dataset.activeMenuId = activeKey;
+      mainNavbar.dataset.activeMenuId = activeKey;
     } else {
       delete header.dataset.activeMenuId;
+      delete mainNavbar.dataset.activeMenuId;
     }
     const activeName = activeAppName(currentApps, appId);
     title.textContent = brandName || activeName || "Odoo";

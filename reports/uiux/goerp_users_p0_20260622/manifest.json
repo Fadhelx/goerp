@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-06-22T09:59:43.817Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-users-flow-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-flow-desktop.png",
+      "sha256": "1d4dcb59347f7cebd3618faed1ce16c6de0e0540faede898fa8837cc658d400f",
+      "assertions": {
+        "list_rows": 2,
+        "form_state": {
+          "has_form": true,
+          "labels": [
+            "Name",
+            "Login",
+            "Email",
+            "Company",
+            "Role",
+            "Active",
+            "Notification",
+            "Signature"
+          ],
+          "has_identity_label": true,
+          "has_identity_value": true
+        }
+      },
+      "duration_ms": 660
+    }
+  ],
+  "duration_ms": 879
+}

@@ -85,10 +85,14 @@ const shell = createWebClientShell({
 });
 
 assert.match(shell.className, /o_web_client/);
+assert.match(shell.className, /o_home_menu_background/);
 assert.equal(shell.dataset.theme, "enterprise-like");
 assert.equal(shell.dataset.view, "apps");
 assert.equal(shell.dataset.mobileSafe, "true");
+assert.equal(String(shell.children[0].className).split(/\s+/).includes("o_navbar"), true);
+assert.match(String(shell.children[0].children[0].className), /o_main_navbar/);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_navbar")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
@@ -102,6 +106,7 @@ assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp"))
 
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].listeners.click[0]();
 assert.equal(shell.dataset.view, "action");
+assert.equal(String(shell.className).includes("o_home_menu_background"), false);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_entry"))[0].listeners.click[0]();
 assert.deepEqual(opened, [
@@ -117,6 +122,7 @@ mobileMenu.listeners.click[0]();
 assert.equal(bodyClasses.has("o-mobile-menu-open"), true);
 findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
 assert.equal(shell.dataset.view, "apps");
+assert.match(shell.className, /o_home_menu_background/);
 assert.equal(bodyClasses.has("o-mobile-menu-open"), false);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, undefined);
 
@@ -144,5 +150,6 @@ findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.cla
 assert.deepEqual(catalogOpened, [
   { id: 12, rootId: 10, actionID: 91, outletClass: "o_action_manager" }
 ]);
-assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "11");
-assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "11" && String(node.className).includes("o_nav_entry active")).length, 1);
+assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Apps");
+assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "12");
+assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.className).includes("o_nav_entry active")).length, 1);

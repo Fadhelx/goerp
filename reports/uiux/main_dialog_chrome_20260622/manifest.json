@@ -1,0 +1,146 @@
+{
+  "generated_at": "2026-06-22T08:45:46.616Z",
+  "base_url": "http://127.0.0.1:8088/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-action-dialog-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-action-dialog-desktop.png",
+      "sha256": "ff9355e6119d809e8e98667e4af3c50a08a55e0bd41279144150e2dc9965e332",
+      "assertions": {
+        "dialog_count": 1,
+        "backdrop_count": 1,
+        "state": {
+          "body_modal_open": true,
+          "dialog_open": "true",
+          "model": "res.config.settings",
+          "backdrop_count": 1,
+          "backdrop_in_dialog": true,
+          "modal_role": "dialog",
+          "close_label": "Close",
+          "title": "Configure Document Layout",
+          "body_count": 1,
+          "body_control_panel_count": 0,
+          "footer_save_count": 1,
+          "footer_discard_count": 1,
+          "footer_bottom": 875,
+          "viewport_height": 900,
+          "width": 960,
+          "height": 820
+        }
+      },
+      "duration_ms": 582
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "6da9c3542c6612d3171837e7a4a12ec3c0742a982d5408586695a8a07a137ab8",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=25&menu_id=8",
+        "form_count": 1,
+        "field_count": 6,
+        "form_control_state": {
+          "search_inputs": 0,
+          "search_toggles": 0
+        },
+        "server_action_band_count": 1,
+        "server_action_notebook_count": 2,
+        "code_viewer_count": 1,
+        "selection_pill_count": 13,
+        "state_radio_count": 13,
+        "code_editor_count": 1,
+        "relation_link_count": 1,
+        "relation_state": {
+          "text": "mail.mail",
+          "res_id": "81",
+          "href": "#model=ir.model&view_type=form&id=81"
+        },
+        "relation_editor_count": 1,
+        "relation_option_count": 8,
+        "relation_editor_state": {
+          "relation": "ir.model",
+          "input_value": "mail",
+          "option_labels": [
+            "fetchmail.server",
+            "ir.mail_server",
+            "mail.activity",
+            "mail.activity.mixin",
+            "mail.activity.type",
+            "mail.alias",
+            "mail.alias.domain",
+            "mail.blacklist"
+          ]
+        },
+        "relation_selected_state": {
+          "res_id": "19",
+          "save_hidden": false,
+          "save_disabled": false
+        }
+      },
+      "duration_ms": 937
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "d7cff51c1e7ae7fe5342512a74169eb2035df5c545ee909c66bf0aea5e9f7381",
+      "assertions": {
+        "card_count": 20,
+        "card_state": {
+          "role": "link",
+          "title": "Base: Auto-vacuum internal data",
+          "state": "Execute Code",
+          "open_buttons": 0
+        },
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "form_control_state": {
+          "search_inputs": 0,
+          "search_toggles": 0
+        },
+        "mobile_form_chrome": {
+          "action_menu_in_main_buttons": true,
+          "action_toggle_width_px": 36,
+          "action_toggle_font_size_px": 0,
+          "loose_action_menus": 0,
+          "visible_switch_buttons": 0
+        },
+        "action_menu_open_state": {
+          "open": "true",
+          "expanded": "true",
+          "item_count": 3,
+          "width": 190,
+          "height": 141,
+          "display": "grid"
+        },
+        "action_menu_closed_state": {
+          "open": "false",
+          "expanded": "false"
+        },
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=23&menu_id=8",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 569
+    }
+  ],
+  "duration_ms": 2222
+}

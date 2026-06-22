@@ -16,13 +16,13 @@ export interface HomeMenuRenderOptions {
 
 export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRenderOptions = {}): HTMLElement {
   const section = document.createElement("section");
-  section.className = "o-app-launcher-view o_app_launcher";
+  section.className = "o-app-launcher-view o_app_launcher o_home_menu_background";
   section.dataset.view = "apps";
   section.dataset.mobileSafe = "true";
   section.setAttribute("tabindex", "-1");
 
   const shell = document.createElement("div");
-  shell.className = "o-app-shell o_home_menu";
+  shell.className = "o-app-shell o_home_menu h-100 overflow-auto";
 
   const searchWrap = document.createElement("div");
   searchWrap.className = "o-app-search o_home_menu_search";
@@ -35,7 +35,8 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   searchWrap.append(search);
 
   const grid = document.createElement("div");
-  grid.className = "app-grid o_apps";
+  grid.className = "o_apps row user-select-none mt-5 mx-0";
+  grid.setAttribute("role", "listbox");
   const notice = renderRegistrationNotice();
 
   const setSearchActive = (active: boolean) => {
@@ -64,7 +65,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
         searchText: APPS_CATALOG_SEARCH_TEXT,
         menu: { id: "apps", name: "Apps" }
       };
-      const launcherApp = query ? app : { ...app, parentPath: undefined };
+      const launcherApp = query ? app : { ...app, key: "apps", initials: "A", iconToken: "apps", parentPath: undefined };
       grid.append(renderHomeMenuApp(launcherApp, () => {
         if (catalogApp && options.onOpenApp) {
           options.onOpenApp?.(catalogApp);
@@ -122,7 +123,7 @@ function renderRegistrationNotice(): HTMLElement {
   notice.className = "o_home_menu_registration_banner alert alert-info";
   notice.setAttribute("role", "status");
   const text = document.createElement("span");
-  text.textContent = "Database registration becomes available after installing the first app.";
+  text.textContent = "You will be able to register your database once you have installed your first app.";
   const close = document.createElement("button");
   close.type = "button";
   close.className = "o_home_menu_registration_close";
@@ -143,7 +144,8 @@ function isTextInput(target: EventTarget | null): boolean {
 export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "app-card o_app has-icon";
+  button.className = "o_app o_menuitem has-icon";
+  button.setAttribute("role", "option");
   button.dataset.appName = app.name;
   button.dataset.appKey = app.key || appKey(app.name);
   button.dataset.menuId = String(app.id);
@@ -154,9 +156,9 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   button.setAttribute("aria-label", app.name);
 
   const icon = document.createElement("span");
-  icon.className = "app-icon o_app_icon";
+  icon.className = "o_app_icon";
   icon.dataset.iconToken = app.iconToken;
-  icon.textContent = app.initials;
+  icon.setAttribute("aria-hidden", "true");
 
   const name = document.createElement("strong");
   name.className = "o_app_name";
@@ -188,7 +190,7 @@ function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
   const iconSource = appIconSource(source, app.menu.webIconDataMimetype);
   if (!iconSource) return null;
   const image = document.createElement("img");
-  image.className = "app-icon o_app_icon";
+  image.className = "o_app_icon";
   image.alt = "";
   image.src = iconSource;
   image.setAttribute("aria-hidden", "true");

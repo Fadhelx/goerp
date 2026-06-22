@@ -1,0 +1,132 @@
+{
+  "generated_at": "2026-06-22T09:39:25.981Z",
+  "base_url": "http://127.0.0.1:8088/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-takeover.png",
+      "sha256": "fcb8bbcdb1c6a62e1385abee14ce7ce5d82d061ce317c28b5255bdd6a254c2d7",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "search_count": 1,
+        "search_state": {
+          "ok": true,
+          "hidden": true,
+          "visible": true,
+          "width": 520,
+          "height": 40,
+          "search_active": "false"
+        },
+        "navbar_height_px": 46,
+        "navbar_contract": true,
+        "home_background_class": true,
+        "legacy_card_count": 0,
+        "navbar_bg": "rgba(0, 0, 0, 0)",
+        "launcher_bg_color": "rgb(244, 245, 247)",
+        "launcher_box_shadow": "rgba(16, 24, 40, 0.04) 0px 1px 0px 0px inset",
+        "banner_visible": true,
+        "banner_width_px": 820,
+        "user_name_display": "none",
+        "app_card_width_px": 96,
+        "app_card_height_px": 108,
+        "app_card_bg": "rgba(0, 0, 0, 0)",
+        "app_card_border_color": "rgba(0, 0, 0, 0)",
+        "app_card_border_radius_px": 6,
+        "app_icon_width_px": 70,
+        "app_icon_height_px": 70,
+        "app_icon_radius_px": 6,
+        "app_icon_text": "",
+        "action_count": 1
+      },
+      "duration_ms": 466
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "7649495c01605332285c8c756d81e783d1acd6ca1a5cc7ec6b2988330ac8380f",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(113, 75, 103)",
+          "systray_count": 17
+        },
+        "visible_setting_count": 12,
+        "visible_label_count": 12,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 405
+    },
+    {
+      "name": "default-mobile-launcher-parity",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-launcher-parity.png",
+      "sha256": "77a5b2880288fdba4e77d5f6a65052effdc5f428483be556379b1f4019a4960b",
+      "assertions": {
+        "app_count": 4,
+        "launcher_state": {
+          "grid_columns": 4,
+          "first_row_count": 4,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
+          "banner_width_px": 358,
+          "banner_visible": true,
+          "search_hidden": true,
+          "user_avatar_visible": true,
+          "systray_visible_count": 3,
+          "horizontal_overflow_px": 0
+        }
+      },
+      "duration_ms": 242
+    },
+    {
+      "name": "default-apps-install-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-install-desktop.png",
+      "sha256": "83c669af25131ad5a26750c17d6ca55e77f71dabbd96804264a3bc7a5a4b25b7",
+      "assertions": {
+        "module": "ai",
+        "catalog_count": 1,
+        "before_state": "uninstalled",
+        "after_install_state": "installed",
+        "after_upgrade_state": "installed",
+        "after_uninstall_state": "uninstalled",
+        "restored_state": "installed"
+      },
+      "duration_ms": 1914
+    }
+  ],
+  "duration_ms": 3177
+}

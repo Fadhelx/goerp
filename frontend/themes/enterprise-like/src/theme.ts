@@ -9,7 +9,7 @@ export const enterpriseLikeTheme: ThemeTokens = {
     accent: "#714b67",
     focus: "#017e84",
     navbar: "#714b67",
-    home: "#241723",
+    home: "#070a15",
     homeText: "#ffffff"
   },
   typography: {

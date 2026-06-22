@@ -44,7 +44,7 @@ export const scenarios = [
       await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
       await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "default TS takeover document ready");
       await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
-      const navCount = await waitForCount(page, ".o_web_client .o_main_navbar", 1, "TS navbar");
+      const navCount = await waitForCount(page, ".o_navbar > .o_main_navbar", 1, "TS navbar");
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
       const searchCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app_search_input", 1, "TS app search");
       const searchState = await evaluate(page, `(() => {
@@ -104,6 +104,35 @@ export const scenarios = [
     }
   },
   {
+    name: "default-user-preferences-dialog-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&prefs_dialog=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "preferences TS webclient ready");
+      await clickSelector(page, ".o_web_client .o_user_menu");
+      await clickExactText(page, ".o_web_client .o_user_menu + .dropdown-menu [role='menuitem']", "My Preferences");
+      const dialogCount = await waitForCount(page, ".o_web_client .gorp-action-dialog[data-model='res.users'][data-dialog-open='true']", 1, "preferences user dialog");
+      const state = await evaluate(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .gorp-action-dialog[data-model='res.users']");
+        const title = dialog?.querySelector(".modal-title")?.textContent?.trim() || "";
+        const sheet = dialog?.querySelector(".gorp-form-sheet.o_form_sheet");
+        const labels = [...(dialog?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        return {
+          title,
+          has_sheet: Boolean(sheet),
+          has_name_or_login: labels.includes("Name") || labels.includes("Login"),
+          label_count: labels.length,
+          body_modal_open: document.body.classList.contains("modal-open")
+        };
+      })()`);
+      if (!state.body_modal_open || !state.has_sheet || !state.has_name_or_login) {
+        throw new Error(`preferences dialog invalid: ${JSON.stringify(state)}`);
+      }
+      return { dialog_count: dialogCount, state };
+    }
+  },
+  {
     name: "default-webclient-action-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -118,12 +147,25 @@ export const scenarios = [
       const settingsLabelAudit = await assertSettingsLabelSnapshot(page, ".o_web_client .o_action_manager .o_settings_container", "default TS Settings labels");
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
+      const topbarState = await evaluate(page, `(() => {
+        const navbar = document.querySelector(".o_web_client > .o_navbar > .o_main_navbar");
+        const style = navbar ? getComputedStyle(navbar) : null;
+        return {
+          contract: Boolean(navbar),
+          height: Math.round(navbar?.getBoundingClientRect().height || 0),
+          background: style?.backgroundColor || "",
+          systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
+        };
+      })()`);
+      if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || topbarState.background !== "rgb(113, 75, 103)" || topbarState.systray_count < 4) {
+        throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
+      }
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       const hash = await waitFor(page, `(() => {
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
     }
   },
   {
@@ -144,9 +186,11 @@ export const scenarios = [
         const backdrops = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-action-dialog-backdrop")];
         const modal = dialog?.querySelector(".modal.o_dialog_container");
         const body = dialog?.querySelector(".modal-body.o_act_window");
+        const footer = dialog?.querySelector(".gorp-action-dialog-footer");
         const title = dialog?.querySelector(".modal-title")?.textContent?.trim() || "";
         const close = dialog?.querySelector(".btn-close");
         const rect = dialog?.querySelector(".modal-dialog")?.getBoundingClientRect();
+        const footerRect = footer?.getBoundingClientRect();
         return {
           body_modal_open: document.body.classList.contains("modal-open"),
           dialog_open: dialog?.dataset?.dialogOpen || "",
@@ -157,11 +201,16 @@ export const scenarios = [
           close_label: close?.getAttribute("aria-label") || "",
           title,
           body_count: body ? 1 : 0,
+          body_control_panel_count: dialog?.querySelectorAll(".modal-body .o_control_panel").length || 0,
+          footer_save_count: footer?.querySelectorAll("[data-settings-action='save'], [data-form-action='save']").length || 0,
+          footer_discard_count: footer?.querySelectorAll("[data-settings-action='discard'], [data-form-action='discard']").length || 0,
+          footer_bottom: Math.round(footerRect?.bottom || 0),
+          viewport_height: window.innerHeight,
           width: Math.round(rect?.width || 0),
           height: Math.round(rect?.height || 0)
         };
       })()`);
-      if (!state.body_modal_open || state.dialog_open !== "true" || state.backdrop_count !== 1 || !state.backdrop_in_dialog || state.modal_role !== "dialog" || state.close_label !== "Close" || !state.title || state.body_count !== 1 || state.width < 360 || state.height < 180) {
+      if (!state.body_modal_open || state.dialog_open !== "true" || state.backdrop_count !== 1 || !state.backdrop_in_dialog || state.modal_role !== "dialog" || state.close_label !== "Close" || !state.title || state.body_count !== 1 || state.body_control_panel_count !== 0 || state.footer_save_count !== 1 || state.footer_discard_count !== 1 || state.footer_bottom > state.viewport_height || state.width < 360 || state.height < 180) {
         throw new Error(`target-new dialog state invalid: ${JSON.stringify(state)}`);
       }
       return { dialog_count: dialogCount, backdrop_count: backdropCount, state };
@@ -260,6 +309,88 @@ export const scenarios = [
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
       return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+    }
+  },
+  {
+    name: "default-scheduled-action-form-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&scheduled_action_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "scheduled action setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const fixture = await ensureScheduledActionSmokeRecord(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=ir.cron&view_type=form&id=${fixture.cronID}&menu_id=${fixture.menuID}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Scheduled Actions TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Scheduled Actions form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='form'] .gorp-form-view", 1, "TS Scheduled Actions form");
+      const bandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-band[data-model='ir.cron'][data-state]", 1, "TS Scheduled Actions header band");
+      const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-form-notebook-tab", 2, "TS Scheduled Actions Code Help notebook");
+      const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Scheduled Actions code viewer");
+      const selectionPillCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-pills[data-field='interval_type'] .gorp-selection-pill", 1, "TS Scheduled Actions interval pills");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const stateRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='state'] input[type='radio']", 1, "TS Scheduled Actions state radio");
+      const intervalRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] input[type='radio']", 1, "TS Scheduled Actions interval radio");
+      const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Scheduled Actions code editor");
+      const state = await evaluate(page, `(() => {
+        const band = document.querySelector(".o_web_client .o_action_manager .gorp-scheduled-action-band");
+        const badge = band?.querySelector(".gorp-server-action-badge")?.textContent?.trim() || "";
+        const status = band?.querySelector(".gorp-server-action-state")?.textContent?.trim() || "";
+        const interval = document.querySelector(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type']");
+        const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] .gorp-selection-radio-pill")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        return {
+          badge,
+          status,
+          state: band?.dataset?.state || "",
+          interval_value: interval?.dataset?.value || "",
+          interval_labels: labels
+        };
+      })()`);
+      if (state.badge !== "Scheduled Action" || !state.interval_labels.includes("Hours")) {
+        throw new Error(`Scheduled Actions chrome invalid: ${JSON.stringify(state)}`);
+      }
+      return { fixture, form_count: formCount, band_count: bandCount, notebook_count: notebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, interval_radio_count: intervalRadioCount, code_editor_count: codeEditorCount, state };
+    }
+  },
+  {
+    name: "default-automation-form-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&automation_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "automation setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const fixture = await createAutomationSmokeRecord(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=base.automation&view_type=form&id=${fixture.automationID}&menu_id=${fixture.menuID}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Automation Rules TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Automation Rules form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='base.automation'][data-view='form'] .gorp-form-view", 1, "TS Automation Rules form");
+      const bandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-automation-action-band[data-model='base.automation'][data-trigger]", 1, "TS Automation Rules header band");
+      const triggerPillCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-pills[data-field='trigger'] .gorp-selection-pill", 1, "TS Automation trigger pills");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const triggerRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='trigger'] input[type='radio']", 1, "TS Automation trigger radio");
+      const state = await evaluate(page, `(() => {
+        const band = document.querySelector(".o_web_client .o_action_manager .gorp-automation-action-band");
+        const badge = band?.querySelector(".gorp-server-action-badge")?.textContent?.trim() || "";
+        const trigger = band?.querySelector(".gorp-server-action-state")?.textContent?.trim() || "";
+        const radio = document.querySelector(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='trigger']");
+        const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='trigger'] .gorp-selection-radio-pill")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        return {
+          badge,
+          trigger,
+          trigger_value: band?.dataset?.trigger || "",
+          radio_value: radio?.dataset?.value || "",
+          trigger_labels: labels
+        };
+      })()`);
+      if (state.badge !== "Automation Rule" || state.trigger !== "On Creation & Update" || !state.trigger_labels.includes("Based on Timed Condition")) {
+        throw new Error(`Automation Rules chrome invalid: ${JSON.stringify(state)}`);
+      }
+      return { fixture, form_count: formCount, band_count: bandCount, trigger_pill_count: triggerPillCount, trigger_radio_count: triggerRadioCount, state };
     }
   },
   {
@@ -515,6 +646,161 @@ export const scenarios = [
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=list") ? hash : "";
       })()`, "TS switched list hash");
       return { form_count: formCount, list_count: listCount, form_hash: formHash, list_hash: listHash };
+    }
+  },
+  {
+    name: "default-kanban-view-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "kanban setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const fixture = await createKanbanSmokeAction(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=ir.actions.server&view_type=kanban`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban action ready");
+      const kanbanCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='kanban'] .o_kanban_renderer", 1, "TS Server Actions kanban");
+      const cardCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_record", 1, "TS Server Actions kanban cards");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='kanban']");
+        const card = root?.querySelector(".o_kanban_record");
+        const title = card?.querySelector(".o_kanban_record_title")?.textContent?.trim() || "";
+        const fields = [...(card?.querySelectorAll(".o_kanban_record_field") || [])].map((node) => ({
+          field: node.dataset.field || "",
+          text: node.textContent.trim()
+        }));
+        const recordMenuToggle = card?.querySelector(".o_kanban_record_menu_toggle[data-kanban-record-menu='true']");
+        const recordMenu = card?.querySelector(".o_kanban_record_menu_dropdown");
+        const recordMenuItems = [...(recordMenu?.querySelectorAll("[role='menuitem']") || [])].map((node) => ({
+          action: node.dataset.kanbanRecordMenuAction || "",
+          label: node.textContent.trim()
+        }));
+        const switches = [...document.querySelectorAll(".o_web_client .o_action_manager .o_switch_view")]
+          .map((node) => ({ view: node.dataset.viewType || "", active: node.classList.contains("active"), label: node.getAttribute("aria-label") || node.textContent.trim() }));
+        return {
+          role: card?.getAttribute("role") || "",
+          tabindex: card?.getAttribute("tabindex") || "",
+          title,
+          fields,
+          record_menu: {
+            toggle_count: card?.querySelectorAll(".o_kanban_record_menu_toggle[data-kanban-record-menu='true']").length || 0,
+            expanded: recordMenuToggle?.getAttribute("aria-expanded") || "",
+            hidden: recordMenu?.hasAttribute("hidden") ?? true,
+            items: recordMenuItems
+          },
+          switches,
+          hash: window.location.hash || ""
+        };
+      })()`);
+      if (state.role !== "link" || state.tabindex !== "0" || !state.title) {
+        throw new Error(`kanban card chrome invalid: ${JSON.stringify(state)}`);
+      }
+      if (state.fields.some((item) => item.field === "state" && item.text.trim() === "code")) {
+        throw new Error(`kanban state shows raw value: ${JSON.stringify(state)}`);
+      }
+      if (!state.switches.some((item) => item.view === "kanban" && item.active)) {
+        throw new Error(`kanban switch not active: ${JSON.stringify(state)}`);
+      }
+      if (state.record_menu.toggle_count !== 1 || state.record_menu.expanded !== "false" || state.record_menu.hidden !== true || !state.record_menu.items.some((item) => item.action === "open" && item.label === "Open")) {
+        throw new Error(`kanban record menu invalid: ${JSON.stringify(state)}`);
+      }
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_record .o_kanban_record_menu_toggle");
+      const menuState = await waitFor(page, `(() => {
+        const card = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_record");
+        const toggle = card?.querySelector(".o_kanban_record_menu_toggle[data-kanban-record-menu='true']");
+        const menu = card?.querySelector(".o_kanban_record_menu_dropdown");
+        return toggle?.getAttribute("aria-expanded") === "true" && menu?.classList.contains("show") && !menu?.hasAttribute("hidden")
+          ? { expanded: toggle.getAttribute("aria-expanded"), item_count: menu.querySelectorAll("[role='menuitem']").length }
+          : null;
+      })()`, "TS kanban record menu opens");
+      await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='kanban'] .o_kanban_record .o_kanban_record_menu_item[data-kanban-record-menu-action='open']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban record form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Kanban opened form");
+      const formHash = await waitFor(page, `(() => {
+        const hash = window.location.hash || "";
+        return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
+      })()`, "TS kanban opened form hash");
+      return { fixture, kanban_count: kanbanCount, card_count: cardCount, state, menu_state: menuState, form_count: formCount, form_hash: formHash };
+    }
+  },
+  {
+    name: "default-kanban-groupby-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&kanban_groupby_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "kanban groupby setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const fixture = await createKanbanSmokeAction(page, config);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=ir.actions.server&view_type=kanban`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Kanban groupby TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban groupby action ready");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      const groupOption = await waitFor(page, `(() => {
+        const item = document.querySelector(".o_web_client .o_action_manager .o_group_by_menu .o_menu_item[data-menu-item-id]");
+        return item ? { id: item.dataset.menuItemId || "", label: item.textContent.trim() } : null;
+      })()`, "Kanban groupby option");
+      await clickFirst(page, ".o_web_client .o_action_manager .o_group_by_menu .o_menu_item[data-menu-item-id]");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Kanban state groupby action ready");
+      const groupedState = await waitFor(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='kanban']");
+        const renderer = root?.querySelector(".o_kanban_renderer.o_kanban_grouped");
+        const groups = [...(renderer?.querySelectorAll(".o_kanban_group") || [])].map((group) => ({
+          label: group.querySelector(".o_kanban_header_title")?.textContent?.trim() || "",
+          count: group.querySelector(".o_kanban_counter")?.textContent?.trim() || "",
+          cards: group.querySelectorAll(".o_kanban_record").length,
+          groupby: group.dataset.groupby || "",
+          folded: group.dataset.folded || "",
+          fold_toggle_count: group.querySelectorAll(".o_kanban_group_fold_toggle[data-kanban-group-fold='true']").length,
+          fold_expanded: group.querySelector(".o_kanban_group_fold_toggle[data-kanban-group-fold='true']")?.getAttribute("aria-expanded") || "",
+          quick_add_count: group.querySelectorAll(".o_kanban_quick_add[data-kanban-quick-create='true']").length,
+          quick_add_label: group.querySelector(".o_kanban_quick_add[data-kanban-quick-create='true']")?.textContent?.trim() || "",
+          quick_add_group_field: group.querySelector(".o_kanban_quick_add[data-kanban-quick-create='true']")?.dataset.groupField || "",
+          quick_add_group_default: group.querySelector(".o_kanban_quick_add[data-kanban-quick-create='true']")?.dataset.groupDefault || ""
+        }));
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='group-by-']");
+        return renderer && groups.length && facet ? {
+          renderer_groupby: renderer.dataset.groupby || "",
+          renderer_group_field: renderer.dataset.groupField || "",
+          groups,
+          facet: facet.textContent.trim(),
+          hash: window.location.hash || ""
+        } : null;
+      })()`, "Kanban grouped columns");
+      if (!groupedState.renderer_groupby || !groupedState.renderer_group_field) {
+        throw new Error(`kanban grouped metadata invalid: ${JSON.stringify(groupedState)}`);
+      }
+      if (!groupedState.groups.some((group) => group.label && Number(group.cards) >= 1 && group.groupby === groupedState.renderer_groupby)) {
+        throw new Error(`kanban grouped columns invalid: ${JSON.stringify(groupedState)}`);
+      }
+      if (!groupedState.groups.every((group) => group.quick_add_count === 1 && group.quick_add_label === "+ Add" && group.quick_add_group_field === groupedState.renderer_group_field)) {
+        throw new Error(`kanban grouped quick create invalid: ${JSON.stringify(groupedState)}`);
+      }
+      if (!groupedState.groups.every((group) => group.folded === "false" && group.fold_toggle_count === 1 && group.fold_expanded === "true")) {
+        throw new Error(`kanban grouped fold controls invalid: ${JSON.stringify(groupedState)}`);
+      }
+      await clickFirst(page, ".o_web_client .o_action_manager .o_kanban_group .o_kanban_group_fold_toggle");
+      const foldedState = await waitFor(page, `(() => {
+        const group = document.querySelector(".o_web_client .o_action_manager .o_kanban_group");
+        const records = group?.querySelector(".o_kanban_records");
+        const quick = group?.querySelector(".o_kanban_quick_add");
+        const toggle = group?.querySelector(".o_kanban_group_fold_toggle");
+        return group?.dataset.folded === "true" && group.classList.contains("o_column_folded") && records?.hasAttribute("hidden") && quick?.hasAttribute("hidden") && toggle?.getAttribute("aria-expanded") === "false"
+          ? { folded: group.dataset.folded, expanded: toggle.getAttribute("aria-expanded"), cards_hidden: records.hasAttribute("hidden"), quick_hidden: quick.hasAttribute("hidden") }
+          : null;
+      })()`, "Kanban grouped column folds");
+      await clickFirst(page, ".o_web_client .o_action_manager .o_kanban_group .o_kanban_group_fold_toggle");
+      const unfoldedState = await waitFor(page, `(() => {
+        const group = document.querySelector(".o_web_client .o_action_manager .o_kanban_group");
+        const records = group?.querySelector(".o_kanban_records");
+        const quick = group?.querySelector(".o_kanban_quick_add");
+        const toggle = group?.querySelector(".o_kanban_group_fold_toggle");
+        return group?.dataset.folded === "false" && !group.classList.contains("o_column_folded") && !records?.hasAttribute("hidden") && !quick?.hasAttribute("hidden") && toggle?.getAttribute("aria-expanded") === "true"
+          ? { folded: group.dataset.folded, expanded: toggle.getAttribute("aria-expanded"), cards_hidden: records.hasAttribute("hidden"), quick_hidden: quick.hasAttribute("hidden") }
+          : null;
+      })()`, "Kanban grouped column unfolds");
+      return { fixture, group_option: groupOption, grouped_state: groupedState, folded_state: foldedState, unfolded_state: unfoldedState };
     }
   },
   {
@@ -879,14 +1165,50 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='all']");
       const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai']", 1, "AI module card for detail");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_info_button");
+      const modalCount = await waitForCount(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'][data-dialog-open='true']", 1, "Apps Module Info modal");
+      const modalTitle = await textContent(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .modal-title");
+      if (!modalTitle.includes("Module Info")) throw new Error(`Apps Module Info modal title invalid: ${modalTitle}`);
       const detailModule = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-detail")?.dataset.moduleName === "ai" ? "ai" : ""`, "AI module detail panel");
       const detailText = await textContent(page, ".o_web_client .gorp-apps-catalog-detail");
       if (!detailText.includes("Technical Name") || !detailText.includes("Dependencies")) {
         throw new Error(`Apps detail panel missing metadata: ${detailText}`);
       }
+      await clickSelector(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .btn-close");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog-detail .o_module_info_close");
       const detailClosed = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog-detail")?.hidden === true ? "closed" : ""`, "Apps detail panel closes");
-      return { module: "ai", sidebar_count: sidebarCount, filter_count: filterCount, category_count: categoryCount, active_filter: activeFilter, card_count: cardCount, detail_module: detailModule, detail_closed: detailClosed };
+      return { module: "ai", sidebar_count: sidebarCount, filter_count: filterCount, category_count: categoryCount, active_filter: activeFilter, card_count: cardCount, modal_count: modalCount, detail_module: detailModule, detail_closed: detailClosed };
+    }
+  },
+  {
+    name: "default-users-flow-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&users_flow=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "users flow TS webclient ready");
+      await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "Users");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Users", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Users action ready");
+      const listRows = await waitForCount(page, ".o_web_client .o_data_row", 1, "Users list rows");
+      const listText = await textContent(page, ".o_web_client .gorp-list-view");
+      if (!listText.includes("Administrator") && !listText.includes("admin")) throw new Error(`Users list missing administrator data: ${listText}`);
+      await clickSelector(page, ".o_web_client .o_data_row");
+      await waitForCount(page, ".o_web_client .gorp-form-view[data-model='res.users']", 1, "Users form");
+      const formState = await evaluate(page, `(() => {
+        const form = document.querySelector(".o_web_client .gorp-form-view[data-model='res.users']");
+        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const text = form?.textContent || "";
+        return {
+          has_form: Boolean(form),
+          labels,
+          has_identity_label: labels.includes("Name") || labels.includes("Login"),
+          has_identity_value: text.includes("Administrator") || text.includes("admin")
+        };
+      })()`);
+      if (!formState.has_form || !formState.has_identity_label || !formState.has_identity_value) {
+        throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
+      }
+      return { list_rows: listRows, form_state: formState };
     }
   },
   {
@@ -1091,13 +1413,34 @@ async function assertEnterprisePolishSnapshot(page) {
 
 async function assertEnterpriseLauncherSnapshot(page) {
   const snapshot = await evaluate(page, `(() => {
+    const navbar = document.querySelector(".o_navbar > .o_main_navbar");
+    const webclient = document.querySelector(".o_web_client");
+    const home = document.querySelector(".o_web_client .o_home_menu");
+    const banner = document.querySelector(".o_web_client .o_home_menu_registration_banner");
+    const userName = document.querySelector(".o_web_client .o_user_menu_name");
     const card = document.querySelector(".o_web_client .o_home_menu .o_app");
     const icon = card?.querySelector(".o_app_icon");
+    const navbarStyle = navbar ? getComputedStyle(navbar) : null;
+    const homeStyle = home ? getComputedStyle(home.closest(".o-app-launcher-view") || home) : null;
+    const bannerStyle = banner ? getComputedStyle(banner) : null;
+    const userNameStyle = userName ? getComputedStyle(userName) : null;
     const cardStyle = card ? getComputedStyle(card) : null;
     const iconStyle = icon ? getComputedStyle(icon) : null;
+    const navbarRect = navbar?.getBoundingClientRect();
+    const bannerRect = banner?.getBoundingClientRect();
     const rect = card?.getBoundingClientRect();
     const iconRect = icon?.getBoundingClientRect();
     return {
+      navbar_height_px: navbarRect ? Math.round(navbarRect.height) : 0,
+      navbar_contract: Boolean(document.querySelector(".o_navbar > .o_main_navbar")),
+      home_background_class: Boolean(webclient?.classList?.contains("o_home_menu_background")),
+      legacy_card_count: document.querySelectorAll(".o_web_client .o_home_menu .app-card").length,
+      navbar_bg: navbarStyle?.backgroundColor || "",
+      launcher_bg_color: homeStyle?.backgroundColor || "",
+      launcher_box_shadow: homeStyle?.boxShadow || "",
+      banner_visible: Boolean(banner) && !banner.hidden && bannerStyle?.display !== "none" && (bannerRect?.width || 0) > 400,
+      banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
+      user_name_display: userNameStyle?.display || "",
       app_card_width_px: rect ? Math.round(rect.width) : 0,
       app_card_height_px: rect ? Math.round(rect.height) : 0,
       app_card_bg: cardStyle?.backgroundColor || "",
@@ -1105,18 +1448,29 @@ async function assertEnterpriseLauncherSnapshot(page) {
       app_card_border_radius_px: cardStyle ? Number.parseFloat(cardStyle.borderTopLeftRadius) || 0 : 0,
       app_icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
       app_icon_height_px: iconRect ? Math.round(iconRect.height) : 0,
-      app_icon_radius_px: iconStyle ? Number.parseFloat(iconStyle.borderTopLeftRadius) || 0 : 0
+      app_icon_radius_px: iconStyle ? Number.parseFloat(iconStyle.borderTopLeftRadius) || 0 : 0,
+      app_icon_text: icon?.textContent?.trim() || ""
     };
   })()`);
   const issues = [];
   const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
-  if (snapshot.app_card_width_px < 80 || snapshot.app_card_width_px > 100) issues.push(`app card width ${snapshot.app_card_width_px}`);
-  if (snapshot.app_card_height_px < 86 || snapshot.app_card_height_px > 108) issues.push(`app card height ${snapshot.app_card_height_px}`);
+  const acceptedNavbarBG = new Set([...transparent, "rgb(113, 75, 103)"]);
+  if (!snapshot.navbar_contract) issues.push("navbar contract missing");
+  if (!snapshot.home_background_class) issues.push("home background class missing");
+  if (snapshot.legacy_card_count !== 0) issues.push(`legacy app-card count ${snapshot.legacy_card_count}`);
+  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
+  if (!acceptedNavbarBG.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
+  if (snapshot.launcher_bg_color !== "rgb(244, 245, 247)") issues.push(`launcher background ${snapshot.launcher_bg_color}`);
+  if (!snapshot.launcher_box_shadow || snapshot.launcher_box_shadow === "none") issues.push("launcher shading missing");
+  if (!snapshot.banner_visible || snapshot.banner_width_px < 700 || snapshot.banner_width_px > 860) issues.push(`registration banner ${JSON.stringify({ visible: snapshot.banner_visible, width: snapshot.banner_width_px })}`);
+  if (snapshot.app_card_width_px < 88 || snapshot.app_card_width_px > 104) issues.push(`app card width ${snapshot.app_card_width_px}`);
+  if (snapshot.app_card_height_px < 98 || snapshot.app_card_height_px > 118) issues.push(`app card height ${snapshot.app_card_height_px}`);
   if (!transparent.has(snapshot.app_card_bg)) issues.push(`app card background ${snapshot.app_card_bg}`);
   if (!transparent.has(snapshot.app_card_border_color)) issues.push(`app card border ${snapshot.app_card_border_color}`);
-  if (snapshot.app_icon_width_px < 50 || snapshot.app_icon_width_px > 70) issues.push(`app icon width ${snapshot.app_icon_width_px}`);
-  if (snapshot.app_icon_height_px < 50 || snapshot.app_icon_height_px > 70) issues.push(`app icon height ${snapshot.app_icon_height_px}`);
-  if (snapshot.app_icon_radius_px < 10 || snapshot.app_icon_radius_px > 16) issues.push(`app icon radius ${snapshot.app_icon_radius_px}`);
+  if (snapshot.app_icon_width_px < 66 || snapshot.app_icon_width_px > 74) issues.push(`app icon width ${snapshot.app_icon_width_px}`);
+  if (snapshot.app_icon_height_px < 66 || snapshot.app_icon_height_px > 74) issues.push(`app icon height ${snapshot.app_icon_height_px}`);
+  if (snapshot.app_icon_radius_px < 4 || snapshot.app_icon_radius_px > 8) issues.push(`app icon radius ${snapshot.app_icon_radius_px}`);
+  if (snapshot.app_icon_text) issues.push(`synthetic app icon text ${snapshot.app_icon_text}`);
   if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);
   return snapshot;
 }
@@ -1433,6 +1787,79 @@ async function createDelegationOne2ManySmokeRecord(page, config) {
   };
 }
 
+async function ensureScheduledActionSmokeRecord(page, config) {
+  const ids = await externalResIDs(page, config, [
+    "base.action_ir_cron",
+    "base.menu_ir_cron"
+  ]);
+  const actionID = Number(ids["base.action_ir_cron"] || 0);
+  if (!actionID) throw new Error("base.action_ir_cron not found for scheduled action smoke");
+  const rows = await webCallKW(page, config, "ir.cron", "search_read", {
+    args: [[["state", "=", "code"]]],
+    kwargs: { fields: ["id", "name"], limit: 1 }
+  });
+  const existingID = Number(rows?.[0]?.id || 0);
+  if (existingID) {
+    return {
+      actionID,
+      menuID: Number(ids["base.menu_ir_cron"] || 0),
+      cronID: existingID
+    };
+  }
+  const created = await webCallKW(page, config, "ir.cron", "create", {
+    values: {
+      name: "Visual Scheduled Action",
+      active: true,
+      interval_number: 4,
+      interval_type: "hours",
+      nextcall: "2099-01-01 00:00:00",
+      state: "code",
+      code: "model.search([])"
+    }
+  });
+  const cronID = Number(created?.id || created || 0);
+  if (!cronID) throw new Error(`scheduled action smoke record invalid: ${JSON.stringify(created)}`);
+  return {
+    actionID,
+    menuID: Number(ids["base.menu_ir_cron"] || 0),
+    cronID
+  };
+}
+
+async function createAutomationSmokeRecord(page, config) {
+  const ids = await externalResIDs(page, config, [
+    "base.action_base_automation",
+    "base.menu_base_automation"
+  ]);
+  const actionID = Number(ids["base.action_base_automation"] || 0);
+  if (!actionID) throw new Error("base.action_base_automation not found for automation smoke");
+  const modelRows = await webCallKW(page, config, "ir.model", "search_read", {
+    args: [[["model", "=", "mail.mail"]]],
+    kwargs: { fields: ["id", "model", "name"], limit: 1 }
+  });
+  const modelID = Number(modelRows?.[0]?.id || 0);
+  if (!modelID) throw new Error("mail.mail model not found for automation smoke");
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const created = await webCallKW(page, config, "base.automation", "create", {
+    values: {
+      name: `Visual Automation ${suffix}`,
+      active: true,
+      model_id: modelID,
+      model_name: "mail.mail",
+      trigger: "create_or_write",
+      description: "Visual automation smoke"
+    }
+  });
+  const automationID = Number(created?.id || created || 0);
+  if (!automationID) throw new Error(`automation smoke record invalid: ${JSON.stringify(created)}`);
+  return {
+    actionID,
+    menuID: Number(ids["base.menu_base_automation"] || 0),
+    automationID,
+    modelID
+  };
+}
+
 async function createDateGroupBySmokeAction(page, config) {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const messageCreated = await webCallKW(page, config, "mail.message", "create", {
@@ -1488,6 +1915,21 @@ async function createDateFilterSmokeAction(page, config) {
   const actionID = Number(actionCreated?.id || actionCreated || 0);
   if (!actionID) throw new Error(`date filter smoke action invalid: ${JSON.stringify(actionCreated)}`);
   return { actionID, messageID };
+}
+
+async function createKanbanSmokeAction(page, config) {
+  const actionCreated = await webCallKW(page, config, "ir.actions.act_window", "create", {
+    values: {
+      name: "Server Actions Kanban",
+      type: "ir.actions.act_window",
+      res_model: "ir.actions.server",
+      view_mode: "kanban,form,list",
+      limit: 40
+    }
+  });
+  const actionID = Number(actionCreated?.id || actionCreated || 0);
+  if (!actionID) throw new Error(`kanban smoke action invalid: ${JSON.stringify(actionCreated)}`);
+  return { actionID };
 }
 
 async function externalResIDs(page, config, xmlIDs) {

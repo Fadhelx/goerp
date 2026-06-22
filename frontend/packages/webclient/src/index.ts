@@ -136,6 +136,15 @@ export type DomainExpression = readonly unknown[];
 export type DomainListRepr = readonly (readonly [string | number, string, unknown] | "&" | "|" | "!")[];
 export type DomainRepr = DomainListRepr | string | Domain;
 const DEFAULT_PAGER_COUNT_LIMIT = 10000;
+const DEFAULT_VIEW_FIELD_LIMIT = 6;
+
+const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
+  "res.users": ["name", "login", "email", "company_id", "groups_count", "active"]
+};
+
+const DEFAULT_MODEL_FORM_FIELDS: Record<string, readonly string[]> = {
+  "res.users": ["name", "login", "email", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
+};
 
 export interface PythonExpressionAST {
   type: "expression";
@@ -333,6 +342,11 @@ export interface RenderWindowActionOptions {
 
 export interface RenderWindowActionDialogOptions extends RenderWindowActionOptions {
   title?: string;
+}
+
+interface DialogWindowActionContent {
+  body: HTMLElement;
+  footer?: HTMLElement;
 }
 
 interface SettingsActionState {
@@ -1789,7 +1803,7 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     body = result.activeView === "form"
       ? renderFormView(viewDescription, fields, result.viewDescriptions.relatedModels, values, result.resModel, options)
       : result.activeView === "kanban"
-        ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
+        ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, result.search?.state.groupBy ?? [], options)
       : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
     if (result.activeView === "form") moveFormActionMenuToControlPanel(controlPanel, body);
   }
@@ -1850,12 +1864,98 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   header.append(title, close);
   const body = document.createElement("div");
   body.className = "modal-body o_act_window";
-  body.append(renderWindowAction(result, options));
+  const dialogContent = renderWindowActionDialogContent(result, options);
+  body.append(dialogContent.body);
   content.append(header, body);
+  if (dialogContent.footer) content.append(dialogContent.footer);
   dialog.append(content);
   modal.append(dialog);
   overlay.append(backdrop, modal);
   return overlay;
+}
+
+function renderWindowActionDialogContent(result: WindowActionResult, options: RenderWindowActionDialogOptions): DialogWindowActionContent {
+  const root = document.createElement("section");
+  root.className = "gorp-window-action gorp-dialog-window-action";
+  root.dataset.model = result.resModel;
+  root.dataset.view = result.activeView;
+  const viewDescription = result.viewDescriptions.views[result.activeView];
+  const fields = result.viewDescriptions.fields;
+  const records = options.records ?? result.records;
+  const values = options.values ?? records?.[0] ?? result.records[0] ?? {};
+  const settingsState = settingsActionState(result, values);
+  const formState = settingsState ? null : formActionState(result, viewDescription, values, fields, { allowFooter: true, editMode: true });
+  const footer = document.createElement("footer");
+  footer.className = "modal-footer gorp-action-dialog-footer";
+  let body: HTMLElement;
+  if (settingsState) {
+    appendSettingsActionButtonsToContainer(footer, root, result, settingsState, options);
+    body = renderSettingsActionView(result, viewDescription, fields, settingsState, root);
+  } else if (result.activeView === "form" && formState) {
+    appendFormActionButtonsToContainer(footer, root, result, formState, options, { includeEdit: false });
+    const renderBody = () => renderFormView(
+      viewDescription,
+      fields,
+      result.viewDescriptions.relatedModels,
+      formState.currentValues,
+      result.resModel,
+      dialogFormRenderOptions(options, formState),
+      formState.editing
+    );
+    const renderFooterButtons = () => {
+      removeDialogFooterViewButtons(footer);
+      for (const button of dialogFooterFormButtons(result, viewDescription, formState.currentValues, body, options)) {
+        footer.append(button);
+      }
+    };
+    body = renderBody();
+    renderFooterButtons();
+    formState.renderBody = () => {
+      body = renderBody();
+      root.replaceChildren(body);
+      renderFooterButtons();
+    };
+  } else if (result.activeView !== "form") {
+    body = renderWindowAction(result, options);
+  } else {
+    body = renderFormView(viewDescription, fields, result.viewDescriptions.relatedModels, values, result.resModel, dialogFormRenderOptions(options, null), true);
+  }
+  root.append(body);
+  return {
+    body: root,
+    ...(footer.children.length ? { footer } : {})
+  };
+}
+
+function dialogFormRenderOptions(options: RenderWindowActionOptions, state: FormActionState | null): RenderWindowActionOptions {
+  return {
+    ...(state ? formRenderOptions(options, state) : options),
+    formButtonPlacement: "excludeFooter",
+    disableFormActionMenu: true
+  } as RenderWindowActionOptions;
+}
+
+function dialogFooterFormButtons(
+  result: WindowActionResult,
+  viewDescription: ViewDescription | undefined,
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions
+): HTMLElement[] {
+  const activeFieldNames = new Set(parseViewFieldNodes(viewDescription?.arch ?? "").map((node) => node.name));
+  return parseFormFooterButtonNodes(viewDescription?.arch ?? "")
+    .filter((node) => !nodeInvisible(node.attrs, values))
+    .map((node) => {
+      const button = renderFormButton(result.resModel, node, values, activeFieldNames, form, options);
+      button.className = [button.className, "gorp-dialog-footer-view-button"].filter(Boolean).join(" ");
+      return button;
+    });
+}
+
+function removeDialogFooterViewButtons(footer: HTMLElement): void {
+  for (const child of Array.from(footer.querySelectorAll?.(".gorp-dialog-footer-view-button") ?? [])) {
+    child.remove();
+  }
 }
 
 function settingsActionState(result: WindowActionResult, values: Record<string, unknown>): SettingsActionState | null {
@@ -1872,17 +1972,18 @@ function formActionState(
   result: WindowActionResult,
   viewDescription: ViewDescription | undefined,
   values: Record<string, unknown>,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  options: { allowFooter?: boolean; editMode?: boolean } = {}
 ): FormActionState | null {
   if (result.activeView !== "form") return null;
   if (result.resModel === "res.config.settings") return null;
-  if (/<footer(?:\s|\/|>)/.test(viewDescription?.arch ?? "")) return null;
+  if (!options.allowFooter && /<footer(?:\s|\/|>)/.test(viewDescription?.arch ?? "")) return null;
   const initialValues = cloneRecord(values);
   return {
     initialValues,
     currentValues: cloneRecord(values),
     dirtyFields: new Set(),
-    editing: false,
+    editing: options.editMode === true,
     fields
   };
 }
@@ -1937,6 +2038,16 @@ function appendSettingsActionButtons(
 ): void {
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
   if (!mainButtons) return;
+  appendSettingsActionButtonsToContainer(mainButtons, eventRoot, result, state, options);
+}
+
+function appendSettingsActionButtonsToContainer(
+  container: HTMLElement,
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: SettingsActionState,
+  options: RenderWindowActionOptions
+): void {
   const save = document.createElement("button");
   save.type = "button";
   save.className = "btn btn-primary o_form_button_save";
@@ -1964,7 +2075,7 @@ function appendSettingsActionButtons(
   discard.addEventListener("click", () => {
     discardSettingsAction(eventRoot, state);
   });
-  mainButtons.append(save, discard, status);
+  container.append(save, discard, status);
   updateSettingsButtons(state);
 }
 
@@ -1977,6 +2088,18 @@ function appendFormActionButtons(
 ): void {
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
   if (!mainButtons) return;
+  appendFormActionButtonsToContainer(mainButtons, eventRoot, result, state, options);
+}
+
+function appendFormActionButtonsToContainer(
+  container: HTMLElement,
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: FormActionState,
+  options: RenderWindowActionOptions,
+  buttonOptions: { includeEdit?: boolean } = {}
+): void {
+  const includeEdit = buttonOptions.includeEdit !== false;
   const edit = document.createElement("button");
   edit.type = "button";
   edit.className = "btn btn-primary o_form_button_edit";
@@ -2020,7 +2143,8 @@ function appendFormActionButtons(
   discard.addEventListener("click", () => {
     discardFormAction(eventRoot, state);
   });
-  mainButtons.append(edit, save, discard, status);
+  if (includeEdit) container.append(edit);
+  container.append(save, discard, status);
   updateFormActionButtons(state);
 }
 
@@ -2740,7 +2864,7 @@ function renderListView(
   if (model) shell.dataset.model = model;
   const table = document.createElement("table");
   table.className = "gorp-list-view o_list_renderer o_list_table";
-  const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {});
+  const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {}, model);
   const names = fieldNodes.map((node) => node.name);
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
@@ -3034,57 +3158,302 @@ function renderKanbanView(
   records: readonly Record<string, unknown>[],
   model: string,
   action: Record<string, unknown>,
+  groupBy: readonly string[] = [],
   options: RenderWindowActionOptions = {}
 ): HTMLElement {
   const arch = viewDescription?.arch ?? "";
   const fieldNodes = kanbanViewFieldNodes(arch, fields, records[0] ?? {});
   const titleField = kanbanTitleField(fieldNodes, fields);
+  const groupDescriptor = groupBy[0] ?? "";
+  const [groupField] = splitGroupByDescriptorValue(groupDescriptor);
+  const grouped = Boolean(groupField && fields[groupField]);
   const renderer = document.createElement("div");
-  renderer.className = "o_kanban_renderer o_renderer o_kanban_ungrouped";
+  renderer.className = grouped
+    ? "o_kanban_renderer o_renderer o_kanban_grouped"
+    : "o_kanban_renderer o_renderer o_kanban_ungrouped";
   renderer.dataset.model = model;
+  if (grouped) {
+    renderer.dataset.groupby = groupDescriptor;
+    renderer.dataset.groupField = groupField;
+  }
   if (!records.length) {
     const empty = document.createElement("div");
     empty.className = "o_view_nocontent";
     empty.textContent = "No records";
     renderer.append(empty);
+    const quickCreate = renderKanbanQuickCreate(action, options, renderer);
+    if (quickCreate) renderer.append(quickCreate);
+    return renderer;
+  }
+  if (grouped) {
+    for (const group of kanbanRecordGroups(records, fields, groupField, model)) {
+      const column = document.createElement("section");
+      column.className = "o_kanban_group";
+      column.dataset.groupby = groupDescriptor;
+      column.dataset.groupField = groupField;
+      column.dataset.groupValue = group.key;
+      const header = document.createElement("header");
+      header.className = "o_kanban_header";
+      const title = document.createElement("h3");
+      title.className = "o_kanban_header_title o_column_title";
+      title.textContent = group.label;
+      const counter = document.createElement("span");
+      counter.className = "o_kanban_counter";
+      counter.textContent = String(group.records.length);
+      const foldToggle = document.createElement("button");
+      foldToggle.type = "button";
+      foldToggle.className = "o_kanban_group_fold_toggle btn btn-link";
+      foldToggle.dataset.kanbanGroupFold = "true";
+      foldToggle.setAttribute("aria-label", "Fold column");
+      foldToggle.setAttribute("aria-expanded", "true");
+      foldToggle.textContent = "‹";
+      const body = document.createElement("div");
+      body.className = "o_kanban_records";
+      for (const record of group.records) {
+        body.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer));
+      }
+      const quickCreate = renderKanbanQuickCreate(action, options, renderer, {
+        groupField,
+        groupValue: group.raw
+      });
+      const setFolded = (folded: boolean) => {
+        column.className = folded ? "o_kanban_group o_column_folded" : "o_kanban_group";
+        column.dataset.folded = folded ? "true" : "false";
+        foldToggle.setAttribute("aria-expanded", folded ? "false" : "true");
+        foldToggle.setAttribute("aria-label", folded ? "Unfold column" : "Fold column");
+        foldToggle.textContent = folded ? "›" : "‹";
+        body.hidden = folded;
+        if (folded) body.setAttribute("hidden", "hidden");
+        else body.removeAttribute("hidden");
+        if (quickCreate) {
+          quickCreate.hidden = folded;
+          if (folded) quickCreate.setAttribute("hidden", "hidden");
+          else quickCreate.removeAttribute("hidden");
+        }
+      };
+      foldToggle.addEventListener("click", (event) => {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+        setFolded(column.dataset.folded !== "true");
+      });
+      header.append(title, counter, foldToggle);
+      column.append(header, body);
+      if (quickCreate) column.append(quickCreate);
+      setFolded(false);
+      renderer.append(column);
+    }
     return renderer;
   }
   for (const record of records) {
-    const card = document.createElement("article");
-    card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
-    card.setAttribute("role", "link");
-    card.setAttribute("tabindex", "0");
-    const recordID = numberRecordID(record.id);
-    if (recordID !== undefined) card.dataset.id = String(recordID);
-    card.dataset.model = model;
-    card.addEventListener("click", async () => {
-      if (recordID === undefined) return;
-      await openKanbanRecord(model, recordID, action, options, renderer);
-    });
-    const main = document.createElement("div");
-    main.className = "oe_kanban_details";
-    const title = document.createElement("strong");
-    title.className = "o_kanban_record_title";
-    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
-    main.append(title);
-    for (const node of fieldNodes) {
-      if (node.name === titleField || node.name === "id") continue;
-      const line = document.createElement("div");
-      line.className = "o_kanban_record_field";
-      line.dataset.field = node.name;
-      const label = document.createElement("span");
-      label.className = "o_kanban_field_label";
-      label.textContent = fieldLabel(fields, node.name, model);
-      const value = document.createElement("span");
-      value.className = "o_kanban_field_value";
-      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
-      line.append(label, value);
-      main.append(line);
-    }
-    card.append(main);
-    renderer.append(card);
+    renderer.append(renderKanbanRecordCard(record, fieldNodes, titleField, fields, model, action, options, renderer));
   }
+  const quickCreate = renderKanbanQuickCreate(action, options, renderer);
+  if (quickCreate) renderer.append(quickCreate);
   return renderer;
+}
+
+function renderKanbanRecordCard(
+  record: Record<string, unknown>,
+  fieldNodes: readonly ViewFieldNode[],
+  titleField: string,
+  fields: Record<string, unknown>,
+  model: string,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  renderer: HTMLElement
+): HTMLElement {
+  const card = document.createElement("article");
+  card.className = "o_kanban_record oe_kanban_global_click o_kanban_global_click d-flex cursor-pointer o_record_selection_available";
+  card.setAttribute("role", "link");
+  card.setAttribute("tabindex", "0");
+  const recordID = numberRecordID(record.id);
+  if (recordID !== undefined) card.dataset.id = String(recordID);
+  card.dataset.model = model;
+  card.addEventListener("click", async () => {
+    if (recordID === undefined) return;
+    await openKanbanRecord(model, recordID, action, options, renderer);
+  });
+  card.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault?.();
+    if (recordID === undefined) return;
+    await openKanbanRecord(model, recordID, action, options, renderer);
+  });
+  const main = document.createElement("div");
+  main.className = "oe_kanban_details";
+  const title = document.createElement("strong");
+  title.className = "o_kanban_record_title";
+  title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
+  main.append(title);
+  for (const node of fieldNodes) {
+    if (node.name === titleField || node.name === "id") continue;
+    const line = document.createElement("div");
+    line.className = "o_kanban_record_field";
+    line.dataset.field = node.name;
+    const label = document.createElement("span");
+    label.className = "o_kanban_field_label";
+    label.textContent = fieldLabel(fields, node.name, model);
+    const value = document.createElement("span");
+    value.className = "o_kanban_field_value";
+    value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
+    line.append(label, value);
+    main.append(line);
+  }
+  if (model === "ir.module.module" && recordID !== undefined) {
+    main.append(renderModuleInfoButton(record, recordID, action, options, renderer));
+  }
+  if (recordID !== undefined) {
+    card.append(renderKanbanRecordMenu(model, recordID, action, options, renderer));
+  }
+  card.append(main);
+  return card;
+}
+
+function renderKanbanRecordMenu(
+  model: string,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "o_kanban_record_menu dropdown";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "o_kanban_record_menu_toggle btn btn-link";
+  toggle.dataset.kanbanRecordMenu = "true";
+  toggle.setAttribute("aria-label", "Record actions");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.textContent = "...";
+  const menu = document.createElement("div");
+  menu.className = "o_kanban_record_menu_dropdown dropdown-menu";
+  menu.setAttribute("role", "menu");
+  menu.hidden = true;
+  menu.setAttribute("hidden", "hidden");
+  const setOpen = (open: boolean) => {
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    menu.hidden = !open;
+    if (open) {
+      menu.removeAttribute("hidden");
+      menu.className = "o_kanban_record_menu_dropdown dropdown-menu show";
+    } else {
+      menu.setAttribute("hidden", "hidden");
+      menu.className = "o_kanban_record_menu_dropdown dropdown-menu";
+    }
+  };
+  toggle.addEventListener("click", (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    setOpen(toggle.getAttribute("aria-expanded") !== "true");
+  });
+  toggle.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    setOpen(false);
+  });
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "dropdown-item o_kanban_record_menu_item";
+  open.dataset.kanbanRecordMenuAction = "open";
+  open.setAttribute("role", "menuitem");
+  open.textContent = "Open";
+  open.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    setOpen(false);
+    await openKanbanRecord(model, id, action, options, root);
+  });
+  menu.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    setOpen(false);
+    toggle.focus?.();
+  });
+  wrapper.append(toggle, menu);
+  menu.append(open);
+  return wrapper;
+}
+
+function renderKanbanQuickCreate(
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement,
+  defaults: { groupField?: string; groupValue?: unknown } = {}
+): HTMLElement | null {
+  if (actionCreateDisabled(action)) return null;
+  const formView = formViewRef(action);
+  if (!formView) return null;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o_kanban_quick_add btn btn-link";
+  button.dataset.kanbanQuickCreate = "true";
+  if (defaults.groupField) button.dataset.groupField = defaults.groupField;
+  const quickContext = kanbanQuickCreateContext(options.context ?? {}, defaults);
+  const groupDefault = defaults.groupField ? quickContext[`default_${defaults.groupField}`] : undefined;
+  if (groupDefault !== undefined) button.dataset.groupDefault = String(groupDefault);
+  button.setAttribute("aria-label", "Add a record");
+  button.textContent = "+ Add";
+  button.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    const nextAction = createFormAction(action, formView);
+    if (options.services?.action) {
+      await options.services.action.doAction(nextAction, {
+        additionalContext: quickContext,
+        replaceLastAction: true
+      });
+      return;
+    }
+    root.dispatchEvent(new CustomEvent("action:create", {
+      bubbles: true,
+      detail: { action: nextAction, context: quickContext, model: action.res_model }
+    }));
+  });
+  return button;
+}
+
+function kanbanQuickCreateContext(
+  baseContext: Record<string, unknown>,
+  defaults: { groupField?: string; groupValue?: unknown }
+): Record<string, unknown> {
+  const context = { ...baseContext };
+  if (!defaults.groupField) return context;
+  const defaultValue = kanbanGroupDefaultValue(defaults.groupValue);
+  if (defaultValue === undefined) return context;
+  context[`default_${defaults.groupField}`] = defaultValue;
+  return context;
+}
+
+function kanbanGroupDefaultValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.length ? value[0] : undefined;
+  if (value === undefined || value === null || value === false || value === "") return undefined;
+  return value;
+}
+
+function kanbanRecordGroups(
+  records: readonly Record<string, unknown>[],
+  fields: Record<string, unknown>,
+  groupField: string,
+  model: string
+): Array<{ key: string; label: string; raw: unknown; records: Record<string, unknown>[] }> {
+  const groups = new Map<string, { key: string; label: string; raw: unknown; records: Record<string, unknown>[] }>();
+  for (const record of records) {
+    const raw = record[groupField];
+    const key = kanbanGroupKey(raw);
+    const label = fieldDisplayText(fields[groupField], raw, model, groupField) || "Undefined";
+    const group = groups.get(key) ?? { key, label, raw, records: [] };
+    group.records.push(record);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function kanbanGroupKey(value: unknown): string {
+  if (Array.isArray(value)) return value.length ? String(value[0] ?? "") : "";
+  if (value === undefined || value === null || value === false || value === "") return "__undefined__";
+  return String(value);
 }
 
 function kanbanViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {
@@ -3111,6 +3480,49 @@ async function openKanbanRecord(
   root: HTMLElement
 ): Promise<void> {
   await openRecordAction(model, id, action, options, root);
+}
+
+function renderModuleInfoButton(
+  record: Record<string, unknown>,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary btn-sm o_module_info_button";
+  button.dataset.moduleInfo = String(record.name ?? id);
+  button.textContent = "Module Info";
+  button.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    const formView = formViewRef(action) ?? [false, "form"];
+    const nextAction: Record<string, unknown> = {
+      ...action,
+      name: "Module Info",
+      res_id: id,
+      res_model: "ir.module.module",
+      view_mode: "form",
+      views: [[formView[0], "form"]],
+      target: "new"
+    };
+    const context = {
+      ...(options.context ?? {}),
+      active_model: "ir.module.module",
+      active_id: id,
+      active_ids: [id]
+    };
+    if (options.services?.action) {
+      await options.services.action.doAction(nextAction, { additionalContext: context });
+      return;
+    }
+    root.dispatchEvent(new CustomEvent("action:open-record", {
+      bubbles: true,
+      detail: { action: nextAction, model: "ir.module.module", id }
+    }));
+  });
+  return button;
 }
 
 async function openListRecord(
@@ -3151,13 +3563,16 @@ async function openRecordAction(
   }));
 }
 
-function listViewFieldNodes(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown>): ViewFieldNode[] {
+function listViewFieldNodes(
+  arch: string,
+  fields: Record<string, unknown>,
+  evalContext: Record<string, unknown>,
+  model?: string
+): ViewFieldNode[] {
   const nodes = parseViewFieldNodes(arch).filter((node) => !fieldInvisible(node, evalContext));
+  if (shouldUseDefaultModelFieldNodes(model, nodes, "list")) return defaultViewFieldNodes(model, fields, "list");
   if (nodes.length) return nodes;
-  return Object.keys(fields)
-    .filter((name) => name !== "id" && name !== "display_name")
-    .slice(0, 6)
-    .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
+  return defaultViewFieldNodes(model, fields, "list");
 }
 
 function renderActionMenus(params: {
@@ -4687,26 +5102,35 @@ function renderFormView(
   const form = document.createElement("form");
   form.className = "gorp-form-view o_form_view";
   form.dataset.model = model;
-  const serverActionForm = isServerActionForm(model);
+  const technicalActionKind = technicalActionFormKind(model);
+  const serverActionForm = technicalActionKind === "server";
+  const scheduledActionForm = technicalActionKind === "scheduled";
   const arch = viewDescription?.arch ?? "";
   const recordValues = values;
-  const allFieldNodes = parseViewFieldNodes(arch);
-  const activeFieldNames = new Set(allFieldNodes.map((node) => node.name));
+  const parsedFieldNodes = parseViewFieldNodes(arch);
+  const allFieldNodes = shouldUseDefaultModelFieldNodes(model, parsedFieldNodes, "form") ? [] : parsedFieldNodes;
+  const fallbackFieldNodes = allFieldNodes.length ? [] : defaultViewFieldNodes(model, fields, "form");
+  const activeFieldNodes = allFieldNodes.length ? allFieldNodes : fallbackFieldNodes;
+  const activeFieldNames = new Set(activeFieldNodes.map((node) => node.name));
   const recordID = numberRecordID(recordValues.id);
   const actionMenu = renderFormWorkflowActionMenu(viewDescription, model, recordID, fields, activeFieldNames, recordValues, form, options);
   if (actionMenu) form.append(actionMenu);
-  const buttons = parseViewButtonNodes(arch).filter((node) => !nodeInvisible(node.attrs, recordValues));
-  const nodes = allFieldNodes.filter((node) => !fieldInvisible(node, recordValues));
-  const mainNodes = parseFormMainFieldNodes(arch).filter((node) => !fieldInvisible(node, recordValues));
+  const formButtonPlacement = (options as { formButtonPlacement?: "header" | "excludeFooter" | "none" }).formButtonPlacement ?? "header";
+  const footerButtonKeys = formButtonPlacement === "excludeFooter"
+    ? new Set(parseFormFooterButtonNodes(arch).map(viewButtonKey))
+    : new Set<string>();
+  const buttons = formButtonPlacement === "none"
+    ? []
+    : parseViewButtonNodes(arch)
+      .filter((node) => !nodeInvisible(node.attrs, recordValues))
+      .filter((node) => !footerButtonKeys.has(viewButtonKey(node)));
+  const nodes = activeFieldNodes.filter((node) => !fieldInvisible(node, recordValues));
+  const parsedMainNodes = parseFormMainFieldNodes(arch).filter((node) => !fieldInvisible(node, recordValues));
+  const mainNodes = shouldUseDefaultModelFieldNodes(model, parsedMainNodes, "form") ? [] : parsedMainNodes;
   const fieldNodes: ViewFieldNode[] = nodes.length
     ? nodes
-    : Object.keys(fields)
-      .filter((name) => name !== "id" && name !== "display_name")
-      .slice(0, 6)
-      .map((name) => ({ name, attrs: {}, children: [], childViewAttrs: {} }));
-  const mainFieldNodes = serverActionForm
-    ? serverActionMainFieldNodes(mainNodes.length || arch ? mainNodes : fieldNodes)
-    : mainNodes.length || arch ? mainNodes : fieldNodes;
+    : fallbackFieldNodes;
+  const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes);
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
   const notebooks = parseFormNotebooks(arch);
   if (buttons.length || statusbarNodes.length) {
@@ -4726,7 +5150,8 @@ function renderFormView(
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
   const title = renderFormTitle(recordValues);
   if (title) sheet.append(title);
-  if (serverActionForm) sheet.append(renderServerActionBand(fields, recordValues));
+  const technicalBand = renderTechnicalActionBand(model, fields, recordValues);
+  if (technicalBand) sheet.append(technicalBand);
   const group = document.createElement("div");
   group.className = "gorp-form-fields record-grid o_group o_inner_group";
   for (const node of mainFieldNodes) {
@@ -4738,6 +5163,10 @@ function renderFormView(
     const serverNotebook = renderServerActionNotebook(fieldNodes, fields, relatedModels, recordValues, form, options, editMode);
     if (serverNotebook) sheet.append(serverNotebook);
   }
+  if (scheduledActionForm) {
+    const cronNotebook = renderScheduledActionNotebook(fieldNodes, fields, relatedModels, recordValues, form, options, editMode);
+    if (cronNotebook) sheet.append(cronNotebook);
+  }
   for (const notebook of notebooks) {
     const rendered = renderFormNotebook(notebook, fields, relatedModels, recordValues, form, options, editMode);
     if (rendered) sheet.append(rendered);
@@ -4748,12 +5177,17 @@ function renderFormView(
   return form;
 }
 
-function isServerActionForm(model: string): boolean {
-  return model === "ir.actions.server";
+function technicalActionFormKind(model: string): "server" | "scheduled" | "automation" | "" {
+  if (model === "ir.actions.server") return "server";
+  if (model === "ir.cron") return "scheduled";
+  if (model === "base.automation") return "automation";
+  return "";
 }
 
-function serverActionMainFieldNodes(nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
-  return nodes.filter((node) => node.name !== "code" && node.name !== "help");
+function technicalActionMainFieldNodes(model: string, nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
+  if (model === "ir.actions.server") return nodes.filter((node) => node.name !== "code" && node.name !== "help");
+  if (model === "ir.cron") return nodes.filter((node) => node.name !== "code");
+  return [...nodes];
 }
 
 function renderFormFieldNode(
@@ -4784,6 +5218,13 @@ function renderFormFieldNode(
   return label;
 }
 
+function renderTechnicalActionBand(model: string, fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement | null {
+  if (model === "ir.actions.server") return renderServerActionBand(fields, values);
+  if (model === "ir.cron") return renderScheduledActionBand(fields, values);
+  if (model === "base.automation") return renderAutomationActionBand(fields, values);
+  return null;
+}
+
 function renderServerActionBand(fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement {
   const stateChoices = selectionOptionsForField(fields.state, "ir.actions.server", "state");
   const stateValue = String(values.state ?? "");
@@ -4810,6 +5251,73 @@ function renderServerActionBand(fields: Record<string, unknown>, values: Record<
     serverActionMetaItem("Target Model", modelLabel),
     serverActionMetaItem("Status", activeLabel),
     serverActionMetaItem("Usage", firstText(values.usage) || "Action")
+  );
+  root.append(identity, meta);
+  return root;
+}
+
+function renderScheduledActionBand(fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement {
+  const stateChoices = selectionOptionsForField(fields.state, "ir.cron", "state");
+  const intervalChoices = selectionOptionsForField(fields.interval_type, "ir.cron", "interval_type");
+  const stateValue = String(values.state ?? "");
+  const stateLabel = selectionLabel(stateChoices, stateValue) || "Scheduled";
+  const intervalType = String(values.interval_type ?? "");
+  const intervalLabel = selectionLabel(intervalChoices, intervalType) || intervalType || "Interval";
+  const intervalNumber = firstText(values.interval_number) || "1";
+  const activeLabel = values.active === false ? "Archived" : "Active";
+  const root = document.createElement("section");
+  root.className = "gorp-scheduled-action-band gorp-server-action-band o_server_action_band";
+  root.dataset.model = "ir.cron";
+  root.dataset.state = stateValue;
+  root.dataset.active = values.active === false ? "false" : "true";
+  const identity = document.createElement("div");
+  identity.className = "gorp-server-action-identity";
+  const badge = document.createElement("span");
+  badge.className = "gorp-server-action-badge";
+  badge.textContent = "Scheduled Action";
+  const state = document.createElement("span");
+  state.className = "gorp-server-action-state";
+  state.dataset.value = stateValue;
+  state.textContent = stateLabel;
+  identity.append(badge, state);
+  const meta = document.createElement("div");
+  meta.className = "gorp-server-action-meta";
+  meta.append(
+    serverActionMetaItem("Runs Every", `${intervalNumber} ${intervalLabel}`),
+    serverActionMetaItem("Next Run", firstText(values.nextcall) || "Not scheduled"),
+    serverActionMetaItem("Status", activeLabel)
+  );
+  root.append(identity, meta);
+  return root;
+}
+
+function renderAutomationActionBand(fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement {
+  const triggerChoices = selectionOptionsForField(fields.trigger, "base.automation", "trigger");
+  const triggerValue = String(values.trigger ?? "");
+  const triggerLabel = selectionLabel(triggerChoices, triggerValue) || "Automation";
+  const modelLabel = many2OneDisplayData(values.model_id).displayName || firstText(values.model_name) || "No target model";
+  const activeLabel = values.active === false ? "Archived" : "Active";
+  const root = document.createElement("section");
+  root.className = "gorp-automation-action-band gorp-server-action-band o_server_action_band";
+  root.dataset.model = "base.automation";
+  root.dataset.trigger = triggerValue;
+  root.dataset.active = values.active === false ? "false" : "true";
+  const identity = document.createElement("div");
+  identity.className = "gorp-server-action-identity";
+  const badge = document.createElement("span");
+  badge.className = "gorp-server-action-badge";
+  badge.textContent = "Automation Rule";
+  const state = document.createElement("span");
+  state.className = "gorp-server-action-state";
+  state.dataset.value = triggerValue;
+  state.textContent = triggerLabel;
+  identity.append(badge, state);
+  const meta = document.createElement("div");
+  meta.className = "gorp-server-action-meta";
+  meta.append(
+    serverActionMetaItem("Model", modelLabel),
+    serverActionMetaItem("Action", many2OneDisplayData(values.action_server_id).displayName || "No server action"),
+    serverActionMetaItem("Status", activeLabel)
   );
   root.append(identity, meta);
   return root;
@@ -4912,6 +5420,86 @@ function renderServerActionHelpPanel(): HTMLElement {
   const list = document.createElement("div");
   list.className = "gorp-server-action-help-list";
   for (const token of ["env", "model", "record", "records", "log", "Warning"]) {
+    const item = document.createElement("code");
+    item.textContent = token;
+    list.append(item);
+  }
+  root.append(heading, list);
+  return root;
+}
+
+function renderScheduledActionNotebook(
+  fieldNodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown>,
+  relatedModels: Record<string, unknown>,
+  recordValues: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  editMode = false
+): HTMLElement | null {
+  if (!fields.code) return null;
+  const codeNode = fieldNodes.find((node) => node.name === "code") || { name: "code", attrs: {}, children: [], childViewAttrs: {} };
+  const root = document.createElement("section");
+  root.className = "gorp-scheduled-action-notebook gorp-server-action-notebook gorp-form-notebook o_notebook";
+  root.dataset.notebook = "scheduled-action";
+  const tabs = document.createElement("div");
+  tabs.className = "gorp-form-notebook-tabs nav nav-tabs";
+  tabs.setAttribute("role", "tablist");
+  const panes = document.createElement("div");
+  panes.className = "gorp-form-notebook-content tab-content";
+  const codePage = document.createElement("section");
+  codePage.className = "gorp-form-notebook-page tab-pane active";
+  codePage.dataset.notebookPage = "code";
+  codePage.id = "scheduled-action-code-page";
+  codePage.setAttribute("role", "tabpanel");
+  const codeGroup = document.createElement("div");
+  codeGroup.className = "gorp-form-fields record-grid o_group o_inner_group";
+  codeGroup.append(renderFormFieldNode(codeNode, fields, relatedModels, recordValues, form, options, editMode));
+  codePage.append(codeGroup);
+  const helpPage = document.createElement("section");
+  helpPage.className = "gorp-form-notebook-page tab-pane";
+  helpPage.dataset.notebookPage = "help";
+  helpPage.id = "scheduled-action-help-page";
+  helpPage.hidden = true;
+  helpPage.setAttribute("hidden", "hidden");
+  helpPage.setAttribute("role", "tabpanel");
+  helpPage.append(renderScheduledActionHelpPanel());
+  const pages = [codePage, helpPage];
+  const buttons = [
+    serverActionNotebookTab("Code", "code", "scheduled-action-code-page", true),
+    serverActionNotebookTab("Help", "help", "scheduled-action-help-page", false)
+  ];
+  const activate = (activeIndex: number) => {
+    buttons.forEach((button, index) => {
+      const active = index === activeIndex;
+      button.className = toggleClassToken(String(button.className ?? ""), "active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    pages.forEach((page, index) => {
+      const active = index === activeIndex;
+      page.className = toggleClassToken(String(page.className ?? ""), "active", active);
+      page.hidden = !active;
+      if (active) page.removeAttribute("hidden");
+      else page.setAttribute("hidden", "hidden");
+    });
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => activate(index));
+    tabs.append(button);
+  });
+  panes.append(...pages);
+  root.append(tabs, panes);
+  return root;
+}
+
+function renderScheduledActionHelpPanel(): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "gorp-server-action-help";
+  const heading = document.createElement("h3");
+  heading.textContent = "Available variables";
+  const list = document.createElement("div");
+  list.className = "gorp-server-action-help-list";
+  for (const token of ["env", "model", "record", "records", "log"]) {
     const item = document.createElement("code");
     item.textContent = token;
     list.append(item);
@@ -5026,7 +5614,7 @@ function renderReadonlyFieldValue(
   if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
     return renderBadgeValue(node, description, value, evalContext);
   }
-  if (displayModel === "ir.actions.server" && node.name === "code") {
+  if ((displayModel === "ir.actions.server" || displayModel === "ir.cron") && node.name === "code") {
     return renderCodeViewer(node.name, value);
   }
   const choices = selectionOptionsForField(description, displayModel, node.name);
@@ -5806,6 +6394,7 @@ function renderFormWorkflowActionMenu(
   form: HTMLElement,
   options: RenderWindowActionOptions
 ): HTMLElement | undefined {
+  if ((options as { disableFormActionMenu?: boolean }).disableFormActionMenu === true) return undefined;
   const showUpdateStatus = Boolean(recordID !== undefined && user.isSystem && activeFieldNames.has("state"));
   const showApprovalLog = Boolean(recordID !== undefined && activeFieldNames.has("user_can_approve") && workflowFieldAvailable(fields, "user_can_approve") && !workflowFieldRelated(fields.user_can_approve));
   const activeField = activeFieldNameForView(activeFieldNames, fields);
@@ -6337,7 +6926,7 @@ function renderEditableFormField(
   if (fieldType === "one2many") {
     return renderOne2ManyListEditor(node, description, relatedModels, values, form, options);
   }
-  if (form.dataset.model === "ir.actions.server" && node.name === "code") {
+  if ((form.dataset.model === "ir.actions.server" || form.dataset.model === "ir.cron") && node.name === "code") {
     return renderCodeEditor(node, values, form, options, required);
   }
   const choices = selectionOptionsForField(description, form.dataset.model, node.name);
@@ -6355,14 +6944,22 @@ function renderEditableFormField(
   control.required = required;
   control.name = node.name;
   control.value = formatCellValue(values[node.name]);
-  if (control.tagName.toLowerCase() === "input") (control as HTMLInputElement).type = "text";
-  if (control.tagName.toLowerCase() === "textarea") (control as HTMLTextAreaElement).rows = 3;
+  const controlTag = elementTagName(control);
+  if (controlTag === "input") (control as HTMLInputElement).type = "text";
+  if (controlTag === "textarea") (control as HTMLTextAreaElement).rows = 3;
   control.addEventListener("input", () => {
     values[node.name] = control.value;
     if (required && !requiredControlEmpty(control as RequiredFormControl)) setRequiredControlInvalid(control as RequiredFormControl, false);
     emitFieldUpdate(form, options.onUpdate, node.name, control.value);
   });
   return control;
+}
+
+function elementTagName(element: unknown): string {
+  const tagName = (element as { tagName?: unknown })?.tagName;
+  if (typeof tagName === "string" && tagName) return tagName.toLowerCase();
+  const tag = (element as { tag?: unknown })?.tag;
+  return typeof tag === "string" ? tag.toLowerCase() : "";
 }
 
 function renderCodeEditor(
@@ -6874,7 +7471,7 @@ function renderResUserGroupIdsField(
   field.dataset.field = node.name;
   if (typeof values.role === "string") field.dataset.role = values.role;
   const legend = document.createElement("legend");
-  legend.textContent = fieldLabel(fields, node.name);
+  legend.textContent = fieldLabel(fields, node.name, form.dataset.model);
   field.append(legend);
   const selected = new Set(normalizeGroupIds(values[node.name]));
   const controls = normalizeResUserGroupControls(values, selected);
@@ -7131,7 +7728,8 @@ async function loadWindowActionRecords(
   viewDescriptions: ViewDescriptions,
   searchState?: SearchModelState
 ): Promise<{ records: Record<string, unknown>[]; length: number; countLimited: boolean }> {
-  const specification = readSpecification(viewDescriptions.views[activeView]?.arch ?? "", viewDescriptions, context);
+  const specification = readSpecification(viewDescriptions.views[activeView]?.arch ?? "", viewDescriptions, context, resModel, activeView);
+  ensureGroupByFieldsInSpecification(specification, viewDescriptions, searchState, context);
   const readContext = { bin_size: true, ...context, ...(searchState?.context ?? {}) };
   if (activeView === "form" && typeof action.res_id === "number" && Number.isFinite(action.res_id)) {
     const records = await orm.webRead<Record<string, unknown>[]>(resModel, [action.res_id], { context: readContext, specification });
@@ -7169,6 +7767,24 @@ async function loadWindowActionRecords(
   const rawLength = typeof result.length === "number" ? result.length : records.length;
   const countLimited = rawLength >= countLimit + 1;
   return { records, length: countLimited ? countLimit : rawLength, countLimited };
+}
+
+function ensureGroupByFieldsInSpecification(
+  specification: ReadSpecification,
+  viewDescriptions: ViewDescriptions,
+  searchState: SearchModelState | undefined,
+  context: Record<string, unknown>
+): void {
+  for (const descriptor of searchState?.groupBy ?? []) {
+    const [field] = splitGroupByDescriptorValue(descriptor);
+    if (!field || !viewDescriptions.fields[field] || specification[field] !== undefined) continue;
+    Object.assign(specification, fieldNodesToSpecification(
+      [{ name: field, attrs: {}, children: [], childViewAttrs: {} }],
+      viewDescriptions.fields,
+      viewDescriptions,
+      context
+    ));
+  }
 }
 
 function buildWindowActionSearch(
@@ -7651,8 +8267,28 @@ function dedupeMenuItems(items: readonly ActionControlPanelMenuItem[]): ActionCo
   return out;
 }
 
-function readSpecification(arch: string, viewDescriptions: ViewDescriptions, evalContext: Record<string, unknown>): ReadSpecification {
-  return fieldNodesToSpecification(parseViewFieldNodes(arch), viewDescriptions.fields, viewDescriptions, evalContext);
+function readSpecification(
+  arch: string,
+  viewDescriptions: ViewDescriptions,
+  evalContext: Record<string, unknown>,
+  model?: string,
+  viewType?: string
+): ReadSpecification {
+  const nodes = parseViewFieldNodes(arch).filter((node) => !fieldInvisible(node, evalContext));
+  if (shouldUseDefaultModelFieldNodes(model, nodes, viewType)) {
+    return fieldNodesToSpecification(
+      defaultViewFieldNodes(model, viewDescriptions.fields, viewType),
+      viewDescriptions.fields,
+      viewDescriptions,
+      evalContext
+    );
+  }
+  return fieldNodesToSpecification(
+    nodes.length ? nodes : defaultViewFieldNodes(model, viewDescriptions.fields, viewType),
+    viewDescriptions.fields,
+    viewDescriptions,
+    evalContext
+  );
 }
 
 function normalizeDomainExpression(value: unknown, evalContext: Record<string, unknown> = {}): DomainExpression {
@@ -7692,14 +8328,64 @@ function envIsSmall(env: WebClientEnv | null): boolean {
   }
 }
 
-function viewFieldNames(arch: string, fields: Record<string, unknown>, evalContext: Record<string, unknown> = {}): string[] {
+function viewFieldNames(
+  arch: string,
+  fields: Record<string, unknown>,
+  evalContext: Record<string, unknown> = {},
+  model?: string,
+  viewType?: string
+): string[] {
   const names = parseViewFieldNodes(arch)
     .filter((node) => !fieldInvisible(node, evalContext))
     .map((node) => node.name);
+  if (shouldUseDefaultModelFieldNames(model, names, viewType)) {
+    return defaultViewFieldNodes(model, fields, viewType).map((node) => node.name);
+  }
   if (names.length) return names;
+  return defaultViewFieldNodes(model, fields, viewType).map((node) => node.name);
+}
+
+function shouldUseDefaultModelFieldNodes(model: string | undefined, nodes: readonly ViewFieldNode[], viewType?: string): boolean {
+  return shouldUseDefaultModelFieldNames(model, nodes.map((node) => node.name), viewType);
+}
+
+function shouldUseDefaultModelFieldNames(model: string | undefined, names: readonly string[], viewType?: string): boolean {
+  if (model !== "res.users" || !names.length) return false;
+  const set = new Set(names);
+  if (viewType === "list") return !set.has("name") && !set.has("login");
+  if (viewType === "form") return !set.has("name") && !set.has("login") && !set.has("group_ids");
+  return false;
+}
+
+function defaultViewFieldNodes(model: string | undefined, fields: Record<string, unknown>, viewType?: string): ViewFieldNode[] {
+  const preferred = defaultModelFieldNames(model, viewType)
+    .filter((name) => fields[name] !== undefined)
+    .map((name) => defaultViewFieldNode(model, name));
+  if (preferred.length) return preferred;
   return Object.keys(fields)
     .filter((name) => name !== "id" && name !== "display_name")
-    .slice(0, 6);
+    .slice(0, DEFAULT_VIEW_FIELD_LIMIT)
+    .map((name) => defaultViewFieldNode(model, name));
+}
+
+function defaultModelFieldNames(model: string | undefined, viewType?: string): readonly string[] {
+  if (!model) return [];
+  if (viewType === "form") return DEFAULT_MODEL_FORM_FIELDS[model] ?? [];
+  return DEFAULT_MODEL_LIST_FIELDS[model] ?? [];
+}
+
+function defaultViewFieldNode(model: string | undefined, name: string): ViewFieldNode {
+  return {
+    name,
+    attrs: defaultViewFieldAttrs(model, name),
+    children: [],
+    childViewAttrs: {}
+  };
+}
+
+function defaultViewFieldAttrs(model: string | undefined, name: string): Record<string, string> {
+  if (model === "res.users" && name === "group_ids") return { widget: "res_user_group_ids" };
+  return {};
 }
 
 interface ViewFieldNode {
@@ -7776,6 +8462,23 @@ function parseViewButtonNodes(arch: string): ViewButtonNode[] {
     }
   }
   return buttonNodesFromXMLText(arch);
+}
+
+function parseFormFooterButtonNodes(arch: string): ViewButtonNode[] {
+  if (!arch) return [];
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(arch, "text/xml");
+      const buttons: ViewButtonNode[] = [];
+      for (const footer of Array.from(doc.getElementsByTagName("footer"))) {
+        buttons.push(...buttonNodesFromElement(footer));
+      }
+      return buttons;
+    } catch {
+      return formFooterButtonNodesFromXMLText(arch);
+    }
+  }
+  return formFooterButtonNodesFromXMLText(arch);
 }
 
 function viewRootAttrs(arch: string, ...tags: string[]): Record<string, string> {
@@ -7994,6 +8697,23 @@ function buttonNodesFromXMLText(arch: string): ViewButtonNode[] {
   return out;
 }
 
+function formFooterButtonNodesFromXMLText(arch: string): ViewButtonNode[] {
+  const out: ViewButtonNode[] = [];
+  for (const match of arch.matchAll(/<footer\b[^>]*>([\s\S]*?)<\/footer>/gi)) {
+    out.push(...buttonNodesFromXMLText(match[1]));
+  }
+  return out;
+}
+
+function viewButtonKey(node: ViewButtonNode): string {
+  return [
+    node.attrs.id || "",
+    node.attrs.name || "",
+    node.attrs.type || "object",
+    node.attrs.string || ""
+  ].join("\u0001");
+}
+
 function viewButtonTypeSupported(attrs: Record<string, string>): boolean {
   const type = attrs.type || "object";
   return type === "object" || type === "action";
@@ -8069,6 +8789,75 @@ function knownFieldLabel(model: string | undefined, name: string): string {
         return "";
     }
   }
+  if (model === "ir.cron") {
+    switch (name) {
+      case "name":
+        return "Name";
+      case "active":
+        return "Active";
+      case "interval_number":
+        return "Repeat Every";
+      case "interval_type":
+        return "Interval Unit";
+      case "nextcall":
+        return "Next Execution Date";
+      case "ir_actions_server_id":
+        return "Server Action";
+      case "user_id":
+        return "Run As";
+      case "state":
+        return "Action Type";
+      case "code":
+        return "Code";
+      default:
+        return "";
+    }
+  }
+  if (model === "base.automation") {
+    switch (name) {
+      case "name":
+        return "Name";
+      case "active":
+        return "Active";
+      case "model_id":
+      case "model_name":
+        return "Model";
+      case "trigger":
+        return "Trigger";
+      case "action_server_id":
+        return "Server Action";
+      case "description":
+        return "Description";
+      default:
+        return "";
+    }
+  }
+  if (model === "res.users") {
+    switch (name) {
+      case "name":
+        return "Name";
+      case "login":
+        return "Login";
+      case "email":
+        return "Email";
+      case "company_id":
+        return "Company";
+      case "groups_count":
+        return "Groups";
+      case "group_ids":
+        return "Access Rights";
+      case "role":
+        return "Role";
+      case "active":
+        return "Active";
+      case "notification_type":
+        return "Notification";
+      case "signature":
+        return "Signature";
+      default:
+        return "";
+    }
+  }
   return "";
 }
 
@@ -8116,11 +8905,46 @@ const serverActionStateSelectionOptions: Array<[string, string]> = [
   ["documents_account_record_create", "Create Vendor Bill"]
 ];
 
+const scheduledActionStateSelectionOptions: Array<[string, string]> = [
+  ["code", "Execute Code"]
+];
+
+const scheduledActionIntervalSelectionOptions: Array<[string, string]> = [
+  ["minutes", "Minutes"],
+  ["hours", "Hours"],
+  ["days", "Days"],
+  ["weeks", "Weeks"],
+  ["months", "Months"]
+];
+
+const automationTriggerSelectionOptions: Array<[string, string]> = [
+  ["create", "On Creation"],
+  ["write", "On Update"],
+  ["create_or_write", "On Creation & Update"],
+  ["archive", "On Archive"],
+  ["unarchive", "On Unarchive"],
+  ["unlink", "On Deletion"],
+  ["onchange", "On UI Change"],
+  ["message", "On Incoming Message"],
+  ["webhook", "On Webhook"],
+  ["time", "Based on Timed Condition"],
+  ["manual", "Manually"]
+];
+
 function selectionOptionsForField(description: unknown, model: string | undefined, fieldName: string): Array<[string, string]> {
   const choices = selectionOptions(description);
   if (choices.length) return choices;
   if (model === "ir.actions.server" && fieldName === "state" && fieldTypeValue(description) === "selection") {
     return serverActionStateSelectionOptions;
+  }
+  if (model === "ir.cron" && fieldName === "state" && fieldTypeValue(description) === "selection") {
+    return scheduledActionStateSelectionOptions;
+  }
+  if (model === "ir.cron" && fieldName === "interval_type" && fieldTypeValue(description) === "selection") {
+    return scheduledActionIntervalSelectionOptions;
+  }
+  if (model === "base.automation" && fieldName === "trigger" && fieldTypeValue(description) === "selection") {
+    return automationTriggerSelectionOptions;
   }
   return [];
 }

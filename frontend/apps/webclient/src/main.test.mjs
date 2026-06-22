@@ -81,6 +81,9 @@ globalThis.document = {
   querySelector() {
     return null;
   },
+  createTextNode(text) {
+    return { tag: "#text", textContent: String(text), children: [] };
+  },
   createElement(tag) {
     return {
       tag,
@@ -145,6 +148,22 @@ globalThis.fetch = async (route, options = {}) => {
   if (route === "/web/session/switch_company") {
     return { ok: true, status: 200, async json() { return { ok: true }; } };
   }
+  if (route === "/web/session/modules") {
+    return { ok: true, status: 200, async json() { return {
+      modules: {
+        base: {
+          application: true,
+          category: "Technical",
+          description: "Base module",
+          name: "Base",
+          state: "installed",
+          summary: "Base module",
+          technical_name: "base",
+          website: ""
+        }
+      }
+    }; } };
+  }
   if (route === "/mail/data") {
     return { ok: true, status: 200, async json() { return {
       Store: mailStoreResponse
@@ -168,14 +187,27 @@ globalThis.fetch = async (route, options = {}) => {
   }
   if (route === "/web/webclient/load_menus") {
     return { ok: true, status: 200, async json() { return {
-      all_menu_ids: [1, 2],
-      root: { children: [1, 2] },
+      all_menu_ids: [1, 2, 4],
+      root: { children: [1, 2, 4] },
       1: { id: 1, name: "Settings", children: [], actionID: 3 },
-      2: { id: 2, name: "Server Actions", children: [] }
+      2: { id: 2, name: "Server Actions", children: [] },
+      4: { id: 4, name: "Apps", children: [], actionID: 91, actionPath: "apps", xmlid: "base.menu_ir_module_module" }
     }; } };
   }
   if (route === "/web/action/load") {
     const body = JSON.parse(options.body || "{}");
+    if (body.action_id === 91) {
+      return { ok: true, status: 200, async json() { return {
+        id: 91,
+        name: "Apps",
+        path: "apps",
+        res_model: "ir.module.module",
+        type: "ir.actions.act_window",
+        view_mode: "list,form",
+        views: [[false, "list"], [false, "form"]],
+        context: { search_default_app: 1 }
+      }; } };
+    }
     if (body.action_id === 3) {
       return { ok: true, status: 200, async json() { return {
         id: 3,
@@ -195,6 +227,81 @@ globalThis.fetch = async (route, options = {}) => {
         view_mode: "form",
         views: [[false, "form"]]
       }; } };
+    }
+  }
+  if (route === "/web/dataset/call_kw/ir.module.module/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: {
+        name: { type: "char", string: "Technical Name" },
+        shortdesc: { type: "char", string: "Name" },
+        state: { type: "selection", string: "Status" },
+        summary: { type: "char", string: "Summary" },
+        website: { type: "char", string: "Website" },
+        application: { type: "boolean", string: "Application" }
+      },
+      related_models: {},
+      views: {
+        kanban: {
+          arch: `<kanban create="false" can_open="0" class="o_modules_kanban"><field name="shortdesc"/><field name="name"/><field name="state"/><field name="summary"/><field name="website"/><field name="application"/></kanban>`,
+          id: 91
+        },
+        list: {
+          arch: `<list><field name="shortdesc"/><field name="name"/><field name="state"/></list>`,
+          id: 92
+        },
+        form: {
+          arch: `<form><sheet><field name="shortdesc"/><field name="name"/><field name="state"/><field name="summary"/></sheet></form>`,
+          id: 93
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/ir.module.module/web_search_read") {
+    return { ok: true, status: 200, async json() { return {
+      length: 1,
+      records: [{ id: 5, name: "base", shortdesc: "Base", display_name: "Base", state: "installed", summary: "Base module", website: "", application: true }]
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/ir.module.module/web_read") {
+    return { ok: true, status: 200, async json() { return [
+      { id: 5, name: "base", shortdesc: "Base", display_name: "Base", state: "installed", summary: "Base module" }
+    ]; } };
+  }
+  if (route === "/web/dataset/call_kw/res.users/action_get") {
+    return { ok: true, status: 200, async json() { return {
+      name: "Change My Preferences",
+      res_model: "res.users",
+      target: "new",
+      type: "ir.actions.act_window",
+      view_mode: "form",
+      views: [[false, "form"]]
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/res.users/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: {
+        name: { type: "char", string: "Name" },
+        lang: { type: "char", string: "Language" },
+        tz: { type: "char", string: "Timezone" }
+      },
+      related_models: {},
+      views: {
+        form: {
+          arch: `<form><sheet><field name="name"/><field name="lang"/><field name="tz"/></sheet><footer><button name="preference_save" type="object" string="Update Preferences" class="btn-primary"/><button name="preference_cancel" string="Discard" special="cancel" class="btn-secondary"/></footer></form>`,
+          id: 94
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/res.users/web_read") {
+    return { ok: true, status: 200, async json() { return [
+      { id: 7, name: "Admin", display_name: "Admin", lang: "en_US", tz: "Asia/Bahrain" }
+    ]; } };
+  }
+  if (route === "/web/dataset/call_kw") {
+    const body = JSON.parse(options.body || "{}");
+    if (body.model === "ir.module.module" && body.method === "search_read") {
+      return { ok: true, status: 200, async json() { return [{ id: 5, name: "base", display_name: "Base" }]; } };
     }
   }
   if (route === "/web/dataset/call_kw/x.parent/get_views") {
@@ -267,7 +374,7 @@ const detail = await ready;
 
 assert.equal(globalThis.document.documentElement.dataset.tsWebclient, "ready");
 assert.equal(detail.session.uid, 7);
-assert.deepEqual(detail.menus.all_menu_ids, [1, 2]);
+assert.deepEqual(detail.menus.all_menu_ids, [1, 2, 4]);
 assert.equal(typeof mod.bootstrapGoERPWebClient, "function");
 assert.equal(typeof mod.renderAppsCatalogView, "function");
 const moduleActions = [];
@@ -287,6 +394,7 @@ assert.deepEqual(findAll(catalog, (node) => node.dataset?.catalogFilter).map((no
 assert.deepEqual(findAll(catalog, (node) => String(node.className).includes("o_search_panel_category")).map((node) => node.dataset.category), ["all", "Productivity", "Sales", "Services"]);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_icon") && !node.textContent).length, 4);
 assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_summary") && node.textContent === "Pipeline and leads").length, 1);
 findAll(catalog, (node) => node.dataset?.catalogFilter === "installed")[0].dispatchEvent(new CustomEvent("click"));
 assert.equal(catalog.dataset.activeFilter, "installed");
@@ -330,7 +438,7 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_na
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "2").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Partners").length, 1);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
@@ -361,6 +469,45 @@ assert.equal(globalThis.document.body.classList.contains("modal-open"), true);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("modal-title"))[0].textContent, "Partner Wizard");
 assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog") && node.dataset?.model === "partner.wizard").length, 1);
 findAll(actionManager, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "closed");
+assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
+
+findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).includes("o_nav_entry"))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module").length, 0);
+assert.equal(globalThis.location.hash.includes("action=91"), true);
+assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);
+assert.equal(globalThis.location.hash.includes("view_type=kanban"), true);
+assert.equal(globalThis.location.hash.includes("menu_id=4"), true);
+assert.equal(globalThis.location.hash.includes("model=res.config.settings"), false);
+const moduleInfo = findAll(actionManager, (node) => node.dataset?.moduleInfo === "base" && String(node.className).includes("o_module_info_button"))[0];
+moduleInfo.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "ready");
+assert.equal(globalThis.document.body.classList.contains("modal-open"), true);
+const moduleInfoDialog = findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog") && node.dataset?.model === "ir.module.module").at(-1);
+assert.ok(moduleInfoDialog);
+assert.equal(findAll(moduleInfoDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
+assert.equal(findAll(moduleInfoDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Module Info");
+findAll(moduleInfoDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "closed");
+assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
+
+findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_user_menu"))[0].dispatchEvent(new CustomEvent("click"));
+findAll(shell, (node) => node.dataset?.systrayItem === "My Preferences")[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.equal(actionManager.dataset.tsDialogStatus, "ready");
+assert.equal(globalThis.document.body.classList.contains("modal-open"), true);
+const preferencesDialog = findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-action-dialog") && node.dataset?.model === "res.users").at(-1);
+assert.ok(preferencesDialog);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Change My Preferences");
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal-footer")).length, 1);
+findAll(preferencesDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(actionManager.dataset.tsDialogStatus, "closed");
 assert.equal(globalThis.document.body.classList.contains("modal-open"), false);

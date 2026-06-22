@@ -34,6 +34,10 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   const apps = options.apps ?? navbarApps(menuApps);
   const action = document.createElement("section");
   action.className = "o_action_manager";
+  const setHomeMenuBackground = (active: boolean) => {
+    toggleClassName(root, "o_home_menu_background", active);
+    toggleClassName(document.body as HTMLElement | undefined, "o_home_menu_background", active);
+  };
   const setMobileMenuOpen = (open: boolean) => {
     document.body?.classList?.toggle("o-mobile-menu-open", open);
   };
@@ -42,11 +46,14 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   let activeBrandApp: HomeMenuApp | undefined;
   const openApp = (app: HomeMenuApp) => {
     root.dataset.view = "action";
+    setHomeMenuBackground(false);
     setMobileMenuOpen(false);
-    const brandApp = app.rootId === undefined ? app : menuApps.find((item) => String(item.id) === String(app.rootId)) ?? app;
+    const appName = cleanAppName(app.name);
+    const catalogApp = appName.toLowerCase() === "apps";
+    const brandApp = catalogApp ? app : app.rootId === undefined ? app : menuApps.find((item) => String(item.id) === String(app.rootId)) ?? app;
     activeBrandApp = brandApp;
-    const sections = navbarSectionApps(options.menus, brandApp);
-    const activeSectionID = app.rootId === undefined ? app.id : navbarActiveSectionId(options.menus, brandApp, app) ?? app.rootId;
+    const sections = catalogApp ? [{ id: app.id, name: appName }] : navbarSectionApps(options.menus, brandApp);
+    const activeSectionID = catalogApp ? app.id : app.rootId === undefined ? app.id : navbarActiveSectionId(options.menus, brandApp, app) ?? app.rootId;
     setNavbarApps(sections.length ? sections : apps, activeSectionID, brandApp.name);
     return options.onOpenApp?.(app, action);
   };
@@ -57,6 +64,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   };
   const renderApps = () => {
     root.dataset.view = "apps";
+    setHomeMenuBackground(true);
     setMobileMenuOpen(false);
     activeBrandApp = undefined;
     setNavbarApps(apps, undefined);
@@ -91,6 +99,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   if (options.menus) {
     renderApps();
   } else {
+    setHomeMenuBackground(false);
     const ready = document.createElement("section");
     ready.className = "o-control-panel o_control_panel";
     ready.textContent = options.debug ? "Debug" : "Ready";
@@ -99,6 +108,21 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
 
   root.append(navbar, action);
   return root;
+}
+
+function toggleClassName(node: HTMLElement | undefined, className: string, active: boolean): void {
+  if (!node) return;
+  if (node.classList && typeof node.classList.toggle === "function") {
+    node.classList.toggle(className, active);
+    return;
+  }
+  const classes = new Set(String(node.className ?? "").split(/\s+/).filter(Boolean));
+  if (active) {
+    classes.add(className);
+  } else {
+    classes.delete(className);
+  }
+  node.className = [...classes].join(" ");
 }
 
 function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {

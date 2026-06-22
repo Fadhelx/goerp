@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T08:24:15.828Z",
+  "generated_at": "2026-06-22T09:39:53.962Z",
   "base_url": "http://127.0.0.1:8088/",
   "chrome": "Google Chrome",
   "scenarios": [
@@ -12,12 +12,12 @@
         "mobile": false
       },
       "screenshot": "launcher-desktop.png",
-      "sha256": "dc150f076b5d5f64636b4ae66fe028ad26436c69e37eb2627ff660a7a227cd54",
+      "sha256": "708d8413ad6b687f615a1857d7e8f35bda4e33b8cbe018d666be4f7e462d0d2f",
       "assertions": {
         "app_count": 4,
         "systray_count": 5
       },
-      "duration_ms": 526
+      "duration_ms": 307
     },
     {
       "name": "settings-desktop",
@@ -28,12 +28,12 @@
         "mobile": false
       },
       "screenshot": "settings-desktop.png",
-      "sha256": "bccdcd346bd88253a6132f7d5f07c37df8df79d7c2f91a4f5c5015c399ab5d1c",
+      "sha256": "50aa9f38772ac5fcd8938d8b0f6202354e77e27c57dafcedc6696db239f62cfe",
       "assertions": {
         "settings_blocks": 3,
         "setting_boxes": 14
       },
-      "duration_ms": 446
+      "duration_ms": 392
     },
     {
       "name": "default-webclient-takeover",
@@ -44,7 +44,7 @@
         "mobile": false
       },
       "screenshot": "default-webclient-takeover.png",
-      "sha256": "ec5bb56e5281affe6c420d754d188fb3788bb7b4da0e6a1777dcd716ad812a3f",
+      "sha256": "fcb8bbcdb1c6a62e1385abee14ce7ce5d82d061ce317c28b5255bdd6a254c2d7",
       "assertions": {
         "nav_count": 1,
         "app_count": 4,
@@ -57,17 +57,28 @@
           "height": 40,
           "search_active": "false"
         },
-        "app_card_width_px": 92,
-        "app_card_height_px": 96,
+        "navbar_height_px": 46,
+        "navbar_contract": true,
+        "home_background_class": true,
+        "legacy_card_count": 0,
+        "navbar_bg": "rgba(0, 0, 0, 0)",
+        "launcher_bg_color": "rgb(244, 245, 247)",
+        "launcher_box_shadow": "rgba(16, 24, 40, 0.04) 0px 1px 0px 0px inset",
+        "banner_visible": true,
+        "banner_width_px": 820,
+        "user_name_display": "none",
+        "app_card_width_px": 96,
+        "app_card_height_px": 108,
         "app_card_bg": "rgba(0, 0, 0, 0)",
         "app_card_border_color": "rgba(0, 0, 0, 0)",
-        "app_card_border_radius_px": 8,
-        "app_icon_width_px": 54,
-        "app_icon_height_px": 54,
-        "app_icon_radius_px": 12,
+        "app_card_border_radius_px": 6,
+        "app_icon_width_px": 70,
+        "app_icon_height_px": 70,
+        "app_icon_radius_px": 6,
+        "app_icon_text": "",
         "action_count": 1
       },
-      "duration_ms": 475
+      "duration_ms": 260
     },
     {
       "name": "default-systray-dropdowns-desktop",
@@ -78,14 +89,36 @@
         "mobile": false
       },
       "screenshot": "default-systray-dropdowns-desktop.png",
-      "sha256": "1f0709b5852efd03fef5f2ae9c14f3435aa097386e4dc3e2967abac6975fa466",
+      "sha256": "6689c2fe96880964d3a7d8c093d7a5c25d13363c982e72f93af466a80f4fd4d0",
       "assertions": {
         "systray_count": 1,
         "item_count": 5,
         "open_menu_items": 6,
         "action_status": ""
       },
-      "duration_ms": 252
+      "duration_ms": 256
+    },
+    {
+      "name": "default-user-preferences-dialog-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-user-preferences-dialog-desktop.png",
+      "sha256": "413ec512869f4c5bb90a813868b2e11def8e05c8274874314aecae3df5f05872",
+      "assertions": {
+        "dialog_count": 1,
+        "state": {
+          "title": "Change My Preferences",
+          "has_sheet": true,
+          "has_name_or_login": true,
+          "label_count": 8,
+          "body_modal_open": true
+        }
+      },
+      "duration_ms": 492
     },
     {
       "name": "default-webclient-action-desktop",
@@ -96,13 +129,19 @@
         "mobile": false
       },
       "screenshot": "default-webclient-action-desktop.png",
-      "sha256": "60eac483ce5560d78d14d108ea48231d8f8553a69734aa696eb48dff448cef7d",
+      "sha256": "7649495c01605332285c8c756d81e783d1acd6ca1a5cc7ec6b2988330ac8380f",
       "assertions": {
         "title": "Settings",
         "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
         "window_count": 1,
         "control_panel_count": 1,
         "settings_count": 1,
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(113, 75, 103)",
+          "systray_count": 17
+        },
         "visible_setting_count": 12,
         "visible_label_count": 12,
         "raw_technical_label_count": 0,
@@ -110,7 +149,7 @@
         "save_disabled": true,
         "discard_disabled": true
       },
-      "duration_ms": 406
+      "duration_ms": 441
     },
     {
       "name": "default-action-dialog-desktop",
@@ -121,7 +160,7 @@
         "mobile": false
       },
       "screenshot": "default-action-dialog-desktop.png",
-      "sha256": "79dd3fe70ac747169a0d8c5445406e31a3fe73874d88891ef5e282af30a73198",
+      "sha256": "a0fc7a668badd14532a87a047ee6a2ff3d55781b92ed207800541f386709aebc",
       "assertions": {
         "dialog_count": 1,
         "backdrop_count": 1,
@@ -135,11 +174,16 @@
           "close_label": "Close",
           "title": "Configure Document Layout",
           "body_count": 1,
-          "width": 475,
-          "height": 822
+          "body_control_panel_count": 0,
+          "footer_save_count": 1,
+          "footer_discard_count": 1,
+          "footer_bottom": 875,
+          "viewport_height": 900,
+          "width": 960,
+          "height": 820
         }
       },
-      "duration_ms": 367
+      "duration_ms": 384
     },
     {
       "name": "default-technical-search-desktop",
@@ -150,7 +194,7 @@
         "mobile": false
       },
       "screenshot": "default-technical-search-desktop.png",
-      "sha256": "8affb23e28287d0488a859fa69e5f8b6fcf23cd5f343d030f78802cb769a492b",
+      "sha256": "4255479b7f39461b86b8d9040556d7c9275baca75da81afb501f85af87efb61b",
       "assertions": {
         "title": "Server Actions",
         "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
@@ -173,7 +217,7 @@
           "state": "Execute Code"
         }
       },
-      "duration_ms": 433
+      "duration_ms": 435
     },
     {
       "name": "default-technical-form-desktop",
@@ -184,7 +228,7 @@
         "mobile": false
       },
       "screenshot": "default-technical-form-desktop.png",
-      "sha256": "6da9c3542c6612d3171837e7a4a12ec3c0742a982d5408586695a8a07a137ab8",
+      "sha256": "34eb17b2cdc203cf6a7929c508354af4f5e7da49bb4b0b13439f0737baac4662",
       "assertions": {
         "title": "Server Actions",
         "hash": "#action=7&model=ir.actions.server&view_type=form&id=25&menu_id=8",
@@ -228,7 +272,90 @@
           "save_disabled": false
         }
       },
-      "duration_ms": 926
+      "duration_ms": 1044
+    },
+    {
+      "name": "default-scheduled-action-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-scheduled-action-form-desktop.png",
+      "sha256": "1727c8bb0341149b21aa8719f0b1afad1628a7aeb6cfe7df95a1bfe2abe0e291",
+      "assertions": {
+        "fixture": {
+          "actionID": 8,
+          "menuID": 9,
+          "cronID": 3
+        },
+        "form_count": 1,
+        "band_count": 1,
+        "notebook_count": 2,
+        "code_viewer_count": 1,
+        "selection_pill_count": 5,
+        "state_radio_count": 1,
+        "interval_radio_count": 5,
+        "code_editor_count": 1,
+        "state": {
+          "badge": "Scheduled Action",
+          "status": "Execute Code",
+          "state": "code",
+          "interval_value": "hours",
+          "interval_labels": [
+            "Minutes",
+            "Hours",
+            "Days",
+            "Weeks",
+            "Months"
+          ]
+        }
+      },
+      "duration_ms": 387
+    },
+    {
+      "name": "default-automation-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-automation-form-desktop.png",
+      "sha256": "4c5dbb24c242803a166c27c4a270ce378af13482173b65fa6f623fa49f2872af",
+      "assertions": {
+        "fixture": {
+          "actionID": 9,
+          "menuID": 10,
+          "automationID": 1,
+          "modelID": 81
+        },
+        "form_count": 1,
+        "band_count": 1,
+        "trigger_pill_count": 11,
+        "trigger_radio_count": 11,
+        "state": {
+          "badge": "Automation Rule",
+          "trigger": "On Creation & Update",
+          "trigger_value": "create_or_write",
+          "radio_value": "create_or_write",
+          "trigger_labels": [
+            "On Creation",
+            "On Update",
+            "On Creation & Update",
+            "On Archive",
+            "On Unarchive",
+            "On Deletion",
+            "On UI Change",
+            "On Incoming Message",
+            "On Webhook",
+            "Based on Timed Condition",
+            "Manually"
+          ]
+        }
+      },
+      "duration_ms": 429
     },
     {
       "name": "default-groups-form-notebook-desktop",
@@ -239,7 +366,7 @@
         "mobile": false
       },
       "screenshot": "default-groups-form-notebook-desktop.png",
-      "sha256": "716705d96ac7474817dd2884d434b4f27d56ec5115110dab6ec9bf3c20938a7e",
+      "sha256": "920a840fa30af675a1178a51875b51775c17370d18a0bcd901715dceda5ce2d5",
       "assertions": {
         "action_card_count": 1,
         "list_count": 1,
@@ -269,7 +396,7 @@
         "x2many_relation": "res.groups",
         "x2many_tag_labels": []
       },
-      "duration_ms": 560
+      "duration_ms": 584
     },
     {
       "name": "default-delegation-one2many-desktop",
@@ -280,7 +407,7 @@
         "mobile": false
       },
       "screenshot": "default-delegation-one2many-desktop.png",
-      "sha256": "cbc0feefa5d1982ced9da62321661c310a9405e3c01ea85361726604dbc6a1a8",
+      "sha256": "1980de70c1dd241eb925e8f1d55d20164dc691f98a76e917c216d75091df1354",
       "assertions": {
         "form_count": 1,
         "readonly_count": 1,
@@ -290,7 +417,7 @@
           "menuID": 33,
           "delegationID": 1,
           "groupID": 35,
-          "groupName": "Visual One2many 1782116642838-42195"
+          "groupName": "Visual One2many 1782121178943-42456"
         },
         "readonly_state": {
           "relation": "delegation.line",
@@ -310,7 +437,7 @@
           "relation_input_count": 3
         }
       },
-      "duration_ms": 593
+      "duration_ms": 653
     },
     {
       "name": "default-search-menu-desktop",
@@ -321,13 +448,13 @@
         "mobile": false
       },
       "screenshot": "default-search-menu-desktop.png",
-      "sha256": "aac3fe39ada7969ac7a30e1c61cb975a42a09c93002ce6f19592aff5e8a433b9",
+      "sha256": "1f97570191df178a71a45da8a980c9e4f46cd1e78bdb793e165dd7f2cf242d88",
       "assertions": {
         "filter_items": 3,
         "group_by_items": 4,
         "favorite_items": 1
       },
-      "duration_ms": 416
+      "duration_ms": 422
     },
     {
       "name": "default-date-groupby-menu-desktop",
@@ -338,11 +465,11 @@
         "mobile": false
       },
       "screenshot": "default-date-groupby-menu-desktop.png",
-      "sha256": "c7da6dff5535146acdcbd77cd516d591995334264ee5db3b8fa90f95f7a2db6f",
+      "sha256": "56cd9b4c3796b3f4035471af03579fe38dfbc4989fd0ba0cdcc6cfb98ebdfcf4",
       "assertions": {
         "fixture": {
-          "actionID": 74,
-          "messageID": 15
+          "actionID": 60,
+          "messageID": 1
         },
         "option_state": {
           "parent": "DateYearQuarterMonthWeekDay",
@@ -362,7 +489,7 @@
           "selected_checked": "true"
         }
       },
-      "duration_ms": 540
+      "duration_ms": 530
     },
     {
       "name": "default-date-filter-period-menu-desktop",
@@ -373,11 +500,11 @@
         "mobile": false
       },
       "screenshot": "default-date-filter-period-menu-desktop.png",
-      "sha256": "245d7cad37b428ac2ceae85d7f6440ee55e2a23f2577ce7de329631d474a13f1",
+      "sha256": "af8e5a602f60ffae5e00c26b36e40222cd68edb00230c1cf7226ec8225b90ca9",
       "assertions": {
         "fixture": {
-          "actionID": 75,
-          "messageID": 16
+          "actionID": 61,
+          "messageID": 2
         },
         "option_state": {
           "parent_id": "filter-date",
@@ -424,10 +551,10 @@
               ]
             }
           ],
-          "rows": 16
+          "rows": 2
         }
       },
-      "duration_ms": 603
+      "duration_ms": 649
     },
     {
       "name": "default-search-filter-click-desktop",
@@ -438,13 +565,13 @@
         "mobile": false
       },
       "screenshot": "default-search-filter-click-desktop.png",
-      "sha256": "8ac3ff7223f5a103357ac1d9c4d969afa5618fb75faef92232c80569468a4632",
+      "sha256": "8c61a8fd6d92dd02d4b201227528aa52ea161f86c32b1a461a6ffd9dfea78970",
       "assertions": {
         "facet_count": 1,
         "selected_filter_count": 1,
         "row_count": 19
       },
-      "duration_ms": 580
+      "duration_ms": 599
     },
     {
       "name": "default-view-switch-desktop",
@@ -455,14 +582,194 @@
         "mobile": false
       },
       "screenshot": "default-view-switch-desktop.png",
-      "sha256": "bb9b4571046e43aa7292e072c67b74958e1454c4d6415dbcb60321d437306eca",
+      "sha256": "ffc6e984e3ad53b9321e832814144dbac721de71ddec3a68ddb076a40a08f23e",
       "assertions": {
         "form_count": 1,
         "list_count": 20,
         "form_hash": "#action=7&model=ir.actions.server&view_type=form&menu_id=8",
         "list_hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8"
       },
-      "duration_ms": 716
+      "duration_ms": 749
+    },
+    {
+      "name": "default-kanban-view-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-kanban-view-desktop.png",
+      "sha256": "9938620e776eaa9b2ad380858816a508e1578894e0d10ce74b606a443b88ca3f",
+      "assertions": {
+        "fixture": {
+          "actionID": 62
+        },
+        "kanban_count": 1,
+        "card_count": 20,
+        "state": {
+          "role": "link",
+          "tabindex": "0",
+          "title": "23",
+          "fields": [
+            {
+              "field": "name",
+              "text": "Name"
+            },
+            {
+              "field": "active",
+              "text": "Activetrue"
+            },
+            {
+              "field": "activity_date_deadline_range",
+              "text": "Activity Date Deadline Range"
+            },
+            {
+              "field": "activity_date_deadline_range_type",
+              "text": "Activity Date Deadline Range Type"
+            },
+            {
+              "field": "activity_note",
+              "text": "Activity Note"
+            }
+          ],
+          "record_menu": {
+            "toggle_count": 1,
+            "expanded": "false",
+            "hidden": true,
+            "items": [
+              {
+                "action": "open",
+                "label": "Open"
+              }
+            ]
+          },
+          "switches": [
+            {
+              "view": "kanban",
+              "active": true,
+              "label": "Kanban"
+            },
+            {
+              "view": "form",
+              "active": false,
+              "label": "Form"
+            },
+            {
+              "view": "list",
+              "active": false,
+              "label": "List"
+            }
+          ],
+          "hash": "#action=62&model=ir.actions.server&view_type=kanban"
+        },
+        "menu_state": {
+          "expanded": "true",
+          "item_count": 1
+        },
+        "form_count": 1,
+        "form_hash": "#action=62&model=ir.actions.server&view_type=form&id=23"
+      },
+      "duration_ms": 547
+    },
+    {
+      "name": "default-kanban-groupby-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-kanban-groupby-desktop.png",
+      "sha256": "8137a7e1361934a7fffeae05b1e7cb746c4b6cb4ff0654be35dbafce8bf23e0b",
+      "assertions": {
+        "fixture": {
+          "actionID": 63
+        },
+        "group_option": {
+          "id": "group-by-group_model",
+          "label": "Model"
+        },
+        "grouped_state": {
+          "renderer_groupby": "model_id",
+          "renderer_group_field": "model_id",
+          "groups": [
+            {
+              "label": "Undefined",
+              "count": "14",
+              "cards": 14,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": ""
+            },
+            {
+              "label": "mail.mail",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "81"
+            },
+            {
+              "label": "mailing.mailing",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "93"
+            },
+            {
+              "label": "digest.digest",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "15"
+            },
+            {
+              "label": "approval.settings",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "248"
+            },
+            {
+              "label": "delegation",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "262"
+            },
+            {
+              "label": "workflow.process",
+              "count": "1",
+              "cards": 1,
+              "groupby": "model_id",
+              "quick_add_count": 1,
+              "quick_add_label": "+ Add",
+              "quick_add_group_field": "model_id",
+              "quick_add_group_default": "259"
+            }
+          ],
+          "facet": "Group ByModelx",
+          "hash": "#action=63&model=ir.actions.server&view_type=kanban"
+        }
+      },
+      "duration_ms": 510
     },
     {
       "name": "default-hash-route-desktop",
@@ -473,13 +780,13 @@
         "mobile": false
       },
       "screenshot": "default-hash-route-desktop.png",
-      "sha256": "4efe504853c520460a0c60d47ef61c5d0ec3fe9e19502457df10babb3d6d54a5",
+      "sha256": "a9164ea61add9594d044a09f3aca2edd26b5915f78dee23698567876ab74fb9c",
       "assertions": {
         "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 625
+      "duration_ms": 639
     },
     {
       "name": "default-mobile-launcher-parity",
@@ -490,14 +797,14 @@
         "mobile": true
       },
       "screenshot": "default-mobile-launcher-parity.png",
-      "sha256": "25667e7e9296bdb3d8840b96f0f955ba5feafea51aaffda3684409cb33a45b8d",
+      "sha256": "77a5b2880288fdba4e77d5f6a65052effdc5f428483be556379b1f4019a4960b",
       "assertions": {
         "app_count": 4,
         "launcher_state": {
           "grid_columns": 4,
           "first_row_count": 4,
-          "icon_width_px": 68,
-          "icon_height_px": 68,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
           "banner_width_px": 358,
           "banner_visible": true,
           "search_hidden": true,
@@ -506,7 +813,7 @@
           "horizontal_overflow_px": 0
         }
       },
-      "duration_ms": 233
+      "duration_ms": 264
     },
     {
       "name": "default-webclient-mobile",
@@ -517,13 +824,13 @@
         "mobile": true
       },
       "screenshot": "default-webclient-mobile.png",
-      "sha256": "be1fe555c539bd067089627b0bcd5f1353392f659708163ede02cbeff406307f",
+      "sha256": "1b7934ff29bd05aaa92cda883616b76b9badf9eea44bf3783d261ecfaf2ee14b",
       "assertions": {
         "app_count": 4,
         "mobile_toggle_count": 1,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 399
+      "duration_ms": 424
     },
     {
       "name": "default-mobile-server-actions-flow",
@@ -534,7 +841,7 @@
         "mobile": true
       },
       "screenshot": "default-mobile-server-actions-flow.png",
-      "sha256": "0edec554d9ad1aecd53e7b48fcf5f7f799acff4f7459d011e120012c38a0a15a",
+      "sha256": "9349b33d982a218a46bf121476bb92587a00c0225f48b37c90f32c2d93514e30",
       "assertions": {
         "card_count": 20,
         "card_state": {
@@ -583,7 +890,7 @@
         "mobile": false
       },
       "screenshot": "technical-list-desktop.png",
-      "sha256": "08896e3bef4b2d5ff87fddd274d264a6d6822718582cff73c1559a3bc3600974",
+      "sha256": "1c229bc467749597cb6c5e528ed4f166f66a60d4f814a1e9aa9a48aff50a95ca",
       "assertions": {
         "title": "Server Actions",
         "row_count": 20
@@ -599,13 +906,13 @@
         "mobile": false
       },
       "screenshot": "hash-route-desktop.png",
-      "sha256": "96b324e4ee38a8cf2f619b02a19f2c8f188703802ce8730bfb771951037bffeb",
+      "sha256": "935aeb070de0bb3891ed591cdab648807ccc269b8767f6435d23193bbcace4ae",
       "assertions": {
         "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=8",
         "title": "Server Actions",
         "row_count": 20
       },
-      "duration_ms": 654
+      "duration_ms": 681
     },
     {
       "name": "technical-form-desktop",
@@ -616,7 +923,7 @@
         "mobile": false
       },
       "screenshot": "technical-form-desktop.png",
-      "sha256": "a6a96c607ed219e3aa842daafadf00e5c4c413068785deffe1e550d4b413221b",
+      "sha256": "f3ad38eea8082c27450e34d74f5a9c38951bad7b2f588b16fe97575652f35e9c",
       "assertions": {
         "title": "Process Workflow Escalation",
         "field_count": 6,
@@ -625,7 +932,7 @@
         "form_header_navigation_width": 27,
         "form_header_gap_px": 10
       },
-      "duration_ms": 546
+      "duration_ms": 469
     },
     {
       "name": "search-menu-desktop",
@@ -636,13 +943,13 @@
         "mobile": false
       },
       "screenshot": "search-menu-desktop.png",
-      "sha256": "41cfeb02b647274706ef7afc55d73af49cca1631d510e41eef972cd0bd7874d7",
+      "sha256": "6c32870cee948e399abe765641aff4b1e0c3db30ca374aded7149112c14c9265",
       "assertions": {
         "filter_items": 3,
         "group_by_items": 4,
         "favorite_items": 2
       },
-      "duration_ms": 438
+      "duration_ms": 440
     },
     {
       "name": "launcher-mobile",
@@ -653,13 +960,13 @@
         "mobile": true
       },
       "screenshot": "launcher-mobile.png",
-      "sha256": "64928b18fc98846c75213fb7e27c12e53441ae1e11d8b46cb1d29e502b82caf2",
+      "sha256": "7c98a131b07c2567c38c7a1f809f1f5672e3cf387452eb4f211081c25861f166",
       "assertions": {
         "app_count": 4,
         "menu_toggle": true,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 247
+      "duration_ms": 251
     },
     {
       "name": "technical-list-mobile",
@@ -670,12 +977,12 @@
         "mobile": true
       },
       "screenshot": "technical-list-mobile.png",
-      "sha256": "dea87f37f30c0ae35727f6de9a739fa5090c9a4bc8fc0d293e59d7c73148e7f4",
+      "sha256": "6bac8825944bd8969f3649db79249526b7b622901789771513d9b34ff2946dbe",
       "assertions": {
         "card_count": 20,
         "horizontal_overflow_px": 0
       },
-      "duration_ms": 443
+      "duration_ms": 427
     },
     {
       "name": "technical-form-mobile",
@@ -686,7 +993,7 @@
         "mobile": true
       },
       "screenshot": "technical-form-mobile.png",
-      "sha256": "6837c6a52afbc186daf20367bbff59a40427b7d0da6f5ea379871f0c8db66106",
+      "sha256": "d583b51d93bafe4bb3809901ba023f83a57adfbfb20ce6990505cc784c52b864",
       "assertions": {
         "title": "Process Workflow Escalation",
         "field_count": 6,
@@ -696,7 +1003,7 @@
         "form_header_navigation_width": 366,
         "form_header_gap_px": 10
       },
-      "duration_ms": 572
+      "duration_ms": 491
     },
     {
       "name": "normal-user-launcher-desktop",
@@ -707,7 +1014,7 @@
         "mobile": false
       },
       "screenshot": "normal-user-launcher-desktop.png",
-      "sha256": "c15dde73885a18578b203c827d4f8de06618dce97f40de2e70218be5fe6b8d5b",
+      "sha256": "118841299afac40b908523dd427598373ed2aa2b0fe14ac3b0a4272063607466",
       "assertions": {
         "uid": 6,
         "app_count": 1,
@@ -716,7 +1023,7 @@
         "model": "approval.buttons",
         "window_count": 1
       },
-      "duration_ms": 629
+      "duration_ms": 730
     },
     {
       "name": "default-apps-install-desktop",
@@ -727,7 +1034,7 @@
         "mobile": false
       },
       "screenshot": "default-apps-install-desktop.png",
-      "sha256": "e58198e7f1bc5bcdd10a0f1af1df957bb7c406c60262c5137815307cdd57700c",
+      "sha256": "83c669af25131ad5a26750c17d6ca55e77f71dabbd96804264a3bc7a5a4b25b7",
       "assertions": {
         "module": "ai",
         "catalog_count": 1,
@@ -737,7 +1044,7 @@
         "after_uninstall_state": "uninstalled",
         "restored_state": "installed"
       },
-      "duration_ms": 1736
+      "duration_ms": 2032
     },
     {
       "name": "default-apps-catalog-detail-desktop",
@@ -748,7 +1055,7 @@
         "mobile": false
       },
       "screenshot": "default-apps-catalog-detail-desktop.png",
-      "sha256": "e58198e7f1bc5bcdd10a0f1af1df957bb7c406c60262c5137815307cdd57700c",
+      "sha256": "83c669af25131ad5a26750c17d6ca55e77f71dabbd96804264a3bc7a5a4b25b7",
       "assertions": {
         "module": "ai",
         "sidebar_count": 1,
@@ -756,10 +1063,41 @@
         "category_count": 10,
         "active_filter": "installed",
         "card_count": 1,
+        "modal_count": 1,
         "detail_module": "ai",
         "detail_closed": "closed"
       },
-      "duration_ms": 418
+      "duration_ms": 549
+    },
+    {
+      "name": "default-users-flow-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-flow-desktop.png",
+      "sha256": "6fd7da3de6224c653b85a820f31432886328346abcef020f12e6232903d8774c",
+      "assertions": {
+        "list_rows": 6,
+        "form_state": {
+          "has_form": true,
+          "labels": [
+            "Name",
+            "Login",
+            "Email",
+            "Company",
+            "Role",
+            "Active",
+            "Notification",
+            "Signature"
+          ],
+          "has_identity_label": true,
+          "has_identity_value": true
+        }
+      },
+      "duration_ms": 567
     },
     {
       "name": "default-apps-lifecycle-cancel-desktop",
@@ -770,7 +1108,7 @@
         "mobile": false
       },
       "screenshot": "default-apps-lifecycle-cancel-desktop.png",
-      "sha256": "e58198e7f1bc5bcdd10a0f1af1df957bb7c406c60262c5137815307cdd57700c",
+      "sha256": "83c669af25131ad5a26750c17d6ca55e77f71dabbd96804264a3bc7a5a4b25b7",
       "assertions": {
         "module": "ai",
         "to_install_state": "to install",
@@ -780,8 +1118,8 @@
         "to_remove_state": "to remove",
         "after_cancel_uninstall_state": "installed"
       },
-      "duration_ms": 1799
+      "duration_ms": 1626
     }
   ],
-  "duration_ms": 17743
+  "duration_ms": 20856
 }

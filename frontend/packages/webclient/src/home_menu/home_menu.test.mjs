@@ -64,13 +64,15 @@ assert.equal(homeMenuAppsCatalogApp(payload)?.id, 42);
 
 const homeMenu = renderHomeMenu(payload, { query: "sales" });
 assert.match(homeMenu.className, /o_app_launcher/);
+assert.match(homeMenu.className, /o_home_menu_background/);
 assert.equal(homeMenu.dataset.view, "apps");
 assert.equal(homeMenu.dataset.mobileSafe, "true");
 assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search")).length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_home_menu_search") && node.dataset?.searchActive === "true").length, 1);
 assert.equal(findAll(homeMenu, (node) => String(node.className).includes("o_apps")).length, 1);
-assert.equal(findAll(homeMenu, (node) => String(node.className).includes("app-card")).length, 1);
+assert.equal(findAll(homeMenu, (node) => String(node.className).split(/\s+/).includes("o_app")).length, 1);
+assert.equal(findAll(homeMenu, (node) => String(node.className).includes("app-card")).length, 0);
 assert.equal(findAll(homeMenu, (node) => node.dataset?.appName === "Sales Orders").length, 1);
 assert.equal(findAll(homeMenu, (node) => node.dataset?.menuId === "3" && node.attributes?.["aria-label"] === "Sales Orders").length, 1);
 assert.equal(findAll(homeMenu, (node) => node.tag === "img").length, 0);
@@ -86,6 +88,7 @@ assert.equal(findAll(serverActionCard, (node) => String(node.className).includes
 const liveMenu = renderHomeMenu(payload);
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41").length, 0);
 const liveCatalogCard = findAll(liveMenu, (node) => node.dataset?.menuId === "42")[0];
+assert.equal(liveCatalogCard.dataset.appKey, "apps");
 assert.equal(liveCatalogCard.dataset.menuPath, undefined);
 assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_menu_path")).length, 0);
 const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
@@ -136,4 +139,4 @@ const fallbackMenu = renderHomeMenu({
   1: { id: 1, name: "Broken Icon", children: [], webIconData: "abc123", webIconDataMimetype: "image/png" }
 });
 assert.equal(findAll(fallbackMenu, (node) => node.tag === "img").length, 0);
-assert.equal(findAll(fallbackMenu, (node) => String(node.className).includes("o_app_icon"))[0].textContent, "BI");
+assert.equal(findAll(fallbackMenu, (node) => String(node.className).includes("o_app_icon"))[0].textContent, "");

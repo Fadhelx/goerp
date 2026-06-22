@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gorp/internal/delegation"
@@ -118,6 +119,7 @@ type Engine struct {
 	Sessions              map[string]Token
 	APITokens             map[string]Token
 	Audit                 []AuditEvent
+	sessionMu             sync.RWMutex
 	Delegations           DelegationProvider
 	RecordDepartments     RecordDepartmentResolver
 	DepartmentDescendants DepartmentDescendantResolver
@@ -900,12 +902,17 @@ func quoteBareDomainIdentifiers(text string) string {
 }
 
 func (e *Engine) IssueSession(userID int64, rawToken string, expiresAt time.Time) {
-	e.Sessions[tokenHash(rawToken)] = Token{UserID: userID, Hash: tokenHash(rawToken), ExpiresAt: expiresAt}
+	hash := tokenHash(rawToken)
+	e.sessionMu.Lock()
+	e.Sessions[hash] = Token{UserID: userID, Hash: hash, ExpiresAt: expiresAt}
+	e.sessionMu.Unlock()
 	e.Log(AuditEvent{ActorID: userID, Action: "session_create"})
 }
 
 func (e *Engine) AuthenticateSession(rawToken string) (int64, bool) {
 	hash := tokenHash(rawToken)
+	e.sessionMu.Lock()
+	defer e.sessionMu.Unlock()
 	token, ok := e.Sessions[hash]
 	if !ok || token.RevokedAt.After(time.Time{}) || !token.ExpiresAt.After(e.now()) {
 		return 0, false
@@ -917,27 +924,34 @@ func (e *Engine) AuthenticateSession(rawToken string) (int64, bool) {
 
 func (e *Engine) RevokeSession(rawToken string) {
 	hash := tokenHash(rawToken)
+	e.sessionMu.Lock()
 	token := e.Sessions[hash]
 	token.RevokedAt = e.now()
 	e.Sessions[hash] = token
+	e.sessionMu.Unlock()
 	e.Log(AuditEvent{ActorID: token.UserID, Action: "session_revoke"})
 }
 
 func (e *Engine) SetSessionCompanies(rawToken string, companyID int64, companyIDs []int64) bool {
 	hash := tokenHash(rawToken)
+	e.sessionMu.Lock()
 	token, ok := e.Sessions[hash]
 	if !ok || token.RevokedAt.After(time.Time{}) || !token.ExpiresAt.After(e.now()) {
+		e.sessionMu.Unlock()
 		return false
 	}
 	token.CompanyID = companyID
 	token.CompanyIDs = uniqueSessionCompanyIDs(companyIDs)
 	e.Sessions[hash] = token
+	e.sessionMu.Unlock()
 	e.Log(AuditEvent{ActorID: token.UserID, Action: "session_switch_company", Details: map[string]string{"company_id": strconv.FormatInt(companyID, 10)}})
 	return true
 }
 
 func (e *Engine) SessionCompanies(rawToken string) (int64, []int64, bool) {
 	hash := tokenHash(rawToken)
+	e.sessionMu.RLock()
+	defer e.sessionMu.RUnlock()
 	token, ok := e.Sessions[hash]
 	if !ok || token.RevokedAt.After(time.Time{}) || !token.ExpiresAt.After(e.now()) {
 		return 0, nil, false

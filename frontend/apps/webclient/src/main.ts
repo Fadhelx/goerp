@@ -4,10 +4,11 @@ import {
   parseRouteState,
   renderWindowAction,
   renderWindowActionDialog,
-  routeStateFromAction,
+  routeStateFromStack,
   startServices,
   updateBrowserRoute,
   type ActionRequest,
+  type ActionRouteSource,
   type ActionService,
   type ActionServiceOptions,
   type RPCRequest,
@@ -91,6 +92,7 @@ async function restoreActionFromHash(
   if (actionID === undefined) return false;
   const outlet = findDescendantByClass(shell, "o_action_manager");
   if (!outlet) return false;
+  setShellActionView(shell);
   const app = routeMenuApp(menus, route.menu_id);
   const context = routeActionContext(route);
   const actionHost = createActionHost(env, outlet, app);
@@ -233,11 +235,17 @@ function sessionUserContext(session: Record<string, unknown>): Record<string, un
 }
 
 async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, outlet: HTMLElement): Promise<void> {
-  if (isAppsCatalogApp(app)) {
-    await renderAppsCatalog(env, outlet, app.name);
+  const actionID = menuActionID(app);
+  if (isAppsCatalogLikeApp(app)) {
+    updateBrowserRoute({
+      action: actionID,
+      model: "ir.module.module",
+      view_type: "kanban",
+      menu_id: app.id
+    });
+    await renderAppsCatalog(env, outlet, cleanAppName(app.name) || "Apps");
     return;
   }
-  const actionID = menuActionID(app);
   if (actionID === undefined) {
     outlet.dataset.tsActionStatus = "no-action";
     return;
@@ -249,6 +257,42 @@ async function openMenuApp(env: ReturnType<typeof makeEnv>, app: HomeMenuApp, ou
     additionalContext: { menu_id: app.id },
     stackPosition: "clear"
   });
+}
+
+function isAppsCatalogLikeApp(app: HomeMenuApp): boolean {
+  if (isAppsCatalogApp(app)) return true;
+  const name = cleanAppName(app.name).toLowerCase();
+  return name === "apps";
+}
+
+function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMenuApp): Record<string, unknown> {
+  if (action.type !== "ir.actions.act_window" || action.res_model !== "ir.module.module") {
+    return { ...action, menu_id: app.id };
+  }
+  return {
+    ...action,
+    menu_id: app.id,
+    view_mode: "kanban,list,form",
+    views: appsWindowActionViews(action),
+    view_type: "kanban",
+    context: {
+      ...(isRecord(action.context) ? action.context : {}),
+      search_default_app: 1
+    }
+  };
+}
+
+function appsWindowActionViews(action: Record<string, unknown>): [number | false, string][] {
+  const ids = new Map<string, number | false>();
+  if (Array.isArray(action.views)) {
+    for (const rawView of action.views) {
+      if (!Array.isArray(rawView) || rawView.length < 2) continue;
+      const type = typeof rawView[1] === "string" ? rawView[1].trim() : "";
+      if (!type || ids.has(type)) continue;
+      ids.set(type, typeof rawView[0] === "number" && rawView[0] > 0 ? rawView[0] : false);
+    }
+  }
+  return ["kanban", "list", "form"].map((type) => [ids.get(type) ?? false, type]);
 }
 
 async function handleSystrayAction(
@@ -287,12 +331,7 @@ async function handleSystrayAction(
       return;
     case "open-preferences":
     case "open-profile":
-      renderSystrayAction(outlet, action.type === "open-profile" ? "My Profile" : "Preferences", [
-        "User preferences",
-        "Language",
-        "Timezone",
-        "Notifications"
-      ]);
+      await openUserPreferencesAction(env, outlet);
       return;
     case "open-help":
       renderSystrayAction(outlet, "Help", ["Documentation", "Support"]);
@@ -316,6 +355,34 @@ async function handleSystrayAction(
     default:
       renderSystrayAction(outlet, "Systray", [action.type]);
   }
+}
+
+async function openUserPreferencesAction(env: ReturnType<typeof makeEnv>, outlet: HTMLElement): Promise<void> {
+  const session = (env.services.session as SessionService | undefined)?.info ?? {};
+  const uid = numericUserID(session.uid);
+  const orm = env.services.orm as WebClientServices["orm"];
+  let action: Record<string, unknown> = {};
+  try {
+    action = await orm.call<Record<string, unknown>>("res.users", "action_get");
+  } catch {
+    action = {};
+  }
+  const actionHost = createActionHost(env, outlet);
+  await actionHost.doAction({
+    type: "ir.actions.act_window",
+    name: "Change My Preferences",
+    res_model: "res.users",
+    view_mode: "form",
+    views: [[false, "form"]],
+    ...action,
+    target: "new",
+    ...(uid > 0 ? { res_id: uid } : {})
+  }, {
+    additionalContext: {
+      active_model: "res.users",
+      ...(uid > 0 ? { active_id: uid, active_ids: [uid] } : {})
+    }
+  });
 }
 
 interface SystrayActionOptions {
@@ -681,12 +748,30 @@ function renderActionHostResult(state: ActionHostState, host: ActionService, res
     return;
   }
   clearDialogs(state);
-  updateBrowserRoute(routeStateFromAction(titledResult.action, {
+  const routeEntries: ActionRouteSource[] = host.stack.map((entry) => ({
+    action: entry.action,
+    title: entry.title,
+    target: entry.target,
+    dialog: entry.dialog,
+    breadcrumbVisible: entry.breadcrumbVisible,
+    route: entry.route ? stackRouteRecord(entry.route) : null
+  }));
+  updateBrowserRoute(routeStateFromStack(routeEntries, {
     ...(state.app ? { menu_id: state.app.id } : {}),
     view_type: titledResult.activeView
   }));
   state.outlet.dataset.tsActionStatus = "ready";
   state.outlet.replaceChildren(renderWindowAction(titledResult, { services }));
+}
+
+function stackRouteRecord(route: NonNullable<ActionService["currentRoute"]>): Record<string, unknown> {
+  return { ...route };
+}
+
+function setShellActionView(shell: HTMLElement): void {
+  shell.dataset.view = "action";
+  shell.classList?.remove("o_home_menu_background");
+  globalThis.document?.body?.classList?.remove("o_home_menu_background");
 }
 
 function actionHostServices(env: ReturnType<typeof makeEnv>, action: ActionService): WebClientServices {
@@ -794,6 +879,7 @@ export interface AppsCatalogPayload {
 export interface AppsCatalogRenderOptions {
   onInstall?: (technicalName: string) => unknown;
   onModuleAction?: (technicalName: string, method: AppsCatalogActionMethod, query: string) => unknown;
+  onModuleInfo?: (module: AppsCatalogDisplayModule) => unknown;
   query?: string;
   title?: string;
 }
@@ -955,6 +1041,9 @@ async function renderAppsCatalog(_env: ReturnType<typeof makeEnv>, outlet: HTMLE
     onModuleAction: async (technicalName, method, currentQuery) => {
       await runAppsCatalogModuleAction(technicalName, method);
       await renderAppsCatalog(_env, outlet, title, currentQuery);
+    },
+    onModuleInfo: async (module) => {
+      await openAppsCatalogModuleInfo(_env, outlet, module);
     }
   });
   outlet.dataset.tsActionStatus = "ready";
@@ -978,6 +1067,33 @@ async function runAppsCatalogModuleAction(technicalName: string, method: AppsCat
     model: "ir.module.module",
     method,
     args: [[id]]
+  });
+}
+
+async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet: HTMLElement, module: AppsCatalogDisplayModule): Promise<void> {
+  const rows = await fetchJSON<Array<Record<string, unknown>>>("/web/dataset/call_kw", {
+    model: "ir.module.module",
+    method: "search_read",
+    args: [[["name", "=", module.technicalName]]],
+    kwargs: { fields: ["id"], limit: 1 }
+  });
+  const id = numericUserID(rows[0]?.id);
+  if (!id) throw new Error(`Module ${module.technicalName} is not available`);
+  const actionHost = createActionHost(env, outlet);
+  await actionHost.doAction({
+    type: "ir.actions.act_window",
+    name: "Module Info",
+    res_model: "ir.module.module",
+    res_id: id,
+    view_mode: "form",
+    views: [[false, "form"]],
+    target: "new"
+  }, {
+    additionalContext: {
+      active_model: "ir.module.module",
+      active_id: id,
+      active_ids: [id]
+    }
   });
 }
 
@@ -1021,7 +1137,8 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   const icon = document.createElement("span");
   icon.className = "app-icon o_app_icon";
   icon.dataset.iconToken = appIconToken(module.displayName);
-  icon.textContent = appInitials(module.displayName);
+  icon.dataset.initials = appInitials(module.displayName);
+  icon.setAttribute("aria-hidden", "true");
   const title = document.createElement("strong");
   title.className = "o_app_name";
   title.textContent = module.displayName;
@@ -1036,10 +1153,13 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   state.textContent = module.state;
   const info = document.createElement("button");
   info.type = "button";
-  info.className = "btn btn-link o_module_info_button";
+  info.className = "btn btn-secondary o_module_info_button";
   info.dataset.moduleInfo = module.technicalName;
   info.textContent = "Module Info";
-  info.addEventListener("click", () => options.onInfo?.(module));
+  info.addEventListener("click", async () => {
+    options.onInfo?.(module);
+    await options.onModuleInfo?.(module);
+  });
   const actions = document.createElement("div");
   actions.className = "o_module_actions";
   const actionHandler = options.onModuleAction || ((technicalName: string, method: AppsCatalogActionMethod) => {

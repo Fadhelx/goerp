@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -77,6 +78,28 @@ func TestSessionCompanyContext(t *testing.T) {
 	if _, _, ok := engine.SessionCompanies("raw-session"); ok {
 		t.Fatal("revoked session returned company context")
 	}
+}
+
+func TestAuthenticateSessionConcurrent(t *testing.T) {
+	engine := NewEngine()
+	engine.SetNow(func() time.Time { return time.Unix(100, 0) })
+	engine.IssueSession(10, "raw-session", time.Unix(200, 0))
+
+	var wg sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 256; j++ {
+				userID, ok := engine.AuthenticateSession("raw-session")
+				if !ok || userID != 10 {
+					t.Errorf("session auth failed: %d %v", userID, ok)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestACL(t *testing.T) {
