@@ -1716,6 +1716,7 @@ func mailStoreActivityGroups(env *record.Env) []map[string]any {
 		item := groups[key]
 		modelID, modelLabel := mailStoreModelInfo(env, item.model)
 		row := map[string]any{
+			"activity_ids":  append([]int64(nil), item.activityIDs...),
 			"domain":        []any{},
 			"icon":          "/base/static/description/icon.png",
 			"id":            modelID,

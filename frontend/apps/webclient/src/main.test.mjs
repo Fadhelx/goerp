@@ -121,10 +121,20 @@ globalThis.fetch = async (route, options = {}) => {
         starred: { counter: 1 },
         activityCounter: 1,
         activityGroups: [
-          { name: "Partners", model: "res.partner", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0 }
+          { name: "Partners", model: "res.partner", total_count: 1, overdue_count: 0, today_count: 1, planned_count: 0, activity_ids: [41] }
         ]
       }
     }; } };
+  }
+  if (route === "/web/dataset/call_kw/mail.activity/activity_format") {
+    return { ok: true, status: 200, async json() { return {
+      "mail.activity": [
+        { id: 41, display_name: "Call customer", res_name: "Azure Interior", res_model: "res.partner", date_deadline: "2026-06-22", state: "today" }
+      ]
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/mail.activity/action_feedback") {
+    return { ok: true, status: 200, async json() { return { done: true }; } };
   }
   if (route === "/web/webclient/load_menus") {
     return { ok: true, status: 200, async json() { return {
@@ -283,6 +293,21 @@ findAll(actionManager, (node) => String(node.className).includes("btn-close"))[0
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(actionManager.dataset.tsDialogStatus, "closed");
 assert.equal(globalThis.document.body.classList.contains("modal-open"), false);
+
+const activityMenuItem = findAll(shell, (node) => node.dataset?.systrayItem === "Partners")[0];
+activityMenuItem.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const activityManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+assert.equal(findAll(activityManager, (node) => String(node.className).includes("o_activity_card") && node.dataset?.activityId === "41").length, 1);
+const doneButton = findAll(activityManager, (node) => node.dataset?.activityAction === "action_feedback")[0];
+const feedback = findAll(activityManager, (node) => node.attributes?.placeholder === "Write Feedback")[0];
+feedback.value = "Resolved";
+doneButton.dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+const activityFormatFetch = fetches.find((item) => item.route === "/web/dataset/call_kw/mail.activity/activity_format");
+assert.deepEqual(JSON.parse(activityFormatFetch.options.body).args, [[41]]);
+const doneFetch = fetches.find((item) => item.route === "/web/dataset/call_kw/mail.activity/action_feedback");
+assert.deepEqual(JSON.parse(doneFetch.options.body), { args: [[41]], kwargs: { attachment_ids: [], feedback: "Resolved" } });
 
 fetches.length = 0;
 sessionResponse = { uid: 7, name: "Admin", company_name: "My Company" };

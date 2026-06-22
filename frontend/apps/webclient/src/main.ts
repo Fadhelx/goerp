@@ -250,7 +250,7 @@ async function handleSystrayAction(
       await openMailboxAction(env, action, outlet);
       return;
     case "open-activities":
-      await openActivitiesAction(action, outlet);
+      await openActivitiesAction(env, action, outlet);
       return;
     case "open-debug-tools":
     case "view-metadata":
@@ -332,17 +332,35 @@ async function openMailboxAction(
   renderSystrayAction(outlet, mailbox === "starred" ? "Starred" : "Inbox", rows);
 }
 
-async function openActivitiesAction(action: NavbarSystrayAction, outlet: HTMLElement): Promise<void> {
+async function openActivitiesAction(
+  env: ReturnType<typeof makeEnv>,
+  action: NavbarSystrayAction,
+  outlet: HTMLElement
+): Promise<void> {
+  const session = (env.services.session as SessionService | undefined)?.info ?? {};
   const payload = await fetchJSON<Record<string, unknown>>("/mail/data", {
     fetch_params: [["systray_get_activities", {}]],
-    context: {}
+    context: sessionUserContext(session)
   });
   const store = isRecord(payload.Store) ? payload.Store : {};
   const groups = Array.isArray(store.activityGroups) ? store.activityGroups : [];
-  const rows = groups
-    .filter(isRecord)
-    .map((group) => `${firstText(group.name, group.model, "Activities")}: ${numericUserID(group.total_count)} total`);
-  renderSystrayAction(outlet, firstText(action.model, "Activities") || "Activities", rows.length ? rows : ["No activities"]);
+  const selectedModel = firstText(action.model);
+  const groupRows = groups.filter(isRecord).filter((group) => !selectedModel || firstText(group.model) === selectedModel);
+  const activityIDs = uniqueNumberList(groupRows.flatMap((group) => numberList(group.activity_ids)));
+  if (!activityIDs.length) {
+    const rows = groupRows.map((group) => `${firstText(group.name, group.model, "Activities")}: ${numericUserID(group.total_count)} total`);
+    renderSystrayAction(outlet, firstText(action.model, "Activities") || "Activities", rows.length ? rows : ["No activities"]);
+    return;
+  }
+  const activityStore = await fetchJSON<Record<string, unknown>>("/web/dataset/call_kw/mail.activity/activity_format", {
+    args: [activityIDs],
+    kwargs: {}
+  });
+  const activities = activityRows(activityStore);
+  renderActivityAction(outlet, firstText(action.model, groupRows[0]?.name, "Activities") || "Activities", activities, async (method, activityID, feedback) => {
+    await activityAction(method, activityID, feedback);
+    await openActivitiesAction(env, action, outlet);
+  });
 }
 
 function renderSystrayAction(outlet: HTMLElement, titleText: string, rows: readonly string[]): void {
@@ -368,6 +386,92 @@ function renderSystrayAction(outlet: HTMLElement, titleText: string, rows: reado
   }
   root.append(controlPanel, body);
   outlet.replaceChildren(root);
+}
+
+function renderActivityAction(
+  outlet: HTMLElement,
+  titleText: string,
+  activities: readonly Record<string, unknown>[],
+  onAction: (method: string, activityID: number, feedback: string) => Promise<void>
+): void {
+  outlet.dataset.tsActionStatus = "ready";
+  const root = document.createElement("section");
+  root.className = "gorp-window-action o_systray_action o_activity_action";
+  const controlPanel = document.createElement("div");
+  controlPanel.className = "o-control-panel o_control_panel";
+  const breadcrumb = document.createElement("div");
+  breadcrumb.className = "o_breadcrumb";
+  const title = document.createElement("span");
+  title.className = "active";
+  title.textContent = titleText;
+  breadcrumb.append(title);
+  controlPanel.append(breadcrumb);
+  const body = document.createElement("div");
+  body.className = "o_systray_action_body o_activity_action_body o-mail-ActivityListPopover";
+  if (!activities.length) {
+    const empty = document.createElement("div");
+    empty.className = "o_systray_action_row o_view_nocontent";
+    empty.textContent = "No activities";
+    body.append(empty);
+  }
+  for (const activity of activities) {
+    const activityID = numericUserID(activity.id);
+    const row = document.createElement("article");
+    row.className = `o_activity_card o-mail-Activity o-mail-ActivityListPopoverItem ${firstText(activity.state, "planned")}`;
+    row.dataset.activityId = String(activityID);
+    const summary = document.createElement("strong");
+    summary.className = "o_activity_summary";
+    summary.textContent = firstText(activity.display_name, activity.summary, "Activity");
+    const meta = document.createElement("span");
+    meta.className = "o_activity_meta";
+    meta.textContent = [firstText(activity.res_name, activity.res_model), firstText(activity.date_deadline), firstText(activity.state)].filter(Boolean).join(" · ");
+    const feedback = document.createElement("textarea");
+    feedback.className = "o-mail-ActivityMarkAsDone-feedback";
+    feedback.setAttribute("placeholder", "Write Feedback");
+    const actions = document.createElement("div");
+    actions.className = "o_activity_actions";
+    for (const item of [
+      { method: "action_feedback_schedule_next", label: "Done and Schedule Next", className: "o-mail-ActivityListPopoverItem-markAsDone" },
+      { method: "action_feedback", label: "Done", className: "o-mail-ActivityListPopoverItem-markAsDone o_activity_done" },
+      { method: "action_reschedule_today", label: "Today", className: "o_activity_button" },
+      { method: "action_reschedule_tomorrow", label: "Tomorrow", className: "o_activity_button" },
+      { method: "action_reschedule_nextweek", label: "Next Week", className: "o_activity_button" },
+      { method: "action_cancel", label: "Cancel", className: "o-mail-ActivityListPopoverItem-cancel" }
+    ] as const) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = item.method === "action_feedback" ? `btn btn-primary ${item.className}` : `btn btn-secondary ${item.className}`;
+      button.dataset.activityAction = item.method;
+      button.textContent = item.label;
+      button.disabled = activityID === 0;
+      if (item.method === "action_feedback" && firstText(activity.chaining_type) === "trigger") {
+        button.hidden = true;
+      }
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        await onAction(item.method, activityID, feedback.value.trim());
+      });
+      actions.append(button);
+    }
+    row.append(summary, meta, feedback, actions);
+    body.append(row);
+  }
+  root.append(controlPanel, body);
+  outlet.replaceChildren(root);
+}
+
+async function activityAction(method: string, activityID: number, feedback = ""): Promise<void> {
+  const kwargs: Record<string, unknown> = {};
+  if (method === "action_feedback" || method === "action_feedback_schedule_next") {
+    kwargs.attachment_ids = [];
+    if (feedback) kwargs.feedback = feedback;
+  }
+  await fetchJSON(`/web/dataset/call_kw/mail.activity/${method}`, { args: [[activityID]], kwargs });
+}
+
+function activityRows(store: Record<string, unknown>): Record<string, unknown>[] {
+  const rows = store["mail.activity"];
+  return Array.isArray(rows) ? rows.filter(isRecord) : [];
 }
 
 interface ActionHostState {
@@ -851,6 +955,22 @@ function numericUserID(value: unknown): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number.parseInt(value, 10) || 0;
   return 0;
+}
+
+function numberList(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(numericUserID).filter((id) => id > 0);
+}
+
+function uniqueNumberList(values: readonly number[]): number[] {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const value of values) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
 }
 
 function shouldTakeOverDOM(): boolean {

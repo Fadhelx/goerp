@@ -3438,6 +3438,9 @@ func TestMailDataAndActionStoreBootstrap(t *testing.T) {
 	if len(groups) != 1 || int64Value(groups[0].(map[string]any)["today_count"]) != 1 || int64Value(groups[0].(map[string]any)["total_count"]) != 1 {
 		t.Fatalf("activity groups = %+v", groups)
 	}
+	if !reflect.DeepEqual(int64Slice(groups[0].(map[string]any)["activity_ids"]), []int64{activityID}) {
+		t.Fatalf("activity group ids = %+v", groups)
+	}
 	responses := payload["DataResponse"].([]any)
 	if len(responses) != 1 || int64Value(responses[0].(map[string]any)["id"]) != 77 || responses[0].(map[string]any)["_resolve"] != true {
 		t.Fatalf("data response = %+v", responses)
