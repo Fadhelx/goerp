@@ -36,6 +36,7 @@ func TestParseOdooPythonManifestAccount(t *testing.T) {
     'version': '1.4',
     'category': 'Accounting/Accounting',
     'depends': ['base_setup', 'onboarding', 'product', 'analytic', 'portal', 'digest'],
+    'excludes': ['account_accountant'],
     'external_dependencies': {
         'python': ['stdnum'],
         'bin': ['wkhtmltopdf'],
@@ -71,6 +72,9 @@ func TestParseOdooPythonManifestAccount(t *testing.T) {
 	}
 	if !reflect.DeepEqual(manifest.Depends, []string{"base_setup", "onboarding", "product", "analytic", "portal", "digest"}) {
 		t.Fatalf("depends = %+v", manifest.Depends)
+	}
+	if !reflect.DeepEqual(manifest.Excludes, []string{"account_accountant"}) {
+		t.Fatalf("excludes = %+v", manifest.Excludes)
 	}
 	if !reflect.DeepEqual(manifest.ExternalDependencies["python"], []string{"stdnum"}) || !reflect.DeepEqual(manifest.ExternalDependencies["bin"], []string{"wkhtmltopdf"}) {
 		t.Fatalf("external dependencies = %+v", manifest.ExternalDependencies)

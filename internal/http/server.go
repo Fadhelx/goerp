@@ -13147,6 +13147,22 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 }
 
 func (s Server) dispatchModuleMethod(env *record.Env, req callKWRequest) (any, bool, error) {
+	if req.Model == "base.module.update" && req.Method == "update_module" {
+		if env.Context().UserID != 1 && !sessionHasXMLIDGroup(env, "base.group_system") {
+			return nil, true, fmt.Errorf("System User Only")
+		}
+		update, err := modulelifecycle.New(env, s.Modules).UpdateList()
+		if err != nil {
+			return nil, true, err
+		}
+		ids := positiveInt64Slice(int64Slice(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "ids"), req.Values["ids"])))
+		if len(ids) > 0 {
+			if err := env.Model("base.module.update").Browse(ids...).Write(map[string]any{"updated": update.Updated, "added": update.Added, "state": "done"}); err != nil {
+				return nil, true, err
+			}
+		}
+		return false, true, nil
+	}
 	if req.Model != "ir.module.module" {
 		return nil, false, nil
 	}
@@ -13158,6 +13174,12 @@ func (s Server) dispatchModuleMethod(env *record.Env, req callKWRequest) (any, b
 	var result modulelifecycle.Result
 	var err error
 	switch req.Method {
+	case "update_list":
+		update, err := service.UpdateList()
+		if err != nil {
+			return nil, true, err
+		}
+		return []int{update.Updated, update.Added}, true, nil
 	case "button_install":
 		result, err = service.ButtonInstall(ids)
 	case "button_immediate_install":

@@ -237,6 +237,110 @@ func TestPythonDistributionNameNormalizesRequirements(t *testing.T) {
 	}
 }
 
+func TestUpdateListCreatesMissingRowsAndPreservesExistingStates(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	createModuleRow(t, env, "base", "installed")
+	createModuleRow(t, env, "mail", "to install")
+	createModuleRow(t, env, "crm", "to upgrade")
+	createModuleRow(t, env, "web", "to remove")
+
+	result, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Added != 2 || result.Updated != 3 || strings.Join(result.Modules, ",") != "auto_crm,auto_web_extra,crm,mail,web" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "base", "installed")
+	assertModuleState(t, env, "mail", "to install")
+	assertModuleState(t, env, "crm", "to upgrade")
+	assertModuleState(t, env, "web", "to remove")
+	assertModuleState(t, env, "auto_crm", "uninstalled")
+	assertModuleState(t, env, "auto_web_extra", "uninstalled")
+}
+
+func TestUpdateListReactivatesInstallableUninstallableRows(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	createModuleRow(t, env, "crm", "uninstallable")
+
+	result, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 1 || result.Added != 5 {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "crm", "uninstalled")
+}
+
+func TestUpdateListKeepsNonInstallableMissingRowsUninstallable(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := map[string]module.Manifest{
+		"legacy": {Name: "Legacy", TechnicalName: "legacy", Version: "19.0", Installable: false},
+	}
+
+	result, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Added != 1 || result.Updated != 0 || strings.Join(result.Modules, ",") != "legacy" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "legacy", "uninstallable")
+}
+
+func TestUpdateListSyncsDependenciesAndExclusions(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := map[string]module.Manifest{
+		"feature": {
+			Name:               "Feature",
+			TechnicalName:      "feature",
+			Version:            "19.0",
+			Depends:            []string{"base", "mail"},
+			Excludes:           []string{"legacy_feature"},
+			Installable:        true,
+			AutoInstall:        true,
+			AutoInstallDepends: []string{"mail"},
+		},
+	}
+	featureID := createModuleRow(t, env, "feature", "installed")
+	createModuleDependency(t, env, featureID, "old_dep", false)
+	createModuleDependency(t, env, featureID, "base", true)
+	createModuleExclusion(t, env, featureID, "old_feature")
+
+	result, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Updated != 1 || result.Added != 0 || strings.Join(result.Modules, ",") != "feature" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleDependency(t, env, featureID, "base", false)
+	assertModuleDependency(t, env, featureID, "mail", true)
+	assertModuleDependencyMissing(t, env, featureID, "old_dep")
+	assertModuleExclusion(t, env, featureID, "legacy_feature")
+	assertModuleExclusionMissing(t, env, featureID, "old_feature")
+}
+
+func TestUpdateListIsIdempotentAfterSync(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+
+	first, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := New(env, manifests).UpdateList()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Added != 6 || second.Added != 0 || second.Updated != 0 || len(second.Modules) != 0 {
+		t.Fatalf("first=%+v second=%+v", first, second)
+	}
+}
+
 func TestButtonInstallQueuesAutoInstallModules(t *testing.T) {
 	env := lifecycleTestEnv(t)
 	manifests := lifecycleTestManifests()
@@ -696,6 +800,15 @@ func createModuleExclusion(t *testing.T, env *record.Env, moduleID int64, exclud
 	return id
 }
 
+func createModuleDependency(t *testing.T, env *record.Env, moduleID int64, name string, autoInstallRequired bool) int64 {
+	t.Helper()
+	id, err := env.Model("ir.module.module.dependency").Create(map[string]any{"module_id": moduleID, "name": name, "auto_install_required": autoInstallRequired})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 func assertModuleState(t *testing.T, env *record.Env, name string, want string) {
 	t.Helper()
 	found, err := env.Model("ir.module.module").Search(domain.Cond("name", "=", name))
@@ -722,5 +835,64 @@ func assertModuleMissing(t *testing.T, env *record.Env, name string) {
 	}
 	if ids := found.IDs(); len(ids) != 0 {
 		t.Fatalf("%s should be missing, found ids %v", name, ids)
+	}
+}
+
+func assertModuleDependency(t *testing.T, env *record.Env, moduleID int64, name string, autoInstallRequired bool) {
+	t.Helper()
+	found, err := env.Model("ir.module.module.dependency").Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("auto_install_required")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("dependency %d/%s rows = %+v", moduleID, name, rows)
+	}
+	if rows[0]["auto_install_required"] != autoInstallRequired {
+		t.Fatalf("dependency %d/%s auto_install_required = %+v, want %v", moduleID, name, rows[0]["auto_install_required"], autoInstallRequired)
+	}
+}
+
+func assertModuleDependencyMissing(t *testing.T, env *record.Env, moduleID int64, name string) {
+	t.Helper()
+	assertModuleNamedRowMissing(t, env, "ir.module.module.dependency", moduleID, name)
+}
+
+func assertModuleExclusion(t *testing.T, env *record.Env, moduleID int64, name string) {
+	t.Helper()
+	found, err := env.Model("ir.module.module.exclusion").Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows := found.IDs(); len(rows) != 1 {
+		t.Fatalf("exclusion %d/%s rows = %+v", moduleID, name, rows)
+	}
+}
+
+func assertModuleExclusionMissing(t *testing.T, env *record.Env, moduleID int64, name string) {
+	t.Helper()
+	assertModuleNamedRowMissing(t, env, "ir.module.module.exclusion", moduleID, name)
+}
+
+func assertModuleNamedRowMissing(t *testing.T, env *record.Env, modelName string, moduleID int64, name string) {
+	t.Helper()
+	found, err := env.Model(modelName).Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := found.IDs(); len(ids) != 0 {
+		t.Fatalf("%s %d/%s should be missing, found ids %v", modelName, moduleID, name, ids)
 	}
 }

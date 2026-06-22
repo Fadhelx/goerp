@@ -350,6 +350,32 @@ func TestModuleLifecycleCallKWBlocksBaseAndInactiveUninstall(t *testing.T) {
 	assertHTTPModuleState(t, env, crmID, "uninstalled")
 }
 
+func TestModuleLifecycleCallKWUpdateListSyncsRows(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	crmID := createHTTPModuleRow(t, env, "crm", "uninstallable")
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {
+				Name:          "CRM",
+				TechnicalName: "crm",
+				Version:       "19.0.1.0.0",
+				Depends:       []string{"base"},
+				Excludes:      []string{"legacy_crm"},
+				Installable:   true,
+			},
+		},
+	}).Handler()
+
+	body := strings.TrimSpace(postCallKW(t, handler, `{"model":"ir.module.module","method":"update_list","args":[]}`))
+	if body != `[1,0]` {
+		t.Fatalf("update_list body = %s", body)
+	}
+	assertHTTPModuleState(t, env, crmID, "uninstalled")
+	assertHTTPModuleNamedRow(t, env, "ir.module.module.dependency", crmID, "base")
+	assertHTTPModuleNamedRow(t, env, "ir.module.module.exclusion", crmID, "legacy_crm")
+}
+
 func TestSessionModulesMarksMissingManifestRowsUninstalled(t *testing.T) {
 	env := moduleLifecycleHTTPEnv(t)
 	createHTTPModuleRow(t, env, "base", "installed")
@@ -373,6 +399,91 @@ func TestSessionModulesMarksMissingManifestRowsUninstalled(t *testing.T) {
 	modules := payload["modules"].(map[string]any)
 	if modules["crm"].(map[string]any)["state"] != "uninstalled" {
 		t.Fatalf("crm payload = %+v", modules["crm"])
+	}
+}
+
+func TestModuleUpdateListCallKWSyncsRowsAndSessionPayload(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	baseID := createHTTPModuleRow(t, env, "base", "installed")
+	mailID := createHTTPModuleRow(t, env, "mail", "to upgrade")
+	createHTTPModuleDependency(t, env, mailID, "old_dep", false)
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"base": {Name: "Base", TechnicalName: "base", Version: "19.0.1.0.0", Installable: true},
+			"mail": {Name: "Mail", TechnicalName: "mail", Version: "19.0.1.0.0", Depends: []string{
+				"base",
+			}, AutoInstall: true, AutoInstallDepends: []string{"base"}, Installable: true},
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Depends: []string{
+				"mail",
+			}, Installable: true},
+		},
+	}).Handler()
+
+	body := postCallKW(t, handler, `{"model":"ir.module.module","method":"update_list","args":[]}`)
+	var result []any
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		t.Fatalf("decode update_list: %v: %s", err, body)
+	}
+	if len(result) != 2 || result[0] != float64(1) || result[1] != float64(1) {
+		t.Fatalf("update_list result = %+v", result)
+	}
+	assertHTTPModuleState(t, env, baseID, "installed")
+	assertHTTPModuleState(t, env, mailID, "to upgrade")
+	assertHTTPModuleDependency(t, env, mailID, "base", true)
+	assertHTTPModuleDependencyMissing(t, env, mailID, "old_dep")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web/session/modules", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session modules status %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONMap(t, rec.Body.Bytes())
+	modules := payload["modules"].(map[string]any)
+	if modules["mail"].(map[string]any)["state"] != "to upgrade" || modules["crm"].(map[string]any)["state"] != "uninstalled" {
+		t.Fatalf("modules payload = %+v", modules)
+	}
+}
+
+func TestModuleUpdateListRejectsNonSourceButtonAlias(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_button", bytes.NewBufferString(`{"model":"ir.module.module","method":"button_update_list","args":[]}`)))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "unsupported method button_update_list") {
+		t.Fatalf("button update alias response %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBaseModuleUpdateWizardRunsUpdateList(t *testing.T) {
+	env := moduleLifecycleHTTPEnv(t)
+	wizardID, err := env.Model("base.module.update").Create(map[string]any{"updated": 0, "added": 0, "state": "init"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := (Server{
+		Env: env,
+		Modules: map[string]module.Manifest{
+			"crm": {Name: "CRM", TechnicalName: "crm", Version: "19.0.1.0.0", Installable: true},
+		},
+	}).Handler()
+
+	body := postCallKW(t, handler, fmt.Sprintf(`{"model":"base.module.update","method":"update_module","args":[[%d]]}`, wizardID))
+	if strings.TrimSpace(body) != "false" {
+		t.Fatalf("wizard result = %s", body)
+	}
+	rows, err := env.Model("base.module.update").Browse(wizardID).Read("updated", "added", "state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || int64Value(rows[0]["updated"]) != 0 || int64Value(rows[0]["added"]) != 1 || rows[0]["state"] != "done" {
+		t.Fatalf("wizard row = %+v", rows)
 	}
 }
 
@@ -404,6 +515,64 @@ func assertHTTPModuleState(t *testing.T, env *record.Env, id int64, want string)
 	}
 	if len(rows) != 1 || rows[0]["state"] != want {
 		t.Fatalf("module %d state = %+v, want %s", id, rows, want)
+	}
+}
+
+func assertHTTPModuleNamedRow(t *testing.T, env *record.Env, modelName string, moduleID int64, name string) {
+	t.Helper()
+	found, err := env.Model(modelName).Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := found.IDs(); len(ids) != 1 {
+		t.Fatalf("%s %d/%s rows = %v", modelName, moduleID, name, ids)
+	}
+}
+
+func createHTTPModuleDependency(t *testing.T, env *record.Env, moduleID int64, name string, autoInstallRequired bool) int64 {
+	t.Helper()
+	id, err := env.Model("ir.module.module.dependency").Create(map[string]any{"module_id": moduleID, "name": name, "auto_install_required": autoInstallRequired})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func assertHTTPModuleDependency(t *testing.T, env *record.Env, moduleID int64, name string, autoInstallRequired bool) {
+	t.Helper()
+	found, err := env.Model("ir.module.module.dependency").Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("auto_install_required")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("dependency %d/%s rows = %+v", moduleID, name, rows)
+	}
+	if rows[0]["auto_install_required"] != autoInstallRequired {
+		t.Fatalf("dependency %d/%s auto_install_required = %+v, want %v", moduleID, name, rows[0]["auto_install_required"], autoInstallRequired)
+	}
+}
+
+func assertHTTPModuleDependencyMissing(t *testing.T, env *record.Env, moduleID int64, name string) {
+	t.Helper()
+	found, err := env.Model("ir.module.module.dependency").Search(domain.And(
+		domain.Cond("module_id", "=", moduleID),
+		domain.Cond("name", "=", name),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := found.IDs(); len(ids) != 0 {
+		t.Fatalf("dependency %d/%s should be missing, found ids %v", moduleID, name, ids)
 	}
 }
 

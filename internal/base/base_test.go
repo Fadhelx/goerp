@@ -548,7 +548,7 @@ func TestSecurityModelsExposeOdooFields(t *testing.T) {
 	assertFields(t, models["base.language.export"], "name")
 	assertFields(t, models["base.language.import"], "name")
 	assertFields(t, models["base.language.install"], "lang")
-	assertFields(t, models["base.module.update"], "updated")
+	assertFields(t, models["base.module.update"], "updated", "added", "state")
 	assertFields(t, models["base.module.upgrade"], "module_info")
 	assertFields(t, models["base.module.uninstall"], "module_id")
 	assertFields(t, models["base.partner.merge.automatic.wizard"], "partner_ids")

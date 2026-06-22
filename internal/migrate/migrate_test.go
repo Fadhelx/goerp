@@ -463,6 +463,28 @@ func TestModuleDependencyMigrationsExposeAutoInstallRequired(t *testing.T) {
 	}
 }
 
+func TestBaseModuleUpdateMigrationExposeWizardFields(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	for _, column := range []string{"updated", "added", "state"} {
+		if !strings.Contains(sqlByName["base_source_acl_anchor_models"], column) {
+			t.Fatalf("base module update create missing %s: %s", column, sqlByName["base_source_acl_anchor_models"])
+		}
+		if column != "updated" && !strings.Contains(sqlByName["base_module_update_wizard_state"], column) {
+			t.Fatalf("base module update alter missing %s: %s", column, sqlByName["base_module_update_wizard_state"])
+		}
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0001_base.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "base_module_update (id BIGSERIAL PRIMARY KEY, updated INTEGER, added INTEGER, state TEXT)") {
+		t.Fatalf("static base SQL missing base_module_update fields")
+	}
+}
+
 func TestSecurityMigrationsExposeOdooFields(t *testing.T) {
 	sqlByName := map[string]string{}
 	for _, migration := range BaseMigrations {

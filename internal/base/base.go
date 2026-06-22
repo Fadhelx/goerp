@@ -432,7 +432,7 @@ func Models() []model.Model {
 		simple("base.language.export", "base_language_export", field.New("name", field.Char)),
 		simple("base.language.import", "base_language_import", field.New("name", field.Char)),
 		simple("base.language.install", "base_language_install", field.New("lang", field.Char)),
-		simple("base.module.update", "base_module_update", field.New("updated", field.Int)),
+		simple("base.module.update", "base_module_update", field.New("updated", field.Int), field.New("added", field.Int), field.New("state", field.Selection)),
 		simple("base.module.upgrade", "base_module_upgrade", field.New("module_info", field.Text)),
 		simple("base.module.uninstall", "base_module_uninstall", field.New("module_id", field.Many2One).WithRelation("ir.module.module")),
 		simple("base.partner.merge.automatic.wizard", "base_partner_merge_automatic_wizard", field.New("partner_ids", field.Many2Many).WithRelation("res.partner")),

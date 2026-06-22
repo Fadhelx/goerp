@@ -13,6 +13,7 @@ type Manifest struct {
 	Version                 string                       `json:"version"`
 	Category                string                       `json:"category"`
 	Depends                 []string                     `json:"depends"`
+	Excludes                []string                     `json:"excludes,omitempty"`
 	ExternalDependencies    map[string][]string          `json:"external_dependencies,omitempty"`
 	ExternalDependencyHints map[string]map[string]string `json:"external_dependency_hints,omitempty"`
 	Data                    []string                     `json:"data"`
@@ -163,6 +164,8 @@ func parseYAMLManifest(text string) (Manifest, error) {
 			switch listKey {
 			case "depends":
 				manifest.Depends = append(manifest.Depends, value)
+			case "excludes":
+				manifest.Excludes = append(manifest.Excludes, value)
 			case "data":
 				manifest.Data = append(manifest.Data, value)
 			case "demo":
@@ -191,7 +194,7 @@ func parseYAMLManifest(text string) (Manifest, error) {
 			manifest.AutoInstall = value == "true"
 		case "application":
 			manifest.Application = value == "true"
-		case "depends", "data", "demo":
+		case "depends", "excludes", "data", "demo":
 			listKey = key
 			continue
 		default:
@@ -233,6 +236,8 @@ func parsePythonManifest(text string) (Manifest, bool, error) {
 			manifest.Category, _ = parsePythonString(value)
 		case "depends":
 			manifest.Depends = parsePythonStringList(value)
+		case "excludes":
+			manifest.Excludes = parsePythonStringList(value)
 		case "external_dependencies":
 			manifest.ExternalDependencies, manifest.ExternalDependencyHints = parsePythonExternalDependencies(value)
 		case "data":

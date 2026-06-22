@@ -1195,7 +1195,7 @@ CREATE TABLE IF NOT EXISTS base_enable_profiling_wizard (id BIGSERIAL PRIMARY KE
 CREATE TABLE IF NOT EXISTS base_language_export (id BIGSERIAL PRIMARY KEY, name TEXT);
 CREATE TABLE IF NOT EXISTS base_language_import (id BIGSERIAL PRIMARY KEY, name TEXT);
 CREATE TABLE IF NOT EXISTS base_language_install (id BIGSERIAL PRIMARY KEY, lang TEXT);
-CREATE TABLE IF NOT EXISTS base_module_update (id BIGSERIAL PRIMARY KEY, updated INTEGER);
+CREATE TABLE IF NOT EXISTS base_module_update (id BIGSERIAL PRIMARY KEY, updated INTEGER, added INTEGER, state TEXT);
 CREATE TABLE IF NOT EXISTS base_module_upgrade (id BIGSERIAL PRIMARY KEY, module_info TEXT);
 CREATE TABLE IF NOT EXISTS base_module_uninstall (id BIGSERIAL PRIMARY KEY, module_id BIGINT);
 CREATE TABLE IF NOT EXISTS base_partner_merge_automatic_wizard (id BIGSERIAL PRIMARY KEY, partner_ids TEXT);
@@ -2576,5 +2576,9 @@ CREATE TABLE IF NOT EXISTS mail_canned_response (
 `},
 	{Version: 221, Name: "ir_module_dependency_auto_install_required", SQL: `
 ALTER TABLE ir_module_module_dependency ADD COLUMN IF NOT EXISTS auto_install_required BOOLEAN NOT NULL DEFAULT false;
+`},
+	{Version: 222, Name: "base_module_update_wizard_state", SQL: `
+ALTER TABLE base_module_update ADD COLUMN IF NOT EXISTS added INTEGER;
+ALTER TABLE base_module_update ADD COLUMN IF NOT EXISTS state TEXT;
 `},
 }

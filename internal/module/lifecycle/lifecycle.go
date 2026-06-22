@@ -24,8 +24,73 @@ type Result struct {
 	Modules   []string `json:"modules"`
 }
 
+type UpdateListResult struct {
+	Updated int
+	Added   int
+	Modules []string
+}
+
 func New(env *record.Env, manifests map[string]module.Manifest) Service {
 	return Service{Env: env, Manifests: manifests}
+}
+
+func (s Service) UpdateList() (UpdateListResult, error) {
+	if s.Env == nil {
+		return UpdateListResult{}, fmt.Errorf("module lifecycle requires env")
+	}
+	rows, err := s.moduleRowsByName()
+	if err != nil {
+		return UpdateListResult{}, err
+	}
+	result := UpdateListResult{}
+	names := make([]string, 0, len(s.Manifests))
+	for name := range s.Manifests {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		manifest := s.Manifests[name]
+		row, exists := rows[name]
+		rowChanged := false
+		added := false
+		if !exists {
+			state := "uninstalled"
+			if !manifest.Installable {
+				state = "uninstallable"
+			}
+			id, err := s.Env.Model("ir.module.module").Create(map[string]any{"name": name, "state": state})
+			if err != nil {
+				return UpdateListResult{}, err
+			}
+			row = moduleRow{ID: id, Name: name, State: state}
+			rows[name] = row
+			result.Added++
+			added = true
+		} else if manifest.Installable && row.State == "uninstallable" {
+			if err := s.writeRows([]moduleRow{row}, "uninstalled"); err != nil {
+				return UpdateListResult{}, err
+			}
+			row.State = "uninstalled"
+			rows[name] = row
+			rowChanged = true
+		}
+		depsChanged, err := s.syncModuleDependencies(row.ID, manifest)
+		if err != nil {
+			return UpdateListResult{}, err
+		}
+		exclusionsChanged, err := s.syncModuleExclusions(row.ID, manifest.Excludes)
+		if err != nil {
+			return UpdateListResult{}, err
+		}
+		if !added && (rowChanged || depsChanged || exclusionsChanged) {
+			result.Updated++
+		}
+		if added || rowChanged || depsChanged || exclusionsChanged {
+			result.Modules = append(result.Modules, name)
+		}
+	}
+	sort.Strings(result.Modules)
+	return result, nil
 }
 
 func (s Service) ButtonImmediateInstall(ids []int64) (Result, error) {
@@ -513,6 +578,161 @@ func (s Service) rowByName(name string) (moduleRow, bool, error) {
 	}
 	row := rows[0]
 	return moduleRow{ID: int64Value(row["id"]), Name: strings.TrimSpace(fmt.Sprint(row["name"])), State: strings.TrimSpace(fmt.Sprint(row["state"]))}, true, nil
+}
+
+func (s Service) moduleRowsByName() (map[string]moduleRow, error) {
+	found, err := s.Env.Model("ir.module.module").Search(domain.And())
+	if err != nil {
+		return nil, err
+	}
+	rows, err := found.Read("id", "name", "state")
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]moduleRow{}
+	for _, row := range rows {
+		name := strings.TrimSpace(fmt.Sprint(row["name"]))
+		if name == "" {
+			continue
+		}
+		out[name] = moduleRow{ID: int64Value(row["id"]), Name: name, State: strings.TrimSpace(fmt.Sprint(row["state"]))}
+	}
+	return out, nil
+}
+
+func (s Service) syncModuleDependencies(moduleID int64, manifest module.Manifest) (bool, error) {
+	required := autoInstallRequiredDependencies(manifest)
+	names := normalizedExternalDependencyList(manifest.Depends)
+	extras := map[string]map[string]any{}
+	for _, name := range names {
+		extras[name] = map[string]any{"auto_install_required": required[name]}
+	}
+	return s.syncModuleNamedRows("ir.module.module.dependency", moduleID, names, extras)
+}
+
+func autoInstallRequiredDependencies(manifest module.Manifest) map[string]bool {
+	required := map[string]bool{}
+	if !manifest.AutoInstall {
+		return required
+	}
+	deps := manifest.AutoInstallDepends
+	if len(deps) == 0 {
+		deps = manifest.Depends
+	}
+	for _, dep := range deps {
+		dep = strings.TrimSpace(dep)
+		if dep != "" {
+			required[dep] = true
+		}
+	}
+	return required
+}
+
+func (s Service) syncModuleExclusions(moduleID int64, excludes []string) (bool, error) {
+	return s.syncModuleNamedRows("ir.module.module.exclusion", moduleID, normalizedExternalDependencyList(excludes), nil)
+}
+
+func (s Service) syncModuleNamedRows(modelName string, moduleID int64, names []string, extras map[string]map[string]any) (bool, error) {
+	found, err := s.Env.Model(modelName).Search(domain.Cond("module_id", domain.Equal, moduleID))
+	if err != nil {
+		return false, err
+	}
+	fields := []string{"id", "module_id", "name"}
+	extraFields := map[string]bool{}
+	for _, values := range extras {
+		for key := range values {
+			extraFields[key] = true
+		}
+	}
+	for key := range extraFields {
+		fields = append(fields, key)
+	}
+	sort.Strings(fields)
+	rows, err := found.Read(fields...)
+	if err != nil {
+		return false, err
+	}
+	want := map[string]bool{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			want[name] = true
+		}
+	}
+	seen := map[string]int64{}
+	changed := false
+	for _, row := range rows {
+		id := int64Value(row["id"])
+		name := strings.TrimSpace(fmt.Sprint(row["name"]))
+		if id == 0 || name == "" {
+			continue
+		}
+		if !want[name] {
+			if err := s.Env.Model(modelName).Browse(id).Unlink(); err != nil {
+				return false, err
+			}
+			changed = true
+			continue
+		}
+		seen[name] = id
+		values := map[string]any{"name": name, "module_id": moduleID}
+		for key, value := range extras[name] {
+			values[key] = value
+		}
+		if len(values) > 2 && rowValuesDiffer(row, values) {
+			if err := s.Env.Model(modelName).Browse(id).Write(values); err != nil {
+				return false, err
+			}
+			changed = true
+		}
+	}
+	for _, name := range names {
+		if seen[name] > 0 {
+			continue
+		}
+		values := map[string]any{"name": name, "module_id": moduleID}
+		for key, value := range extras[name] {
+			values[key] = value
+		}
+		if _, err := s.Env.Model(modelName).Create(values); err != nil {
+			return false, err
+		}
+		changed = true
+	}
+	return changed, nil
+}
+
+func rowValuesDiffer(row map[string]any, values map[string]any) bool {
+	for key, want := range values {
+		switch wantValue := want.(type) {
+		case bool:
+			if boolValue(row[key]) != wantValue {
+				return true
+			}
+		default:
+			if fmt.Sprint(row[key]) != fmt.Sprint(want) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func boolValue(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true") || strings.TrimSpace(v) == "1"
+	case int:
+		return v != 0
+	case int64:
+		return v != 0
+	case float64:
+		return v != 0
+	default:
+		return false
+	}
 }
 
 func (s Service) activeDependentModules() (map[string]string, error) {
