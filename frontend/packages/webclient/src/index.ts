@@ -6558,9 +6558,11 @@ function renderFormView(
   const fieldNodes: ViewFieldNode[] = nodes.length
     ? nodes
     : fallbackFieldNodes;
-  const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes);
+  const usingDefaultFormNodes = !allFieldNodes.length && fallbackFieldNodes.length > 0;
+  const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes)
+    .filter((node) => !defaultUsersAccessNotebookField(model, usingDefaultFormNodes, node.name));
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
-  const notebooks = parseFormNotebooks(arch);
+  const notebooks = [...parseFormNotebooks(arch), ...defaultFormNotebooks(model, usingDefaultFormNodes, fields)];
   if (buttons.length || statusbarNodes.length) {
     const header = document.createElement("div");
     header.className = "gorp-form-header o_form_statusbar";
@@ -6616,6 +6618,23 @@ function technicalActionMainFieldNodes(model: string, nodes: readonly ViewFieldN
   if (model === "ir.actions.server") return nodes.filter((node) => node.name !== "code" && node.name !== "help");
   if (model === "ir.cron") return nodes.filter((node) => node.name !== "code");
   return [...nodes];
+}
+
+function defaultUsersAccessNotebookField(model: string, usingDefaultFormNodes: boolean, fieldName: string): boolean {
+  return model === "res.users" && usingDefaultFormNodes && fieldName === "group_ids";
+}
+
+function defaultFormNotebooks(model: string, usingDefaultFormNodes: boolean, fields: Record<string, unknown>): FormNotebook[] {
+  if (model !== "res.users" || !usingDefaultFormNodes || fields.group_ids === undefined) return [];
+  return [{
+    id: "res-users-access-rights",
+    pages: [{
+      id: "access-rights",
+      label: "Access Rights",
+      attrs: { name: "access_rights", string: "Access Rights" },
+      fields: [{ name: "group_ids", attrs: { widget: "res_user_group_ids" }, children: [], childViewAttrs: {} }]
+    }]
+  }];
 }
 
 function renderFormFieldNode(
@@ -7441,6 +7460,7 @@ function renderOne2ManyCellEditor(
   column: ViewFieldNode,
   description: unknown,
   row: One2ManyEditorRow,
+  options: RenderWindowActionOptions,
   onChange: () => void
 ): HTMLElement {
   const fieldType = fieldTypeValue(description);
@@ -7478,6 +7498,9 @@ function renderOne2ManyCellEditor(
     });
     return select;
   }
+  if (fieldType === "many2one") {
+    return renderOne2ManyMany2OneCellEditor(column, description, row, options, onChange);
+  }
   if (fieldType && !["", "char", "text", "html", "integer", "float", "monetary"].includes(fieldType)) {
     const output = document.createElement("output");
     output.className = "gorp-one2many-readonly o_field_widget o_readonly_modifier";
@@ -7505,7 +7528,127 @@ function renderOne2ManyCellEditor(
   return input;
 }
 
-function one2ManyEditorCommands(rows: readonly One2ManyEditorRow[], columns: readonly ViewFieldNode[]): unknown[] {
+function renderOne2ManyMany2OneCellEditor(
+  column: ViewFieldNode,
+  description: unknown,
+  row: One2ManyEditorRow,
+  options: RenderWindowActionOptions,
+  onChange: () => void
+): HTMLElement {
+  const relation = fieldRelationValue(description);
+  const current = many2OneDisplayData(row.values[column.name]);
+  const root = document.createElement("span");
+  root.className = "gorp-one2many-many2one-editor gorp-many2one-editor o_field_widget o_field_many2one";
+  root.dataset.field = column.name;
+  if (relation) root.dataset.relation = relation;
+  if (current.id !== undefined) root.dataset.resId = String(current.id);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "gorp-one2many-input o_input";
+  input.dataset.field = column.name;
+  input.value = current.displayName;
+  input.setAttribute("autocomplete", "off");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-haspopup", "listbox");
+  input.setAttribute("aria-expanded", "false");
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "gorp-many2one-dropdown-toggle o_dropdown_button";
+  toggle.dataset.field = column.name;
+  toggle.setAttribute("aria-label", `Open ${fieldLabel({ [column.name]: description }, column.name)}`);
+  toggle.setAttribute("aria-haspopup", "listbox");
+  toggle.setAttribute("aria-expanded", "false");
+  const dropdown = document.createElement("div");
+  dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
+  dropdown.setAttribute("role", "listbox");
+  dropdown.hidden = true;
+  const closeDropdown = () => {
+    dropdown.hidden = true;
+    dropdown.setAttribute("hidden", "hidden");
+    input.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-expanded", "false");
+  };
+  const openDropdown = () => {
+    dropdown.hidden = false;
+    dropdown.removeAttribute("hidden");
+    input.setAttribute("aria-expanded", "true");
+    toggle.setAttribute("aria-expanded", "true");
+  };
+  const renderItems = (items: readonly Many2OneSearchItem[]) => {
+    dropdown.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement("span");
+      empty.className = "gorp-many2one-empty text-muted";
+      empty.textContent = "No records found";
+      dropdown.append(empty);
+      openDropdown();
+      return;
+    }
+    for (const item of items) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "gorp-many2one-option dropdown-item";
+      option.dataset.resId = String(item.id);
+      option.textContent = item.displayName;
+      option.setAttribute("role", "option");
+      option.addEventListener("click", () => {
+        row.values[column.name] = [item.id, item.displayName];
+        root.dataset.resId = String(item.id);
+        input.value = item.displayName;
+        onChange();
+        closeDropdown();
+      });
+      dropdown.append(option);
+    }
+    openDropdown();
+  };
+  const search = async (queryOverride?: string, clearSelection = true) => {
+    const query = (queryOverride ?? input.value).trim();
+    if (clearSelection) {
+      delete root.dataset.resId;
+      row.values[column.name] = false;
+      onChange();
+    }
+    if (!relation || !options.services?.orm) {
+      renderItems(current.id !== undefined && (!query || current.displayName.toLowerCase().includes(query.toLowerCase())) ? [{ id: current.id, displayName: current.displayName }] : []);
+      return;
+    }
+    root.dataset.loading = "true";
+    try {
+      const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
+        name: query,
+        args: [],
+        operator: "ilike",
+        limit: 8,
+        context: options.context ?? {}
+      });
+      renderItems(many2OneSearchItems(result));
+    } catch (error) {
+      options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+      renderItems([]);
+    } finally {
+      delete root.dataset.loading;
+    }
+  };
+  input.addEventListener("input", () => {
+    void search();
+  });
+  input.addEventListener("focus", () => {
+    void search(undefined, false);
+  });
+  toggle.addEventListener("click", () => {
+    input.focus();
+    void search("", false);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDropdown();
+  });
+  root.append(input, toggle, dropdown);
+  return root;
+}
+
+function one2ManyEditorCommands(rows: readonly One2ManyEditorRow[], columns: readonly ViewFieldNode[], childFields: Record<string, unknown>): unknown[] {
   const commands: unknown[] = [];
   for (const row of rows) {
     if (row.removed) {
@@ -7513,30 +7656,37 @@ function one2ManyEditorCommands(rows: readonly One2ManyEditorRow[], columns: rea
       continue;
     }
     if (row.id === undefined) {
-      const values = one2ManyCommandValues(row.values, columns);
+      const values = one2ManyCommandValues(row.values, columns, childFields);
       if (one2ManyValuesMeaningful(values)) commands.push(x2ManyCommands.create(false, values));
       continue;
     }
     if (!row.dirty) continue;
-    const changes = one2ManyChangedValues(row, columns);
+    const changes = one2ManyChangedValues(row, columns, childFields);
     if (Object.keys(changes).length) commands.push(x2ManyCommands.update(row.id, changes));
   }
   return commands;
 }
 
-function one2ManyChangedValues(row: One2ManyEditorRow, columns: readonly ViewFieldNode[]): Record<string, unknown> {
+function one2ManyChangedValues(row: One2ManyEditorRow, columns: readonly ViewFieldNode[], childFields: Record<string, unknown>): Record<string, unknown> {
   const changes: Record<string, unknown> = {};
   for (const column of columns) {
     const value = row.values[column.name];
-    if (!sameSettingsValue(row.originalValues[column.name], value)) changes[column.name] = value;
+    if (!sameSettingsValue(row.originalValues[column.name], value)) changes[column.name] = one2ManySaveValue(childFields[column.name], value);
   }
   return changes;
 }
 
-function one2ManyCommandValues(values: Record<string, unknown>, columns: readonly ViewFieldNode[]): Record<string, unknown> {
+function one2ManyCommandValues(values: Record<string, unknown>, columns: readonly ViewFieldNode[], childFields: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const column of columns) out[column.name] = values[column.name] ?? false;
+  for (const column of columns) out[column.name] = one2ManySaveValue(childFields[column.name], values[column.name]);
   return out;
+}
+
+function one2ManySaveValue(description: unknown, value: unknown): unknown {
+  if (fieldTypeValue(description) === "many2one") {
+    return many2OneDisplayData(value).id ?? false;
+  }
+  return value ?? false;
 }
 
 function one2ManyValuesMeaningful(values: Record<string, unknown>): boolean {
@@ -8782,7 +8932,7 @@ function renderOne2ManyListEditor(
   const syncValue = () => {
     const activeRows = rows.filter((row) => !row.removed);
     const displayRows = activeRows.map((row) => ({ ...row.values, ...(row.id !== undefined ? { id: row.id } : {}) }));
-    const commands = one2ManyEditorCommands(rows, columns);
+    const commands = one2ManyEditorCommands(rows, columns, childFields);
     root.dataset.count = String(activeRows.length);
     values[node.name] = { __gorpOne2ManyEditor: true, commands, rows: displayRows } satisfies One2ManyEditorValue;
     emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
@@ -8811,7 +8961,7 @@ function renderOne2ManyListEditor(
         const td = document.createElement("td");
         td.dataset.field = column.name;
         td.dataset.label = columnLabels.get(column.name) || fieldLabel(childFields, column.name, relation);
-        td.append(renderOne2ManyCellEditor(column, childFields[column.name], row, () => {
+        td.append(renderOne2ManyCellEditor(column, childFields[column.name], row, options, () => {
           row.dirty = true;
           syncValue();
         }));

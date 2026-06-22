@@ -118,6 +118,12 @@ func TestManifestDataFilesLoad(t *testing.T) {
 		"base.properties_base_definition_rule_admin",
 		"base.res_config_settings_view_form",
 		"base.action_currency_form",
+		"base.view_users_list",
+		"base.view_users_form",
+		"base.view_users_search",
+		"base.view_groups_list",
+		"base.view_groups_form",
+		"base.view_groups_search",
 		"base.view_ir_actions_server_list",
 		"base.view_ir_actions_server_form",
 		"base.view_ir_actions_server_search",
@@ -257,6 +263,10 @@ func TestManifestDataFilesLoad(t *testing.T) {
 	assertField(t, env, "res.groups", ids["base.group_allow_export"].ResID, "full_name", "Export / Allowed")
 	assertField(t, env, "res.groups", ids["mass_mailing.group_mass_mailing_user"].ResID, "privilege_id", ids["mass_mailing.res_groups_privilege_email_marketing"].ResID)
 	assertField(t, env, "res.groups.privilege", ids["base.res_groups_privilege_export"].ResID, "placeholder", "No")
+	assertField(t, env, "ir.actions.act_window", ids["base.action_res_users"].ResID, "view_id", ids["base.view_users_list"].ResID)
+	assertField(t, env, "ir.actions.act_window", ids["base.action_res_users"].ResID, "search_view_id", ids["base.view_users_search"].ResID)
+	assertField(t, env, "ir.actions.act_window", ids["base.action_res_groups"].ResID, "view_id", ids["base.view_groups_list"].ResID)
+	assertField(t, env, "ir.actions.act_window", ids["base.action_res_groups"].ResID, "search_view_id", ids["base.view_groups_search"].ResID)
 	systemRows, err := env.Model("res.groups").Browse(ids["base.group_system"].ResID).Read("implied_ids", "user_ids", "comment")
 	if err != nil {
 		t.Fatal(err)

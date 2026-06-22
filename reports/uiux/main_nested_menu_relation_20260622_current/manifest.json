@@ -1,0 +1,337 @@
+{
+  "generated_at": "2026-06-22T18:10:33.292Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-navbar-nested-menus-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-navbar-nested-menus-desktop.png",
+      "sha256": "b6d7c0edb51fca9cbf89d38d633d96c9732b829df6e4a24ae0d28c0837eabb7a",
+      "assertions": {
+        "sections": [
+          {
+            "text": "General Settings",
+            "dropdown": false,
+            "menu_id": "2"
+          },
+          {
+            "text": "Users & Companies",
+            "dropdown": true,
+            "menu_id": "3"
+          },
+          {
+            "text": "Translations",
+            "dropdown": false,
+            "menu_id": "7"
+          },
+          {
+            "text": "Technical",
+            "dropdown": true,
+            "menu_id": "8"
+          }
+        ],
+        "technical_menu": {
+          "parent_id": "",
+          "in_legacy_top_menu": false,
+          "webclient_view": "apps",
+          "button_menu_id": "8",
+          "button_expanded": "true",
+          "menu_class": "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu show",
+          "menu_hidden": false,
+          "raw_children": [
+            {
+              "tag": "SPAN",
+              "text": "Actions",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "9",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Server Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "10",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Scheduled Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "11",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Automation Rules",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "12",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "User Interface",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "13",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Views",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "14",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Menu Items",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "15",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Database Structure",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "16",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Models",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "17",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Fields",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "18",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Security",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "19",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Access Rights",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "20",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Record Rules",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "21",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Email",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "22",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Email Templates",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "23",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Outgoing Mail Servers",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "24",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Incoming Mail Servers",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "25",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Emails",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "26",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Messages",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "27",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Apps",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "28",
+              "level": "0"
+            }
+          ],
+          "headers": [
+            "Actions",
+            "User Interface",
+            "Database Structure",
+            "Security",
+            "Email"
+          ],
+          "items": [
+            {
+              "text": "Server Actions",
+              "level": "1",
+              "menu_id": "10"
+            },
+            {
+              "text": "Scheduled Actions",
+              "level": "1",
+              "menu_id": "11"
+            },
+            {
+              "text": "Automation Rules",
+              "level": "1",
+              "menu_id": "12"
+            },
+            {
+              "text": "Views",
+              "level": "1",
+              "menu_id": "14"
+            },
+            {
+              "text": "Menu Items",
+              "level": "1",
+              "menu_id": "15"
+            },
+            {
+              "text": "Models",
+              "level": "1",
+              "menu_id": "17"
+            },
+            {
+              "text": "Fields",
+              "level": "1",
+              "menu_id": "18"
+            },
+            {
+              "text": "Access Rights",
+              "level": "1",
+              "menu_id": "20"
+            },
+            {
+              "text": "Record Rules",
+              "level": "1",
+              "menu_id": "21"
+            },
+            {
+              "text": "Email Templates",
+              "level": "1",
+              "menu_id": "23"
+            },
+            {
+              "text": "Outgoing Mail Servers",
+              "level": "1",
+              "menu_id": "24"
+            },
+            {
+              "text": "Incoming Mail Servers",
+              "level": "1",
+              "menu_id": "25"
+            },
+            {
+              "text": "Emails",
+              "level": "1",
+              "menu_id": "26"
+            },
+            {
+              "text": "Messages",
+              "level": "1",
+              "menu_id": "27"
+            },
+            {
+              "text": "Apps",
+              "level": "0",
+              "menu_id": "28"
+            }
+          ],
+          "item_labels": [
+            "Server Actions",
+            "Scheduled Actions",
+            "Automation Rules",
+            "Views",
+            "Menu Items",
+            "Models",
+            "Fields",
+            "Access Rights",
+            "Record Rules",
+            "Email Templates",
+            "Outgoing Mail Servers",
+            "Incoming Mail Servers",
+            "Emails",
+            "Messages",
+            "Apps"
+          ]
+        },
+        "active_title": "Server Actions"
+      },
+      "duration_ms": 978
+    },
+    {
+      "name": "default-users-flow-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-flow-desktop.png",
+      "sha256": "d8c193ab8cf0547a978739f0105b8faef847b6ac0dc1da99081f5d83459483ca",
+      "assertions": {
+        "list_rows": 2,
+        "form_state": {
+          "has_form": true,
+          "labels": [
+            "Name",
+            "Login",
+            "Email",
+            "Company",
+            "Role",
+            "Active",
+            "Notification",
+            "Signature",
+            "Company",
+            "Partner"
+          ],
+          "access_notebook": "notebook-access_notebook",
+          "access_tabs": [
+            "Access Rights",
+            "Preferences"
+          ],
+          "has_access_notebook": true,
+          "has_group_widget": true,
+          "group_widget_role": "group_system",
+          "has_identity_label": true,
+          "has_identity_value": true
+        }
+      },
+      "duration_ms": 566
+    }
+  ],
+  "duration_ms": 1709
+}

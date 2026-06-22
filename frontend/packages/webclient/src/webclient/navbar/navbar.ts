@@ -230,7 +230,10 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
 
   function appendNavbarMenuEntries(menu: HTMLElement, entries: readonly NavbarApp[], level: number): void {
     for (const entry of entries) {
-      if (entry.children?.length) {
+      if (entry.children?.length && entry.action === false) {
+        appendNavbarMenuHeader(menu, entry, level);
+        appendNavbarMenuEntries(menu, entry.children, level + 1);
+      } else if (entry.children?.length) {
         const group = document.createElement("div");
         group.className = "o_navbar_dropdown_group";
         group.dataset.menuId = String(entry.id);
@@ -294,14 +297,18 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
         });
         menu.append(item);
       } else {
-        const header = document.createElement("span");
-        header.className = "dropdown-header o_navbar_dropdown_header";
-        header.dataset.menuId = String(entry.id);
-        header.dataset.menuLevel = String(level);
-        header.textContent = entry.name;
-        menu.append(header);
+        appendNavbarMenuHeader(menu, entry, level);
       }
     }
+  }
+
+  function appendNavbarMenuHeader(menu: HTMLElement, entry: NavbarApp, level: number): void {
+    const header = document.createElement("span");
+    header.className = "dropdown-header o_navbar_dropdown_header";
+    header.dataset.menuId = String(entry.id);
+    header.dataset.menuLevel = String(level);
+    header.textContent = entry.name;
+    menu.append(header);
   }
 
   function setHomeMenuBackMode(enabled: boolean): void {

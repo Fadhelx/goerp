@@ -2327,15 +2327,24 @@ export const scenarios = [
       const formState = await evaluate(page, `(() => {
         const form = document.querySelector(".o_web_client .gorp-form-view[data-model='res.users']");
         const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const notebooks = [...(form?.querySelectorAll(".gorp-form-notebook") || [])];
+        const accessNotebook = notebooks.find((notebook) => [...notebook.querySelectorAll(".gorp-form-notebook-tab[role='tab']")].some((node) => node.textContent.trim() === "Access Rights"));
+        const accessTabs = [...(accessNotebook?.querySelectorAll(".gorp-form-notebook-tab[role='tab']") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const groupWidget = accessNotebook?.querySelector(".gorp-res-user-group-ids[data-field='group_ids']");
         const text = form?.textContent || "";
         return {
           has_form: Boolean(form),
           labels,
+          access_notebook: accessNotebook?.dataset?.notebook || "",
+          access_tabs: accessTabs,
+          has_access_notebook: Boolean(accessNotebook),
+          has_group_widget: Boolean(groupWidget),
+          group_widget_role: groupWidget?.dataset?.role || "",
           has_identity_label: labels.includes("Name") || labels.includes("Login"),
           has_identity_value: text.includes("Administrator") || text.includes("admin")
         };
       })()`);
-      if (!formState.has_form || !formState.has_identity_label || !formState.has_identity_value) {
+      if (!formState.has_form || !formState.has_identity_label || !formState.has_identity_value || !formState.has_access_notebook || !formState.access_tabs.includes("Access Rights") || !formState.has_group_widget) {
         throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
       }
       return { list_rows: listRows, form_state: formState };
