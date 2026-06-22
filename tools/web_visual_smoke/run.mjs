@@ -137,7 +137,18 @@ export const scenarios = [
         return hash.includes("action=") && hash.includes("model=ir.actions.server") && hash.includes("view_type=list") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS technical action hash");
       const themeAudit = await assertEnterprisePolishSnapshot(page);
-      return { title, hash, ...opened, ...themeAudit };
+      const labelState = await evaluate(page, `(() => {
+        const headers = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view th[data-name] .o_list_header_button")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        const state = document.querySelector(".o_web_client .o_action_manager .gorp-list-view td[data-field='state']")?.textContent?.trim() || "";
+        return { headers, state };
+      })()`);
+      for (const label of ["Name", "Type", "Model", "Active"]) {
+        if (!labelState.headers.includes(label)) throw new Error(`TS technical list missing header ${label}: ${JSON.stringify(labelState)}`);
+      }
+      if (labelState.state === "code") throw new Error(`TS technical list shows raw state value: ${JSON.stringify(labelState)}`);
+      return { title, hash, ...opened, ...themeAudit, label_state: labelState };
     }
   },
   {

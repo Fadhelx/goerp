@@ -2707,7 +2707,7 @@ function renderListView(
     const button = document.createElement("button");
     button.type = "button";
     button.className = "o_list_header_button";
-    button.textContent = fieldLabel(fields, node.name);
+    button.textContent = fieldLabel(fields, node.name, model);
     button.addEventListener("click", () => {
       sortListRows(tbody, fieldNodes, fields, node.name, th, showToolbar);
     });
@@ -2759,7 +2759,7 @@ function renderListView(
     for (const node of fieldNodes) {
       const cell = document.createElement("td");
       cell.dataset.field = node.name;
-      cell.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
+      cell.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
       row.append(cell);
     }
     tbody.append(row);
@@ -2908,10 +2908,10 @@ function renderMobileListCards(
       line.dataset.field = node.name;
       const label = document.createElement("span");
       label.className = "o_mobile_record_label";
-      label.textContent = fieldLabel(fields, node.name);
+      label.textContent = fieldLabel(fields, node.name, model);
       const value = document.createElement("span");
       value.className = "o_mobile_record_value";
-      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
+      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
       line.append(label, value);
       card.append(line);
     }
@@ -2974,7 +2974,7 @@ function renderKanbanView(
     main.className = "oe_kanban_details";
     const title = document.createElement("strong");
     title.className = "o_kanban_record_title";
-    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id);
+    title.textContent = fieldDisplayText(fields[titleField], record[titleField] ?? record.display_name ?? record.name ?? record.id, model, titleField);
     main.append(title);
     for (const node of fieldNodes) {
       if (node.name === titleField || node.name === "id") continue;
@@ -2983,10 +2983,10 @@ function renderKanbanView(
       line.dataset.field = node.name;
       const label = document.createElement("span");
       label.className = "o_kanban_field_label";
-      label.textContent = fieldLabel(fields, node.name);
+      label.textContent = fieldLabel(fields, node.name, model);
       const value = document.createElement("span");
       value.className = "o_kanban_field_value";
-      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record));
+      value.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
       line.append(label, value);
       main.append(line);
     }
@@ -4653,7 +4653,7 @@ function renderFormFieldNode(
   label.dataset.field = name;
   const caption = document.createElement("span");
   caption.className = "o_form_label";
-  caption.textContent = fieldLabel(fields, name);
+  caption.textContent = fieldLabel(fields, name, form.dataset.model);
   const required = formFieldRequired(node, fields[name], recordValues);
   if (required) label.dataset.required = "true";
   const value = (editMode || required) && formFieldEditable(node, fields[name], recordValues, form.dataset.model, name)
@@ -4895,20 +4895,22 @@ function renderReadonlyFieldValue(
   value: unknown,
   evalContext: Record<string, unknown>,
   form?: HTMLElement,
-  options?: RenderWindowActionOptions
+  options?: RenderWindowActionOptions,
+  model?: string
 ): HTMLElement {
+  const displayModel = form?.dataset.model || model;
   if (node.attrs.widget === "many2one_avatar_employee" && fieldTypeValue(description) === "many2one") {
     return renderMany2OneAvatarValue(node.name, fieldRelationValue(description) || "hr.employee", value);
   }
   if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
     return renderBadgeValue(node, description, value, evalContext);
   }
-  if (form?.dataset.model === "ir.actions.server" && node.name === "code") {
+  if (displayModel === "ir.actions.server" && node.name === "code") {
     return renderCodeViewer(node.name, value);
   }
-  const choices = selectionOptionsForField(description, form?.dataset.model, node.name);
+  const choices = selectionOptionsForField(description, displayModel, node.name);
   if (form && fieldTypeValue(description) === "selection" && choices.length) {
-    return renderSelectionPillValue(node, choices, value, fieldLabel({ [node.name]: description }, node.name));
+    return renderSelectionPillValue(node, choices, value, fieldLabel({ [node.name]: description }, node.name, displayModel));
   }
   if (fieldTypeValue(description) === "many2one") {
     const relation = fieldRelationValue(description);
@@ -4922,7 +4924,7 @@ function renderReadonlyFieldValue(
   }
   const output = document.createElement("output");
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
-  output.textContent = fieldDisplayText(description, value);
+  output.textContent = fieldDisplayText(description, value, displayModel, node.name);
   return output;
 }
 
@@ -5472,11 +5474,11 @@ function listDecorationClassName(attrs: Record<string, string>, evalContext: Rec
   return classes.join(" ");
 }
 
-function fieldDisplayText(description: unknown, value: unknown): string {
+function fieldDisplayText(description: unknown, value: unknown, model?: string, fieldName?: string): string {
   const fieldType = fieldTypeValue(description);
   if (fieldType === "selection") {
     const key = String(value ?? "");
-    const found = selectionOptions(description).find(([candidate]) => candidate === key);
+    const found = selectionOptionsForField(description, model, fieldName ?? "").find(([candidate]) => candidate === key);
     if (found) return found[1];
   }
   if (fieldType === "many2one" || fieldType === "reference") {
@@ -7609,10 +7611,48 @@ function xmlDecodeAttribute(value: string): string {
   });
 }
 
-function fieldLabel(fields: Record<string, unknown>, name: string): string {
+function fieldLabel(fields: Record<string, unknown>, name: string, model?: string): string {
+  const known = knownFieldLabel(model, name);
+  if (known) return known;
   const description = fields[name];
-  if (isRecord(description) && typeof description.string === "string") return description.string;
-  return name;
+  if (isRecord(description) && typeof description.string === "string" && !technicalFieldLabel(description.string, name)) return description.string;
+  return humanizeFieldName(name);
+}
+
+function knownFieldLabel(model: string | undefined, name: string): string {
+  if (model === "ir.actions.server") {
+    switch (name) {
+      case "name":
+        return "Name";
+      case "model_id":
+      case "model_name":
+        return "Model";
+      case "state":
+        return "Type";
+      case "group_ids":
+        return "Allowed Groups";
+      case "code":
+        return "Code";
+      case "active":
+        return "Active";
+      case "usage":
+        return "Usage";
+      default:
+        return "";
+    }
+  }
+  return "";
+}
+
+function technicalFieldLabel(label: string, name: string): boolean {
+  const value = label.trim();
+  if (!value) return true;
+  return value === name || value === value.toLowerCase() || value.includes("_");
+}
+
+function humanizeFieldName(name: string): string {
+  const source = name.replace(/_ids?$/, "").replace(/_/g, " ").trim() || name;
+  return source.split(/\s+/).map((word) => word ? word[0].toUpperCase() + word.slice(1) : word).join(" ");
 }
 
 function selectionOptions(description: unknown): Array<[string, string]> {

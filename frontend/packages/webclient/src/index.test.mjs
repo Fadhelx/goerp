@@ -1508,6 +1508,8 @@ let genericForm = genericFormWindow.children[1];
 const genericServerBand = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-band"))[0];
 assert.equal(genericServerBand.dataset.state, "code");
 assert.equal(findAll(genericServerBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
+const genericFormLabels = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
+assert.deepEqual(genericFormLabels.slice(0, 5), ["Name", "Model", "Type", "Allowed Groups", "Active"]);
 const genericServerNotebook = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-notebook"))[0];
 assert.deepEqual(findAll(genericServerNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
 const genericCodeViewer = findAll(genericServerNotebook, (node) => String(node.className ?? "").includes("gorp-code-viewer") && node.dataset?.field === "code")[0];
@@ -1649,6 +1651,34 @@ const genericRestoredName = findAll(genericForm, (node) => node.tag === "input" 
 assert.equal(genericRestoredName.value, "Send Follow-up");
 assert.equal(genericFormSaveCalls.length, 1);
 assert.equal(genericFormDiscardEvents.length, 1);
+
+const serverActionListWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Server Actions" },
+  activeView: "list",
+  resModel: "ir.actions.server",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "name" },
+      state: { type: "selection", string: "state" },
+      model_name: { type: "char", string: "model_name" },
+      active: { type: "boolean", string: "active" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="state"/><field name="model_name"/><field name="active"/></list>`,
+        id: 74
+      }
+    }
+  },
+  records: [{ id: 31, name: "Mail: Email Queue Manager", state: "code", model_name: "mail.mail", active: true }],
+  length: 1
+});
+const serverActionListTable = findAll(serverActionListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Type", "Model", "Active"]);
+const serverActionStateCell = findAll(serverActionListTable, (node) => node.dataset?.field === "state")[0];
+assert.equal(findAll(serverActionStateCell, (node) => node.tag === "output")[0].textContent, "Execute Code");
 
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({

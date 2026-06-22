@@ -13,6 +13,7 @@ Reference policy: clean-room only. `/Users/fadhelalqaidoom/Desktop/odoo` used as
 - Readonly selection fields render Odoo-style selection pills in forms.
 - Editable selection fields render Odoo-style radio pills when choices are known.
 - Server Action forms now include a clean-room header/meta band, Code/Help notebook, readonly code viewer, and code-editor-style textarea.
+- Server Action list/form labels now hide raw technical field names and display selection values as human labels.
 - `ir.actions.server.state` now exposes explicit selection metadata for runtime `fields_get` and visual form rendering.
 - `default-technical-form-desktop` smoke now asserts Server Action band, notebook, code viewer/editor, state pills, and state radio editor.
 
@@ -21,6 +22,7 @@ Reference policy: clean-room only. `/Users/fadhelalqaidoom/Desktop/odoo` used as
 - Canonical visual smoke: `reports/web_visual_smoke/manifest.json`
 - Canonical screenshots: `reports/web_visual_smoke/`
 - Focused Server Action evidence: `reports/uiux/kant_server_action_form_v1_20260622/`
+- Focused label evidence: `reports/uiux/kant_field_labels_20260622/`
 
 ## Verification
 
