@@ -2672,18 +2672,19 @@ const kanbanTemplateWindow = renderWindowAction({
       email: { type: "char", string: "Email" },
       state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] },
       tags: { type: "many2many", string: "Tags", relation: "res.partner.category" },
+      employee_id: { type: "many2one", string: "Employee", relation: "hr.employee" },
       url: { type: "char", string: "URL" }
     },
     relatedModels: {},
     views: {
       kanban: {
-        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><field name="tags"/><field name="url"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-att="{'data-state': record.state.raw_value}" t-att-data-id="record.id.raw_value" t-att-title="record.display_name.value" t-attf-aria-label="Partner #{record.display_name.value}" t-attf-class="state-#{record.state.raw_value}"><t t-set="badge" t-value="record.state.value"/><t t-set="body_note"><span class="tmpl-captured">Captured <t t-esc="record.display_name.value"/></span></t><strong class="tmpl-title"><field name="display_name"/></strong><span class="tmpl-badge" t-att-data-badge="badge" t-esc="badge"/><t t-out="body_note"/><a class="tmpl-link" t-att-href="record.url.raw_value" t-att-rel="'noopener'">Open</a><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/><t t-call="kanban-tag-list"><span class="tmpl-slot">Slot <t t-esc="record.state.value"/></span></t></div></t><t t-name="kanban-tag-list"><section class="tmpl-subtemplate" data-called="tag-list"><t t-out="0"/><ul class="tmpl-tags"><t t-foreach="record.tags.raw_value" t-as="tag"><li class="tmpl-tag" t-att-data-index="tag_index" t-attf-class="tag-#{tag_index}" t-esc="tag"/></t></ul></section></t></templates></kanban>`,
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><field name="tags"/><field name="employee_id"/><field name="url"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-att="{'data-state': record.state.raw_value}" t-att-data-id="record.id.raw_value" t-att-title="record.display_name.value" t-attf-aria-label="Partner #{record.display_name.value}" t-attf-class="state-#{record.state.raw_value}"><t t-set="badge" t-value="record.state.value"/><t t-set="body_note"><span class="tmpl-captured">Captured:<t t-esc="record.display_name.value"/></span></t><strong class="tmpl-title"><field name="display_name"/></strong><field name="employee_id" widget="many2one_avatar_employee" class="tmpl-assignee"/><field name="state" widget="badge" decoration-success="state == 'new'" class="tmpl-state-badge"/><field name="tags" widget="many2many_tags" class="tmpl-tag-widget"/><span class="tmpl-badge" t-att-data-badge="badge" t-esc="badge"/><t t-out="body_note"/><a class="tmpl-link" t-att-href="record.url.raw_value" t-att-rel="'noopener'">Open</a><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/><t t-call="kanban-tag-list"><span class="tmpl-slot">Slot:<t t-esc="record.state.value"/></span></t></div></t><t t-name="kanban-tag-list"><section class="tmpl-subtemplate" data-called="tag-list"><t t-out="0"/><ul class="tmpl-tags"><t t-foreach="record.tags.raw_value" t-as="tag"><li class="tmpl-tag" t-att-data-index="tag_index" t-attf-class="tag-#{tag_index}" t-esc="tag[1]"/></t></ul></section></t></templates></kanban>`,
         id: 29
       },
       form: { arch: `<form><field name="display_name"/></form>`, id: 30 }
     }
   },
-  records: [{ id: 41, display_name: "Template Partner", email: "template@example.test", state: "new", tags: ["VIP", "Supplier"], url: "#record-41" }],
+  records: [{ id: 41, display_name: "Template Partner", email: "template@example.test", state: "new", tags: [[12, "VIP"], [13, "Supplier"]], employee_id: [17, "Mina Reyes"], url: "#record-41" }],
   length: 1
 });
 const kanbanTemplateCard = findAll(kanbanTemplateWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
@@ -2695,6 +2696,9 @@ const kanbanTemplateEmail = findAll(kanbanTemplateRoot, (node) => String(node.cl
 const kanbanTemplateState = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-state"))[0];
 const kanbanTemplateLink = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-link"))[0];
 const kanbanTemplateBadge = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-badge"))[0];
+const kanbanTemplateWidgetBadge = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-badge"))[0];
+const kanbanTemplateX2ManyWidget = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-x2many-tags"))[0];
+const kanbanTemplateAvatarWidget = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0];
 const kanbanTemplateCaptured = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-captured"))[0];
 const kanbanTemplateSlot = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-slot"))[0];
 const kanbanTemplateSubtemplate = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-subtemplate"))[0];
@@ -2711,9 +2715,19 @@ assert.equal(kanbanTemplateRoot.attributes["aria-label"], "Partner Template Part
 assert.equal(findAll(kanbanTemplateTitle, (node) => node.dataset?.field === "display_name")[0].children[0].textContent, "Template Partner");
 assert.equal(kanbanTemplateBadge.dataset.badge, "New");
 assert.equal(kanbanTemplateBadge.children[0].textContent, "New");
-assert.equal(kanbanTemplateCaptured.children[0].textContent, "Captured");
+assert.equal(kanbanTemplateWidgetBadge.dataset.field, "state");
+assert.equal(kanbanTemplateWidgetBadge.dataset.widget, "badge");
+assert.equal(kanbanTemplateWidgetBadge.dataset.decoration, "success");
+assert.equal(kanbanTemplateWidgetBadge.textContent, "New");
+assert.equal(kanbanTemplateX2ManyWidget.dataset.field, "tags");
+assert.equal(kanbanTemplateX2ManyWidget.dataset.count, "2");
+assert.equal(findAll(kanbanTemplateX2ManyWidget, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag"))[0].textContent, "VIP");
+assert.equal(kanbanTemplateAvatarWidget.dataset.field, "employee_id");
+assert.equal(kanbanTemplateAvatarWidget.dataset.relation, "hr.employee");
+assert.equal(kanbanTemplateAvatarWidget.dataset.resId, "17");
+assert.equal(kanbanTemplateCaptured.children[0].textContent, "Captured:");
 assert.equal(kanbanTemplateCaptured.children[1].textContent, "Template Partner");
-assert.equal(kanbanTemplateSlot.children[0].textContent, "Slot");
+assert.equal(kanbanTemplateSlot.children[0].textContent, "Slot:");
 assert.equal(kanbanTemplateSlot.children[1].textContent, "New");
 assert.equal(kanbanTemplateSubtemplate.dataset.called, "tag-list");
 assert.equal(kanbanTemplateLink.attributes.href, "#record-41");

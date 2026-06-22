@@ -1245,20 +1245,21 @@ export const scenarios = [
               email: { type: "char", string: "Email" },
               state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] },
               tags: { type: "many2many", string: "Tags", relation: "res.partner.category" },
+              employee_id: { type: "many2one", string: "Employee", relation: "hr.employee" },
               url: { type: "char", string: "URL" }
             },
             relatedModels: {},
             views: {
               kanban: {
-                arch: "<kanban><field name='display_name'/><field name='email'/><field name='state'/><field name='tags'/><field name='url'/><templates><t t-name='kanban-box'><div class='tmpl-card' t-att-data-state='record.state.raw_value' t-att-data-id='record.id.raw_value' t-att-title='record.display_name.value' t-attf-aria-label='Partner #{record.display_name.value}' t-attf-class='state-#{record.state.raw_value}'><t t-set='badge' t-value='record.state.value'/><t t-set='body_note'><span class='tmpl-captured'>Captured <t t-esc='record.display_name.value'/></span></t><strong class='tmpl-title'><field name='display_name'/></strong><span class='tmpl-badge' t-att-data-badge='badge' t-esc='badge'/><t t-out='body_note'/><a class='tmpl-link' t-att-href='record.url.raw_value' rel='noopener'>Open</a><t t-if='record.email.raw_value'><span class='tmpl-email'><field name='email'/></span></t><span class='tmpl-state' t-esc='record.state.value'/><t t-call='kanban-tag-list'><span class='tmpl-slot'>Slot <t t-esc='record.state.value'/></span></t></div></t><t t-name='kanban-tag-list'><section class='tmpl-subtemplate' data-called='tag-list'><t t-out='0'/><ul class='tmpl-tags'><t t-foreach='record.tags.raw_value' t-as='tag'><li class='tmpl-tag' t-att-data-index='tag_index' t-attf-class='tag-#{tag_index}' t-esc='tag'/></t></ul></section></t></templates></kanban>",
+                arch: "<kanban><field name='display_name'/><field name='email'/><field name='state'/><field name='tags'/><field name='employee_id'/><field name='url'/><templates><t t-name='kanban-box'><div class='tmpl-card' t-att-data-state='record.state.raw_value' t-att-data-id='record.id.raw_value' t-att-title='record.display_name.value' t-attf-aria-label='Partner #{record.display_name.value}' t-attf-class='state-#{record.state.raw_value}'><t t-set='badge' t-value='record.state.value'/><t t-set='body_note'><span class='tmpl-captured'>Captured:<t t-esc='record.display_name.value'/></span></t><strong class='tmpl-title'><field name='display_name'/></strong><field name='employee_id' widget='many2one_avatar_employee' class='tmpl-assignee'/><field name='state' widget='badge' decoration-success='state == &quot;new&quot;' class='tmpl-state-badge'/><field name='tags' widget='many2many_tags' class='tmpl-tag-widget'/><span class='tmpl-badge' t-att-data-badge='badge' t-esc='badge'/><t t-out='body_note'/><a class='tmpl-link' t-att-href='record.url.raw_value' rel='noopener'>Open</a><t t-if='record.email.raw_value'><span class='tmpl-email'><field name='email'/></span></t><span class='tmpl-state' t-esc='record.state.value'/><t t-call='kanban-tag-list'><span class='tmpl-slot'>Slot:<t t-esc='record.state.value'/></span></t></div></t><t t-name='kanban-tag-list'><section class='tmpl-subtemplate' data-called='tag-list'><t t-out='0'/><ul class='tmpl-tags'><t t-foreach='record.tags.raw_value' t-as='tag'><li class='tmpl-tag' t-att-data-index='tag_index' t-attf-class='tag-#{tag_index}' t-esc='tag[1]'/></t></ul></section></t></templates></kanban>",
                 id: 760
               },
               form: { arch: "<form><field name='display_name'/></form>", id: 761 }
             }
           },
           records: [
-            { id: 762, display_name: "Template A", email: "template-a@example.test", state: "new", tags: ["VIP", "Supplier"], url: "#record-762" },
-            { id: 763, display_name: "Template B", email: "", state: "done", tags: [], url: "#record-763" }
+            { id: 762, display_name: "Template A", email: "template-a@example.test", state: "new", tags: [[12, "VIP"], [13, "Supplier"]], employee_id: [17, "Mina Reyes"], url: "#record-762" },
+            { id: 763, display_name: "Template B", email: "", state: "done", tags: [], employee_id: [18, "Omar Vale"], url: "#record-763" }
           ],
           length: 2,
           offset: 0,
@@ -1282,6 +1283,12 @@ export const scenarios = [
           root_aria: card.querySelector(".tmpl-card")?.getAttribute("aria-label") || "",
           badge: card.querySelector(".tmpl-badge")?.textContent?.trim() || "",
           badge_data: card.querySelector(".tmpl-badge")?.dataset.badge || "",
+          field_badge: card.querySelector(".gorp-badge[data-field='state']")?.textContent?.trim() || "",
+          field_badge_decoration: card.querySelector(".gorp-badge[data-field='state']")?.dataset.decoration || "",
+          x2many_count: card.querySelector(".gorp-x2many-tags[data-field='tags']")?.dataset.count || "",
+          x2many_first_tag: card.querySelector(".gorp-x2many-tags[data-field='tags'] .gorp-x2many-tag")?.textContent?.trim() || "",
+          avatar_relation: card.querySelector(".gorp-many2one-avatar[data-field='employee_id']")?.dataset.relation || "",
+          avatar_res_id: card.querySelector(".gorp-many2one-avatar[data-field='employee_id']")?.dataset.resId || "",
           captured: card.querySelector(".tmpl-captured")?.textContent?.trim() || "",
           slot: card.querySelector(".tmpl-slot")?.textContent?.trim() || "",
           subtemplate_called: card.querySelector(".tmpl-subtemplate")?.dataset.called || "",
@@ -1310,7 +1317,10 @@ export const scenarios = [
       if (!renderedState.cards.some((card) => card.id === "762" && card.badge === "New" && card.badge_data === "New" && card.tag_list_called === "tag-list")) {
         throw new Error(`kanban template t-set/t-call invalid: ${JSON.stringify(renderedState)}`);
       }
-      if (!renderedState.cards.some((card) => card.id === "762" && card.captured === "Captured Template A" && card.slot === "Slot New" && card.subtemplate_called === "tag-list")) {
+      if (!renderedState.cards.some((card) => card.id === "762" && card.field_badge === "New" && card.field_badge_decoration === "success" && card.x2many_count === "2" && card.x2many_first_tag === "VIP" && card.avatar_relation === "hr.employee" && card.avatar_res_id === "17")) {
+        throw new Error(`kanban template field widgets invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.captured === "Captured:Template A" && card.slot === "Slot:New" && card.subtemplate_called === "tag-list")) {
         throw new Error(`kanban template body capture/slot invalid: ${JSON.stringify(renderedState)}`);
       }
       if (!renderedState.cards.some((card) => card.id === "762" && card.tags.length === 2 && card.tags[0].text === "VIP" && card.tags[0].index === "0" && card.tags[0].class_name.includes("tag-0") && card.tags[1].text === "Supplier" && card.tags[1].index === "1" && card.tags[1].class_name.includes("tag-1"))) {
