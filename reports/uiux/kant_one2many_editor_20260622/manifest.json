@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-06-22T05:55:26.323Z",
+  "base_url": "http://127.0.0.1:8079/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-delegation-one2many-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-delegation-one2many-desktop.png",
+      "sha256": "cc2e571e8f86f0238796e2447e9f86d7c05c3258609d7933260b48c9d6e95a25",
+      "assertions": {
+        "form_count": 1,
+        "readonly_count": 1,
+        "editor_count": 1,
+        "fixture": {
+          "actionID": 50,
+          "menuID": 33,
+          "delegationID": 3,
+          "groupID": 41,
+          "groupName": "Visual One2many 1782107725908-88485"
+        },
+        "readonly_state": {
+          "relation": "delegation.line",
+          "field_type": "one2many",
+          "labels": [
+            "3"
+          ]
+        },
+        "editor_state": {
+          "relation": "delegation.line",
+          "field_type": "one2many",
+          "headers": [
+            "group_id",
+            "employee_id"
+          ],
+          "row_count": 1,
+          "relation_input_count": 3
+        }
+      },
+      "duration_ms": 939
+    }
+  ],
+  "duration_ms": 1066
+}

@@ -259,6 +259,60 @@ export const scenarios = [
     }
   },
   {
+    name: "default-delegation-one2many-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&delegation_one2many_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "delegation one2many setup document ready");
+      await createDelegationAdminSession(page, config);
+      const fixture = await createDelegationOne2ManySmokeRecord(page, config);
+      const menuParam = fixture.menuID ? `&menu_id=${fixture.menuID}` : "";
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${fixture.actionID}&model=delegation&view_type=form&id=${fixture.delegationID}${menuParam}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Delegation one2many TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Delegation one2many form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='delegation'][data-view='form'] .gorp-form-view", 1, "TS Delegation form");
+      const readonlyCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines']", 1, "TS Delegation readonly one2many tags");
+      const readonlyState = await evaluate(page, `(() => {
+        const tags = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines']");
+        const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines'] .gorp-x2many-tag")]
+          .map((node) => (node.textContent || "").trim())
+          .filter(Boolean);
+        return {
+          relation: tags?.dataset?.relation || "",
+          field_type: tags?.dataset?.fieldType || "",
+          labels
+        };
+      })()`);
+      if (readonlyState.relation !== "delegation.line" || readonlyState.field_type !== "one2many" || readonlyState.labels.length < 1) {
+        throw new Error(`Delegation readonly one2many invalid: ${JSON.stringify(readonlyState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      const editorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines'][data-relation='delegation.line']", 1, "TS Delegation editable one2many");
+      const editorState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines']");
+        const headers = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines'] th")]
+          .map((node) => (node.textContent || "").trim())
+          .filter(Boolean);
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines'] tbody tr.o_data_row")];
+        const relationInputs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-one2many-editor[data-field='lines'] [data-field='group_id']")];
+        return {
+          relation: editor?.dataset?.relation || "",
+          field_type: editor?.dataset?.fieldType || "",
+          headers,
+          row_count: rows.length,
+          relation_input_count: relationInputs.length
+        };
+      })()`);
+      if (editorState.relation !== "delegation.line" || editorState.field_type !== "one2many" || editorState.row_count < 1 || editorState.relation_input_count < 1) {
+        throw new Error(`Delegation one2many editor invalid: ${JSON.stringify(editorState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='lines']", 1, "TS Delegation readonly one2many after discard");
+      return { form_count: formCount, readonly_count: readonlyCount, editor_count: editorCount, fixture, readonly_state: readonlyState, editor_state: editorState };
+    }
+  },
+  {
     name: "default-search-menu-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -1007,8 +1061,130 @@ async function createNormalUserSession(page, config) {
   return { uid };
 }
 
+async function createDelegationAdminSession(page, config) {
+  await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+  const xmlIDs = [
+    "base.group_user",
+    "base.group_erp_manager",
+    "base.group_system",
+    "oi_delegation.group_delegation_user",
+    "oi_delegation.group_delegation_manager",
+    "oi_delegation.group_delegation_admin",
+    "oi_delegation.delegation_employee",
+    "oi_delegation.delegation_manager",
+    "oi_delegation.delegation_admin"
+  ];
+  const ids = await externalResIDs(page, config, xmlIDs);
+  const groupIDs = xmlIDs.map((xmlID) => ids[xmlID]).filter((id) => Number(id) > 0);
+  if (groupIDs.length !== xmlIDs.length) {
+    const missing = xmlIDs.filter((xmlID) => !ids[xmlID]);
+    throw new Error(`delegation smoke admin groups not found: ${missing.join(", ")}`);
+  }
+  const session = await webRequestJSON(page, config, "/web/session/info", null, "GET");
+  const companyID = Number(session?.company_id || 0);
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const login = `visual-delegation-admin-${suffix}@example.test`;
+  const password = `visual-delegation-admin-${suffix}`;
+  const values = {
+    login,
+    password,
+    email: login,
+    name: "Visual Delegation Admin",
+    active: true,
+    share: false,
+    groups_id: groupIDs,
+    group_ids: groupIDs,
+    all_group_ids: groupIDs
+  };
+  if (companyID > 0) {
+    values.company_id = companyID;
+    values.company_ids = [companyID];
+  }
+  const created = await webCallKW(page, config, "res.users", "create", { values });
+  const uid = Number(created?.id || created || 0);
+  if (!uid) throw new Error("delegation smoke admin user was not created");
+  const authenticated = await webRequestJSON(page, config, "/web/session/authenticate", { login, password });
+  const authenticatedUID = Number(authenticated?.uid || 0);
+  if (authenticatedUID !== uid) throw new Error(`delegation smoke admin authenticate uid mismatch: ${authenticatedUID} !== ${uid}`);
+  return { uid, groupIDs };
+}
+
+async function createDelegationOne2ManySmokeRecord(page, config) {
+  const ids = await externalResIDs(page, config, [
+    "oi_delegation.act_delegation",
+    "oi_delegation.menu_delegation"
+  ]);
+  const actionID = Number(ids["oi_delegation.act_delegation"] || 0);
+  if (!actionID) throw new Error("oi_delegation.act_delegation not found for one2many smoke");
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const groupName = `Visual One2many ${suffix}`;
+  const groupCreated = await webCallKW(page, config, "res.groups", "create", {
+    values: {
+      name: groupName,
+      full_name: `Role / ${groupName}`,
+      name_delegation: groupName,
+      allow_delegation: true
+    }
+  });
+  const groupID = Number(groupCreated?.id || groupCreated || 0);
+  if (!groupID) throw new Error("delegation one2many smoke group was not created");
+  const rows = await webCallKW(page, config, "delegation", "web_save", {
+    args: [[], {
+      name: `Visual Delegation ${suffix}`,
+      date_from: "2099-01-01",
+      date_to: "2099-12-31",
+      state: "draft",
+      lines: [[0, false, { group_id: groupID }]]
+    }],
+    kwargs: {
+      specification: {
+        name: {},
+        employee_id: {},
+        lines: { fields: { group_id: {}, employee_id: {}, state: {} } }
+      }
+    }
+  });
+  const row = Array.isArray(rows) ? rows[0] : null;
+  const delegationID = Number(row?.id || 0);
+  if (!delegationID) throw new Error(`delegation one2many smoke record was not created: ${JSON.stringify(rows)}`);
+  return {
+    actionID,
+    menuID: Number(ids["oi_delegation.menu_delegation"] || 0),
+    delegationID,
+    groupID,
+    groupName
+  };
+}
+
+async function externalResIDs(page, config, xmlIDs) {
+  const grouped = new Map();
+  for (const xmlID of xmlIDs) {
+    const [module, name] = String(xmlID).split(".");
+    if (!module || !name) throw new Error(`invalid external id: ${xmlID}`);
+    const names = grouped.get(module) || [];
+    names.push(name);
+    grouped.set(module, names);
+  }
+  const ids = {};
+  for (const [module, names] of grouped.entries()) {
+    const rows = await webCallKW(page, config, "ir.model.data", "search_read", {
+      args: [[["module", "=", module], ["name", "in", names]]],
+      kwargs: { fields: ["module", "name", "res_id"], limit: names.length }
+    });
+    for (const row of rows || []) {
+      ids[`${row.module}.${row.name}`] = Number(row.res_id || 0);
+    }
+  }
+  return ids;
+}
+
 async function webCallKW(page, config, model, method, payload = {}) {
-  return webRequestJSON(page, config, "/web/dataset/call_kw", Object.assign({ model, method }, payload));
+  try {
+    return await webRequestJSON(page, config, "/web/dataset/call_kw", Object.assign({ model, method }, payload));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${model}.${method}: ${message}`);
+  }
 }
 
 async function webRequestJSON(page, config, path, payload = null, method = "POST") {
