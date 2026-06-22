@@ -1,0 +1,163 @@
+{
+  "generated_at": "2026-06-22T22:59:18.225Z",
+  "base_url": "http://127.0.0.1:8098/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-takeover",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-takeover.png",
+      "sha256": "03a06f4b744bd21884ac865fe449c3ab2ed7aa317d7b800508f5033587ca7825",
+      "assertions": {
+        "nav_count": 1,
+        "app_count": 4,
+        "search_count": 1,
+        "search_state": {
+          "ok": true,
+          "hidden": true,
+          "visible": false,
+          "width": 1,
+          "height": 1,
+          "margin_bottom_px": 0,
+          "search_active": "false"
+        },
+        "typed_search_state": {
+          "ok": true,
+          "active": true,
+          "idle": true,
+          "active_dataset": "true",
+          "active_value": "a",
+          "active_width_px": 520,
+          "active_height_px": 40,
+          "active_max_height_px": 0,
+          "idle_margin_bottom_px": 0,
+          "visible_app_count": 36
+        },
+        "navbar_height_px": 46,
+        "navbar_contract": true,
+        "home_background_class": true,
+        "legacy_card_count": 0,
+        "draggable_count": 4,
+        "hidden_search_count": 1,
+        "menu_sections_contract": true,
+        "mobile_toggle_contract": true,
+        "app_tag": "A",
+        "app_href": "#menu_id=29&action=42",
+        "hidden_search_role": "combobox",
+        "navbar_bg": "rgba(0, 0, 0, 0)",
+        "launcher_top_px": 0,
+        "launcher_bg_color": "rgb(8, 11, 21)",
+        "launcher_bg_image": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.34' stop-color='%23112230'/%3E%3Cstop offset='.72' stop-color='%23101124'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='.48' stop-color='%23000000' stop-opacity='.02'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.36'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E\")",
+        "launcher_box_shadow": "none",
+        "search_height_px": 0,
+        "search_margin_bottom_px": 0,
+        "banner_visible": true,
+        "banner_count": 1,
+        "banner_text": "You will be able to register your database once you have installed your first app.×",
+        "banner_close_text": "×",
+        "banner_close_visible": true,
+        "banner_top_px": 70,
+        "banner_width_px": 820,
+        "launcher_mail_activity_visible_count": 0,
+        "user_name_display": "none",
+        "app_card_left_px": 258,
+        "app_card_top_px": 178,
+        "app_card_width_px": 142,
+        "app_card_height_px": 104,
+        "app_card_bg": "rgba(0, 0, 0, 0)",
+        "app_card_border_color": "rgba(0, 0, 0, 0)",
+        "app_card_border_radius_px": 4,
+        "app_icon_width_px": 70,
+        "app_icon_height_px": 70,
+        "app_icon_radius_px": 6,
+        "app_icon_text": "",
+        "action_count": 1
+      },
+      "duration_ms": 697
+    },
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "219bb6732bd0f9b81cdd439fdda8aad3576038da1317d1effb3eb89f0600d50b",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 34,
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 5,
+        "x2many_widget_count": 1,
+        "x2many_editor_count": 1,
+        "x2many_editor_state": {
+          "relation": "res.groups",
+          "count": "0",
+          "input_role": "combobox",
+          "input_autocomplete": "list",
+          "tag_labels": []
+        },
+        "notebook_id": "notebook-0",
+        "tab_labels": [
+          "Inherited",
+          "Users",
+          "Access",
+          "Comment",
+          "Inherited By"
+        ],
+        "selected_tabs": [
+          "true",
+          "false",
+          "false",
+          "false",
+          "false"
+        ],
+        "visible_pages": 1,
+        "inherited_field_count": 1,
+        "x2many_count": "0",
+        "x2many_relation": "res.groups",
+        "x2many_tag_labels": []
+      },
+      "duration_ms": 712
+    },
+    {
+      "name": "default-mobile-launcher-parity",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-launcher-parity.png",
+      "sha256": "cf7f8e8692409eb3adb7261026cceb60da1b071ba3135ce09e663d3e2dd02a53",
+      "assertions": {
+        "app_count": 4,
+        "launcher_state": {
+          "launcher_bg": "rgb(8, 11, 21)",
+          "launcher_bg_image": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.34' stop-color='%23112230'/%3E%3Cstop offset='.72' stop-color='%23101124'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='.48' stop-color='%23000000' stop-opacity='.02'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.36'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E\")",
+          "draggable_count": 4,
+          "first_row_count": 4,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
+          "hidden_search_count": 1,
+          "banner_count": 1,
+          "search_hidden": true,
+          "user_avatar_visible": true,
+          "systray_visible_count": 3,
+          "horizontal_overflow_px": 0
+        }
+      },
+      "duration_ms": 295
+    }
+  ],
+  "duration_ms": 1865
+}

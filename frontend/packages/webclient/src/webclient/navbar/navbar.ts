@@ -478,6 +478,29 @@ function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: bo
       ? "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu"
       : "dropdown-menu o-dropdown-menu";
   menu.className = open ? `${base} show` : base;
+  positionNavbarDropdown(button, menu, open);
+}
+
+function positionNavbarDropdown(button: HTMLElement | null, menu: HTMLElement, open: boolean): void {
+  if (!menu.dataset.navbarDropdown) return;
+  if (!menu.style) return;
+  if (!open || !button || typeof button.getBoundingClientRect !== "function") {
+    menu.style.removeProperty("position");
+    menu.style.removeProperty("top");
+    menu.style.removeProperty("left");
+    menu.style.removeProperty("right");
+    menu.style.removeProperty("z-index");
+    return;
+  }
+  const rect = button.getBoundingClientRect();
+  const width = Math.max(menu.offsetWidth || 230, 230);
+  const viewportWidth = globalThis.innerWidth || document.documentElement.clientWidth || width;
+  const left = Math.min(Math.max(rect.left, 8), Math.max(8, viewportWidth - width - 8));
+  menu.style.position = "fixed";
+  menu.style.top = `${Math.round(rect.bottom)}px`;
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.right = "auto";
+  menu.style.zIndex = "2055";
 }
 
 function setSubmenuOpen(button: HTMLElement, menu: HTMLElement, open: boolean): void {

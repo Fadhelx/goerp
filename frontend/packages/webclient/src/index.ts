@@ -6578,7 +6578,11 @@ function renderFormView(
   const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes)
     .filter((node) => !defaultUsersAccessNotebookField(model, usingDefaultFormNodes, node.name));
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
-  const notebooks = [...parseFormNotebooks(arch), ...defaultFormNotebooks(model, usingDefaultFormNodes, fields)];
+  const notebooks = mergeFormNotebooksWithDefaults(
+    parseFormNotebooks(arch),
+    defaultFormNotebooks(model, usingDefaultFormNodes, fields, allFieldNodes),
+    model
+  );
   if (buttons.length || statusbarNodes.length) {
     const header = document.createElement("div");
     header.className = "gorp-form-header o_form_statusbar";
@@ -6640,17 +6644,50 @@ function defaultUsersAccessNotebookField(model: string, usingDefaultFormNodes: b
   return model === "res.users" && usingDefaultFormNodes && fieldName === "group_ids";
 }
 
-function defaultFormNotebooks(model: string, usingDefaultFormNodes: boolean, fields: Record<string, unknown>): FormNotebook[] {
-  if (model !== "res.users" || !usingDefaultFormNodes || fields.group_ids === undefined) return [];
-  return [{
-    id: "res-users-access-rights",
-    pages: [{
-      id: "access-rights",
-      label: "Access Rights",
-      attrs: { name: "access_rights", string: "Access Rights" },
-      fields: [{ name: "group_ids", attrs: { widget: "res_user_group_ids" }, children: [], childViewAttrs: {} }]
-    }]
-  }];
+function defaultFormNotebooks(model: string, usingDefaultFormNodes: boolean, fields: Record<string, unknown>, existingNodes: readonly ViewFieldNode[] = []): FormNotebook[] {
+  const notebooks: FormNotebook[] = [];
+  if (model === "res.users" && usingDefaultFormNodes && fields.group_ids !== undefined) {
+    notebooks.push({
+      id: "res-users-access-rights",
+      pages: [{
+        id: "access-rights",
+        label: "Access Rights",
+        attrs: { name: "access_rights", string: "Access Rights" },
+        fields: [{ name: "group_ids", attrs: { widget: "res_user_group_ids" }, children: [], childViewAttrs: {} }]
+      }]
+    });
+  }
+  if (model === "res.groups" && fields.inherited_by_ids !== undefined && !viewFieldNodeIncludes(existingNodes, "inherited_by_ids")) {
+    notebooks.push({
+      id: "res-groups-inherited-by",
+      pages: [{
+        id: "inherited-by",
+        label: "Inherited By",
+        attrs: { name: "inherited_by", string: "Inherited By" },
+        fields: [{ name: "inherited_by_ids", attrs: {}, children: [], childViewAttrs: {} }]
+      }]
+    });
+  }
+  return notebooks;
+}
+
+function mergeFormNotebooksWithDefaults(parsed: readonly FormNotebook[], defaults: readonly FormNotebook[], model: string): FormNotebook[] {
+  const merged = parsed.map((notebook) => ({ ...notebook, pages: [...notebook.pages] }));
+  for (const notebook of defaults) {
+    if (model === "res.groups" && merged.length) {
+      merged[0].pages.push(...notebook.pages);
+    } else {
+      merged.push({ ...notebook, pages: [...notebook.pages] });
+    }
+  }
+  return merged;
+}
+
+function viewFieldNodeIncludes(nodes: readonly ViewFieldNode[], name: string): boolean {
+  for (const node of nodes) {
+    if (node.name === name || viewFieldNodeIncludes(node.children, name)) return true;
+  }
+  return false;
 }
 
 function renderFormFieldNode(
@@ -10363,6 +10400,14 @@ function readSpecification(
     for (const fieldName of kanbanAuxiliaryFieldNames(arch, viewDescriptions.fields)) {
       if (specification[fieldName] === undefined) specification[fieldName] = {};
     }
+  }
+  if (model === "res.groups" && viewType === "form" && viewDescriptions.fields.inherited_by_ids !== undefined && specification.inherited_by_ids === undefined) {
+    Object.assign(specification, fieldNodesToSpecification(
+      [{ name: "inherited_by_ids", attrs: {}, children: [], childViewAttrs: {} }],
+      viewDescriptions.fields,
+      viewDescriptions,
+      evalContext
+    ));
   }
   return specification;
 }

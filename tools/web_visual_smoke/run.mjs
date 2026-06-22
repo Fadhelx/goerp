@@ -249,6 +249,55 @@ export const scenarios = [
     }
   },
   {
+    name: "default-navbar-technical-dropdown-open-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "open dropdown TS webclient ready");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Settings", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "open dropdown Settings action ready");
+      await evaluate(page, `(() => {
+        const button = [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_dropdown_toggle")]
+          .find((node) => node.textContent.trim() === "Technical");
+        if (!button) throw new Error("Technical dropdown button not found");
+        button.click();
+        return true;
+      })()`);
+      const state = await waitFor(page, `(() => {
+        const button = [...document.querySelectorAll(".o_web_client .o_menu_sections .o_nav_dropdown_toggle")]
+          .find((node) => node.textContent.trim() === "Technical");
+        const menu = button?.nextElementSibling;
+        if (!button || !menu || button.getAttribute("aria-expanded") !== "true" || !menu.classList.contains("show")) return null;
+        const rect = menu.getBoundingClientRect();
+        const pointX = Math.min(Math.max(rect.left + 24, rect.left + 1), rect.right - 1);
+        const pointY = Math.min(Math.max(rect.top + 24, rect.top + 1), rect.bottom - 1);
+        const topNode = document.elementFromPoint(pointX, pointY);
+        const headers = [...menu.querySelectorAll(".o_navbar_dropdown_header")].map((node) => node.textContent.trim()).filter(Boolean);
+        const items = [...menu.querySelectorAll(".o_navbar_dropdown_item")].map((node) => node.textContent.trim()).filter(Boolean);
+        return {
+          button_text: button.textContent.trim(),
+          expanded: button.getAttribute("aria-expanded"),
+          menu_visible: rect.width > 220 && rect.height > 250,
+          menu_left: Math.round(rect.left),
+          menu_top: Math.round(rect.top),
+          hit_test_x: Math.round(pointX),
+          hit_test_y: Math.round(pointY),
+          dropdown_on_top: Boolean(topNode && menu.contains(topNode)),
+          top_element: topNode ? topNode.tagName + "." + String(topNode.className || "").replace(/\\s+/g, ".") : "",
+          headers,
+          items,
+          has_grouped_sections: headers.length >= 5,
+          has_admin_items: ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules"].every((label) => items.includes(label))
+        };
+      })()`, "Technical dropdown remains open");
+      if (!state.menu_visible || !state.dropdown_on_top || !state.has_grouped_sections || !state.has_admin_items) {
+        throw new Error(`Technical dropdown open state invalid: ${JSON.stringify(state)}`);
+      }
+      return state;
+    }
+  },
+  {
     name: "default-webclient-action-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -2784,7 +2833,9 @@ function isDarkLauncherBackground(value) {
 
 function isEnterpriseHomeBackgroundImage(value) {
   const image = String(value || "").toLowerCase();
-  return image.includes("data:image/svg+xml") && !image.includes("radial-gradient");
+  const hasSVG = image.includes("data:image/svg+xml");
+  const hasOldShellShapes = image.includes("%3cpath") || image.includes("<path") || image.includes("%3ccircle") || image.includes("<circle");
+  return hasSVG && !hasOldShellShapes;
 }
 
 async function main() {

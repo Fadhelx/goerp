@@ -6193,9 +6193,12 @@ const webClientShellHTML = `<!doctype html>
 		background: #eef0f3;
 	}
 	main.o_web_client > .o_navbar {
+		position: relative;
+		z-index: 2050;
 		flex: 0 0 46px;
 		height: 46px;
 		min-height: 46px;
+		overflow: visible;
 	}
 	main.o_web_client[data-view="apps"] > .o_navbar {
 		position: absolute;
@@ -9413,8 +9416,8 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-view="apps"],
 	body[data-view="apps"],
 	body.o_home_menu_background {
-		--home-bg: #070b12;
-		--home-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='xMidYMid slice'%3E%3Crect width='1920' height='1080' fill='%23070b12'/%3E%3Cpath d='M-160 -80 C260 40 520 190 880 370 C1220 540 1540 520 2080 260 L2080 -120 L-160 -120 Z' fill='%23142c38' opacity='.72'/%3E%3Cpath d='M-180 260 C320 130 700 220 1080 420 C1440 610 1690 470 2080 340' fill='none' stroke='%23122635' stroke-width='180' opacity='.58'/%3E%3Cpath d='M-220 940 C240 780 650 900 1030 1015 C1390 1125 1660 980 2080 900 L2080 1200 L-220 1200 Z' fill='%23030a12' opacity='.72'/%3E%3Cpath d='M1320 -140 C1500 120 1620 360 2080 500' fill='none' stroke='%2325233a' stroke-width='190' opacity='.35'/%3E%3Cg fill='%23324155' opacity='.42'%3E%3Ccircle cx='230' cy='250' r='9'/%3E%3Ccircle cx='610' cy='820' r='7'/%3E%3Ccircle cx='1120' cy='390' r='8'/%3E%3Ccircle cx='1720' cy='240' r='7'/%3E%3C/g%3E%3C/svg%3E");
+		--home-bg: #080b15;
+		--home-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.34' stop-color='%23112230'/%3E%3Cstop offset='.72' stop-color='%23101124'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='.48' stop-color='%23000000' stop-opacity='.02'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.36'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E");
 		--home-panel: rgba(255,255,255,.10);
 		--home-line: rgba(255,255,255,.18);
 		--home-text: #ffffff;

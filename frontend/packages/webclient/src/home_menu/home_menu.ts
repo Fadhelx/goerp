@@ -244,6 +244,9 @@ interface ParsedWebIcon {
 }
 
 function appWebIcon(app: HomeMenuApp): ParsedWebIcon | null {
+  const key = app.key.split(":")[0];
+  const name = app.name.toLowerCase();
+  if (key === "settings" || key === "apps" || name === "settings" || name === "apps") return null;
   const source = typeof app.menu.webIcon === "string" ? app.menu.webIcon.trim() : "";
   const parts = source.split(",").map((part) => part.trim());
   if (parts.length < 3) return defaultAppWebIcon(app);

@@ -2448,6 +2448,42 @@ assert.deepEqual(x2ManyOpenCalls[0].action, {
 });
 assert.deepEqual(x2ManyOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
 
+const groupsInheritedByFallbackWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups" },
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      implied_ids: { type: "many2many", relation: "res.groups", string: "Inherited" },
+      inherited_by_ids: { type: "many2many", relation: "res.groups", string: "Inherited By" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><group><field name="name"/></group><notebook><page string="Inherited"><field name="implied_ids"/></page></notebook></sheet></form>`,
+        id: 73
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 3,
+    name: "Settings",
+    implied_ids: [[7, "User"]],
+    inherited_by_ids: [[11, "Administrator"]]
+  }
+});
+const groupsNotebookTabs = findAll(groupsInheritedByFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-notebook-tab") && node.attributes?.role === "tab");
+assert.deepEqual(groupsNotebookTabs.map((node) => node.textContent), ["Inherited", "Inherited By"]);
+const groupsInheritedByTags = findAll(groupsInheritedByFallbackWindow, (node) => String(node.className ?? "").includes("gorp-x2many-tags") && node.dataset?.field === "inherited_by_ids")[0];
+assert.equal(groupsInheritedByTags.dataset.relation, "res.groups");
+assert.equal(groupsInheritedByTags.dataset.count, "1");
+assert.deepEqual(findAll(groupsInheritedByTags, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag")).map((node) => node.textContent), ["Administrator"]);
+
 function renderX2ManyOnlyWindow(fieldType, value) {
   return renderWindowAction({
     type: "ir.actions.act_window",

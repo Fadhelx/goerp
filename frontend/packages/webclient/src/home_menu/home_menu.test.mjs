@@ -167,12 +167,18 @@ const imageIcon = findAll(imageMenu, (node) => node.tag === "img")[0];
 assert.match(imageIcon.src, /^data:image\/png;base64,/);
 const glyphMenu = renderHomeMenu({
   root: { children: [1] },
-  1: { id: 1, name: "Settings", children: [], webIcon: "fa-cog,#ffffff,#714b67" }
+  1: { id: 1, name: "Technical", children: [], webIcon: "fa-cog,#ffffff,#714b67" }
 });
 const glyphIcon = findAll(glyphMenu, (node) => String(node.className).includes("o_app_icon_with_glyph"))[0];
 assert.equal(glyphIcon.attributes.style, "background-color: #714b67; --app-icon-bg: #714b67; color: #ffffff;");
 assert.equal(glyphIcon.dataset.webIcon, "fa fa-cog");
 assert.equal(findAll(glyphIcon, (node) => String(node.className).includes("fa-cog")).length, 1);
+const coreIconMenu = renderHomeMenu({
+  root: { children: [1] },
+  1: { id: 1, name: "Settings", children: [], webIcon: "fa-cog,#ffffff,#714b67" }
+});
+assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
+assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback")).length, 1);
 const defaultGlyphMenu = renderHomeMenu({
   root: { children: [1] },
   1: { id: 1, name: "Approvals", children: [] }
