@@ -51,6 +51,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-systray-dropdowns-desktop",
     "default-user-preferences-dialog-desktop",
     "default-navbar-nested-menus-desktop",
+    "default-navbar-technical-dropdown-open-desktop",
     "default-webclient-action-desktop",
     "default-launcher-back-mode-desktop",
     "default-action-dialog-desktop",
