@@ -1863,33 +1863,33 @@ func formatFStringValue(value any) string {
 }
 
 func (p *evalParser) parseList(open byte, close byte) ([]any, error) {
+	start := p.pos
 	if !p.consume(open) {
 		return nil, p.errorf("expected %q", open)
 	}
+	end := matchingDelimitedIndex(p.input, start, open, close)
+	if end < 0 {
+		return nil, p.errorf("unterminated %q", open)
+	}
+	body := strings.TrimSpace(p.input[start+1 : end])
 	var out []any
-	p.skipSpace()
-	if p.consume(close) {
+	if body == "" {
+		p.pos = end + 1
 		return out, nil
 	}
-	for {
-		value, err := p.parseValue()
+	for _, item := range splitTopLevelComma(body) {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		value, err := parseEvalWithContext(item, p.ctx)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, value)
-		p.skipSpace()
-		if p.consume(',') {
-			p.skipSpace()
-			if p.consume(close) {
-				return out, nil
-			}
-			continue
-		}
-		if p.consume(close) {
-			return out, nil
-		}
-		return nil, p.errorf("expected ',' or %q", close)
 	}
+	p.pos = end + 1
+	return out, nil
 }
 
 func (p *evalParser) parseListComprehension() (any, bool, error) {

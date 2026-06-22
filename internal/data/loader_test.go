@@ -1556,6 +1556,37 @@ func TestLoadXMLSafeEvalConditionalListComprehension(t *testing.T) {
 	assertField(t, env, "res.groups", ids["base.group_c"].ResID, "implied_ids", []int64{ids["base.group_b"].ResID})
 }
 
+func TestLoadXMLSafeEvalEmbeddedListExpressions(t *testing.T) {
+	env := testBaseEnv(t)
+	loader := NewLoader(env, "base")
+
+	err := loader.LoadXML(strings.NewReader(`<odoo>
+  <record id="group_a" model="res.groups">
+    <field name="name">A</field>
+  </record>
+  <record id="group_b" model="res.groups">
+    <field name="name">B</field>
+  </record>
+  <record id="group_c" model="res.groups">
+    <field name="name">C</field>
+    <field name="implied_ids" eval="[
+      (4, ref('group_a') if True else ref('group_b')),
+      (4, ref('group_b') and ref('group_b') or ref('group_a'))
+    ]"/>
+  </record>
+  <record id="group_d" model="res.groups">
+    <field name="name">D</field>
+    <field name="implied_ids" eval="[Command.set([ref('group_a') if False else ref('group_b')])]"/>
+  </record>
+</odoo>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := loader.ExternalIDs()
+	assertField(t, env, "res.groups", ids["base.group_c"].ResID, "implied_ids", []int64{ids["base.group_a"].ResID, ids["base.group_b"].ResID})
+	assertField(t, env, "res.groups", ids["base.group_d"].ResID, "implied_ids", []int64{ids["base.group_b"].ResID})
+}
+
 func TestLoadXMLProcessesItemsInDocumentOrder(t *testing.T) {
 	env := testBaseEnv(t)
 	loader := NewLoader(env, "base")
