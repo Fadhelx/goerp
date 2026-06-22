@@ -81,6 +81,23 @@ globalThis.document = {
       return {};
     }
   },
+  createDocumentFragment() {
+    return {
+      tag: "#fragment",
+      tagName: "#FRAGMENT",
+      className: "",
+      dataset: {},
+      attributes: {},
+      textContent: "",
+      children: [],
+      get childNodes() {
+        return this.children;
+      },
+      append(...nodes) {
+        this.children.push(...nodes.flatMap((node) => node?.tag === "#fragment" ? node.children : [node]));
+      }
+    };
+  },
   createTextNode(text) {
     return { tag: "#text", textContent: text, children: [] };
   },
@@ -96,19 +113,21 @@ globalThis.document = {
       children: [],
       listeners: {},
       append(...nodes) {
-        this.children.push(...nodes);
+        this.children.push(...nodes.flatMap((node) => node?.tag === "#fragment" ? node.children : [node]));
       },
       replaceChildren(...nodes) {
-        this.children = nodes;
+        this.children = nodes.flatMap((node) => node?.tag === "#fragment" ? node.children : [node]);
       },
       setAttribute(name, value) {
         this.attributes[name] = String(value);
+        if (name.startsWith("data-")) this.dataset[dataAttributeKey(name)] = String(value);
       },
       getAttribute(name) {
         return this.attributes[name] ?? null;
       },
       removeAttribute(name) {
         delete this.attributes[name];
+        if (name.startsWith("data-")) delete this.dataset[dataAttributeKey(name)];
       },
       focus() {
         this.focused = true;
@@ -129,6 +148,10 @@ globalThis.document = {
     };
   }
 };
+
+function dataAttributeKey(name) {
+  return name.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+}
 const windowListeners = {};
 globalThis.window = {
   innerWidth: 1024,
@@ -2647,18 +2670,20 @@ const kanbanTemplateWindow = renderWindowAction({
     fields: {
       display_name: { type: "char", string: "Name" },
       email: { type: "char", string: "Email" },
-      state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] }
+      state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] },
+      tags: { type: "many2many", string: "Tags", relation: "res.partner.category" },
+      url: { type: "char", string: "URL" }
     },
     relatedModels: {},
     views: {
       kanban: {
-        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-attf-class="state-#{record.state.raw_value}"><strong class="tmpl-title"><field name="display_name"/></strong><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/></div></t></templates></kanban>`,
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><field name="tags"/><field name="url"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-att="{'data-state': record.state.raw_value}" t-att-data-id="record.id.raw_value" t-att-title="record.display_name.value" t-attf-aria-label="Partner #{record.display_name.value}" t-attf-class="state-#{record.state.raw_value}"><t t-set="badge" t-value="record.state.value"/><t t-set="body_note"><span class="tmpl-captured">Captured <t t-esc="record.display_name.value"/></span></t><strong class="tmpl-title"><field name="display_name"/></strong><span class="tmpl-badge" t-att-data-badge="badge" t-esc="badge"/><t t-out="body_note"/><a class="tmpl-link" t-att-href="record.url.raw_value" t-att-rel="'noopener'">Open</a><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/><t t-call="kanban-tag-list"><span class="tmpl-slot">Slot <t t-esc="record.state.value"/></span></t></div></t><t t-name="kanban-tag-list"><section class="tmpl-subtemplate" data-called="tag-list"><t t-out="0"/><ul class="tmpl-tags"><t t-foreach="record.tags.raw_value" t-as="tag"><li class="tmpl-tag" t-att-data-index="tag_index" t-attf-class="tag-#{tag_index}" t-esc="tag"/></t></ul></section></t></templates></kanban>`,
         id: 29
       },
       form: { arch: `<form><field name="display_name"/></form>`, id: 30 }
     }
   },
-  records: [{ id: 41, display_name: "Template Partner", email: "template@example.test", state: "new" }],
+  records: [{ id: 41, display_name: "Template Partner", email: "template@example.test", state: "new", tags: ["VIP", "Supplier"], url: "#record-41" }],
   length: 1
 });
 const kanbanTemplateCard = findAll(kanbanTemplateWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record"))[0];
@@ -2668,13 +2693,40 @@ const kanbanTemplateRoot = findAll(kanbanTemplateCard, (node) => String(node.cla
 const kanbanTemplateTitle = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-title"))[0];
 const kanbanTemplateEmail = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-email"))[0];
 const kanbanTemplateState = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-state"))[0];
+const kanbanTemplateLink = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-link"))[0];
+const kanbanTemplateBadge = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-badge"))[0];
+const kanbanTemplateCaptured = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-captured"))[0];
+const kanbanTemplateSlot = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-slot"))[0];
+const kanbanTemplateSubtemplate = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-subtemplate"))[0];
+const kanbanTemplateTagList = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-tags"))[0];
+const kanbanTemplateTags = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-tag"));
 assert.equal(kanbanTemplateDetails.dataset.kanbanTemplate, "kanban-box");
 assert.ok(String(kanbanTemplateDetails.className).includes("o_kanban_template_details"));
 assert.equal(kanbanTemplateBody.dataset.kanbanTemplateBody, "true");
 assert.ok(String(kanbanTemplateRoot.className).includes("state-new"));
+assert.equal(kanbanTemplateRoot.dataset.id, "41");
+assert.equal(kanbanTemplateRoot.dataset.state, "new");
+assert.equal(kanbanTemplateRoot.attributes.title, "Template Partner");
+assert.equal(kanbanTemplateRoot.attributes["aria-label"], "Partner Template Partner");
 assert.equal(findAll(kanbanTemplateTitle, (node) => node.dataset?.field === "display_name")[0].children[0].textContent, "Template Partner");
+assert.equal(kanbanTemplateBadge.dataset.badge, "New");
+assert.equal(kanbanTemplateBadge.children[0].textContent, "New");
+assert.equal(kanbanTemplateCaptured.children[0].textContent, "Captured");
+assert.equal(kanbanTemplateCaptured.children[1].textContent, "Template Partner");
+assert.equal(kanbanTemplateSlot.children[0].textContent, "Slot");
+assert.equal(kanbanTemplateSlot.children[1].textContent, "New");
+assert.equal(kanbanTemplateSubtemplate.dataset.called, "tag-list");
+assert.equal(kanbanTemplateLink.attributes.href, "#record-41");
+assert.equal(kanbanTemplateLink.attributes.rel, "noopener");
 assert.equal(findAll(kanbanTemplateEmail, (node) => node.dataset?.field === "email")[0].children[0].textContent, "template@example.test");
 assert.equal(kanbanTemplateState.children[0].textContent, "New");
+assert.equal(kanbanTemplateTags.length, 2);
+assert.equal(kanbanTemplateTags[0].dataset.index, "0");
+assert.ok(String(kanbanTemplateTags[0].className).includes("tag-0"));
+assert.equal(kanbanTemplateTags[0].children[0].textContent, "VIP");
+assert.equal(kanbanTemplateTags[1].dataset.index, "1");
+assert.ok(String(kanbanTemplateTags[1].className).includes("tag-1"));
+assert.equal(kanbanTemplateTags[1].children[0].textContent, "Supplier");
 assert.equal(findAll(kanbanTemplateCard, (node) => String(node.className ?? "").includes("o_kanban_record_field")).length, 0);
 
 const groupedKanbanCreateCalls = [];

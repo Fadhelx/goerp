@@ -165,15 +165,20 @@ export const scenarios = [
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
       const topbarState = await evaluate(page, `(() => {
         const navbar = document.querySelector(".o_web_client > .o_navbar > .o_main_navbar");
+        const launcher = navbar?.querySelector(".o-launcher-button");
+        const launcherDot = navbar?.querySelector(".o-launcher span");
         const style = navbar ? getComputedStyle(navbar) : null;
+        const dotStyle = launcherDot ? getComputedStyle(launcherDot) : null;
         return {
           contract: Boolean(navbar),
           height: Math.round(navbar?.getBoundingClientRect().height || 0),
           background: style?.backgroundColor || "",
+          launcher_width: Math.round(launcher?.getBoundingClientRect().width || 0),
+          launcher_dot: dotStyle?.backgroundColor || "",
           systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
         };
       })()`);
-      if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || topbarState.background !== "rgb(113, 75, 103)" || topbarState.systray_count < 4) {
+      if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || topbarState.background !== "rgb(255, 255, 255)" || topbarState.launcher_width < 30 || topbarState.launcher_dot !== "rgb(113, 75, 103)" || topbarState.systray_count < 4) {
         throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
       }
       const title = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
@@ -1238,20 +1243,22 @@ export const scenarios = [
             fields: {
               display_name: { type: "char", string: "Name" },
               email: { type: "char", string: "Email" },
-              state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] }
+              state: { type: "selection", string: "State", selection: [["new", "New"], ["done", "Done"]] },
+              tags: { type: "many2many", string: "Tags", relation: "res.partner.category" },
+              url: { type: "char", string: "URL" }
             },
             relatedModels: {},
             views: {
               kanban: {
-                arch: "<kanban><field name='display_name'/><field name='email'/><field name='state'/><templates><t t-name='kanban-box'><div class='tmpl-card' t-attf-class='state-#{record.state.raw_value}'><strong class='tmpl-title'><field name='display_name'/></strong><t t-if='record.email.raw_value'><span class='tmpl-email'><field name='email'/></span></t><span class='tmpl-state' t-esc='record.state.value'/></div></t></templates></kanban>",
+                arch: "<kanban><field name='display_name'/><field name='email'/><field name='state'/><field name='tags'/><field name='url'/><templates><t t-name='kanban-box'><div class='tmpl-card' t-att-data-state='record.state.raw_value' t-att-data-id='record.id.raw_value' t-att-title='record.display_name.value' t-attf-aria-label='Partner #{record.display_name.value}' t-attf-class='state-#{record.state.raw_value}'><t t-set='badge' t-value='record.state.value'/><t t-set='body_note'><span class='tmpl-captured'>Captured <t t-esc='record.display_name.value'/></span></t><strong class='tmpl-title'><field name='display_name'/></strong><span class='tmpl-badge' t-att-data-badge='badge' t-esc='badge'/><t t-out='body_note'/><a class='tmpl-link' t-att-href='record.url.raw_value' rel='noopener'>Open</a><t t-if='record.email.raw_value'><span class='tmpl-email'><field name='email'/></span></t><span class='tmpl-state' t-esc='record.state.value'/><t t-call='kanban-tag-list'><span class='tmpl-slot'>Slot <t t-esc='record.state.value'/></span></t></div></t><t t-name='kanban-tag-list'><section class='tmpl-subtemplate' data-called='tag-list'><t t-out='0'/><ul class='tmpl-tags'><t t-foreach='record.tags.raw_value' t-as='tag'><li class='tmpl-tag' t-att-data-index='tag_index' t-attf-class='tag-#{tag_index}' t-esc='tag'/></t></ul></section></t></templates></kanban>",
                 id: 760
               },
               form: { arch: "<form><field name='display_name'/></form>", id: 761 }
             }
           },
           records: [
-            { id: 762, display_name: "Template A", email: "template-a@example.test", state: "new" },
-            { id: 763, display_name: "Template B", email: "", state: "done" }
+            { id: 762, display_name: "Template A", email: "template-a@example.test", state: "new", tags: ["VIP", "Supplier"], url: "#record-762" },
+            { id: 763, display_name: "Template B", email: "", state: "done", tags: [], url: "#record-763" }
           ],
           length: 2,
           offset: 0,
@@ -1268,7 +1275,24 @@ export const scenarios = [
           email_count: card.querySelectorAll(".tmpl-email").length,
           email: card.querySelector(".tmpl-email")?.textContent?.trim() || "",
           state: card.querySelector(".tmpl-state")?.textContent?.trim() || "",
-          root_class: card.querySelector(".tmpl-card")?.className || ""
+          root_class: card.querySelector(".tmpl-card")?.className || "",
+          root_data_id: card.querySelector(".tmpl-card")?.dataset.id || "",
+          root_data_state: card.querySelector(".tmpl-card")?.dataset.state || "",
+          root_title: card.querySelector(".tmpl-card")?.getAttribute("title") || "",
+          root_aria: card.querySelector(".tmpl-card")?.getAttribute("aria-label") || "",
+          badge: card.querySelector(".tmpl-badge")?.textContent?.trim() || "",
+          badge_data: card.querySelector(".tmpl-badge")?.dataset.badge || "",
+          captured: card.querySelector(".tmpl-captured")?.textContent?.trim() || "",
+          slot: card.querySelector(".tmpl-slot")?.textContent?.trim() || "",
+          subtemplate_called: card.querySelector(".tmpl-subtemplate")?.dataset.called || "",
+          link_href: card.querySelector(".tmpl-link")?.getAttribute("href") || "",
+          link_rel: card.querySelector(".tmpl-link")?.getAttribute("rel") || "",
+          tag_list_called: card.querySelector(".tmpl-subtemplate")?.dataset.called || "",
+          tags: [...card.querySelectorAll(".tmpl-tag")].map((tag) => ({
+            text: tag.textContent?.trim() || "",
+            index: tag.dataset.index || "",
+            class_name: tag.className || ""
+          }))
         }));
         return { card_count: cards.length, cards };
       })()`);
@@ -1280,8 +1304,23 @@ export const scenarios = [
       if (!renderedState.cards.some((card) => card.id === "762" && card.title === "Template A" && card.email === "template-a@example.test" && card.state === "New" && card.root_class.includes("state-new"))) {
         throw new Error(`kanban template first card invalid: ${JSON.stringify(renderedState)}`);
       }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.root_data_id === "762" && card.root_data_state === "new" && card.root_title === "Template A" && card.root_aria === "Partner Template A" && card.link_href === "#record-762" && card.link_rel === "noopener")) {
+        throw new Error(`kanban template dynamic attributes invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.badge === "New" && card.badge_data === "New" && card.tag_list_called === "tag-list")) {
+        throw new Error(`kanban template t-set/t-call invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.captured === "Captured Template A" && card.slot === "Slot New" && card.subtemplate_called === "tag-list")) {
+        throw new Error(`kanban template body capture/slot invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "762" && card.tags.length === 2 && card.tags[0].text === "VIP" && card.tags[0].index === "0" && card.tags[0].class_name.includes("tag-0") && card.tags[1].text === "Supplier" && card.tags[1].index === "1" && card.tags[1].class_name.includes("tag-1"))) {
+        throw new Error(`kanban template loop invalid: ${JSON.stringify(renderedState)}`);
+      }
       if (!renderedState.cards.some((card) => card.id === "763" && card.title === "Template B" && card.email_count === 0 && card.state === "Done" && card.root_class.includes("state-done"))) {
         throw new Error(`kanban template conditional card invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (!renderedState.cards.some((card) => card.id === "763" && card.tags.length === 0 && card.link_href === "#record-763")) {
+        throw new Error(`kanban template empty loop invalid: ${JSON.stringify(renderedState)}`);
       }
       return { rendered_state: renderedState, card_count: cardCount, template_count: templateCount };
     }
@@ -1967,8 +2006,8 @@ async function assertEnterprisePolishSnapshot(page) {
     };
   })()`);
   const issues = [];
-  const acceptedControlPanelBG = new Set(["rgb(255, 255, 255)", "rgb(41, 44, 58)"]);
-  const acceptedListHeaderBG = new Set(["rgb(246, 247, 248)", "rgb(28, 31, 42)"]);
+  const acceptedControlPanelBG = new Set(["rgb(255, 255, 255)"]);
+  const acceptedListHeaderBG = new Set(["rgb(246, 247, 248)"]);
   if (!acceptedControlPanelBG.has(snapshot.control_panel_bg)) issues.push(`control panel bg ${snapshot.control_panel_bg}`);
   if (snapshot.control_panel_bg === "rgb(255, 255, 255)" && (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none")) issues.push("control panel shadow missing");
   if (snapshot.control_panel_min_height_px < 60 || snapshot.control_panel_min_height_px > 66) issues.push(`control panel min-height ${snapshot.control_panel_min_height_px}`);
