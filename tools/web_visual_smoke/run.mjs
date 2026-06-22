@@ -987,6 +987,45 @@ export const scenarios = [
     }
   },
   {
+    name: "default-custom-filter-dialog-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_add_custom_filter");
+      const dialogState = await waitFor(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-custom-filter-dialog.o_dialog");
+        const field = dialog?.querySelector("[data-custom-filter-field='true']");
+        const operator = dialog?.querySelector("[data-custom-filter-operator='true']");
+        const value = dialog?.querySelector("[data-custom-filter-value='true']");
+        const labels = field ? [...field.querySelectorAll("option")].map((option) => option.textContent.trim()).filter(Boolean) : [];
+        return dialog && field && operator && value ? { field: field.value, operator: operator.value, labels } : null;
+      })()`, "custom filter dialog controls");
+      if (dialogState.field !== "model_name" || dialogState.operator !== "ilike" || !dialogState.labels.includes("Model")) {
+        throw new Error(`custom filter dialog invalid: ${JSON.stringify(dialogState)}`);
+      }
+      await setInput(page, ".o_web_client .o_action_manager [data-custom-filter-value='true']", "mail");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-custom-filter-apply='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "custom filter applied action ready");
+      const appliedState = await waitFor(page, `(() => {
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row")];
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='custom-model_name-ilike-mail']");
+        if (!facet || !rows.length) return null;
+        const label = facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "";
+        const values = [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
+        const text = rows.map((row) => row.textContent.trim()).join("\\n").toLowerCase();
+        return { rows: rows.length, label, values, text_has_mail: text.includes("mail"), raw_field_text: facet.textContent.includes("model_name") };
+      })()`, "custom filter facet and filtered rows");
+      if (appliedState.label !== "Model" || appliedState.values[0] !== "mail" || appliedState.raw_field_text || !appliedState.text_has_mail || appliedState.rows >= opened.row_count) {
+        throw new Error(`custom filter applied state invalid: ${JSON.stringify({ opened, appliedState })}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='custom-model_name-ilike-mail'] .o_facet_remove");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "custom filter removed action ready");
+      const restoredRows = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", opened.row_count, "custom filter restored rows");
+      return { baseline_rows: opened.row_count, filtered_state: appliedState, restored_rows: restoredRows };
+    }
+  },
+  {
     name: "default-view-switch-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

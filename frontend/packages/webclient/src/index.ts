@@ -2516,7 +2516,10 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
         detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
       }));
     },
-    onAddCustomFilter: () => dispatchSearchUtilityEvent(root, "action:search-custom-filter", result),
+    onAddCustomFilter: () => {
+      if (openCustomFilterDialog(result, root, options)) return;
+      dispatchSearchUtilityEvent(root, "action:search-custom-filter", result);
+    },
     onAddCustomGroup: () => dispatchSearchUtilityEvent(root, "action:search-custom-group", result),
     onAddFavorite: () => {
       if (persistCurrentSearchFavorite(result, root, options)) return;
@@ -2660,6 +2663,193 @@ function persistCurrentSearchFavorite(result: WindowActionResult, root: HTMLElem
     }));
   });
   return true;
+}
+
+interface CustomFilterFieldOption {
+  name: string;
+  label: string;
+  type: string;
+}
+
+interface CustomFilterOperatorOption {
+  value: string;
+  label: string;
+}
+
+function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): boolean {
+  if (!options.services?.action || result.activeView === "form") return false;
+  const fields = customFilterFieldOptions(result);
+  if (!fields.length) return false;
+  const operators = customFilterOperatorOptions();
+  const overlay = document.createElement("section");
+  overlay.className = "o_dialog gorp-custom-filter-dialog modal-open";
+  overlay.dataset.customFilterDialog = result.resModel;
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  const modal = document.createElement("div");
+  modal.className = "modal o_dialog_container show d-block";
+  const dialog = document.createElement("div");
+  dialog.className = "modal-dialog";
+  const content = document.createElement("div");
+  content.className = "modal-content";
+  const header = document.createElement("header");
+  header.className = "modal-header";
+  const title = document.createElement("h1");
+  title.className = "modal-title";
+  title.textContent = "Add Custom Filter";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "btn-close";
+  close.dataset.customFilterClose = "true";
+  close.setAttribute("aria-label", "Close");
+  close.addEventListener("click", () => removeDescendant(root, overlay));
+  header.append(title, close);
+
+  const body = document.createElement("div");
+  body.className = "modal-body o_add_custom_filter_menu";
+  const row = document.createElement("div");
+  row.className = "o_custom_filter_row d-flex gap-2 align-items-center";
+  const fieldSelect = document.createElement("select");
+  fieldSelect.className = "o_input o_custom_filter_field";
+  fieldSelect.dataset.customFilterField = "true";
+  fieldSelect.setAttribute("aria-label", "Field");
+  for (const field of fields) {
+    const option = document.createElement("option");
+    option.value = field.name;
+    option.textContent = field.label;
+    option.dataset.fieldType = field.type;
+    fieldSelect.append(option);
+  }
+  fieldSelect.value = fields[0].name;
+  const operatorSelect = document.createElement("select");
+  operatorSelect.className = "o_input o_custom_filter_operator";
+  operatorSelect.dataset.customFilterOperator = "true";
+  operatorSelect.setAttribute("aria-label", "Operator");
+  for (const operator of operators) {
+    const option = document.createElement("option");
+    option.value = operator.value;
+    option.textContent = operator.label;
+    operatorSelect.append(option);
+  }
+  operatorSelect.value = operators[0].value;
+  const valueInput = document.createElement("input");
+  valueInput.className = "o_input o_custom_filter_value";
+  valueInput.dataset.customFilterValue = "true";
+  valueInput.type = "text";
+  valueInput.placeholder = "Value";
+  row.append(fieldSelect, operatorSelect, valueInput);
+  body.append(row);
+
+  const footer = document.createElement("footer");
+  footer.className = "modal-footer";
+  const apply = document.createElement("button");
+  apply.type = "button";
+  apply.className = "btn btn-primary o_apply_filter";
+  apply.dataset.customFilterApply = "true";
+  apply.textContent = "Apply";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "btn btn-secondary o_discard_filter";
+  cancel.dataset.customFilterCancel = "true";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => removeDescendant(root, overlay));
+  apply.addEventListener("click", () => {
+    const facet = customFilterFacet(result, fields, fieldSelect.value, operatorSelect.value, valueInput.value);
+    if (!facet) return;
+    const currentFacets = result.search?.state.facets ?? [];
+    const nextAction = actionWithCurrentSearch(result, [...currentFacets.map(cloneSearchFacet), facet]);
+    delete nextAction.__search_query;
+    void options.services?.action?.doAction(nextAction, replaceActionOptions(options));
+    removeDescendant(root, overlay);
+  });
+  footer.append(cancel, apply);
+  content.append(header, body, footer);
+  dialog.append(content);
+  modal.append(dialog);
+  overlay.append(modal);
+  root.append(overlay);
+  valueInput.focus?.();
+  return true;
+}
+
+function customFilterFieldOptions(result: WindowActionResult): CustomFilterFieldOption[] {
+  const fields = result.viewDescriptions.fields ?? {};
+  const preferred = customFilterPreferredFieldNames(result.resModel, fields);
+  const seenLabels = new Set<string>();
+  const options: CustomFilterFieldOption[] = [];
+  for (const name of preferred) {
+    const description = fields[name];
+    if (!isCustomFilterableField(description)) continue;
+    const label = fieldLabel(fields, name, result.resModel);
+    const key = label.toLowerCase();
+    if (seenLabels.has(key)) continue;
+    seenLabels.add(key);
+    options.push({ name, label, type: fieldTypeValue(description) });
+  }
+  return options;
+}
+
+function customFilterPreferredFieldNames(model: string, fields: Record<string, unknown>): string[] {
+  const names = Object.keys(fields);
+  if (model === "ir.actions.server" && fields.model_name) {
+    return ["model_name", ...names.filter((name) => name !== "model_name" && name !== "model_id"), ...(fields.model_id ? ["model_id"] : [])];
+  }
+  return names;
+}
+
+function isCustomFilterableField(description: unknown): boolean {
+  const type = fieldTypeValue(description);
+  return ["char", "text", "html", "selection", "many2one", "boolean", "integer", "float", "monetary", "date", "datetime"].includes(type);
+}
+
+function customFilterOperatorOptions(): CustomFilterOperatorOption[] {
+  return [
+    { value: "ilike", label: "contains" },
+    { value: "not ilike", label: "does not contain" },
+    { value: "=", label: "is equal to" },
+    { value: "!=", label: "is not equal to" }
+  ];
+}
+
+function customFilterFacet(
+  result: WindowActionResult,
+  fields: readonly CustomFilterFieldOption[],
+  fieldName: string,
+  operator: string,
+  value: string
+): SearchFacet | null {
+  const field = fields.find((item) => item.name === fieldName) ?? fields[0];
+  const cleanValue = String(value ?? "").trim();
+  if (!field || !cleanValue) return null;
+  const op = customFilterOperatorOptions().some((item) => item.value === operator) ? operator : "ilike";
+  return {
+    id: customFilterFacetID(field.name, op, cleanValue),
+    type: "text",
+    label: cleanValue,
+    categoryLabel: field.label,
+    valueLabels: [cleanValue],
+    field: field.name,
+    operator: op,
+    value: customFilterValue(field.type, op, cleanValue)
+  };
+}
+
+function customFilterFacetID(field: string, operator: string, value: string): string {
+  return `custom-${field}-${operator}-${value}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function customFilterValue(fieldType: string, operator: string, value: string): unknown {
+  if (fieldType === "boolean" && (operator === "=" || operator === "!=")) {
+    return ["1", "true", "yes", "y"].includes(value.toLowerCase());
+  }
+  if ((fieldType === "integer" || fieldType === "float" || fieldType === "monetary") && (operator === "=" || operator === "!=")) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return fieldType === "integer" ? Math.trunc(numeric) : numeric;
+  }
+  return value;
 }
 
 function actionWithCurrentSearch(result: WindowActionResult, facets: readonly SearchFacet[]): Record<string, unknown> {

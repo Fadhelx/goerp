@@ -1966,6 +1966,74 @@ const serverActionListTable = findAll(serverActionListWindow, (node) => String(n
 assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Type", "Model", "Active"]);
 const serverActionStateCell = findAll(serverActionListTable, (node) => node.dataset?.field === "state")[0];
 assert.equal(findAll(serverActionStateCell, (node) => node.tag === "output")[0].textContent, "Execute Code");
+const serverActionCustomFilterCalls = [];
+const serverActionCustomFilterWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { id: 74, name: "Server Actions" },
+  activeView: "list",
+  resModel: "ir.actions.server",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "name" },
+      state: { type: "selection", string: "state" },
+      model_name: { type: "char", string: "model_name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "model_id" },
+      active: { type: "boolean", string: "active" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="state"/><field name="model_name"/><field name="active"/></list>`,
+        id: 74
+      }
+    }
+  },
+  records: [{ id: 31, name: "Mail: Email Queue Manager", state: "code", model_name: "mail.mail", active: true }],
+  length: 1,
+  search: {
+    state: { query: "", facets: [], domain: [], context: {}, groupBy: [] },
+    suggestions: [],
+    filters: [],
+    groupBys: [],
+    favorites: []
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        serverActionCustomFilterCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_searchview_dropdown_toggler"))[0].dispatchEvent(new TestEvent("click"));
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const customFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+assert.equal(customFilterDialog.attributes.role, "dialog");
+const customFilterField = findAll(customFilterDialog, (node) => node.dataset?.customFilterField === "true")[0];
+const customFilterOperator = findAll(customFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const customFilterValue = findAll(customFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+assert.equal(customFilterField.value, "model_name");
+assert.equal(findAll(customFilterField, (node) => node.tag === "option").map((node) => node.textContent).includes("Model"), true);
+customFilterOperator.value = "ilike";
+customFilterValue.value = "mail";
+findAll(customFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog")).length, 0);
+assert.deepEqual(serverActionCustomFilterCalls[0].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.value
+]), [
+  ["custom-model_name-ilike-mail", "text", "model_name", "ilike", "Model", ["mail"], "mail"]
+]);
+assert.equal("__search_query" in serverActionCustomFilterCalls[0].action, false);
+assert.deepEqual(serverActionCustomFilterCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({
