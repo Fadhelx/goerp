@@ -354,6 +354,187 @@ func TestButtonUpgradeAndImmediateUpgradeTransitions(t *testing.T) {
 	assertModuleState(t, env, "crm", "installed")
 }
 
+func TestButtonUpgradeChecksExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	crm := manifests["crm"]
+	crm.ExternalDependencies = map[string][]string{"python": {"missing_upgrade_dep"}}
+	manifests["crm"] = crm
+	crmID := createModuleRow(t, env, "crm", "installed")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "missing_upgrade_dep" {
+			return fmt.Errorf("not importable")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonUpgrade([]int64{crmID})
+	if err == nil || !strings.Contains(err.Error(), "module crm missing external python dependency missing_upgrade_dep") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "crm", "installed")
+}
+
+func TestButtonUpgradeDoesNotCheckInstalledDependencyExternalDependencies(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	mail := manifests["mail"]
+	mail.ExternalDependencies = map[string][]string{"python": {"installed_dependency_missing"}}
+	manifests["mail"] = mail
+	createModuleRow(t, env, "mail", "installed")
+	crmID := createModuleRow(t, env, "crm", "installed")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "installed_dependency_missing" {
+			return fmt.Errorf("installed dependency should not be checked")
+		}
+		return nil
+	}
+
+	result, err := service.ButtonUpgrade([]int64{crmID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation != "upgrade" || strings.Join(result.Modules, ",") != "crm" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "mail", "installed")
+	assertModuleState(t, env, "crm", "to upgrade")
+}
+
+func TestButtonUpgradeQueuesInstalledReverseDependents(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	mailID := createModuleRow(t, env, "mail", "installed")
+	createModuleRow(t, env, "crm", "installed")
+
+	result, err := New(env, manifests).ButtonUpgrade([]int64{mailID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation != "upgrade" || strings.Join(result.Modules, ",") != "crm,mail" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "mail", "to upgrade")
+	assertModuleState(t, env, "crm", "to upgrade")
+}
+
+func TestButtonImmediateUpgradeReturnsInstalledPlanForReload(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	mailID := createModuleRow(t, env, "mail", "installed")
+	createModuleRow(t, env, "crm", "installed")
+
+	result, err := New(env, manifests).ButtonImmediateUpgrade([]int64{mailID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Operation != "immediate_upgrade" || strings.Join(result.Modules, ",") != "crm,mail" {
+		t.Fatalf("result = %+v", result)
+	}
+	assertModuleState(t, env, "mail", "installed")
+	assertModuleState(t, env, "crm", "installed")
+}
+
+func TestButtonUpgradeChecksReverseDependentExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	crm := manifests["crm"]
+	crm.ExternalDependencies = map[string][]string{"python": {"missing_reverse_dep"}}
+	manifests["crm"] = crm
+	mailID := createModuleRow(t, env, "mail", "installed")
+	createModuleRow(t, env, "crm", "installed")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "missing_reverse_dep" {
+			return fmt.Errorf("not importable")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonUpgrade([]int64{mailID})
+	if err == nil || !strings.Contains(err.Error(), "module crm missing external python dependency missing_reverse_dep") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "mail", "installed")
+	assertModuleState(t, env, "crm", "installed")
+}
+
+func TestButtonImmediateUpgradeChecksExternalDependenciesBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	crm := manifests["crm"]
+	crm.ExternalDependencies = map[string][]string{"bin": {"missing-upgrade-bin"}}
+	manifests["crm"] = crm
+	crmID := createModuleRow(t, env, "crm", "to upgrade")
+
+	service := New(env, manifests)
+	service.CheckBinaryDependency = func(name string) error {
+		if name == "missing-upgrade-bin" {
+			return fmt.Errorf("not in path")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonImmediateUpgrade([]int64{crmID})
+	if err == nil || !strings.Contains(err.Error(), "module crm missing external binary dependency missing-upgrade-bin") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "crm", "to upgrade")
+}
+
+func TestButtonImmediateUpgradeChecksExternalDependenciesFromInstalledBeforeWriting(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	crm := manifests["crm"]
+	crm.ExternalDependencies = map[string][]string{"python": {"missing_immediate_installed_dep"}}
+	manifests["crm"] = crm
+	crmID := createModuleRow(t, env, "crm", "installed")
+
+	service := New(env, manifests)
+	service.CheckPythonDependency = func(name string) error {
+		if name == "missing_immediate_installed_dep" {
+			return fmt.Errorf("not importable")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonImmediateUpgrade([]int64{crmID})
+	if err == nil || !strings.Contains(err.Error(), "module crm missing external python dependency missing_immediate_installed_dep") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "crm", "installed")
+}
+
+func TestButtonUpgradeExternalDependencyFailureDoesNotPartiallyWriteMultipleRows(t *testing.T) {
+	env := lifecycleTestEnv(t)
+	manifests := lifecycleTestManifests()
+	mail := manifests["mail"]
+	mail.ExternalDependencies = map[string][]string{"bin": {"missing-multi-bin"}}
+	manifests["mail"] = mail
+	crmID := createModuleRow(t, env, "crm", "installed")
+	mailID := createModuleRow(t, env, "mail", "installed")
+
+	service := New(env, manifests)
+	service.CheckBinaryDependency = func(name string) error {
+		if name == "missing-multi-bin" {
+			return fmt.Errorf("not in path")
+		}
+		return nil
+	}
+
+	_, err := service.ButtonUpgrade([]int64{crmID, mailID})
+	if err == nil || !strings.Contains(err.Error(), "module mail missing external binary dependency missing-multi-bin") {
+		t.Fatalf("error = %v", err)
+	}
+	assertModuleState(t, env, "crm", "installed")
+	assertModuleState(t, env, "mail", "installed")
+}
+
 func TestButtonUpgradeRejectsUninstalledModule(t *testing.T) {
 	env := lifecycleTestEnv(t)
 	manifests := lifecycleTestManifests()

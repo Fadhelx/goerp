@@ -37,11 +37,11 @@ func (s Service) ButtonInstall(ids []int64) (Result, error) {
 }
 
 func (s Service) ButtonImmediateUpgrade(ids []int64) (Result, error) {
-	return s.markIfStates(ids, "installed", "immediate_upgrade", map[string]bool{"installed": true, "to upgrade": true})
+	return s.upgrade(ids, true)
 }
 
 func (s Service) ButtonUpgrade(ids []int64) (Result, error) {
-	return s.markIfStates(ids, "to upgrade", "upgrade", map[string]bool{"installed": true, "to upgrade": true})
+	return s.upgrade(ids, false)
 }
 
 func (s Service) ButtonUninstall(ids []int64) (Result, error) {
@@ -88,7 +88,7 @@ func (s Service) install(ids []int64, immediate bool) (Result, error) {
 	if err := s.checkInstallExclusions(targetState, plan); err != nil {
 		return Result{}, err
 	}
-	if err := s.checkExternalDependencies(plan); err != nil {
+	if err := s.checkExternalDependencies(plan, true); err != nil {
 		return Result{}, err
 	}
 	changed, err := s.writeInstallPlan(targetState, plan)
@@ -143,6 +143,91 @@ func (s Service) uninstall(ids []int64, immediate bool) (Result, error) {
 		return Result{}, err
 	}
 	return Result{Operation: operation, Modules: rowNames(rows)}, nil
+}
+
+func (s Service) upgrade(ids []int64, immediate bool) (Result, error) {
+	targetState := "to upgrade"
+	operation := "upgrade"
+	if immediate {
+		targetState = "installed"
+		operation = "immediate_upgrade"
+	}
+	rows, err := s.rowsByID(ids)
+	if err != nil {
+		return Result{}, err
+	}
+	for _, row := range rows {
+		if row.State != "installed" && row.State != "to upgrade" {
+			return Result{}, fmt.Errorf("module %s cannot run %s from state %s", row.Name, operation, row.State)
+		}
+	}
+	plan, err := s.upgradePlan(rows)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := s.checkExternalDependencies(plan, false); err != nil {
+		return Result{}, err
+	}
+	changed := map[string]bool{}
+	for _, name := range sortedKeys(plan) {
+		row, err := s.ensureRow(name)
+		if err != nil {
+			return Result{}, err
+		}
+		if row.State == targetState {
+			continue
+		}
+		if err := s.writeRows([]moduleRow{row}, targetState); err != nil {
+			return Result{}, err
+		}
+		changed[row.Name] = true
+	}
+	if immediate {
+		return Result{Operation: operation, Modules: sortedKeys(plan)}, nil
+	}
+	return Result{Operation: operation, Modules: sortedKeys(changed)}, nil
+}
+
+func (s Service) upgradePlan(rows []moduleRow) (map[string]bool, error) {
+	states, err := s.moduleStates()
+	if err != nil {
+		return nil, err
+	}
+	plan := map[string]bool{}
+	for _, row := range rows {
+		plan[row.Name] = true
+	}
+	if plan["base"] {
+		for name, state := range states {
+			if state == "installed" && name != "studio_customization" {
+				if _, ok := s.Manifests[name]; ok {
+					plan[name] = true
+				}
+			}
+		}
+	}
+	for {
+		added := false
+		for name, state := range states {
+			if plan[name] || state != "installed" || name == "studio_customization" {
+				continue
+			}
+			manifest, ok := s.Manifests[name]
+			if !ok {
+				continue
+			}
+			for _, dep := range manifest.Depends {
+				if plan[dep] {
+					plan[name] = true
+					added = true
+					break
+				}
+			}
+		}
+		if !added {
+			return plan, nil
+		}
+	}
 }
 
 func (s Service) markIfStates(ids []int64, state string, operation string, allowed map[string]bool) (Result, error) {
@@ -263,13 +348,13 @@ func (s Service) checkInstallExclusions(targetState string, plan map[string]bool
 	return nil
 }
 
-func (s Service) checkExternalDependencies(plan map[string]bool) error {
+func (s Service) checkExternalDependencies(plan map[string]bool, skipInstalled bool) error {
 	states, err := s.moduleStates()
 	if err != nil {
 		return err
 	}
 	for _, name := range sortedKeys(plan) {
-		if states[name] == "installed" {
+		if skipInstalled && states[name] == "installed" {
 			continue
 		}
 		manifest, ok := s.Manifests[name]
