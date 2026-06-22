@@ -232,6 +232,95 @@ export const scenarios = [
     }
   },
   {
+    name: "default-launcher-back-mode-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "launcher back-mode TS webclient ready");
+      await clickText(page, ".o_web_client .o_home_menu .o_app", "Settings");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "launcher back-mode action ready");
+      await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "launcher back-mode Settings action");
+      const before = await evaluate(page, `(() => {
+        const shell = document.querySelector("main.o_web_client");
+        const launcher = document.querySelector(".o_web_client > .o_navbar .o_menu_toggle");
+        return {
+          view: shell?.dataset?.view || "",
+          mode: shell?.dataset?.homeMenuMode || "",
+          home_count: document.querySelectorAll(".o_web_client .o_home_menu").length,
+          settings_count: document.querySelectorAll(".o_web_client .o_action_manager .o_settings_container").length,
+          back_class: launcher?.classList.contains("o_menu_toggle_back") || false
+        };
+      })()`);
+      if (before.view !== "action" || before.mode || before.home_count || before.settings_count !== 1 || before.back_class) {
+        throw new Error(`launcher back-mode initial state invalid: ${JSON.stringify(before)}`);
+      }
+      await clickSelector(page, ".o_web_client > .o_navbar .o_menu_toggle");
+      await waitForCount(page, ".o_web_client .o_action_manager .o_home_menu", 1, "launcher back-mode overlay home menu");
+      const overlay = await evaluate(page, `(() => {
+        const shell = document.querySelector("main.o_web_client");
+        const launcher = document.querySelector(".o_web_client > .o_navbar .o_menu_toggle");
+        const navbarApps = document.querySelector(".o_web_client > .o_navbar .o_navbar_apps_menu");
+        const navbarStyle = navbarApps ? getComputedStyle(navbarApps) : null;
+        const navbar = document.querySelector(".o_web_client > .o_navbar > .o_main_navbar");
+        const navbarBg = navbar ? getComputedStyle(navbar).backgroundColor : "";
+        const title = document.querySelector(".o_web_client > .o_navbar .o_menu_brand")?.textContent?.trim() || "";
+        return {
+          view: shell?.dataset?.view || "",
+          mode: shell?.dataset?.homeMenuMode || "",
+          body_home_background: document.body.classList.contains("o_home_menu_background"),
+          shell_home_background: shell?.classList.contains("o_home_menu_background") || false,
+          back_class: launcher?.classList.contains("o_menu_toggle_back") || false,
+          launcher_visible: Boolean(launcher && launcher.getBoundingClientRect().width >= 30 && launcher.getBoundingClientRect().height >= 40),
+          navbar_apps_display: navbarStyle?.display || "",
+          navbar_background: navbarBg,
+          title,
+          home_count: document.querySelectorAll(".o_web_client .o_action_manager .o_home_menu").length,
+          settings_count: document.querySelectorAll(".o_web_client .o_action_manager .o_settings_container").length
+        };
+      })()`);
+      if (overlay.view !== "apps" || overlay.mode !== "overlay" || !overlay.body_home_background || !overlay.shell_home_background || !overlay.back_class || !overlay.launcher_visible || overlay.navbar_apps_display === "none" || overlay.navbar_background !== "rgba(0, 0, 0, 0)" || overlay.title !== "Settings" || overlay.home_count !== 1 || overlay.settings_count !== 0) {
+        throw new Error(`launcher back-mode overlay invalid: ${JSON.stringify(overlay)}`);
+      }
+      await clickSelector(page, ".o_web_client > .o_navbar .o_menu_toggle_back");
+      await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "launcher back-mode restored Settings action");
+      const restored = await evaluate(page, `(() => {
+        const shell = document.querySelector("main.o_web_client");
+        const launcher = document.querySelector(".o_web_client > .o_navbar .o_menu_toggle");
+        return {
+          view: shell?.dataset?.view || "",
+          mode: shell?.dataset?.homeMenuMode || "",
+          body_home_background: document.body.classList.contains("o_home_menu_background"),
+          shell_home_background: shell?.classList.contains("o_home_menu_background") || false,
+          back_class: launcher?.classList.contains("o_menu_toggle_back") || false,
+          home_count: document.querySelectorAll(".o_web_client .o_action_manager .o_home_menu").length,
+          settings_count: document.querySelectorAll(".o_web_client .o_action_manager .o_settings_container").length,
+          action_status: document.querySelector(".o_web_client .o_action_manager")?.dataset?.tsActionStatus || ""
+        };
+      })()`);
+      if (restored.view !== "action" || restored.mode || restored.body_home_background || restored.shell_home_background || restored.back_class || restored.home_count !== 0 || restored.settings_count !== 1 || restored.action_status !== "ready") {
+        throw new Error(`launcher back-mode restore invalid: ${JSON.stringify(restored)}`);
+      }
+      await clickSelector(page, ".o_web_client > .o_navbar .o_menu_toggle");
+      await waitForCount(page, ".o_web_client .o_action_manager .o_home_menu", 1, "launcher back-mode final overlay home menu");
+      const finalOverlay = await evaluate(page, `(() => {
+        const shell = document.querySelector("main.o_web_client");
+        const launcher = document.querySelector(".o_web_client > .o_navbar .o_menu_toggle");
+        return {
+          view: shell?.dataset?.view || "",
+          mode: shell?.dataset?.homeMenuMode || "",
+          back_class: launcher?.classList.contains("o_menu_toggle_back") || false,
+          home_count: document.querySelectorAll(".o_web_client .o_action_manager .o_home_menu").length,
+          settings_count: document.querySelectorAll(".o_web_client .o_action_manager .o_settings_container").length
+        };
+      })()`);
+      if (finalOverlay.view !== "apps" || finalOverlay.mode !== "overlay" || !finalOverlay.back_class || finalOverlay.home_count !== 1 || finalOverlay.settings_count !== 0) {
+        throw new Error(`launcher back-mode final overlay invalid: ${JSON.stringify(finalOverlay)}`);
+      }
+      return { before, overlay, restored, final_overlay: finalOverlay };
+    }
+  },
+  {
     name: "default-action-dialog-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

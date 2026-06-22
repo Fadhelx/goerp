@@ -43,9 +43,14 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   };
   let setNavbarActive: (appId?: number | string, brandName?: string) => void = () => {};
   let setNavbarApps: (apps: readonly NavbarApp[], activeAppId?: number | string, brandName?: string) => void = () => {};
+  let setNavbarHomeMenuBackMode: (enabled: boolean) => void = () => {};
   let activeBrandApp: HomeMenuApp | undefined;
+  let previousActionChildren: HTMLElement[] = [];
   const openApp = (app: HomeMenuApp) => {
+    previousActionChildren = [];
     root.dataset.view = "action";
+    delete root.dataset.homeMenuMode;
+    setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(false);
     setMobileMenuOpen(false);
     const appName = cleanAppName(app.name);
@@ -62,8 +67,11 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     if (catalogApp) return openApp(catalogApp);
     return options.onOpenAppsCatalog?.(action);
   };
-  const renderApps = () => {
+  const renderRootApps = () => {
+    previousActionChildren = [];
     root.dataset.view = "apps";
+    root.dataset.homeMenuMode = "root";
+    setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(true);
     setMobileMenuOpen(false);
     activeBrandApp = undefined;
@@ -74,6 +82,41 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
       onOpenAppsCatalog: openAppsCatalog
     }));
   };
+  const renderOverlayApps = () => {
+    if (root.dataset.view !== "apps") {
+      previousActionChildren = Array.from(action.children) as HTMLElement[];
+    }
+    root.dataset.view = "apps";
+    root.dataset.homeMenuMode = "overlay";
+    setNavbarHomeMenuBackMode(true);
+    setHomeMenuBackground(true);
+    setMobileMenuOpen(false);
+    if (!options.menus) return;
+    action.replaceChildren(renderHomeMenu(options.menus, {
+      onOpenApp: openApp,
+      onOpenAppsCatalog: openAppsCatalog
+    }));
+  };
+  const restoreActionFromOverlayApps = () => {
+    root.dataset.view = "action";
+    delete root.dataset.homeMenuMode;
+    setNavbarHomeMenuBackMode(false);
+    setHomeMenuBackground(false);
+    setMobileMenuOpen(false);
+    action.replaceChildren(...previousActionChildren);
+    previousActionChildren = [];
+  };
+  const toggleAppsMenu = () => {
+    if (root.dataset.view === "apps" && root.dataset.homeMenuMode === "overlay") {
+      restoreActionFromOverlayApps();
+      return;
+    }
+    if (root.dataset.view === "action") {
+      renderOverlayApps();
+      return;
+    }
+    renderRootApps();
+  };
 
   const navbar: RenderedNavbar = renderNavbar({
     apps,
@@ -81,7 +124,7 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
     companyName: options.companyName,
     debug: options.debug,
     systray: options.systray,
-    onOpenApps: renderApps,
+    onOpenApps: toggleAppsMenu,
     onToggleMobileMenu: setMobileMenuOpen,
     onOpenApp: (app) => {
       const menuApp = menuActions.find((item) => String(item.id) === String(app.id))
@@ -95,9 +138,10 @@ export function createWebClientShell(options: WebClientShellOptions): HTMLElemen
   });
   setNavbarActive = navbar.setActiveApp;
   setNavbarApps = navbar.setApps;
+  setNavbarHomeMenuBackMode = navbar.setHomeMenuBackMode;
 
   if (options.menus) {
-    renderApps();
+    renderRootApps();
   } else {
     setHomeMenuBackground(false);
     const ready = document.createElement("section");

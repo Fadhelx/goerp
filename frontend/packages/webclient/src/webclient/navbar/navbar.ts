@@ -56,6 +56,7 @@ export interface NavbarOptions {
 export interface RenderedNavbar extends HTMLElement {
   setActiveApp: (appId?: number | string, brandName?: string) => void;
   setApps: (apps: readonly NavbarApp[], activeAppId?: number | string, brandName?: string) => void;
+  setHomeMenuBackMode: (enabled: boolean) => void;
 }
 
 export function defaultSystrayItems(store?: Record<string, unknown>): SystrayItem[] {
@@ -95,6 +96,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const dropdowns: HTMLElement[] = [];
   const dropdownButtons = new Map<HTMLElement, HTMLElement>();
   let currentApps = [...(options.apps ?? [])];
+  let homeMenuBackMode = false;
 
   const brand = document.createElement("div");
   brand.className = "o_navbar_apps_menu o-brand";
@@ -107,7 +109,6 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   launcher.append(renderLauncherIcon());
   launcher.addEventListener("click", () => {
     setMobileMenuExpanded(false);
-    setActiveApp(undefined);
     options.onOpenApps?.();
   });
   const title = document.createElement("h1");
@@ -162,6 +163,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   bindSystrayAutoClose(header, closeDropdowns);
   header.setActiveApp = setActiveApp;
   header.setApps = setApps;
+  header.setHomeMenuBackMode = setHomeMenuBackMode;
   setActiveApp(options.activeAppId);
   return header;
 
@@ -182,13 +184,25 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     }
     const activeName = activeAppName(currentApps, appId);
     title.textContent = brandName || activeName || "Odoo";
-    launcher.className = activeKey ? "o_menu_toggle o-launcher-button border-0" : "o_menu_toggle o-launcher-button border-0 active";
+    updateLauncherClass(Boolean(activeKey));
     setPageCurrent(launcher, !activeKey);
     for (const [key, button] of appButtons) {
       const active = key === activeKey;
       button.className = active ? "o_nav_entry active" : "o_nav_entry";
       setPageCurrent(button, active);
     }
+  }
+
+  function setHomeMenuBackMode(enabled: boolean): void {
+    homeMenuBackMode = enabled;
+    updateLauncherClass(Boolean(mainNavbar.dataset.activeMenuId));
+  }
+
+  function updateLauncherClass(hasActiveApp: boolean): void {
+    const classes = ["o_menu_toggle", "o-launcher-button", "border-0"];
+    if (!hasActiveApp) classes.push("active");
+    if (homeMenuBackMode) classes.push("o_menu_toggle_back");
+    launcher.className = classes.join(" ");
   }
 
   function appendDropdown(parent: HTMLElement, button: HTMLElement, menu: HTMLElement): void {

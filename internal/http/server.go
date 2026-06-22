@@ -4982,6 +4982,9 @@ func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	if r.Method == http.MethodHead {
 		return
 	}
@@ -4990,12 +4993,26 @@ func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
 
 func (s Server) webClientShellHTML(r *http.Request) string {
 	entry := "apps/webclient/src/main.js"
-	if _, ok := s.frontendDistFile(entry); !ok || legacyWebClientRequested(r) {
+	filename, ok := s.frontendDistFile(entry)
+	if !ok || legacyWebClientRequested(r) {
 		return webClientShellHTML
 	}
+	src := "/web/static/frontend/" + entry
+	if version := frontendDistAssetVersion(filename); version != "" {
+		src += "?v=" + url.QueryEscape(version)
+	}
 	script := `<script>globalThis.__goerpTSWebClientAvailable = true;</script>` + "\n" +
-		`<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`
+		fmt.Sprintf(`<script type="module" src="%s"></script>`, src)
 	return strings.Replace(webClientShellHTML, "</body>", script+"\n</body>", 1)
+}
+
+func frontendDistAssetVersion(filename string) string {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])[:16]
 }
 
 func legacyWebClientRequested(r *http.Request) bool {
@@ -5531,12 +5548,37 @@ const webClientShellHTML = `<!doctype html>
 		width: 20px;
 		height: 20px;
 		align-content: center;
+		position: relative;
 	}
 	.o-launcher span {
 		width: 4px;
 		height: 4px;
 		background: rgba(255,255,255,.88);
 		border-radius: 1px;
+	}
+	.o_menu_toggle_back .o-launcher {
+		display: inline-block;
+	}
+	.o_menu_toggle_back .o-launcher span {
+		display: none;
+	}
+	.o_menu_toggle_back .o-launcher::before,
+	.o_menu_toggle_back .o-launcher::after {
+		content: "";
+		position: absolute;
+		left: 2px;
+		top: 9px;
+		width: 16px;
+		height: 2px;
+		border-radius: 1px;
+		background: currentColor;
+		transform-origin: center;
+	}
+	.o_menu_toggle_back .o-launcher::before {
+		transform: rotate(45deg);
+	}
+	.o_menu_toggle_back .o-launcher::after {
+		transform: rotate(-45deg);
 	}
 	.o_menu_brand {
 		display: inline-flex;
@@ -6086,10 +6128,21 @@ const webClientShellHTML = `<!doctype html>
 		border: 0;
 		box-shadow: none;
 	}
-	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
+	main.o_web_client[data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
 	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_sections,
 	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-mobile-menu-toggle {
 		display: none;
+	}
+	main.o_web_client[data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu {
+		display: inline-flex;
+	}
+	main.o_web_client[data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o_menu_toggle,
+	main.o_web_client[data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o_menu_brand {
+		color: var(--home-text);
+		text-shadow: none;
+	}
+	main.o_web_client[data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o-launcher span {
+		background: var(--home-text);
 	}
 	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_menu_systray {
 		margin-left: auto;
@@ -8789,13 +8842,17 @@ const webClientShellHTML = `<!doctype html>
 		border-bottom-color: transparent;
 		box-shadow: none;
 	}
-	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_sections,
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o-mobile-menu-toggle,
-	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
+	body[data-theme="enterprise"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_sections,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o-mobile-menu-toggle {
 		display: none;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
+	body[data-theme="enterprise"][data-view="apps"][data-home-menu-mode="overlay"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu {
+		display: inline-flex;
 	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_menu_systray,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o_menu_systray {

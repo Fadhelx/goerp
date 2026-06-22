@@ -114,13 +114,22 @@ mobileMenu.listeners.click[0]();
 assert.equal(mobileMenu.attributes["aria-expanded"], "false");
 assert.deepEqual(toggled, [true, false]);
 
+const openAppsCalls = [];
 const activeNavbar = renderNavbar({
-  apps: [{ id: 7, name: "Sales" }, { id: 8, name: "Settings" }]
+  apps: [{ id: 7, name: "Sales" }, { id: 8, name: "Settings" }],
+  onOpenApps: () => openAppsCalls.push("open")
 });
 findAll(activeNavbar, (node) => node.dataset?.menuId === "8")[0].listeners.click[0]();
 assert.equal(activeNavbar.dataset.activeMenuId, "8");
 assert.equal(findAll(activeNavbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Settings").length, 1);
 findAll(activeNavbar, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
+assert.deepEqual(openAppsCalls, ["open"]);
+assert.equal(activeNavbar.dataset.activeMenuId, "8");
+activeNavbar.setHomeMenuBackMode(true);
+assert.equal(String(findAll(activeNavbar, (node) => String(node.className).startsWith("o_menu_toggle "))[0].className).includes("o_menu_toggle_back"), true);
+activeNavbar.setHomeMenuBackMode(false);
+assert.equal(String(findAll(activeNavbar, (node) => String(node.className).startsWith("o_menu_toggle "))[0].className).includes("o_menu_toggle_back"), false);
+activeNavbar.setActiveApp(undefined);
 assert.equal(activeNavbar.dataset.activeMenuId, undefined);
 assert.equal(findAll(activeNavbar, (node) => String(node.className).includes("o_menu_brand") && node.textContent === "Odoo").length, 1);
 

@@ -12227,8 +12227,14 @@ func TestFrontendDistAssetAndBootstrapScript(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/web", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `globalThis.__goerpTSWebClientAvailable = true`) || !strings.Contains(rec.Body.String(), `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js"></script>`) || !strings.Contains(rec.Body.String(), `if (!tsWebClientOwnsPage)`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `globalThis.__goerpTSWebClientAvailable = true`) || !strings.Contains(rec.Body.String(), `<script type="module" src="/web/static/frontend/apps/webclient/src/main.js?v=`) || !strings.Contains(rec.Body.String(), `if (!tsWebClientOwnsPage)`) {
 		t.Fatalf("web bootstrap response %d %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store, max-age=0" {
+		t.Fatalf("web bootstrap cache control = %q", got)
+	}
+	if got := rec.Header().Get("Pragma"); got != "no-cache" {
+		t.Fatalf("web bootstrap pragma = %q", got)
 	}
 
 	rec = httptest.NewRecorder()

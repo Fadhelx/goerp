@@ -78,6 +78,10 @@ const shell = createWebClientShell({
   },
   onOpenApp(app, outlet) {
     opened.push({ id: app.id, actionID: app.menu.actionID, outletClass: outlet.className });
+    const marker = document.createElement("section");
+    marker.className = "o_action_marker";
+    marker.dataset.openedApp = String(app.id);
+    outlet.replaceChildren(marker);
   },
   onSystrayAction(action, outlet) {
     systrayActions.push({ action, outletClass: outlet.className });
@@ -108,6 +112,27 @@ findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).
 assert.equal(shell.dataset.view, "action");
 assert.equal(String(shell.className).includes("o_home_menu_background"), false);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 0);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker") && node.dataset?.openedApp === "1").length, 1);
+let launcherButton = findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0];
+assert.equal(String(launcherButton.className).includes("o_menu_toggle_back"), false);
+launcherButton.listeners.click[0]();
+assert.equal(shell.dataset.view, "apps");
+assert.equal(shell.dataset.homeMenuMode, "overlay");
+assert.match(shell.className, /o_home_menu_background/);
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker")).length, 0);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
+launcherButton = findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0];
+assert.equal(String(launcherButton.className).includes("o_menu_toggle_back"), true);
+launcherButton.listeners.click[0]();
+assert.equal(shell.dataset.view, "action");
+assert.equal(shell.dataset.homeMenuMode, undefined);
+assert.equal(String(shell.className).includes("o_home_menu_background"), false);
+assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 0);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker") && node.dataset?.openedApp === "1").length, 1);
+launcherButton = findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0];
+assert.equal(String(launcherButton.className).includes("o_menu_toggle_back"), false);
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_entry"))[0].listeners.click[0]();
 assert.deepEqual(opened, [
   { id: 1, actionID: 9, outletClass: "o_action_manager" },
@@ -122,9 +147,14 @@ mobileMenu.listeners.click[0]();
 assert.equal(bodyClasses.has("o-mobile-menu-open"), true);
 findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
 assert.equal(shell.dataset.view, "apps");
+assert.equal(shell.dataset.homeMenuMode, "overlay");
 assert.match(shell.className, /o_home_menu_background/);
 assert.equal(bodyClasses.has("o-mobile-menu-open"), false);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, undefined);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
+assert.equal(String(findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].className).includes("o_menu_toggle_back"), true);
+findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].listeners.click[0]();
+assert.equal(shell.dataset.view, "action");
+assert.equal(shell.dataset.homeMenuMode, undefined);
 
 const catalogOpened = [];
 const catalogShell = createWebClientShell({
