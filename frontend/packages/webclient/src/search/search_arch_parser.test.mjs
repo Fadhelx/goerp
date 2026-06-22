@@ -7,6 +7,9 @@ import {
 const parsed = parseSearchArch(
   `
   <search>
+    <field name="name"/>
+    <field name="model_id"/>
+    <field name="name"/>
     <filter name="active" string="Active" domain="[('active', '=', True)]"/>
     <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
     <separator/>
@@ -30,6 +33,7 @@ const parsed = parseSearchArch(
   }
 );
 
+assert.deepEqual(parsed.searchFields, ["name", "model_id"]);
 assert.deepEqual(parsed.filters.map((item) => [item.name, item.label, item.group, item.isDefault]), [
   ["active", "Active", 0, true],
   ["archived", "Archived", 0, false],

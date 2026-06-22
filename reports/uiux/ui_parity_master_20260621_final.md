@@ -56,6 +56,7 @@ Existing Odoo screenshots were used as visual reference:
 - The activity systray action now opens bounded `.o-mail-ActivityListPopover` cards, fetches `mail.activity.activity_format`, supports Done with feedback, Done and Schedule Next, reschedule presets, and Cancel through existing `mail.activity` RPCs.
 - Activity card mutations now refresh the navbar activity counter/dropdown from `/mail/data`, activity cards can open their related record through the local action service/hash route, and saved favorites load through scoped active `ir.filters` rows.
 - The frontend now carries official `@odoo/owl` 2.8.3 dependency provenance and a runtime probe in `owl-compat`, while keeping the current clean-room compatibility wrapper stable.
+- Search views now parse `<field>` nodes and use the declared searchable fields when building live query domains in the TypeScript action client.
 
 ## Evidence
 

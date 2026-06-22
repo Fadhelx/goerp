@@ -787,6 +787,9 @@ const actionServices = createWebClientServices({
           search: {
             arch: `
               <search>
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="missing_field"/>
                 <filter name="customer" string="Customers" domain="[('customer_rank', '>', 0)]" context="{'group_by': 'company_id', 'from_search': True}"/>
                 <filter name="group_company" string="Company" context="{'group_by': 'company_id'}"/>
               </search>
@@ -848,6 +851,7 @@ assert.deepEqual(windowSearchRead.params.kwargs.domain, [
 assert.equal(windowSearchRead.params.kwargs.context.from_search, true);
 assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
+assert.deepEqual(windowResult.search.parsed.searchFields, ["name", "company_id", "missing_field"]);
 assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active]), [["filter-customer", true]]);
 assert.deepEqual(windowResult.search.groupBys.map((item) => item.id), ["group-by-group_company"]);
 assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorite-14"]);
@@ -1039,6 +1043,19 @@ const groupedWindowResult = await actionServices.action.doAction({
 const groupedSearchRead = windowActionRequests.slice(groupedRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
 assert.deepEqual(groupedSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(groupedWindowResult.search.state.facets.map((facet) => facet.id), ["group-by-group_company"]);
+
+const searchFieldRequestStart = windowActionRequests.length;
+await actionServices.action.doAction({
+  ...windowResult.action,
+  context: {},
+  domain: [],
+  __search_query: "Azure",
+  __search_facets: []
+});
+const searchFieldRead = windowActionRequests.slice(searchFieldRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.deepEqual(searchFieldRead.params.kwargs.domain, [
+  ["|", ["name", "ilike", "Azure"], ["company_id", "ilike", "Azure"]]
+]);
 const dialogCloseEvents = [];
 const renderedDialog = renderWindowActionDialog({
   ...windowResult,

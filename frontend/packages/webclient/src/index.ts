@@ -5356,6 +5356,7 @@ function buildWindowActionSearch(
   const model = createActionSearchModel({
     facets: explicitFacets ?? parsed.defaultFacets,
     query: typeof action.__search_query === "string" ? action.__search_query : "",
+    searchFields: validSearchFields(parsed.searchFields, viewDescriptions.fields),
     baseDomain: normalizeDomainExpression(action.domain, context),
     baseContext: context
   });
@@ -5370,6 +5371,13 @@ function buildWindowActionSearch(
     groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields),
     favorites: searchMenuItems(parsed.favorites, activeFacetIDs)
   };
+}
+
+function validSearchFields(searchFields: readonly string[], fields: Record<string, unknown>): string[] | undefined {
+  const out = searchFields
+    .map((field) => String(field ?? "").trim())
+    .filter((field, index, all) => field && all.indexOf(field) === index && (field === "display_name" || fields[field]));
+  return out.length ? out : undefined;
 }
 
 function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem[] {

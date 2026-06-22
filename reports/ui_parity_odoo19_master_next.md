@@ -14,6 +14,12 @@ Local HEAD: `05d533e0cdf56ded3966cbb8284371ab34d6fda8`
 - Report file changed by this audit: `reports/ui_parity_odoo19_master_next.md`.
 - Existing dirty worktree entries were present before this report and were not edited.
 
+2026-06-22 update:
+- P0-01 default-shell status changed after later implementation. Production/default `/web` now injects and runs the TypeScript webclient bundle when `frontend/dist/apps/webclient/src/main.js` exists.
+- Remaining shell ownership gap: inline legacy shell still provides the base/fallback HTML and is reachable with `?legacy_webclient=1` or `?ts_webclient=0`.
+- Next runtime-shell slice should make default `/web` a minimal TS bundle shell and keep the legacy shell behind explicit fallback only.
+- Search-view field parsing is now implemented in the TypeScript action client: `<field>` nodes in search arches feed live query domains after validation against loaded model fields.
+
 ## Local Browser Evidence
 
 | Area | Observed result | Status |

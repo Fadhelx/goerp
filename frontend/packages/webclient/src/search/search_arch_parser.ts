@@ -21,6 +21,7 @@ export interface SearchArchParseOptions {
 }
 
 export interface ParsedSearchArch {
+  searchFields: readonly string[];
   filters: readonly ParsedSearchItem[];
   groupBys: readonly ParsedSearchItem[];
   favorites: readonly ParsedSearchItem[];
@@ -34,12 +35,18 @@ interface SearchArchNode {
 
 export function parseSearchArch(arch: string, options: SearchArchParseOptions = {}): ParsedSearchArch {
   const context = options.context ?? {};
+  const searchFields: string[] = [];
   const filters: ParsedSearchItem[] = [];
   const groupBys: ParsedSearchItem[] = [];
   let group = 0;
   for (const node of searchArchNodes(arch)) {
     if (node.tag === "separator") {
       group += 1;
+      continue;
+    }
+    if (node.tag === "field") {
+      const name = cleanFieldName(node.attrs.name);
+      if (name && !searchFields.includes(name)) searchFields.push(name);
       continue;
     }
     if (node.tag !== "filter") continue;
@@ -74,6 +81,7 @@ export function parseSearchArch(arch: string, options: SearchArchParseOptions = 
   }
   const favorites = parseIrFilters(options.irFilters ?? [], context);
   return {
+    searchFields,
     filters,
     groupBys,
     favorites,
@@ -160,7 +168,7 @@ function searchArchNodesFromElement(element: Element): SearchArchNode[] {
   const out: SearchArchNode[] = [];
   for (const child of Array.from(element.children)) {
     const tag = child.tagName.toLowerCase();
-    if (tag === "filter" || tag === "separator") {
+    if (tag === "field" || tag === "filter" || tag === "separator") {
       out.push({ tag, attrs: elementAttributes(child) });
     }
     out.push(...searchArchNodesFromElement(child));
@@ -187,9 +195,14 @@ function searchArchNodesFromText(arch: string): SearchArchNode[] {
     const tagMatch = token.match(/^<([\w:.-]+)/);
     if (!tagMatch) continue;
     const tag = tagMatch[1].toLowerCase();
-    if (tag === "filter" || tag === "separator") out.push({ tag, attrs: xmlAttributes(token) });
+    if (tag === "field" || tag === "filter" || tag === "separator") out.push({ tag, attrs: xmlAttributes(token) });
   }
   return out;
+}
+
+function cleanFieldName(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
 }
 
 function parseDomainAttribute(value: unknown, context: Record<string, unknown>): readonly unknown[] | undefined {
