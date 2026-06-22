@@ -1676,6 +1676,7 @@ assert.equal(genericCodeEditor.value.includes("log('ok')"), true);
 assert.equal(genericCodeEditor.rows, 14);
 assert.equal(genericRelation.dataset.relation, "ir.model");
 assert.equal(genericRelation.dataset.resId, "5");
+assert.equal(genericRelationInput.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-expanded"], "false");
 assert.equal(genericGroups.dataset.relation, "res.groups");

@@ -319,6 +319,7 @@ function renderFieldControl(
   if (field.readonly) return renderReadonlyField(field);
   if (field.type === "boolean") return renderBooleanField(field, callbacks, eventRoot, includeLabel);
   if (field.type === "selection") return renderSelectionField(field, callbacks, eventRoot);
+  if (field.type === "many2one") return renderMany2OneField(field, callbacks, eventRoot);
   return renderTextField(field, callbacks, eventRoot);
 }
 
@@ -376,6 +377,53 @@ function renderSelectionField(
   }
   select.addEventListener("change", () => emitFieldChange(eventRoot, callbacks, field.name, select.value));
   return select;
+}
+
+function renderMany2OneField(
+  field: SettingsField,
+  callbacks: SettingsRendererCallbacks,
+  eventRoot: HTMLElement
+): HTMLElement {
+  const current = many2OneValue(field.value);
+  const root = document.createElement("span");
+  root.className = "o_field_widget o_field_many2one gorp-settings-many2one";
+  root.dataset.field = field.name;
+  if (current.id !== undefined) root.dataset.resId = String(current.id);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "o_input";
+  input.dataset.field = field.name;
+  input.required = field.required;
+  input.value = current.displayName;
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-haspopup", "listbox");
+  input.setAttribute("aria-expanded", "false");
+  input.setAttribute("autocomplete", "off");
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "o_dropdown_button gorp-settings-many2one-toggle";
+  toggle.dataset.field = field.name;
+  toggle.setAttribute("aria-label", `Open ${field.label}`);
+  toggle.setAttribute("aria-haspopup", "listbox");
+  toggle.setAttribute("aria-expanded", "false");
+  const emit = () => {
+    const value = input.value.trim();
+    if (!value) {
+      delete root.dataset.resId;
+      emitFieldChange(eventRoot, callbacks, field.name, false);
+      return;
+    }
+    emitFieldChange(eventRoot, callbacks, field.name, current.id !== undefined ? [current.id, value] : value);
+  };
+  input.addEventListener("input", emit);
+  toggle.addEventListener("click", () => {
+    input.focus?.();
+    input.setAttribute("aria-expanded", "true");
+    toggle.setAttribute("aria-expanded", "true");
+  });
+  root.append(input, toggle);
+  return root;
 }
 
 function renderTextField(
@@ -712,6 +760,24 @@ function selectionOptions(description: unknown): Array<[string, string]> {
     }
   }
   return out;
+}
+
+function many2OneValue(value: unknown): { id?: number; displayName: string } {
+  if (Array.isArray(value)) {
+    const id = Number(value[0]);
+    return {
+      id: Number.isFinite(id) && id > 0 ? id : undefined,
+      displayName: String(value[1] ?? "").trim()
+    };
+  }
+  if (isRecord(value)) {
+    const id = Number(value.id);
+    return {
+      id: Number.isFinite(id) && id > 0 ? id : undefined,
+      displayName: String(value.display_name ?? value.name ?? "").trim()
+    };
+  }
+  return { displayName: formatEditableValue(value) };
 }
 
 function invisible(attrs: Record<string, string>, values: Record<string, unknown>): boolean {

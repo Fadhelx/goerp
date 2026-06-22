@@ -5765,6 +5765,9 @@ const webClientShellHTML = `<!doctype html>
 		.o_menu_sections .o_navbar_dropdown_menu.show {
 			display: block;
 		}
+		.o_navbar_dropdown_group {
+			position: relative;
+		}
 		.o_navbar_dropdown_header {
 			display: block;
 			padding: 8px 14px 4px;
@@ -5785,6 +5788,41 @@ const webClientShellHTML = `<!doctype html>
 			font: inherit;
 			text-align: left;
 			white-space: nowrap;
+		}
+		.o_navbar_submenu_toggle {
+			padding-right: 28px;
+		}
+		.o_navbar_submenu_toggle::after {
+			position: absolute;
+			right: 12px;
+			top: 50%;
+			width: 6px;
+			height: 6px;
+			margin: -3px 0 0;
+			border-right: 1px solid currentColor;
+			border-bottom: 1px solid currentColor;
+			content: "";
+			transform: rotate(-45deg);
+		}
+		.o_navbar_submenu_menu {
+			position: absolute;
+			top: -6px;
+			left: calc(100% - 2px);
+			z-index: 1051;
+			display: none;
+			min-width: 230px;
+			max-height: min(70vh, 520px);
+			margin: 0;
+			padding: 6px 0;
+			overflow: auto;
+			background: #fff;
+			border: 1px solid var(--line);
+			border-radius: 4px;
+			box-shadow: var(--dropdown-shadow);
+			color: #1f2933;
+		}
+		.o_navbar_submenu_menu.show {
+			display: block;
 		}
 		.o_navbar_dropdown_item[data-menu-level="1"] { padding-left: 26px; }
 		.o_navbar_dropdown_item[data-menu-level="2"] { padding-left: 38px; }
@@ -7885,7 +7923,16 @@ const webClientShellHTML = `<!doctype html>
 		display: block;
 		min-width: 0;
 	}
+	.gorp-settings-many2one.o_field_many2one {
+		position: relative;
+		display: block;
+		min-width: 220px;
+	}
 	.gorp-many2one-editor .o_input {
+		width: 100%;
+		padding-right: 28px;
+	}
+	.gorp-settings-many2one .o_input {
 		width: 100%;
 		padding-right: 28px;
 	}
@@ -7904,12 +7951,30 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--muted);
 		cursor: pointer;
 	}
+	.gorp-settings-many2one-toggle.o_dropdown_button {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 0;
+		border-radius: 0 4px 4px 0;
+		background: transparent;
+		color: var(--muted);
+		cursor: pointer;
+	}
 	.gorp-many2one-dropdown-toggle.o_dropdown_button:hover,
-	.gorp-many2one-dropdown-toggle.o_dropdown_button:focus {
+	.gorp-many2one-dropdown-toggle.o_dropdown_button:focus,
+	.gorp-settings-many2one-toggle.o_dropdown_button:hover,
+	.gorp-settings-many2one-toggle.o_dropdown_button:focus {
 		color: var(--text);
 		outline: none;
 	}
-	.gorp-many2one-dropdown-toggle.o_dropdown_button::before {
+	.gorp-many2one-dropdown-toggle.o_dropdown_button::before,
+	.gorp-settings-many2one-toggle.o_dropdown_button::before {
 		content: "";
 		width: 7px;
 		height: 7px;
@@ -10747,7 +10812,37 @@ const webClientShellHTML = `<!doctype html>
       for (const childID of childIDs || []) {
         const child = menuEntry(childID);
         if (!child) continue;
-        if (menuHasDirectAction(child)) {
+        if ((child.children || []).length) {
+          const group = document.createElement("div");
+          group.className = "o_navbar_dropdown_group";
+          group.dataset.menuId = String(child.id);
+          group.dataset.menuLevel = String(level);
+          group.setAttribute("role", "none");
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "dropdown-item o_navbar_dropdown_item o_navbar_submenu_toggle dropdown-toggle";
+          item.dataset.menuId = String(child.id);
+          item.dataset.menuLevel = String(level);
+          if (child.xmlid) item.dataset.menuXmlid = child.xmlid;
+          item.setAttribute("role", "menuitem");
+          item.setAttribute("aria-haspopup", "menu");
+          item.setAttribute("aria-expanded", "false");
+          item.textContent = child.name || "Menu";
+          const submenu = document.createElement("div");
+          submenu.className = "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
+          submenu.dataset.navbarSubmenu = String(child.id);
+          submenu.hidden = true;
+          submenu.setAttribute("role", "menu");
+          appendTopMenuDropdownItems(submenu, child.children || [], level + 1);
+          item.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const open = item.getAttribute("aria-expanded") !== "true";
+            closeSiblingTopSubmenus(group);
+            setTopSubmenuOpen(item, submenu, open);
+          });
+          group.append(item, submenu);
+          dropdown.append(group);
+        } else if (menuHasDirectAction(child)) {
           const item = document.createElement("button");
           item.type = "button";
           item.className = "dropdown-item o_navbar_dropdown_item";
@@ -10769,7 +10864,6 @@ const webClientShellHTML = `<!doctype html>
           header.textContent = child.name || "Menu";
           dropdown.append(header);
         }
-        if ((child.children || []).length) appendTopMenuDropdownItems(dropdown, child.children, level + 1);
       }
     }
 
@@ -10780,12 +10874,39 @@ const webClientShellHTML = `<!doctype html>
     }
 
     function closeTopMenuDropdowns(except) {
+      closeAllTopSubmenus();
       for (const dropdown of document.querySelectorAll("#topMenu .o_navbar_dropdown_menu")) {
         if (dropdown === except) continue;
         const button = dropdown.previousElementSibling;
         if (button) button.setAttribute("aria-expanded", "false");
         dropdown.hidden = true;
         dropdown.className = "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu";
+      }
+    }
+
+    function setTopSubmenuOpen(button, submenu, open) {
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+      submenu.hidden = !open;
+      submenu.className = open ? "dropdown-menu o-dropdown-menu o_navbar_submenu_menu show" : "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
+    }
+
+    function closeAllTopSubmenus() {
+      for (const submenu of document.querySelectorAll("#topMenu .o_navbar_submenu_menu")) {
+        const button = submenu.previousElementSibling;
+        if (button) button.setAttribute("aria-expanded", "false");
+        submenu.hidden = true;
+        submenu.className = "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
+      }
+    }
+
+    function closeSiblingTopSubmenus(group) {
+      const parent = group.parentElement;
+      if (!parent) return;
+      for (const sibling of parent.children || []) {
+        if (sibling === group) continue;
+        const submenu = sibling.querySelector && sibling.querySelector(".o_navbar_submenu_menu");
+        const button = sibling.querySelector && sibling.querySelector(".o_navbar_submenu_toggle");
+        if (submenu && button) setTopSubmenuOpen(button, submenu, false);
       }
     }
 

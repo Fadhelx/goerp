@@ -8452,6 +8452,7 @@ function renderMany2OneEditor(
   input.setAttribute("aria-invalid", "false");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("role", "combobox");
+  input.setAttribute("aria-haspopup", "listbox");
   input.setAttribute("aria-expanded", "false");
   input.setAttribute("autocomplete", "off");
   const toggle = document.createElement("button");

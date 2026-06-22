@@ -98,6 +98,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const appButtonEntries = new Map<string, NavbarApp>();
   const dropdowns: HTMLElement[] = [];
   const dropdownButtons = new Map<HTMLElement, HTMLElement>();
+  const submenuPairs: Array<{ toggle: HTMLElement; menu: HTMLElement; entry: NavbarApp }> = [];
   let currentApps = [...(options.apps ?? [])];
   let homeMenuBackMode = false;
 
@@ -136,6 +137,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     nav.replaceChildren?.();
     appButtons.clear();
     appButtonEntries.clear();
+    submenuPairs.splice(0);
     for (const app of apps) {
       const button = document.createElement("button");
       button.type = "button";
@@ -200,7 +202,12 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       const dropdown = Boolean(entry?.children?.length);
       const active = key === activeKey || Boolean(entry && activeKey && menuContains(entry, activeKey));
       if (String(button.className ?? "").split(/\s+/).includes("o_navbar_dropdown_item")) {
-        button.className = active ? "dropdown-item o_navbar_dropdown_item active" : "dropdown-item o_navbar_dropdown_item";
+        const classes = ["dropdown-item", "o_navbar_dropdown_item"];
+        if (String(button.className ?? "").split(/\s+/).includes("o_navbar_submenu_toggle")) {
+          classes.push("o_navbar_submenu_toggle", "dropdown-toggle");
+        }
+        if (active) classes.push("active");
+        button.className = classes.join(" ");
         setPageCurrent(button, active);
         continue;
       }
@@ -223,7 +230,53 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
 
   function appendNavbarMenuEntries(menu: HTMLElement, entries: readonly NavbarApp[], level: number): void {
     for (const entry of entries) {
-      if (entry.action !== false) {
+      if (entry.children?.length) {
+        const group = document.createElement("div");
+        group.className = "o_navbar_dropdown_group";
+        group.dataset.menuId = String(entry.id);
+        group.dataset.menuLevel = String(level);
+        group.setAttribute("role", "none");
+
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "dropdown-item o_navbar_dropdown_item o_navbar_submenu_toggle dropdown-toggle";
+        toggle.dataset.menuId = String(entry.id);
+        toggle.dataset.menuLevel = String(level);
+        toggle.setAttribute("role", "menuitem");
+        toggle.setAttribute("aria-haspopup", "menu");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.textContent = entry.name;
+        appButtons.set(String(entry.id), toggle);
+        appButtonEntries.set(String(entry.id), entry);
+
+        const submenu = document.createElement("div");
+        submenu.className = "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
+        submenu.dataset.navbarSubmenu = String(entry.id);
+        submenu.hidden = true;
+        submenu.setAttribute("role", "menu");
+        appendNavbarMenuEntries(submenu, entry.children, level + 1);
+
+        toggle.addEventListener("click", (event) => {
+          event.stopPropagation?.();
+          event.preventDefault?.();
+          const open = toggle.getAttribute("aria-expanded") !== "true";
+          closeSiblingSubmenus(group);
+          setSubmenuOpen(toggle, submenu, open);
+        });
+        toggle.addEventListener("keydown", (event) => {
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            setSubmenuOpen(toggle, submenu, true);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            setSubmenuOpen(toggle, submenu, false);
+          }
+        });
+
+        submenuPairs.push({ toggle, menu: submenu, entry });
+        group.append(toggle, submenu);
+        menu.append(group);
+      } else if (entry.action !== false) {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "dropdown-item o_navbar_dropdown_item";
@@ -248,7 +301,6 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
         header.textContent = entry.name;
         menu.append(header);
       }
-      if (entry.children?.length) appendNavbarMenuEntries(menu, entry.children, level + 1);
     }
   }
 
@@ -274,14 +326,39 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       const open = button.getAttribute("aria-expanded") !== "true";
       closeDropdowns(menu);
       setDropdownOpen(button, menu, open);
+      if (open) openActiveSubmenus(mainNavbar.dataset.activeMenuId ?? "");
     });
     parent.append(button, menu);
   }
 
   function closeDropdowns(except?: HTMLElement): void {
+    closeAllSubmenus();
     for (const menu of dropdowns) {
       if (menu === except) continue;
       setDropdownOpen(dropdownButtons.get(menu) ?? null, menu, false);
+    }
+  }
+
+  function closeAllSubmenus(): void {
+    for (const pair of submenuPairs) setSubmenuOpen(pair.toggle, pair.menu, false);
+  }
+
+  function closeSiblingSubmenus(group: HTMLElement): void {
+    const parent = group.parentNode as HTMLElement | null;
+    if (!parent) return;
+    for (const sibling of Array.from(parent.children ?? [])) {
+      if (sibling === group) continue;
+      const element = sibling as HTMLElement;
+      const toggle = firstChildWithClass(element, "o_navbar_submenu_toggle");
+      const menu = firstChildWithClass(element, "o_navbar_submenu_menu");
+      if (toggle && menu) setSubmenuOpen(toggle, menu, false);
+    }
+  }
+
+  function openActiveSubmenus(activeKey: string): void {
+    if (!activeKey) return;
+    for (const pair of submenuPairs) {
+      if (menuContains(pair.entry, activeKey)) setSubmenuOpen(pair.toggle, pair.menu, true);
     }
   }
 }
@@ -394,6 +471,21 @@ function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: bo
       ? "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu"
       : "dropdown-menu o-dropdown-menu";
   menu.className = open ? `${base} show` : base;
+}
+
+function setSubmenuOpen(button: HTMLElement, menu: HTMLElement, open: boolean): void {
+  button.setAttribute("aria-expanded", open ? "true" : "false");
+  menu.hidden = !open;
+  const base = "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
+  menu.className = open ? `${base} show` : base;
+}
+
+function firstChildWithClass(root: HTMLElement, className: string): HTMLElement | null {
+  for (const child of Array.from(root.children ?? [])) {
+    const element = child as HTMLElement;
+    if (String(element.className ?? "").split(/\s+/).includes(className)) return element;
+  }
+  return null;
 }
 
 function menuContains(entry: NavbarApp, menuId: string): boolean {

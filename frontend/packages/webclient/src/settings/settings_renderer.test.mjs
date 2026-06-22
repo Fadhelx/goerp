@@ -192,6 +192,18 @@ assert.deepEqual(providerSelect.children.map((node) => node.textContent), ["Open
 providerSelect.value = "openai";
 providerSelect.dispatchEvent(new TestEvent("change"));
 
+const companyRelation = findAll(root, (node) => node.dataset?.field === "company_id" && hasClass(node, "gorp-settings-many2one"))[0];
+assert.equal(companyRelation.dataset.resId, "3");
+const companyRelationInput = findAll(companyRelation, (node) => node.tag === "input" && node.dataset?.field === "company_id")[0];
+const companyRelationToggle = findAll(companyRelation, (node) => node.tag === "button" && node.dataset?.field === "company_id")[0];
+assert.equal(companyRelationInput.attributes.role, "combobox");
+assert.equal(companyRelationInput.attributes["aria-haspopup"], "listbox");
+assert.equal(companyRelationInput.value, "Main Company");
+companyRelationToggle.dispatchEvent(new TestEvent("click"));
+assert.equal(companyRelationToggle.attributes["aria-expanded"], "true");
+companyRelationInput.value = "Demo Company";
+companyRelationInput.dispatchEvent(new TestEvent("input"));
+
 const generalSettingsTab = findAll(root, (node) => node.dataset?.appId === "general_settings" && hasClass(node, "o_settings_tab"))[0];
 const workflowTab = findAll(root, (node) => node.dataset?.appId === "workflow" && hasClass(node, "o_settings_tab"))[0];
 generalSettingsTab.dispatchEvent(new TestEvent("click"));
@@ -205,6 +217,7 @@ assert.equal(findAll(root, (node) => node.dataset?.settingId === "company")[0].h
 assert.deepEqual(events, [
   ["field", "module_oi_workflow_expense", false],
   ["field", "default_provider", "openai"],
+  ["field", "company_id", [3, "Demo Company"]],
   ["app", "general_settings"]
 ]);
 
