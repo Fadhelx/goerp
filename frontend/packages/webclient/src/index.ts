@@ -343,6 +343,17 @@ interface KanbanTemplateSet {
   named: Record<string, KanbanTemplateNode[]>;
 }
 
+interface KanbanTemplateInheritancePatch {
+  inherit: string;
+  operations: KanbanTemplateInheritanceOperation[];
+}
+
+interface KanbanTemplateInheritanceOperation {
+  expr: string;
+  position: string;
+  children: KanbanTemplateNode[];
+}
+
 export interface RenderWindowActionOptions {
   records?: readonly Record<string, unknown>[];
   values?: Record<string, unknown>;
@@ -9490,14 +9501,34 @@ function emptyKanbanTemplateSet(): KanbanTemplateSet {
 
 function kanbanTemplatesFromDOM(doc: Document): KanbanTemplateSet {
   const templates = emptyKanbanTemplateSet();
+  const patches: KanbanTemplateInheritancePatch[] = [];
   for (const node of Array.from(doc.getElementsByTagName("t"))) {
+    const inherit = node.getAttribute("t-inherit")?.trim();
+    if (inherit) {
+      patches.push(kanbanTemplateInheritancePatchFromDOM(node, inherit));
+      continue;
+    }
     const name = node.getAttribute("t-name")?.trim();
     if (!name) continue;
     const nodes = kanbanTemplateNodesFromDOMChildren(node);
     templates.named[name] = nodes;
     if (name === "kanban-box") templates.main = nodes;
   }
+  applyKanbanTemplateInheritancePatches(templates, patches);
   return templates;
+}
+
+function kanbanTemplateInheritancePatchFromDOM(node: Element, inherit: string): KanbanTemplateInheritancePatch {
+  const operations: KanbanTemplateInheritanceOperation[] = [];
+  for (const child of Array.from(node.children)) {
+    if (child.tagName.toLowerCase() !== "xpath") continue;
+    operations.push({
+      expr: child.getAttribute("expr")?.trim() || "",
+      position: child.getAttribute("position")?.trim() || "inside",
+      children: kanbanTemplateNodesFromDOMChildren(child)
+    });
+  }
+  return { inherit, operations };
 }
 
 function kanbanTemplateNodesFromDOMChildren(parent: Element): KanbanTemplateNode[] {
@@ -9529,13 +9560,32 @@ function kanbanTemplateNodeFromDOM(node: ChildNode): KanbanTemplateNode | null {
 
 function kanbanTemplatesFromXMLText(arch: string): KanbanTemplateSet {
   const templates = emptyKanbanTemplateSet();
-  const xmlTemplates = kanbanTemplateXMLTexts(arch);
-  for (const [name, content] of Object.entries(xmlTemplates)) {
-    const nodes = kanbanTemplateNodesFromXMLContent(content);
+  const patches: KanbanTemplateInheritancePatch[] = [];
+  for (const block of kanbanTemplateXMLBlocks(arch)) {
+    const inherit = block.attrs["t-inherit"]?.trim();
+    if (inherit) {
+      patches.push(kanbanTemplateInheritancePatchFromXMLContent(block.content, inherit));
+      continue;
+    }
+    const name = block.attrs["t-name"]?.trim();
+    if (!name) continue;
+    const nodes = kanbanTemplateNodesFromXMLContent(block.content);
     templates.named[name] = nodes;
     if (name === "kanban-box") templates.main = nodes;
   }
+  applyKanbanTemplateInheritancePatches(templates, patches);
   return templates;
+}
+
+function kanbanTemplateInheritancePatchFromXMLContent(content: string, inherit: string): KanbanTemplateInheritancePatch {
+  const operations = kanbanTemplateNodesFromXMLContent(content)
+    .filter((node): node is Extract<KanbanTemplateNode, { type: "element" }> => node.type === "element" && node.tag === "xpath")
+    .map((node) => ({
+      expr: node.attrs.expr?.trim() || "",
+      position: node.attrs.position?.trim() || "inside",
+      children: node.children
+    }));
+  return { inherit, operations };
 }
 
 function kanbanTemplateNodesFromXMLContent(content: string): KanbanTemplateNode[] {
@@ -9574,10 +9624,15 @@ function appendKanbanTemplateText(nodes: KanbanTemplateNode[], text: string): vo
   if (collapsed) nodes.push({ type: "text", text: collapsed });
 }
 
-function kanbanTemplateXMLTexts(arch: string): Record<string, string> {
-  const out: Record<string, string> = {};
+interface KanbanTemplateXMLBlock {
+  attrs: Record<string, string>;
+  content: string;
+}
+
+function kanbanTemplateXMLBlocks(arch: string): KanbanTemplateXMLBlock[] {
+  const out: KanbanTemplateXMLBlock[] = [];
   const tokenPattern = /<\/?[\w:.-]+(?:\s+[^<>]*)?\/?>/g;
-  let activeName = "";
+  let activeAttrs: Record<string, string> | null = null;
   let depth = 0;
   let contentStart = 0;
   for (const match of arch.matchAll(tokenPattern)) {
@@ -9588,29 +9643,37 @@ function kanbanTemplateXMLTexts(arch: string): Record<string, string> {
     if (!tagMatch) continue;
     const tag = tagMatch[1].toLowerCase();
     const selfClosing = /\/>$/.test(token);
-    if (activeName) {
+    if (activeAttrs) {
       if (open && !selfClosing) {
         depth += 1;
       } else if (!open) {
         depth -= 1;
         if (depth <= 0) {
-          out[activeName] = arch.slice(contentStart, index);
-          activeName = "";
+          out.push({ attrs: activeAttrs, content: arch.slice(contentStart, index) });
+          activeAttrs = null;
         }
       }
       continue;
     }
     if (tag !== "t" || !open) continue;
     const attrs = xmlAttributes(token);
-    const name = attrs["t-name"]?.trim();
-    if (!name) continue;
+    if (!attrs["t-name"] && !attrs["t-inherit"]) continue;
     if (selfClosing) {
-      out[name] = "";
+      out.push({ attrs, content: "" });
       continue;
     }
-    activeName = name;
+    activeAttrs = attrs;
     depth = 1;
     contentStart = index + token.length;
+  }
+  return out;
+}
+
+function kanbanTemplateXMLTexts(arch: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const block of kanbanTemplateXMLBlocks(arch)) {
+    const name = block.attrs["t-name"]?.trim();
+    if (name) out[name] = block.content;
   }
   return out;
 }
@@ -9622,6 +9685,106 @@ function kanbanBoxTemplateXMLText(arch: string): string {
 function kanbanTemplateNodesFromXMLText(arch: string): KanbanTemplateNode[] {
   const content = kanbanBoxTemplateXMLText(arch);
   return kanbanTemplateNodesFromXMLContent(content);
+}
+
+function applyKanbanTemplateInheritancePatches(templates: KanbanTemplateSet, patches: readonly KanbanTemplateInheritancePatch[]): void {
+  for (const patch of patches) {
+    const target = templates.named[patch.inherit];
+    if (!target) continue;
+    for (const operation of patch.operations) {
+      applyKanbanTemplateInheritanceOperation(target, operation);
+    }
+    if (patch.inherit === "kanban-box") templates.main = target;
+  }
+}
+
+function applyKanbanTemplateInheritanceOperation(nodes: KanbanTemplateNode[], operation: KanbanTemplateInheritanceOperation): void {
+  if (!operation.expr) return;
+  const matches = kanbanTemplateXPathMatches(nodes, operation.expr);
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const match = matches[index];
+    const position = operation.position || "inside";
+    if (position === "inside" && match.node.type === "element") {
+      match.node.children.push(...cloneKanbanTemplateNodes(operation.children));
+    } else if (position === "before") {
+      match.list.splice(match.index, 0, ...cloneKanbanTemplateNodes(operation.children));
+    } else if (position === "after") {
+      match.list.splice(match.index + 1, 0, ...cloneKanbanTemplateNodes(operation.children));
+    } else if (position === "replace") {
+      match.list.splice(match.index, 1, ...cloneKanbanTemplateNodes(operation.children));
+    } else if (position === "attributes") {
+      applyKanbanTemplateAttributeInheritance(match.node, operation.children);
+    }
+  }
+}
+
+function applyKanbanTemplateAttributeInheritance(node: KanbanTemplateNode, children: readonly KanbanTemplateNode[]): void {
+  if (node.type === "text") return;
+  for (const child of children) {
+    if (child.type !== "element" || child.tag !== "attribute") continue;
+    const name = child.attrs.name?.trim();
+    if (!name) continue;
+    const existing = node.attrs[name] || "";
+    if (child.attrs.add !== undefined) {
+      const separator = child.attrs.separator ?? " ";
+      node.attrs[name] = existing ? `${existing}${separator}${child.attrs.add}` : child.attrs.add;
+    } else if (child.attrs.remove !== undefined) {
+      node.attrs[name] = existing.split(/\s+/).filter((token) => token && token !== child.attrs.remove).join(" ");
+    } else {
+      node.attrs[name] = kanbanTemplateNodeText(child.children);
+    }
+  }
+}
+
+function kanbanTemplateNodeText(nodes: readonly KanbanTemplateNode[]): string {
+  return nodes.map((node) => {
+    if (node.type === "text") return node.text;
+    if (node.type === "field") return "";
+    return kanbanTemplateNodeText(node.children);
+  }).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function cloneKanbanTemplateNodes(nodes: readonly KanbanTemplateNode[]): KanbanTemplateNode[] {
+  return nodes.map((node) => {
+    if (node.type === "text") return { ...node };
+    if (node.type === "field") return { ...node, attrs: { ...node.attrs } };
+    return { ...node, attrs: { ...node.attrs }, children: cloneKanbanTemplateNodes(node.children) };
+  });
+}
+
+function kanbanTemplateXPathMatches(
+  nodes: KanbanTemplateNode[],
+  expr: string,
+  list: KanbanTemplateNode[] = nodes,
+  out: Array<{ list: KanbanTemplateNode[]; index: number; node: KanbanTemplateNode }> = []
+): Array<{ list: KanbanTemplateNode[]; index: number; node: KanbanTemplateNode }> {
+  nodes.forEach((node, index) => {
+    if (kanbanTemplateNodeMatchesXPath(node, expr)) out.push({ list, index, node });
+    if (node.type === "element") kanbanTemplateXPathMatches(node.children, expr, node.children, out);
+  });
+  return out;
+}
+
+function kanbanTemplateNodeMatchesXPath(node: KanbanTemplateNode, expr: string): boolean {
+  if (node.type === "text") return false;
+  const parsed = expr.trim().match(/^\/\/(\*|[\w:.-]+)(?:\[(.+)\])?$/);
+  if (!parsed) return false;
+  const tag = parsed[1].toLowerCase();
+  if (tag !== "*" && node.type === "element" && node.tag !== tag) return false;
+  if (tag !== "*" && node.type === "field" && tag !== "field") return false;
+  const predicate = parsed[2]?.trim();
+  if (!predicate) return true;
+  const attrMatch = predicate.match(/^@([\w:.-]+)\s*=\s*['"]([^'"]+)['"]$/);
+  if (attrMatch) return node.attrs[attrMatch[1]] === attrMatch[2];
+  const containsClass = predicate.match(/^contains\(@class,\s*['"]([^'"]+)['"]\)$/);
+  if (containsClass) return kanbanTemplateClassTokens(node.attrs.class).includes(containsClass[1]);
+  const hasClass = predicate.match(/^hasclass\(['"]([^'"]+)['"]\)$/);
+  if (hasClass) return kanbanTemplateClassTokens(node.attrs.class).includes(hasClass[1]);
+  return false;
+}
+
+function kanbanTemplateClassTokens(value: string | undefined): string[] {
+  return String(value || "").split(/\s+/).filter(Boolean);
 }
 
 function kanbanAuxiliaryFieldNames(arch: string, fields: Record<string, unknown>): string[] {

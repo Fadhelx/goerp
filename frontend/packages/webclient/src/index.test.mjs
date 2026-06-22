@@ -2678,7 +2678,7 @@ const kanbanTemplateWindow = renderWindowAction({
     relatedModels: {},
     views: {
       kanban: {
-        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><field name="tags"/><field name="employee_id"/><field name="url"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-att="{'data-state': record.state.raw_value}" t-att-data-id="record.id.raw_value" t-att-title="record.display_name.value" t-attf-aria-label="Partner #{record.display_name.value}" t-attf-class="state-#{record.state.raw_value}"><t t-set="badge" t-value="record.state.value"/><t t-set="body_note"><span class="tmpl-captured">Captured:<t t-esc="record.display_name.value"/></span></t><strong class="tmpl-title"><field name="display_name"/></strong><field name="employee_id" widget="many2one_avatar_employee" class="tmpl-assignee"/><field name="state" widget="badge" decoration-success="state == 'new'" class="tmpl-state-badge"/><field name="tags" widget="many2many_tags" class="tmpl-tag-widget"/><span class="tmpl-badge" t-att-data-badge="badge" t-esc="badge"/><t t-out="body_note"/><a class="tmpl-link" t-att-href="record.url.raw_value" t-att-rel="'noopener'">Open</a><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/><t t-call="kanban-tag-list"><span class="tmpl-slot">Slot:<t t-esc="record.state.value"/></span></t></div></t><t t-name="kanban-tag-list"><section class="tmpl-subtemplate" data-called="tag-list"><t t-out="0"/><ul class="tmpl-tags"><t t-foreach="record.tags.raw_value" t-as="tag"><li class="tmpl-tag" t-att-data-index="tag_index" t-attf-class="tag-#{tag_index}" t-esc="tag[1]"/></t></ul></section></t></templates></kanban>`,
+        arch: `<kanban><field name="display_name"/><field name="email"/><field name="state"/><field name="tags"/><field name="employee_id"/><field name="url"/><templates><t t-name="kanban-box"><div class="tmpl-card" t-att="{'data-state': record.state.raw_value}" t-att-data-id="record.id.raw_value" t-att-title="record.display_name.value" t-attf-aria-label="Partner #{record.display_name.value}" t-attf-class="state-#{record.state.raw_value}"><t t-set="badge" t-value="record.state.value"/><t t-set="body_note"><span class="tmpl-captured">Captured:<t t-esc="record.display_name.value"/></span></t><strong class="tmpl-title"><field name="display_name"/></strong><field name="employee_id" widget="many2one_avatar_employee" class="tmpl-assignee"/><field name="state" widget="badge" decoration-success="state == 'new'" class="tmpl-state-badge"/><field name="tags" widget="many2many_tags" class="tmpl-tag-widget"/><span class="tmpl-badge" t-att-data-badge="badge" t-esc="badge"/><t t-out="body_note"/><a class="tmpl-link" t-att-href="record.url.raw_value" t-att-rel="'noopener'">Open</a><t t-if="record.email.raw_value"><span class="tmpl-email"><field name="email"/></span></t><span class="tmpl-state" t-esc="record.state.value"/><t t-call="kanban-tag-list"><span class="tmpl-slot">Slot:<t t-esc="record.state.value"/></span></t></div></t><t t-name="kanban-tag-list"><section class="tmpl-subtemplate" data-called="tag-list"><t t-out="0"/><ul class="tmpl-tags"><t t-foreach="record.tags.raw_value" t-as="tag"><li class="tmpl-tag" t-att-data-index="tag_index" t-attf-class="tag-#{tag_index}" t-esc="tag[1]"/></t></ul></section></t><t t-inherit="kanban-box" t-inherit-mode="extension"><xpath expr="//div[hasclass('tmpl-card')]" position="inside"><span class="tmpl-inherited-inside" t-esc="record.email.value"/></xpath><xpath expr="//strong[hasclass('tmpl-title')]" position="after"><span class="tmpl-inherited-after">After Title</span></xpath><xpath expr="//field[@name='employee_id']" position="attributes"><attribute name="class" add="tmpl-inherited-avatar" separator=" "/></xpath></t></templates></kanban>`,
         id: 29
       },
       form: { arch: `<form><field name="display_name"/></form>`, id: 30 }
@@ -2699,11 +2699,14 @@ const kanbanTemplateBadge = findAll(kanbanTemplateRoot, (node) => String(node.cl
 const kanbanTemplateWidgetBadge = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-badge"))[0];
 const kanbanTemplateX2ManyWidget = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-x2many-tags"))[0];
 const kanbanTemplateAvatarWidget = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("gorp-many2one-avatar"))[0];
+const kanbanTemplateInheritedAvatar = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-inherited-avatar"))[0];
 const kanbanTemplateCaptured = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-captured"))[0];
 const kanbanTemplateSlot = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").includes("tmpl-slot"))[0];
 const kanbanTemplateSubtemplate = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-subtemplate"))[0];
 const kanbanTemplateTagList = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-tags"))[0];
 const kanbanTemplateTags = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-tag"));
+const kanbanTemplateInheritedInside = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-inherited-inside"))[0];
+const kanbanTemplateInheritedAfter = findAll(kanbanTemplateRoot, (node) => String(node.className ?? "").split(/\s+/).includes("tmpl-inherited-after"))[0];
 assert.equal(kanbanTemplateDetails.dataset.kanbanTemplate, "kanban-box");
 assert.ok(String(kanbanTemplateDetails.className).includes("o_kanban_template_details"));
 assert.equal(kanbanTemplateBody.dataset.kanbanTemplateBody, "true");
@@ -2725,6 +2728,9 @@ assert.equal(findAll(kanbanTemplateX2ManyWidget, (node) => String(node.className
 assert.equal(kanbanTemplateAvatarWidget.dataset.field, "employee_id");
 assert.equal(kanbanTemplateAvatarWidget.dataset.relation, "hr.employee");
 assert.equal(kanbanTemplateAvatarWidget.dataset.resId, "17");
+assert.equal(kanbanTemplateInheritedAvatar.dataset.field, "employee_id");
+assert.equal(kanbanTemplateInheritedInside.children[0].textContent, "template@example.test");
+assert.equal(kanbanTemplateInheritedAfter.children[0].textContent, "After Title");
 assert.equal(kanbanTemplateCaptured.children[0].textContent, "Captured:");
 assert.equal(kanbanTemplateCaptured.children[1].textContent, "Template Partner");
 assert.equal(kanbanTemplateSlot.children[0].textContent, "Slot:");
