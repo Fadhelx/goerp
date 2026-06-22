@@ -114,6 +114,7 @@ const root = renderControlPanel(normalized, {
   onViewSwitch: (viewType) => events.push(["view", viewType]),
   onPagerPrevious: () => events.push(["previous"]),
   onPagerNext: () => events.push(["next"]),
+  onPagerCount: () => events.push(["count"]),
   onGroupBy: (item) => events.push(["groupBy", item.id]),
   onFacetRemove: (facet) => events.push(["remove", facet.id]),
   onSearchSuggestion: (suggestion) => events.push(["suggestion", suggestion.id, suggestion.field, suggestion.value]),
@@ -251,6 +252,22 @@ const lastNext = findAll(lastPageRoot, (node) => String(node.className).includes
 assert.equal(lastNext.disabled, true);
 lastNext.dispatchEvent(new TestEvent("click"));
 assert.equal(events.some((event) => event[0] === "lastNext"), false);
+
+const limitedRoot = renderControlPanel({
+  title: "Limited",
+  pager: { offset: 0, limit: 20, total: 10000, totalLimited: true }
+}, {
+  onPagerCount: () => events.push(["limitedCount"]),
+  onPagerNext: () => events.push(["limitedNext"])
+});
+const limitedTotal = findAll(limitedRoot, (node) => String(node.className).includes("o_pager_limit_fetch"))[0];
+assert.equal(limitedTotal.textContent, "10000+");
+assert.equal(limitedTotal.attributes["aria-label"], "Fetch total");
+assert.equal(findAll(limitedRoot, (node) => String(node.className).includes("o_pager_next"))[0].disabled, false);
+limitedTotal.dispatchEvent(new TestEvent("click"));
+findAll(limitedRoot, (node) => String(node.className).includes("o_pager_next"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(events.some((event) => event[0] === "limitedCount"), true);
+assert.equal(events.some((event) => event[0] === "limitedNext"), true);
 
 const emptyAutocompleteRoot = renderControlPanel({
   title: "Empty",

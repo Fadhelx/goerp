@@ -5,6 +5,7 @@ export interface ControlPanelPager {
   offset: number;
   limit: number;
   total: number;
+  totalLimited?: boolean;
 }
 
 export interface ControlPanelView {
@@ -67,6 +68,7 @@ export interface ControlPanelCallbacks {
   onViewSwitch?: (viewType: string) => void;
   onPagerPrevious?: () => void;
   onPagerNext?: () => void;
+  onPagerCount?: () => void;
   onFilter?: (item: ControlPanelMenuItem) => void;
   onGroupBy?: (item: ControlPanelMenuItem) => void;
   onFavorite?: (item: ControlPanelMenuItem) => void;
@@ -156,12 +158,20 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
   const value = document.createElement("span");
   value.className = "o_pager_value";
   value.textContent = `${first}-${last}`;
-  const limit = document.createElement("span");
-  limit.className = "o_pager_limit";
-  limit.textContent = String(pager.total);
+  const limit = pager.totalLimited
+    ? document.createElement("button")
+    : document.createElement("span");
+  limit.className = pager.totalLimited ? "o_pager_limit o_pager_limit_fetch" : "o_pager_limit";
+  limit.textContent = pager.totalLimited ? `${pager.total}+` : String(pager.total);
+  if (pager.totalLimited) {
+    limit.setAttribute("aria-label", "Fetch total");
+    limit.setAttribute("title", "Fetch total");
+    (limit as HTMLButtonElement).type = "button";
+    limit.addEventListener("click", () => callbacks.onPagerCount?.());
+  }
   counter.append(value, document.createTextNode(" / "), limit);
   const previous = pagerButton("previous", "Previous", pager.offset <= 0, callbacks.onPagerPrevious);
-  const next = pagerButton("next", "Next", last >= pager.total, callbacks.onPagerNext);
+  const next = pagerButton("next", "Next", !pager.totalLimited && last >= pager.total, callbacks.onPagerNext);
   root.append(counter, previous, next);
   return root;
 }
@@ -502,11 +512,13 @@ function pagerButton(
 function normalizePager(pager: ControlPanelPager): ControlPanelPager {
   const total = Math.max(0, Math.trunc(pager.total || 0));
   const limit = Math.max(1, Math.trunc(pager.limit || 1));
-  const maxOffset = Math.max(0, total - 1);
+  const requestedOffset = Math.max(0, Math.trunc(pager.offset || 0));
+  const maxOffset = pager.totalLimited ? requestedOffset : Math.max(0, total - 1);
   return {
     total,
     limit,
-    offset: Math.min(Math.max(0, Math.trunc(pager.offset || 0)), maxOffset)
+    offset: Math.min(requestedOffset, maxOffset),
+    totalLimited: pager.totalLimited === true
   };
 }
 

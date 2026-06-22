@@ -853,6 +853,7 @@ assert.deepEqual(windowSearchRead.params.kwargs.domain, [
   ["customer_rank", ">", 0]
 ]);
 assert.equal(windowSearchRead.params.kwargs.offset, 0);
+assert.equal(windowSearchRead.params.kwargs.count_limit, 10001);
 assert.equal(windowSearchRead.params.kwargs.context.from_search, true);
 assert.deepEqual(windowSearchRead.params.kwargs.groupby, ["company_id"]);
 assert.deepEqual(windowResult.search.state.facets.map((facet) => [facet.id, facet.label]), [["filter-customer", "Customers"]]);
@@ -986,7 +987,69 @@ const pagedWindowResult = await actionServices.action.doAction({
 const pagedSearchRead = windowActionRequests.slice(pagedRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
 assert.equal(pagedSearchRead.params.kwargs.offset, 25);
 assert.equal(pagedSearchRead.params.kwargs.limit, 25);
+assert.equal(pagedSearchRead.params.kwargs.count_limit, 10001);
 assert.equal(pagedWindowResult.offset, 25);
+
+const extendedCountLimitStart = windowActionRequests.length;
+await actionServices.action.doAction({
+  ...windowResult.action,
+  __pager_offset: 10000
+});
+const extendedCountLimitRead = windowActionRequests.slice(extendedCountLimitStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.equal(extendedCountLimitRead.params.kwargs.offset, 10000);
+assert.equal(extendedCountLimitRead.params.kwargs.count_limit, 10026);
+
+const exactTotalRequestStart = windowActionRequests.length;
+await actionServices.action.doAction({
+  ...windowResult.action,
+  __pager_offset: 25,
+  __pager_total: 45
+});
+const exactTotalSearchRead = windowActionRequests.slice(exactTotalRequestStart).find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.equal(exactTotalSearchRead.params.kwargs.offset, 25);
+assert.equal("count_limit" in exactTotalSearchRead.params.kwargs, false);
+
+const viewCountLimitRequests = [];
+const viewCountLimitServices = createWebClientServices({
+  transport(request) {
+    viewCountLimitRequests.push(request);
+    if (request.route === "/web/action/load") {
+      return Promise.resolve({
+        id: 27,
+        type: "ir.actions.act_window",
+        name: "Tiny Partners",
+        res_model: "res.partner",
+        views: [[31, "list"], [false, "search"]],
+        view_mode: "list",
+        limit: 2,
+        target: "current"
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/get_views") {
+      return Promise.resolve({
+        views: {
+          list: { arch: "<list count_limit=\"3\"><field name=\"name\"/></list>", id: 31 },
+          search: { arch: "<search/>", id: false, filters: [] }
+        },
+        models: {
+          "res.partner": {
+            fields: { name: { type: "char", string: "Name" } }
+          }
+        }
+      });
+    }
+    if (request.route === "/web/dataset/call_kw/res.partner/web_search_read") {
+      return Promise.resolve({ length: 4, records: [{ id: 1, name: "A" }, { id: 2, name: "B" }] });
+    }
+    return Promise.resolve({});
+  }
+});
+const viewCountLimitResult = await viewCountLimitServices.action.doAction(27);
+const viewCountLimitSearchRead = viewCountLimitRequests.find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.equal(viewCountLimitSearchRead.params.kwargs.limit, 2);
+assert.equal(viewCountLimitSearchRead.params.kwargs.count_limit, 4);
+assert.equal(viewCountLimitResult.length, 3);
+assert.equal(viewCountLimitResult.countLimited, true);
 
 const pagerActionCalls = [];
 const pagerWindow = renderWindowAction({
@@ -1018,6 +1081,41 @@ assert.equal(pagerActionCalls[0].action.__pager_offset, 50);
 assert.equal(pagerActionCalls[1].action.__pager_offset, 0);
 assert.deepEqual(pagerActionCalls[0].action.__search_facets.map((facet) => facet.id), ["filter-customer"]);
 assert.deepEqual(pagerActionCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
+const limitedCountCalls = [];
+const limitedCountActionCalls = [];
+const limitedPagerWindow = renderWindowAction({
+  ...windowResult,
+  length: 10000,
+  countLimited: true
+}, {
+  services: {
+    orm: {
+      searchCount(model, domain, kwargs) {
+        limitedCountCalls.push({ model, domain, kwargs });
+        return Promise.resolve(45);
+      }
+    },
+    action: {
+      doAction(action, options) {
+        limitedCountActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const limitedPagerTotal = findAll(limitedPagerWindow, (node) => String(node.className).includes("o_pager_limit_fetch"))[0];
+assert.equal(limitedPagerTotal.textContent, "10000+");
+limitedPagerTotal.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(limitedCountCalls.length, 1);
+assert.equal(limitedCountCalls[0].model, "res.partner");
+assert.deepEqual(limitedCountCalls[0].domain, windowResult.search.state.domain);
+assert.equal(limitedCountCalls[0].kwargs.context.from_search, true);
+assert.equal(limitedCountActionCalls.length, 1);
+assert.equal(limitedCountActionCalls[0].action.__pager_total, 45);
+assert.equal(limitedCountActionCalls[0].action.__pager_offset, 0);
 
 const autocompleteActionCalls = [];
 const autocompleteWindow = renderWindowAction({

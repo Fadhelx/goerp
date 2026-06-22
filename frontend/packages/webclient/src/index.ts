@@ -132,6 +132,7 @@ export interface DatasetService {
 export type DomainExpression = readonly unknown[];
 export type DomainListRepr = readonly (readonly [string | number, string, unknown] | "&" | "|" | "!")[];
 export type DomainRepr = DomainListRepr | string | Domain;
+const DEFAULT_PAGER_COUNT_LIMIT = 10000;
 
 export interface PythonExpressionAST {
   type: "expression";
@@ -288,6 +289,7 @@ export interface WindowActionResult {
   records: Record<string, unknown>[];
   length: number;
   offset: number;
+  countLimited: boolean;
 }
 
 export interface WindowActionSearchState {
@@ -1480,7 +1482,7 @@ export function createWindowActionExecutor(
     const search = buildWindowActionSearch(action, context, viewDescriptions);
     const data = orm
       ? await loadWindowActionRecords(orm, action, activeView, resModel, context, viewDescriptions, search.state)
-      : { records: [], length: 0 };
+      : { records: [], length: 0, countLimited: false };
     return {
       type: "ir.actions.act_window",
       action: { ...action, context },
@@ -1490,7 +1492,8 @@ export function createWindowActionExecutor(
       search,
       records: data.records,
       length: data.length,
-      offset: activeView === "form" ? 0 : actionPagerOffset(action)
+      offset: activeView === "form" ? 0 : actionPagerOffset(action),
+      countLimited: data.countLimited
     } satisfies WindowActionResult;
   };
 }
@@ -2000,7 +2003,7 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     title: typeof result.action.name === "string" ? result.action.name : result.resModel,
     pager: result.activeView === "form"
       ? undefined
-      : { offset: result.offset, limit: pagerLimit, total: result.length },
+      : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited },
     views,
     search: {
       query: result.search?.state.query ?? "",
@@ -2066,9 +2069,18 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
       }));
     },
     onPagerNext: () => {
-      const nextOffset = Math.min(Math.max(0, result.length - 1), result.offset + pagerLimit);
+      const nextOffset = result.countLimited
+        ? result.offset + pagerLimit
+        : Math.min(Math.max(0, result.length - 1), result.offset + pagerLimit);
       if (rerunActionWithPagerOffset(result, nextOffset, options)) return;
       root.dispatchEvent(new CustomEvent("action:pager-next", {
+        bubbles: true,
+        detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
+      }));
+    },
+    onPagerCount: () => {
+      if (fetchWindowActionExactCount(result, options)) return;
+      root.dispatchEvent(new CustomEvent("action:pager-count", {
         bubbles: true,
         detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
       }));
@@ -2098,6 +2110,7 @@ function actionWithViewType(action: Record<string, unknown>, viewType: string): 
     view_type: cleanViewType
   };
   delete next.__pager_offset;
+  delete next.__pager_total;
   if (cleanViewType !== "form") delete next.res_id;
   return next;
 }
@@ -2222,6 +2235,7 @@ function actionWithCurrentSearch(result: WindowActionResult, facets: readonly Se
     __search_facets: facets.map(cloneSearchFacet)
   };
   delete nextAction.__pager_offset;
+  delete nextAction.__pager_total;
   const query = String(result.search?.state.query ?? "").trim();
   if (query) nextAction.__search_query = query;
   else delete nextAction.__search_query;
@@ -2245,6 +2259,30 @@ function rerunActionWithPagerOffset(result: WindowActionResult, offset: number, 
   if (!options.services?.action) return false;
   void options.services.action.doAction(actionWithPagerOffset(result, offset), replaceActionOptions(options));
   return true;
+}
+
+function fetchWindowActionExactCount(result: WindowActionResult, options: RenderWindowActionOptions): boolean {
+  const orm = options.services?.orm;
+  const action = options.services?.action;
+  if (!orm || !action) return false;
+  const searchState = result.search?.state;
+  const domain = searchState ? [...searchState.domain] : normalizeDomainExpression(result.action.domain, pagerSearchCountContext(result));
+  void orm.searchCount<number>(result.resModel, domain, { context: pagerSearchCountContext(result) }).then((count) => {
+    const total = Math.max(0, Math.trunc(typeof count === "number" && Number.isFinite(count) ? count : 0));
+    const nextAction = actionWithPagerOffset(result, result.offset);
+    nextAction.__pager_total = total;
+    return action.doAction(nextAction, replaceActionOptions(options));
+  }).catch((error) => {
+    options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+  });
+  return true;
+}
+
+function pagerSearchCountContext(result: WindowActionResult): Record<string, unknown> {
+  return {
+    ...(isRecord(result.action.context) ? result.action.context : {}),
+    ...(result.search?.state.context ?? {})
+  };
 }
 
 function currentSearchFavoriteName(result: WindowActionResult): string {
@@ -5555,34 +5593,45 @@ async function loadWindowActionRecords(
   context: Record<string, unknown>,
   viewDescriptions: ViewDescriptions,
   searchState?: SearchModelState
-): Promise<{ records: Record<string, unknown>[]; length: number }> {
+): Promise<{ records: Record<string, unknown>[]; length: number; countLimited: boolean }> {
   const specification = readSpecification(viewDescriptions.views[activeView]?.arch ?? "", viewDescriptions, context);
   const readContext = { bin_size: true, ...context, ...(searchState?.context ?? {}) };
   if (activeView === "form" && typeof action.res_id === "number" && Number.isFinite(action.res_id)) {
     const records = await orm.webRead<Record<string, unknown>[]>(resModel, [action.res_id], { context: readContext, specification });
-    return { records, length: records.length };
+    return { records, length: records.length, countLimited: false };
   }
   if (activeView === "form") {
     const fieldNames = Object.keys(specification);
     const defaults = fieldNames.length
       ? await orm.defaultGet<Record<string, unknown>>(resModel, fieldNames, { context })
       : {};
-    return { records: [isRecord(defaults) ? defaults : {}], length: 0 };
+    return { records: [isRecord(defaults) ? defaults : {}], length: 0, countLimited: false };
   }
+  const exactTotal = actionPagerExactTotal(action);
+  const countLimit = actionPagerCountLimit(action, activeView, viewDescriptions);
+  const readLimit = numberActionValue(action.limit, 80);
+  const readOffset = actionPagerOffset(action);
+  const searchReadKwargs: Record<string, unknown> = {
+    context: readContext,
+    specification,
+    limit: readLimit,
+    offset: readOffset,
+    ...(searchState?.groupBy.length ? { groupby: [...searchState.groupBy] } : {}),
+    ...(typeof action.order === "string" ? { order: action.order } : {})
+  };
+  if (exactTotal === undefined) searchReadKwargs.count_limit = countLimit + 1;
   const result = await orm.webSearchRead<{ records?: Record<string, unknown>[]; length?: number }>(
     resModel,
     searchState ? [...searchState.domain] : normalizeDomainExpression(action.domain, context),
-    {
-      context: readContext,
-      specification,
-      limit: numberActionValue(action.limit, 80),
-      offset: actionPagerOffset(action),
-      ...(searchState?.groupBy.length ? { groupby: [...searchState.groupBy] } : {}),
-      ...(typeof action.order === "string" ? { order: action.order } : {})
-    }
+    searchReadKwargs
   );
   const records = Array.isArray(result.records) ? result.records : [];
-  return { records, length: typeof result.length === "number" ? result.length : records.length };
+  if (exactTotal !== undefined) {
+    return { records, length: exactTotal, countLimited: false };
+  }
+  const rawLength = typeof result.length === "number" ? result.length : records.length;
+  const countLimited = rawLength >= countLimit + 1;
+  return { records, length: countLimited ? countLimit : rawLength, countLimited };
 }
 
 function buildWindowActionSearch(
@@ -5777,6 +5826,18 @@ function numberActionValue(value: unknown, fallback: number): number {
 
 function actionPagerOffset(action: Record<string, unknown>): number {
   return Math.max(0, Math.trunc(numberActionValue(action.__pager_offset, 0)));
+}
+
+function actionPagerExactTotal(action: Record<string, unknown>): number | undefined {
+  if (typeof action.__pager_total !== "number" || !Number.isFinite(action.__pager_total)) return undefined;
+  return Math.max(0, Math.trunc(action.__pager_total));
+}
+
+function actionPagerCountLimit(action: Record<string, unknown>, activeView: string, viewDescriptions: ViewDescriptions): number {
+  const viewLimit = numericAttribute(viewRootAttrs(viewDescriptions.views[activeView]?.arch ?? "", "list", "tree", "kanban")["count_limit"]);
+  const baseLimit = Math.max(0, viewLimit ?? DEFAULT_PAGER_COUNT_LIMIT);
+  const pageEnd = actionPagerOffset(action) + numberActionValue(action.limit, 80);
+  return Math.max(baseLimit, pageEnd);
 }
 
 function envIsSmall(env: WebClientEnv | null): boolean {
