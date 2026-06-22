@@ -565,12 +565,15 @@ export const scenarios = [
           input_expanded: input?.getAttribute("aria-expanded") || "",
           dropdown_open: dropdown?.hidden === false,
           option_count: editor?.querySelectorAll(".gorp-many2one-option").length || 0,
+          search_more_count: editor?.querySelectorAll(".gorp-many2one-search-more").length || 0,
           current_res_id: editor?.dataset?.resId || ""
         };
       })()`);
-      if (relationDropdownState.toggle_expanded !== "true" || relationDropdownState.input_expanded !== "true" || !relationDropdownState.dropdown_open || relationDropdownState.option_count < 1 || !relationDropdownState.current_res_id) {
+      if (relationDropdownState.toggle_expanded !== "true" || relationDropdownState.input_expanded !== "true" || !relationDropdownState.dropdown_open || relationDropdownState.option_count < 1 || relationDropdownState.search_more_count < 1 || !relationDropdownState.current_res_id) {
         throw new Error(`TS Server Actions many2one dropdown invalid: ${JSON.stringify(relationDropdownState)}`);
       }
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-search-more");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']")?.dataset.searchMoreOpened === "true"`, "TS Server Actions many2one search more opens");
       await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
       const relationOptionCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 1, "TS Server Actions many2one options");
       const editorState = await evaluate(page, `(() => {

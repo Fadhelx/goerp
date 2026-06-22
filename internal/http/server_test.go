@@ -10860,6 +10860,11 @@ func TestWebDatasetModelMethods(t *testing.T) {
 		t.Fatalf("web_search_read response %s", body)
 	}
 
+	body = postCallKW(t, handler, `{"model":"res.partner","method":"name_create","args":["Delta"],"kwargs":{"context":{"default_name":"Ignored"},"create_name_field":"name"}}`)
+	if !strings.Contains(body, `"Delta"`) || !strings.Contains(body, `3`) {
+		t.Fatalf("name_create response %s", body)
+	}
+
 	body = postCallKW(t, handler, `{"model":"res.partner","method":"web_save","args":[[],{"name":"Gamma"}],"kwargs":{"specification":{"display_name":{}}}}`)
 	if !strings.Contains(body, `"display_name":"Gamma"`) {
 		t.Fatalf("web_save create response %s", body)

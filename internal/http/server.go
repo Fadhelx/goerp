@@ -15814,6 +15814,35 @@ func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
 			return nil, err
 		}
 		return pairs, nil
+	case "name_create":
+		createEnv := createContextEnv(env, req)
+		name := strings.TrimSpace(stringValue(firstNonNil(arg(req.Args, 0), kwarg(req.Kwargs, "name"))))
+		if name == "" {
+			return nil, fmt.Errorf("name_create requires a name")
+		}
+		createNameField := strings.TrimSpace(stringValue(firstNonNil(kwarg(req.Kwargs, "create_name_field"), "name")))
+		if !validSimpleFieldName(createNameField) {
+			return nil, fmt.Errorf("invalid name_create field %q", createNameField)
+		}
+		fields, err := createEnv.Model(req.Model).FieldsGet([]string{createNameField}, []string{"type"})
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := fields[createNameField]; !ok {
+			return nil, fmt.Errorf("unknown name_create field %s on %s", createNameField, req.Model)
+		}
+		id, err := createEnv.Model(req.Model).Create(map[string]any{createNameField: name})
+		if err != nil {
+			return nil, err
+		}
+		pairs, err := createEnv.Model(req.Model).Browse(id).NameGet()
+		if err != nil {
+			return nil, err
+		}
+		if len(pairs) == 0 {
+			return nil, fmt.Errorf("name_create could not read created record %d", id)
+		}
+		return pairs[0], nil
 	case "web_name_search":
 		readEnv := requestContextEnv(env, req)
 		name := stringValue(firstNonNil(kwarg(req.Kwargs, "name"), arg(req.Args, 0)))
@@ -24174,6 +24203,19 @@ func floatValue(value any) float64 {
 func stringValue(value any) string {
 	text, _ := value.(string)
 	return text
+}
+
+func validSimpleFieldName(value string) bool {
+	if value == "" {
+		return false
+	}
+	for index, char := range value {
+		if char == '_' || ('a' <= char && char <= 'z') || ('A' <= char && char <= 'Z') || (index > 0 && '0' <= char && char <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func firstTextHTTP(values ...any) string {

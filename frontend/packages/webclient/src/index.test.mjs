@@ -1576,6 +1576,132 @@ assert.deepEqual(dottedRelationSearchCalls[0], {
   kwargs: { name: "", args: [], operator: "ilike", limit: 4, context: { lang: "en_US", active_test: false } }
 });
 
+const relationAffordanceCalls = [];
+const relationAffordanceActions = [];
+const relationAffordanceWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Contact Relation" },
+  activeView: "form",
+  resModel: "x.relation.test",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      partner_id: { type: "many2one", relation: "res.partner", string: "Partner" },
+      tag_ids: { type: "many2many", relation: "res.partner", string: "Tags" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="partner_id" limit="1"/><field name="tag_ids" limit="1" options="{'search_more_limit': 3}"/></sheet></form>`,
+        id: 74
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: { id: 26, name: "Relation Test", partner_id: false, tag_ids: [] },
+  context: { lang: "en_US" },
+  services: {
+    orm: {
+      call(model, method, args, kwargs) {
+        relationAffordanceCalls.push({ kind: "call", model, method, args, kwargs });
+        if (method === "name_create") return Promise.resolve([99, "Created Record"]);
+        if (method === "name_search" && kwargs.limit === 1) return Promise.resolve([[1, "Alpha"]]);
+        return Promise.resolve([[1, "Alpha"], [2, "Beta"], [3, "Gamma"]]);
+      }
+    },
+    action: {
+      doAction(action, options) {
+        relationAffordanceActions.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(relationAffordanceWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+const relationAffordanceForm = relationAffordanceWindow.children[1];
+const relationAffordanceM2O = findAll(relationAffordanceForm, (node) => String(node.className ?? "").includes("gorp-many2one-editor") && node.dataset?.field === "partner_id")[0];
+const relationAffordanceM2OInput = findAll(relationAffordanceM2O, (node) => node.tag === "input" && node.dataset?.field === "partner_id")[0];
+relationAffordanceM2OInput.value = "acme";
+relationAffordanceM2OInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(relationAffordanceCalls[0], {
+  kind: "call",
+  model: "res.partner",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "acme", args: [], operator: "ilike", limit: 1, context: { lang: "en_US" } }
+});
+assert.deepEqual(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-option")).map((node) => node.textContent), ["Alpha"]);
+assert.equal(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-create")).map((node) => node.textContent)[0], `Create "acme"`);
+assert.equal(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit")).map((node) => node.textContent)[0], "Create and edit...");
+assert.equal(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-search-more")).length, 1);
+findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-search-more"))[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(relationAffordanceCalls[1], {
+  kind: "call",
+  model: "res.partner",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "acme", args: [], operator: "ilike", limit: 80, context: { lang: "en_US" } }
+});
+assert.equal(relationAffordanceM2O.dataset.searchMoreOpened, "true");
+assert.deepEqual(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-option")).map((node) => node.textContent), ["Alpha", "Beta", "Gamma"]);
+assert.equal(findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-search-more")).length, 0);
+relationAffordanceM2OInput.value = "omega";
+relationAffordanceM2OInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit"))[0].dispatchEvent(new TestEvent("click"));
+assert.deepEqual(relationAffordanceActions[0].action, {
+  type: "ir.actions.act_window",
+  name: "Create omega",
+  res_model: "res.partner",
+  views: [[false, "form"]],
+  view_mode: "form",
+  target: "new",
+  context: { lang: "en_US", default_name: "omega" }
+});
+relationAffordanceM2OInput.value = "new acme";
+relationAffordanceM2OInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-create"))[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(relationAffordanceCalls.filter((call) => call.method === "name_create").at(-1), {
+  kind: "call",
+  model: "res.partner",
+  method: "name_create",
+  args: ["new acme"],
+  kwargs: { context: { lang: "en_US", default_name: "new acme" }, create_name_field: "name" }
+});
+assert.equal(relationAffordanceM2O.dataset.resId, "99");
+assert.equal(relationAffordanceM2OInput.value, "Created Record");
+const relationAffordanceM2M = findAll(relationAffordanceForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor") && node.dataset?.field === "tag_ids")[0];
+const relationAffordanceM2MInput = findAll(relationAffordanceM2M, (node) => node.tag === "input" && node.dataset?.field === "tag_ids")[0];
+relationAffordanceM2MInput.value = "tag";
+relationAffordanceM2MInput.dispatchEvent(new TestEvent("input"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(relationAffordanceCalls.filter((call) => call.kind === "call").at(-1), {
+  kind: "call",
+  model: "res.partner",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "tag", args: [], operator: "ilike", limit: 1, context: { lang: "en_US" } }
+});
+assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-create")).map((node) => node.textContent)[0], `Create "tag"`);
+assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more")).length, 1);
+findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more"))[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(relationAffordanceCalls.filter((call) => call.kind === "call").at(-1), {
+  kind: "call",
+  model: "res.partner",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "tag", args: [], operator: "ilike", limit: 3, context: { lang: "en_US" } }
+});
+assert.equal(relationAffordanceM2M.dataset.searchMoreOpened, "true");
+assert.deepEqual(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-option")).map((node) => node.textContent), ["Alpha", "Beta", "Gamma"]);
+
 const genericFormSearchCalls = [];
 const genericFormSaveCalls = [];
 const genericFormSaveEvents = [];
@@ -1787,6 +1913,8 @@ assert.deepEqual(genericFormSearchCalls[1], {
 });
 const genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
 assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["mail.mail", "mail.message"]);
+assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create")).length, 0);
+assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit")).length, 0);
 genericRelationOptions[0].dispatchEvent(new TestEvent("click"));
 assert.equal(genericRelation.dataset.resId, "81");
 assert.equal(genericRelationInput.value, "mail.mail");
@@ -1803,6 +1931,7 @@ assert.deepEqual(genericFormSearchCalls[2], {
 });
 const genericGroupOptions = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-option"));
 assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
+assert.equal(findAll(genericGroups, (node) => String(node.className ?? "").includes("gorp-x2many-create")).length, 0);
 genericGroupOptions[0].dispatchEvent(new TestEvent("click"));
 assert.equal(genericGroups.dataset.count, "2");
 const genericGroupRemove = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-remove") && node.dataset?.resId === "11")[0];

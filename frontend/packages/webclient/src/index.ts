@@ -7583,6 +7583,7 @@ function renderOne2ManyMany2OneCellEditor(
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
   dropdown.setAttribute("role", "listbox");
   dropdown.hidden = true;
+  let searchSequence = 0;
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
@@ -7595,13 +7596,75 @@ function renderOne2ManyMany2OneCellEditor(
     input.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-expanded", "true");
   };
-  const renderItems = (items: readonly Many2OneSearchItem[]) => {
+  const quickCreate = async (query: string) => {
+    if (!relation || !options.services?.orm || !query.trim()) return;
+    root.dataset.loading = "true";
+    try {
+      searchSequence += 1;
+      const created = await options.services.orm.call<unknown>(relation, "name_create", [query], {
+        context: relationCreateContext(query, config),
+        create_name_field: config.createNameField
+      });
+      const item = many2OneSearchItems([created])[0];
+      if (!item) throw new Error("Create did not return a record");
+      row.values[column.name] = [item.id, item.displayName];
+      root.dataset.resId = String(item.id);
+      input.value = item.displayName;
+      onChange();
+      closeDropdown();
+    } catch (error) {
+      options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+    } finally {
+      delete root.dataset.loading;
+    }
+  };
+  const createEdit = (query: string) => {
+    if (!relation || !options.services?.action) return;
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    closeDropdown();
+  };
+  const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery && !config.noQuickCreate && options.services?.orm) {
+      const create = document.createElement("button");
+      create.type = "button";
+      create.className = "gorp-many2one-create o_m2o_dropdown_option_create dropdown-item";
+      create.dataset.command = "quickCreate";
+      create.textContent = `Create "${normalizedQuery}"`;
+      create.addEventListener("click", () => {
+        void quickCreate(normalizedQuery);
+      });
+      dropdown.append(create);
+    }
+    if (normalizedQuery && !config.noCreateEdit && options.services?.action) {
+      const createEditButton = document.createElement("button");
+      createEditButton.type = "button";
+      createEditButton.className = "gorp-many2one-create-edit o_m2o_dropdown_option_create_edit dropdown-item";
+      createEditButton.dataset.command = "createEdit";
+      createEditButton.textContent = "Create and edit...";
+      createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
+      dropdown.append(createEditButton);
+    }
+    if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
+      const searchMore = document.createElement("button");
+      searchMore.type = "button";
+      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option_search_more dropdown-item";
+      searchMore.dataset.command = "searchMore";
+      searchMore.textContent = "Search More...";
+      searchMore.addEventListener("click", () => {
+        void search(query, false, config.searchMoreLimit, true);
+      });
+      dropdown.append(searchMore);
+    }
+  };
+  const renderItems = (items: readonly Many2OneSearchItem[], query = "", searchMoreExpanded = false) => {
     dropdown.replaceChildren();
     if (!items.length) {
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
       empty.textContent = "No records found";
       dropdown.append(empty);
+      appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
       return;
     }
@@ -7621,32 +7684,31 @@ function renderOne2ManyMany2OneCellEditor(
       });
       dropdown.append(option);
     }
+    appendCommands(query, items.length, searchMoreExpanded);
     openDropdown();
   };
-  const search = async (queryOverride?: string, clearSelection = true) => {
+  const search = async (queryOverride?: string, clearSelection = true, limit = config.limit, searchMore = false) => {
     const query = (queryOverride ?? input.value).trim();
+    const sequence = ++searchSequence;
     if (clearSelection) {
       delete root.dataset.resId;
       row.values[column.name] = false;
       onChange();
     }
     if (!relation || !options.services?.orm) {
-      renderItems(current.id !== undefined && (!query || current.displayName.toLowerCase().includes(query.toLowerCase())) ? [{ id: current.id, displayName: current.displayName }] : []);
+      renderItems(current.id !== undefined && (!query || current.displayName.toLowerCase().includes(query.toLowerCase())) ? [{ id: current.id, displayName: current.displayName }] : [], query, searchMore);
       return;
     }
     root.dataset.loading = "true";
     try {
-      const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
-        name: query,
-        args: config.domain,
-        operator: "ilike",
-        limit: config.limit,
-        context: config.context
-      });
-      renderItems(many2OneSearchItems(result));
+      if (searchMore) root.dataset.searchMoreOpened = "true";
+      const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, limit));
+      if (sequence !== searchSequence) return;
+      renderItems(many2OneSearchItems(result), query, searchMore);
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
-      renderItems([]);
+      if (sequence !== searchSequence) return;
+      renderItems([], query, searchMore);
     } finally {
       delete root.dataset.loading;
     }
@@ -8599,6 +8661,8 @@ interface RelationFieldConfig {
   skippedDomain: boolean;
   context: Record<string, unknown>;
   limit: number;
+  searchMoreLimit: number;
+  createNameField: string;
   noCreate: boolean;
   noQuickCreate: boolean;
   noCreateEdit: boolean;
@@ -8649,6 +8713,7 @@ function renderMany2OneEditor(
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
   dropdown.setAttribute("role", "listbox");
   dropdown.hidden = true;
+  let searchSequence = 0;
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
@@ -8661,13 +8726,76 @@ function renderMany2OneEditor(
     input.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-expanded", "true");
   };
-  const renderItems = (items: readonly Many2OneSearchItem[]) => {
+  const quickCreate = async (query: string) => {
+    if (!relation || !options.services?.orm || !query.trim()) return;
+    root.dataset.loading = "true";
+    try {
+      searchSequence += 1;
+      const created = await options.services.orm.call<unknown>(relation, "name_create", [query], {
+        context: relationCreateContext(query, config),
+        create_name_field: config.createNameField
+      });
+      const item = many2OneSearchItems([created])[0];
+      if (!item) throw new Error("Create did not return a record");
+      values[node.name] = [item.id, item.displayName];
+      root.dataset.resId = String(item.id);
+      input.value = item.displayName;
+      if (required) setRequiredControlInvalid(input as RequiredFormControl, false);
+      emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
+      closeDropdown();
+    } catch (error) {
+      options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+    } finally {
+      delete root.dataset.loading;
+    }
+  };
+  const createEdit = (query: string) => {
+    if (!relation || !options.services?.action) return;
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    closeDropdown();
+  };
+  const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery && !config.noQuickCreate && options.services?.orm) {
+      const create = document.createElement("button");
+      create.type = "button";
+      create.className = "gorp-many2one-create o_m2o_dropdown_option_create dropdown-item";
+      create.dataset.command = "quickCreate";
+      create.textContent = `Create "${normalizedQuery}"`;
+      create.addEventListener("click", () => {
+        void quickCreate(normalizedQuery);
+      });
+      dropdown.append(create);
+    }
+    if (normalizedQuery && !config.noCreateEdit && options.services?.action) {
+      const createEditButton = document.createElement("button");
+      createEditButton.type = "button";
+      createEditButton.className = "gorp-many2one-create-edit o_m2o_dropdown_option_create_edit dropdown-item";
+      createEditButton.dataset.command = "createEdit";
+      createEditButton.textContent = "Create and edit...";
+      createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
+      dropdown.append(createEditButton);
+    }
+    if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
+      const searchMore = document.createElement("button");
+      searchMore.type = "button";
+      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option_search_more dropdown-item";
+      searchMore.dataset.command = "searchMore";
+      searchMore.textContent = "Search More...";
+      searchMore.addEventListener("click", () => {
+        void search({ allowEmpty: true, clearSelection: false, query, limit: config.searchMoreLimit, searchMore: true });
+      });
+      dropdown.append(searchMore);
+    }
+  };
+  const renderItems = (items: readonly Many2OneSearchItem[], query = "", searchMoreExpanded = false) => {
     dropdown.replaceChildren();
     if (!items.length) {
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
       empty.textContent = "No records found";
       dropdown.append(empty);
+      appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
       return;
     }
@@ -8688,10 +8816,12 @@ function renderMany2OneEditor(
       });
       dropdown.append(option);
     }
+    appendCommands(query, items.length, searchMoreExpanded);
     openDropdown();
   };
-  const search = async (searchOptions: { allowEmpty?: boolean; clearSelection?: boolean; query?: string } = {}) => {
+  const search = async (searchOptions: { allowEmpty?: boolean; clearSelection?: boolean; limit?: number; query?: string; searchMore?: boolean } = {}) => {
     const query = (searchOptions.query ?? input.value).trim();
+    const sequence = ++searchSequence;
     if (searchOptions.clearSelection !== false) {
       delete root.dataset.resId;
       values[node.name] = false;
@@ -8702,22 +8832,19 @@ function renderMany2OneEditor(
       return;
     }
     if (!relation || !options.services?.orm) {
-      renderItems(current.id !== undefined && (!query || current.displayName.toLowerCase().includes(query.toLowerCase())) ? [{ id: current.id, displayName: current.displayName }] : []);
+      renderItems(current.id !== undefined && (!query || current.displayName.toLowerCase().includes(query.toLowerCase())) ? [{ id: current.id, displayName: current.displayName }] : [], query, Boolean(searchOptions.searchMore));
       return;
     }
     root.dataset.loading = "true";
     try {
-      const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
-        name: query,
-        args: config.domain,
-        operator: "ilike",
-        limit: config.limit,
-        context: config.context
-      });
-      renderItems(many2OneSearchItems(result));
+      if (searchOptions.searchMore) root.dataset.searchMoreOpened = "true";
+      const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, searchOptions.limit ?? config.limit));
+      if (sequence !== searchSequence) return;
+      renderItems(many2OneSearchItems(result), query, Boolean(searchOptions.searchMore));
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
-      renderItems([]);
+      if (sequence !== searchSequence) return;
+      renderItems([], query, Boolean(searchOptions.searchMore));
     } finally {
       delete root.dataset.loading;
     }
@@ -8763,11 +8890,15 @@ function relationFieldConfig(
   const fieldContext = parseContextAttribute(node.attrs.context, evalContext) ?? {};
   const context = { ...(options?.context ?? {}), ...fieldContext };
   const limit = relationSearchLimit(node, fieldOptions);
+  const searchMoreLimit = relationSearchMoreLimit(limit, fieldOptions);
+  const createNameField = typeof fieldOptions.create_name_field === "string" && fieldOptions.create_name_field.trim()
+    ? fieldOptions.create_name_field.trim()
+    : "name";
   const noCreate = relationOptionBool(fieldOptions.no_create) || fieldOptions.create === false;
   const noQuickCreate = relationOptionBool(fieldOptions.no_quick_create) || noCreate;
   const noCreateEdit = relationOptionBool(fieldOptions.no_create_edit) || noCreate;
   const noOpen = relationOptionBool(fieldOptions.no_open) || fieldOptions.open === false;
-  return { domain, skippedDomain, context, limit, noCreate, noQuickCreate, noCreateEdit, noOpen };
+  return { domain, skippedDomain, context, limit, searchMoreLimit, createNameField, noCreate, noQuickCreate, noCreateEdit, noOpen };
 }
 
 function relationDomainHasDottedFieldPath(domain: DomainExpression): boolean {
@@ -8787,6 +8918,14 @@ function relationSearchLimit(node: ViewFieldNode, fieldOptions: Record<string, u
   return Number.isFinite(optionLimit) && optionLimit > 0 ? Math.trunc(optionLimit) : 8;
 }
 
+function relationSearchMoreLimit(limit: number, fieldOptions: Record<string, unknown>): number {
+  const optionLimit = typeof fieldOptions.search_more_limit === "number"
+    ? fieldOptions.search_more_limit
+    : Number.parseInt(String(fieldOptions.search_more_limit ?? ""), 10);
+  if (Number.isFinite(optionLimit) && optionLimit > limit) return Math.trunc(optionLimit);
+  return Math.max(80, limit * 5);
+}
+
 function relationOptionBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value !== 0;
@@ -8801,11 +8940,39 @@ function applyRelationFieldDataset(root: HTMLElement, config: RelationFieldConfi
   root.dataset.searchDomain = JSON.stringify(config.domain);
   root.dataset.searchContext = JSON.stringify(config.context);
   root.dataset.searchLimit = String(config.limit);
+  root.dataset.searchMoreLimit = String(config.searchMoreLimit);
+  root.dataset.createNameField = config.createNameField;
   if (config.skippedDomain) root.dataset.skippedDomain = "true";
   if (config.noCreate) root.dataset.noCreate = "true";
   if (config.noQuickCreate) root.dataset.noQuickCreate = "true";
   if (config.noCreateEdit) root.dataset.noCreateEdit = "true";
   if (config.noOpen) root.dataset.noOpen = "true";
+}
+
+function relationSearchKwargs(query: string, config: RelationFieldConfig, limit = config.limit): Record<string, unknown> {
+  return {
+    name: query,
+    args: config.domain,
+    operator: "ilike",
+    limit,
+    context: config.context
+  };
+}
+
+function relationCreateContext(query: string, config: RelationFieldConfig): Record<string, unknown> {
+  return { ...config.context, [`default_${config.createNameField}`]: query };
+}
+
+function relationCreateEditAction(relation: string, query: string, config: RelationFieldConfig): Record<string, unknown> {
+  return {
+    type: "ir.actions.act_window",
+    name: query ? `Create ${query}` : "Create",
+    res_model: relation,
+    views: [[false, "form"]],
+    view_mode: "form",
+    target: "new",
+    context: relationCreateContext(query, config)
+  };
 }
 
 function renderMany2ManyTagEditor(
@@ -8845,6 +9012,7 @@ function renderMany2ManyTagEditor(
   dropdown.className = "gorp-x2many-dropdown o_m2m_dropdown dropdown-menu";
   dropdown.setAttribute("role", "listbox");
   dropdown.hidden = true;
+  let searchSequence = 0;
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
@@ -8887,7 +9055,72 @@ function renderMany2ManyTagEditor(
       tagList.append(tag);
     }
   };
-  const renderItems = (items: readonly Many2OneSearchItem[]) => {
+  const addSelectedItem = (item: Many2OneSearchItem) => {
+    if (selectedIDs().has(item.id)) return;
+    selected = [...selected, { id: item.id, displayName: item.displayName }];
+    input.value = "";
+    renderTags();
+    syncValue();
+    closeDropdown();
+  };
+  const quickCreate = async (query: string) => {
+    if (!relation || !options.services?.orm || !query.trim()) return;
+    root.dataset.loading = "true";
+    try {
+      searchSequence += 1;
+      const created = await options.services.orm.call<unknown>(relation, "name_create", [query], {
+        context: relationCreateContext(query, config),
+        create_name_field: config.createNameField
+      });
+      const item = many2OneSearchItems([created])[0];
+      if (!item) throw new Error("Create did not return a record");
+      addSelectedItem(item);
+    } catch (error) {
+      options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+    } finally {
+      delete root.dataset.loading;
+    }
+  };
+  const createEdit = (query: string) => {
+    if (!relation || !options.services?.action) return;
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    closeDropdown();
+  };
+  const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery && !config.noQuickCreate && options.services?.orm) {
+      const create = document.createElement("button");
+      create.type = "button";
+      create.className = "gorp-x2many-create o_m2m_dropdown_option_create dropdown-item";
+      create.dataset.command = "quickCreate";
+      create.textContent = `Create "${normalizedQuery}"`;
+      create.addEventListener("click", () => {
+        void quickCreate(normalizedQuery);
+      });
+      dropdown.append(create);
+    }
+    if (normalizedQuery && !config.noCreateEdit && options.services?.action) {
+      const createEditButton = document.createElement("button");
+      createEditButton.type = "button";
+      createEditButton.className = "gorp-x2many-create-edit o_m2m_dropdown_option_create_edit dropdown-item";
+      createEditButton.dataset.command = "createEdit";
+      createEditButton.textContent = "Create and edit...";
+      createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
+      dropdown.append(createEditButton);
+    }
+    if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
+      const searchMore = document.createElement("button");
+      searchMore.type = "button";
+      searchMore.className = "gorp-x2many-search-more o_m2m_dropdown_option_search_more dropdown-item";
+      searchMore.dataset.command = "searchMore";
+      searchMore.textContent = "Search More...";
+      searchMore.addEventListener("click", () => {
+        void search(config.searchMoreLimit, true);
+      });
+      dropdown.append(searchMore);
+    }
+  };
+  const renderItems = (items: readonly Many2OneSearchItem[], query = "", searchMoreExpanded = false) => {
     const existingIDs = selectedIDs();
     const available = items.filter((item) => !existingIDs.has(item.id));
     dropdown.replaceChildren();
@@ -8896,6 +9129,7 @@ function renderMany2ManyTagEditor(
       empty.className = "gorp-x2many-empty text-muted";
       empty.textContent = "No records found";
       dropdown.append(empty);
+      appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
       return;
     }
@@ -8907,39 +9141,34 @@ function renderMany2ManyTagEditor(
       option.textContent = item.displayName;
       option.setAttribute("role", "option");
       option.addEventListener("click", () => {
-        selected = [...selected, { id: item.id, displayName: item.displayName }];
-        input.value = "";
-        renderTags();
-        syncValue();
-        closeDropdown();
+        addSelectedItem(item);
       });
       dropdown.append(option);
     }
+    appendCommands(query, items.length, searchMoreExpanded);
     openDropdown();
   };
-  const search = async () => {
+  const search = async (limit = config.limit, searchMore = false) => {
     const query = input.value.trim();
+    const sequence = ++searchSequence;
     if (!query) {
       closeDropdown();
       return;
     }
     if (!relation || !options.services?.orm) {
-      renderItems([]);
+      renderItems([], query, searchMore);
       return;
     }
     root.dataset.loading = "true";
     try {
-      const result = await options.services.orm.call<unknown>(relation, "name_search", [], {
-        name: query,
-        args: config.domain,
-        operator: "ilike",
-        limit: config.limit,
-        context: config.context
-      });
-      renderItems(many2OneSearchItems(result));
+      if (searchMore) root.dataset.searchMoreOpened = "true";
+      const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, limit));
+      if (sequence !== searchSequence) return;
+      renderItems(many2OneSearchItems(result), query, searchMore);
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
-      renderItems([]);
+      if (sequence !== searchSequence) return;
+      renderItems([], query, searchMore);
     } finally {
       delete root.dataset.loading;
     }
