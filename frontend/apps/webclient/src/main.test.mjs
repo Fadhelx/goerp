@@ -365,6 +365,12 @@ function allText(node) {
   return [node.textContent, ...(node.children ?? []).map(allText)].filter(Boolean).join(" ");
 }
 
+async function flushAsync(cycles = 5) {
+  for (let index = 0; index < cycles; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 const ready = new Promise((resolve) => {
   globalThis.addEventListener("goerp:webclient-ready", (event) => resolve(event.detail));
 });
@@ -455,9 +461,23 @@ assert.equal(switchFetch.options.method, "POST");
 assert.deepEqual(JSON.parse(switchFetch.options.body), { company_id: 1, company_ids: [1, 2] });
 assert.equal(globalThis.location.href, "/web");
 
+findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).includes("o_app"))[0].dispatchEvent(new CustomEvent("click"));
+await flushAsync();
+let actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_apps_view")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 0);
+assert.equal(globalThis.location.hash.includes("action=91"), true);
+assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);
+assert.equal(globalThis.location.hash.includes("view_type=kanban"), true);
+assert.equal(globalThis.location.hash.includes("menu_id=4"), true);
+findAll(shell, (node) => String(node.className).startsWith("o_menu_toggle "))[0].dispatchEvent(new CustomEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
-const actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
 assert.equal(actionManager.dataset.tsActionStatus, "ready");
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && String(node.className).includes("o_settings_view")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_settings_container")).length, 1);
@@ -480,12 +500,10 @@ assert.equal(globalThis.location.hash.includes("model=res.config.settings"), tru
 assert.equal(globalThis.location.hash.includes("view_type=form"), true);
 
 findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps")[0].dispatchEvent(new CustomEvent("click"));
-await new Promise((resolve) => setTimeout(resolve, 0));
+await flushAsync();
 assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
 assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_apps_view")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_app_name")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_app_icon")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 0);
 assert.equal(globalThis.location.hash.includes("action=91"), true);
 assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);

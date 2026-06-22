@@ -281,6 +281,36 @@ function isAppsCatalogLikeApp(app: HomeMenuApp): boolean {
   return name === "apps";
 }
 
+function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMenuApp): Record<string, unknown> {
+  if (action.type !== "ir.actions.act_window" || action.res_model !== "ir.module.module") {
+    return { ...action, menu_id: app.id };
+  }
+  return {
+    ...action,
+    menu_id: app.id,
+    view_mode: "kanban,list,form",
+    views: appsWindowActionViews(action),
+    view_type: "kanban",
+    context: {
+      ...(isRecord(action.context) ? action.context : {}),
+      search_default_app: 1
+    }
+  };
+}
+
+function appsWindowActionViews(action: Record<string, unknown>): [number | false, string][] {
+  const ids = new Map<string, number | false>();
+  if (Array.isArray(action.views)) {
+    for (const rawView of action.views) {
+      if (!Array.isArray(rawView) || rawView.length < 2) continue;
+      const type = typeof rawView[1] === "string" ? rawView[1].trim() : "";
+      if (!type || ids.has(type)) continue;
+      ids.set(type, typeof rawView[0] === "number" && rawView[0] > 0 ? rawView[0] : false);
+    }
+  }
+  return ["kanban", "list", "form"].map((type) => [ids.get(type) ?? false, type]);
+}
+
 function isSettingsLikeApp(app: HomeMenuApp): boolean {
   return cleanAppName(app.name).toLowerCase() === "settings";
 }
