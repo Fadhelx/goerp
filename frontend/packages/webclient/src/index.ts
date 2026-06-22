@@ -21,6 +21,7 @@ import {
 import {
   renderControlPanel as renderActionControlPanel,
   type ControlPanelMenuItem as ActionControlPanelMenuItem,
+  type ControlPanelSearchSuggestion as ActionControlPanelSearchSuggestion,
   type ControlPanelView as ActionControlPanelView
 } from "./control_panel/control_panel.js";
 import type { HomeMenuApp, HomeMenuPayload } from "./home_menu/app_metadata.js";
@@ -291,6 +292,7 @@ export interface WindowActionResult {
 export interface WindowActionSearchState {
   parsed: ParsedSearchArch;
   state: SearchModelState;
+  suggestions: readonly ActionControlPanelSearchSuggestion[];
   filters: readonly ActionControlPanelMenuItem[];
   groupBys: readonly ActionControlPanelMenuItem[];
   favorites: readonly ActionControlPanelMenuItem[];
@@ -1999,7 +2001,8 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     views,
     search: {
       query: result.search?.state.query ?? "",
-      facets: result.search?.state.facets ?? []
+      facets: result.search?.state.facets ?? [],
+      suggestions: result.search?.suggestions ?? []
     },
     filters: result.search?.filters ?? [],
     groupBys: result.search?.groupBys ?? [],
@@ -2034,11 +2037,22 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
       if (rerunActionWithSearchMenuItem(result, item, "replace", options)) return;
       dispatchSearchMenuEvent(root, "action:search-favorite", result, item);
     },
+    onDeleteFavorite: (item) => {
+      if (deleteSearchFavorite(result, item, root, options)) return;
+      dispatchSearchMenuEvent(root, "action:search-favorite-delete", result, item);
+    },
     onFacetRemove: (facet) => {
       if (rerunActionWithFacets(result, withoutSearchFacet(result.search?.state.facets ?? [], facet.id), options)) return;
       root.dispatchEvent(new CustomEvent("action:search-facet-remove", {
         bubbles: true,
         detail: { facet, model: result.resModel }
+      }));
+    },
+    onSearchSuggestion: (suggestion) => {
+      if (rerunActionWithSearchSuggestion(result, suggestion, options)) return;
+      root.dispatchEvent(new CustomEvent("action:search-suggestion", {
+        bubbles: true,
+        detail: { suggestion, model: result.resModel }
       }));
     },
     onAddCustomFilter: () => dispatchSearchUtilityEvent(root, "action:search-custom-filter", result),
@@ -2077,6 +2091,24 @@ function rerunActionWithSearchQuery(result: WindowActionResult, query: string, o
   return true;
 }
 
+function rerunActionWithSearchSuggestion(
+  result: WindowActionResult,
+  suggestion: ActionControlPanelSearchSuggestion,
+  options: RenderWindowActionOptions
+): boolean {
+  if (!options.services?.action) return false;
+  const facet = searchSuggestionFacet(suggestion);
+  if (!facet) return false;
+  const currentFacets = result.search?.state.facets ?? [];
+  const nextFacets = currentFacets.some((item) => item.id === facet.id)
+    ? currentFacets.map(cloneSearchFacet)
+    : [...currentFacets.map(cloneSearchFacet), facet];
+  const nextAction = actionWithCurrentSearch(result, nextFacets);
+  delete nextAction.__search_query;
+  void options.services.action.doAction(nextAction, replaceActionOptions(options));
+  return true;
+}
+
 function rerunActionWithSearchMenuItem(
   result: WindowActionResult,
   item: ActionControlPanelMenuItem,
@@ -2094,6 +2126,37 @@ function rerunActionWithSearchMenuItem(
 function rerunActionWithFacets(result: WindowActionResult, facets: readonly SearchFacet[], options: RenderWindowActionOptions): boolean {
   if (!options.services?.action) return false;
   void options.services.action.doAction(actionWithCurrentSearch(result, facets), replaceActionOptions(options));
+  return true;
+}
+
+function deleteSearchFavorite(
+  result: WindowActionResult,
+  item: ActionControlPanelMenuItem,
+  root: HTMLElement,
+  options: RenderWindowActionOptions
+): boolean {
+  const favoriteID = item.favorite?.id;
+  const orm = options.services?.orm;
+  if (!favoriteID || !orm) return false;
+  void orm.unlink("ir.filters", [favoriteID]).then(() => {
+    options.services?.notification?.add("Favorite deleted", { type: "success" });
+    const currentFacets = result.search?.state.facets ?? [];
+    const nextFacets = item.facet ? withoutSearchFacet(currentFacets, item.facet.id) : currentFacets.map(cloneSearchFacet);
+    if (options.services?.action) {
+      return options.services.action.doAction(actionWithCurrentSearch(result, nextFacets), replaceActionOptions(options));
+    }
+    root.dispatchEvent(new CustomEvent("action:search-favorite-deleted", {
+      bubbles: true,
+      detail: { model: result.resModel, id: favoriteID }
+    }));
+    return undefined;
+  }).catch((error) => {
+    options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
+    root.dispatchEvent(new CustomEvent("action:search-favorite-delete-error", {
+      bubbles: true,
+      detail: { model: result.resModel, id: favoriteID, error }
+    }));
+  });
   return true;
 }
 
@@ -2192,6 +2255,23 @@ function cloneSearchFacet(facet: SearchFacet): SearchFacet {
     context: facet.context ? { ...facet.context } : undefined,
     groupBy: facet.groupBy ? [...facet.groupBy] : undefined,
     valueLabels: facet.valueLabels ? [...facet.valueLabels] : undefined
+  };
+}
+
+function searchSuggestionFacet(suggestion: ActionControlPanelSearchSuggestion): SearchFacet | null {
+  const field = String(suggestion.field ?? "").trim();
+  const value = String(suggestion.value ?? "").trim();
+  if (!field || !value) return null;
+  if (suggestion.facet) return cloneSearchFacet(suggestion.facet);
+  return {
+    id: `text-${field}-${value}`,
+    type: "text",
+    label: value,
+    categoryLabel: String(suggestion.label ?? field).split(":")[0].trim() || field,
+    valueLabels: [value],
+    field,
+    operator: String(suggestion.operator ?? "ilike").trim() || "ilike",
+    value
   };
 }
 
@@ -5353,10 +5433,11 @@ function buildWindowActionSearch(
     irFilters: searchView?.irFilters ?? []
   });
   const explicitFacets = searchFacetsFromAction(action);
+  const searchFields = validSearchFields(parsed.searchFields, viewDescriptions.fields) ?? fallbackSearchFields(viewDescriptions.fields);
   const model = createActionSearchModel({
     facets: explicitFacets ?? parsed.defaultFacets,
     query: typeof action.__search_query === "string" ? action.__search_query : "",
-    searchFields: validSearchFields(parsed.searchFields, viewDescriptions.fields),
+    searchFields,
     baseDomain: normalizeDomainExpression(action.domain, context),
     baseContext: context
   });
@@ -5367,6 +5448,7 @@ function buildWindowActionSearch(
   return {
     parsed,
     state,
+    suggestions: searchAutocompleteSuggestions(state.query, searchFields, viewDescriptions.fields),
     filters: filters.length ? filters : fallbackFilterMenuItems(viewDescriptions.fields),
     groupBys: groupBys.length ? groupBys : fallbackGroupByMenuItems(viewDescriptions.fields),
     favorites: searchMenuItems(parsed.favorites, activeFacetIDs)
@@ -5380,13 +5462,63 @@ function validSearchFields(searchFields: readonly string[], fields: Record<strin
   return out.length ? out : undefined;
 }
 
+function fallbackSearchFields(fields: Record<string, unknown>): string[] {
+  if (fields.name) return ["name"];
+  return ["display_name"];
+}
+
+function searchAutocompleteSuggestions(
+  query: string,
+  searchFields: readonly string[],
+  fields: Record<string, unknown>
+): ActionControlPanelSearchSuggestion[] {
+  const value = String(query ?? "").trim();
+  if (!value) return [];
+  return searchFields
+    .map((field) => String(field ?? "").trim())
+    .filter((field, index, all) => field && all.indexOf(field) === index)
+    .map((field) => {
+      const categoryLabel = fieldLabel(fields, field);
+      return {
+        id: `text-${field}-${value}`,
+        label: `Search ${categoryLabel} for: ${value}`,
+        field,
+        operator: "ilike",
+        value,
+        facet: {
+          id: `text-${field}-${value}`,
+          type: "text" as const,
+          label: value,
+          categoryLabel,
+          valueLabels: [value],
+          field,
+          operator: "ilike",
+          value
+        }
+      };
+    });
+}
+
 function searchMenuItems(items: readonly ParsedSearchItem[], activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem[] {
   return items.map((item) => ({
     id: item.id,
     label: item.label,
     facet: parsedSearchItemFacet(item),
-    active: activeFacetIDs.has(parsedSearchItemFacet(item).id)
+    active: activeFacetIDs.has(parsedSearchItemFacet(item).id),
+    ...(item.type === "favorite" ? { favorite: parsedFavoriteMetadata(item) } : {})
   }));
+}
+
+function parsedFavoriteMetadata(item: ParsedSearchItem): ActionControlPanelMenuItem["favorite"] {
+  return {
+    id: item.filterId,
+    userId: item.userId,
+    actionId: item.actionId,
+    embeddedActionId: item.embeddedActionId,
+    isDefault: item.isDefault === true,
+    isGlobal: item.isGlobal === true,
+    canDelete: item.filterId !== undefined && item.userId !== undefined
+  };
 }
 
 function fallbackFilterMenuItems(fields: Record<string, unknown>): ActionControlPanelMenuItem[] {

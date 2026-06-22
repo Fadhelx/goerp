@@ -801,7 +801,10 @@ const actionServices = createWebClientServices({
                 name: "Partner Favorite",
                 domain: "[('supplier_rank', '>', 0)]",
                 context: "{'search_default_supplier': 1}",
-                group_by: ["user_id"]
+                group_by: ["user_id"],
+                user_id: 7,
+                action_id: 7,
+                is_default: false
               }
             ]
           }
@@ -855,6 +858,9 @@ assert.deepEqual(windowResult.search.parsed.searchFields, ["name", "company_id",
 assert.deepEqual(windowResult.search.filters.map((item) => [item.id, item.active]), [["filter-customer", true]]);
 assert.deepEqual(windowResult.search.groupBys.map((item) => item.id), ["group-by-group_company"]);
 assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorite-14"]);
+assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, item.favorite.userId, item.favorite.actionId, item.favorite.isDefault, item.favorite.canDelete]), [
+  [14, 7, 7, false, true]
+]);
 assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
 const renderedWindow = renderWindowAction(windowResult);
 assert.equal(renderedWindow.className, "gorp-window-action");
@@ -948,6 +954,65 @@ assert.equal(liveSearchCalls[0].action.__search_query, "Azure");
 assert.deepEqual(liveSearchCalls[0].action.__search_facets.map((facet) => facet.id), ["filter-customer"]);
 assert.deepEqual(liveSearchCalls[0].options, { additionalContext: {}, replaceLastAction: true });
 
+const autocompleteActionCalls = [];
+const autocompleteWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __search_query: "Azure"
+  },
+  search: {
+    ...windowResult.search,
+    state: {
+      ...windowResult.search.state,
+      query: "Azure"
+    },
+    suggestions: [
+      {
+        id: "text-name-Azure",
+        label: "Search Name for: Azure",
+        field: "name",
+        operator: "ilike",
+        value: "Azure",
+        facet: {
+          id: "text-name-Azure",
+          type: "text",
+          label: "Azure",
+          categoryLabel: "Name",
+          valueLabels: ["Azure"],
+          field: "name",
+          operator: "ilike",
+          value: "Azure"
+        }
+      }
+    ]
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        autocompleteActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const autocompleteItem = findAll(autocompleteWindow, (node) => String(node.className).includes("o_searchview_autocomplete_item"))[0];
+assert.equal(autocompleteItem.dataset.searchField, "name");
+assert.deepEqual(
+  findAll(autocompleteWindow, (node) => String(node.className).includes("o_searchview_autocomplete_item")).map((node) => node.textContent),
+  ["Search Name for: Azure", "Custom Filter..."]
+);
+autocompleteItem.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(autocompleteActionCalls.length, 1);
+assert.equal("__search_query" in autocompleteActionCalls[0].action, false);
+assert.deepEqual(autocompleteActionCalls[0].action.__search_facets.map((facet) => [facet.id, facet.type, facet.field, facet.value]), [
+  ["filter-customer", "filter", undefined, undefined],
+  ["text-name-Azure", "text", "name", "Azure"]
+]);
+assert.deepEqual(autocompleteActionCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
 const favoriteCreates = [];
 const favoriteActionCalls = [];
 const favoriteNotifications = [];
@@ -997,6 +1062,53 @@ assert.deepEqual(JSON.parse(favoriteCreates[0].records[0].domain), windowResult.
 assert.equal(favoriteActionCalls.length, 1);
 assert.equal(favoriteActionCalls[0].action.__search_query, "Azure");
 assert.deepEqual(favoriteNotifications, [{ message: "Favorite saved", options: { type: "success" } }]);
+
+const favoriteDeletes = [];
+const favoriteDeleteActionCalls = [];
+const favoriteDeleteNotifications = [];
+const favoriteDeleteWindow = renderWindowAction({
+  ...windowResult,
+  action: {
+    ...windowResult.action,
+    __search_facets: [{ id: "favorite-14", type: "favorite", label: "Partner Favorite", domain: [["supplier_rank", ">", 0]], groupBy: ["user_id"] }]
+  },
+  search: {
+    ...windowResult.search,
+    state: {
+      ...windowResult.search.state,
+      facets: [{ id: "favorite-14", type: "favorite", label: "Partner Favorite", domain: [["supplier_rank", ">", 0]], groupBy: ["user_id"] }]
+    },
+    favorites: windowResult.search.favorites.map((item) => ({ ...item, active: item.id === "favorite-14" }))
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        favoriteDeleteActionCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    },
+    orm: {
+      unlink(model, ids) {
+        favoriteDeletes.push({ model, ids });
+        return Promise.resolve(true);
+      }
+    },
+    notification: {
+      add(message, options) {
+        favoriteDeleteNotifications.push({ message, options });
+      }
+    }
+  }
+});
+const favoriteDeleteButton = findAll(favoriteDeleteWindow, (node) => String(node.className).includes("o_favorite_delete"))[0];
+assert.equal(favoriteDeleteButton.dataset.favoriteId, "14");
+favoriteDeleteButton.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+await Promise.resolve();
+assert.deepEqual(favoriteDeletes, [{ model: "ir.filters", ids: [14] }]);
+assert.deepEqual(favoriteDeleteActionCalls[0].action.__search_facets, []);
+assert.deepEqual(favoriteDeleteNotifications, [{ message: "Favorite deleted", options: { type: "success" } }]);
 
 const nonFormSwitchCalls = [];
 const formSwitchWindow = renderWindowAction({

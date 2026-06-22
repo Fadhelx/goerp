@@ -7,11 +7,15 @@ export interface ParsedSearchItem {
   name: string;
   label: string;
   type: ParsedSearchItemType;
+  filterId?: number;
   group?: number;
   domain?: readonly unknown[];
   context?: Record<string, unknown>;
   groupBy?: readonly string[];
-  userIds?: readonly number[];
+  userId?: number;
+  actionId?: number;
+  embeddedActionId?: number;
+  isGlobal?: boolean;
   isDefault?: boolean;
 }
 
@@ -133,6 +137,10 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
   const out: ParsedSearchItem[] = [];
   for (const [index, raw] of filters.entries()) {
     if (!isRecord(raw)) continue;
+    const filterId = numberValue(raw.id);
+    const userId = numberValue(raw.user_id);
+    const actionId = numberValue(raw.action_id);
+    const embeddedActionId = numberValue(raw.embedded_action_id);
     const name = stringValue(raw.name) || stringValue(raw.id) || `favorite_${index + 1}`;
     const parsedContext = parseContextAttribute(raw.context);
     const groupBy = groupByFromAny(raw.group_by ?? parsedContext.group_by);
@@ -141,10 +149,14 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
       name,
       label: name,
       type: "favorite",
+      filterId,
       domain: parseDomainAttribute(raw.domain, context),
       context: parsedContext,
       groupBy,
-      userIds: numberList(raw.user_ids),
+      userId,
+      actionId,
+      embeddedActionId,
+      isGlobal: userId === undefined,
       isDefault: raw.is_default === true || contextDefaultActive(context, name)
     });
   }
@@ -343,7 +355,12 @@ function stringValue(value: unknown): string {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";
 }
 
-function numberList(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is number => typeof item === "number");
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (Array.isArray(value)) return numberValue(value[0]);
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
 }

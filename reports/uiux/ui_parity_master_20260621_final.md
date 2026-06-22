@@ -57,6 +57,8 @@ Existing Odoo screenshots were used as visual reference:
 - Activity card mutations now refresh the navbar activity counter/dropdown from `/mail/data`, activity cards can open their related record through the local action service/hash route, and saved favorites load through scoped active `ir.filters` rows.
 - The frontend now carries official `@odoo/owl` 2.8.3 dependency provenance and a runtime probe in `owl-compat`, while keeping the current clean-room compatibility wrapper stable.
 - Search views now parse `<field>` nodes and use the declared searchable fields when building live query domains in the TypeScript action client.
+- Search autocomplete now renders bounded Odoo-style field suggestions from parsed `<field>` nodes and turns selected suggestions into field-specific text facets.
+- Saved favorites now preserve `ir.filters` metadata in the control panel and user-owned favorites expose a delete affordance wired to `orm.unlink("ir.filters", [id])`.
 
 ## Evidence
 
@@ -88,7 +90,7 @@ Renderer worker evidence:
 
 P0:
 - Launcher still lacks real Odoo app icon artwork, enterprise alert panel behavior, exact spacing, and top-right systray-only home layout.
-- Control panel lacks search autocomplete, custom filter/group dialogs, full favorite edit/delete/default behavior, and full mobile search panel.
+- Control panel lacks custom filter/group dialogs, full favorite edit/default behavior, global favorite confirmation policy, and full mobile search panel.
 - Action manager lacks complete breadcrumb stack, browser back/forward parity, nested actions, full `target="new"` lifecycle, and client action coverage.
 - List renderer lacks grouped rows, column sorting/resizing, optional columns, select-all/bulk action states, aggregates, and inline edit.
 - Form renderer lacks full arch layout support: groups, notebooks, smart buttons, relation widgets, onchange, x2many editors, modifiers, and dirty guards.

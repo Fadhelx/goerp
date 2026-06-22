@@ -26,7 +26,8 @@ const parsed = parseSearchArch(
         domain: "[('state', '=', 'draft')]",
         context: "{'search_default_state': 1}",
         group_by: ["user_id"],
-        user_ids: [2],
+        user_id: 7,
+        action_id: 9,
         is_default: true
       }
     ]
@@ -46,6 +47,9 @@ assert.deepEqual(parsed.groupBys.map((item) => [item.name, item.label, item.grou
 ]);
 assert.deepEqual(parsed.favorites.map((item) => [item.id, item.label, item.groupBy, item.isDefault]), [
   ["favorite-7", "My Favorite", ["user_id"], true]
+]);
+assert.deepEqual(parsed.favorites.map((item) => [item.filterId, item.userId, item.actionId, item.isGlobal]), [
+  [7, 7, 9, false]
 ]);
 assert.deepEqual(parsed.defaultFacets.map((facet) => [facet.id, facet.type, facet.label]), [
   ["favorite-7", "favorite", "My Favorite"]

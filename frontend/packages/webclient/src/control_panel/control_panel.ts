@@ -13,12 +13,23 @@ export interface ControlPanelView {
   active?: boolean;
 }
 
+export interface ControlPanelFavoriteMetadata {
+  id?: number;
+  userId?: number;
+  actionId?: number;
+  embeddedActionId?: number;
+  isDefault?: boolean;
+  isGlobal?: boolean;
+  canDelete?: boolean;
+}
+
 export interface ControlPanelMenuItem {
   id: string;
   label: string;
   active?: boolean;
   disabled?: boolean;
   facet?: SearchFacet;
+  favorite?: ControlPanelFavoriteMetadata;
   children?: readonly ControlPanelMenuItem[];
   separatorBefore?: boolean;
 }
@@ -27,6 +38,16 @@ export interface ControlPanelSearchState {
   query: string;
   facets?: readonly SearchFacet[];
   placeholder?: string;
+  suggestions?: readonly ControlPanelSearchSuggestion[];
+}
+
+export interface ControlPanelSearchSuggestion {
+  id: string;
+  label: string;
+  field: string;
+  value: string;
+  operator?: string;
+  facet?: SearchFacet;
 }
 
 export interface ControlPanelState {
@@ -49,7 +70,9 @@ export interface ControlPanelCallbacks {
   onFilter?: (item: ControlPanelMenuItem) => void;
   onGroupBy?: (item: ControlPanelMenuItem) => void;
   onFavorite?: (item: ControlPanelMenuItem) => void;
+  onDeleteFavorite?: (item: ControlPanelMenuItem) => void;
   onFacetRemove?: (facet: SearchFacet) => void;
+  onSearchSuggestion?: (suggestion: ControlPanelSearchSuggestion) => void;
   onAddCustomFilter?: () => void;
   onAddCustomGroup?: () => void;
   onAddFavorite?: () => void;
@@ -64,7 +87,8 @@ export function createControlPanelState(state: ControlPanelState): ControlPanelS
     search: {
       query: state.search?.query ?? "",
       placeholder: state.search?.placeholder ?? "Search...",
-      facets: [...(state.search?.facets ?? [])].map((facet) => ({ ...facet }))
+      facets: [...(state.search?.facets ?? [])].map((facet) => ({ ...facet })),
+      suggestions: [...(state.search?.suggestions ?? [])].map(normalizeSearchSuggestion)
     },
     filters: [...(state.filters ?? [])].map(normalizeMenuItem),
     groupBys: [...(state.groupBys ?? [])].map(normalizeMenuItem),
@@ -170,6 +194,7 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   input.addEventListener("input", () => callbacks.onSearch?.(input.value));
   inputContainer.append(input);
   searchView.append(searchButton, inputContainer);
+  const autocomplete = renderSearchAutocomplete(state.search, callbacks);
   const dropdown = document.createElement("button");
   dropdown.type = "button";
   dropdown.className = "o_searchview_dropdown_toggler d-print-none btn btn-outline-secondary o-dropdown-caret rounded-start-0";
@@ -189,9 +214,47 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   menu.append(
     renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter, { customFilter: callbacks.onAddCustomFilter }),
     renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy, { customGroup: callbacks.onAddCustomGroup }),
-    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite, { favorite: true, addFavorite: callbacks.onAddFavorite })
+    renderMenuLane("o_favorite_menu", "Favorites", state.favorites ?? [], callbacks.onFavorite, {
+      favorite: true,
+      addFavorite: callbacks.onAddFavorite,
+      deleteFavorite: callbacks.onDeleteFavorite
+    })
   );
-  root.append(searchView, dropdown, menu);
+  root.append(searchView, autocomplete, dropdown, menu);
+  return root;
+}
+
+function renderSearchAutocomplete(search: ControlPanelSearchState | undefined, callbacks: ControlPanelCallbacks): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "o_searchview_autocomplete o-dropdown--menu dropdown-menu";
+  root.setAttribute("role", "listbox");
+  root.hidden = true;
+  const query = String(search?.query ?? "").trim();
+  const suggestions = [...(search?.suggestions ?? [])].filter((item) => item.field && item.value);
+  if (!query || !suggestions.length) return root;
+  root.hidden = false;
+  root.className = `${root.className} show`;
+  for (const suggestion of suggestions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_searchview_autocomplete_item o-dropdown-item dropdown-item";
+    button.setAttribute("role", "option");
+    button.dataset.searchSuggestionId = suggestion.id;
+    button.dataset.searchField = suggestion.field;
+    button.textContent = suggestion.label;
+    button.addEventListener("click", () => callbacks.onSearchSuggestion?.(suggestion));
+    root.append(button);
+  }
+  if (callbacks.onAddCustomFilter) {
+    const custom = document.createElement("button");
+    custom.type = "button";
+    custom.className = "o_searchview_autocomplete_item o_searchview_autocomplete_custom_filter o-dropdown-item dropdown-item";
+    custom.setAttribute("role", "option");
+    custom.dataset.searchSuggestionId = "custom-filter";
+    custom.textContent = "Custom Filter...";
+    custom.addEventListener("click", () => callbacks.onAddCustomFilter?.());
+    root.append(custom);
+  }
   return root;
 }
 
@@ -208,7 +271,7 @@ function renderSearchFacet(facet: SearchFacet, callbacks: ControlPanelCallbacks)
   for (const [index, valueLabel] of display.valueLabels.entries()) {
     if (index > 0) {
       const separator = document.createElement("span");
-      separator.className = "o_facet_value_separator";
+      separator.className = "o_facet_values_sep o_facet_value_separator";
       separator.textContent = "or";
       value.append(separator);
     }
@@ -232,7 +295,13 @@ function renderMenuLane(
   label: string,
   items: readonly ControlPanelMenuItem[],
   callback: ((item: ControlPanelMenuItem) => void) | undefined,
-  options: { customFilter?: () => void; customGroup?: () => void; favorite?: boolean; addFavorite?: () => void } = {}
+  options: {
+    customFilter?: () => void;
+    customGroup?: () => void;
+    favorite?: boolean;
+    addFavorite?: () => void;
+    deleteFavorite?: (item: ControlPanelMenuItem) => void;
+  } = {}
 ): HTMLElement {
   const root = document.createElement("div");
   root.className = `o_dropdown_container ${className}`;
@@ -266,17 +335,7 @@ function renderMenuLane(
       root.append(group);
       continue;
     }
-    const menuItem = document.createElement("button");
-    menuItem.type = "button";
-    const favoriteClass = options.favorite ? " o_favorite_item" : "";
-    menuItem.className = item.active ? `o_menu_item o-dropdown-item dropdown-item${favoriteClass} selected` : `o_menu_item o-dropdown-item dropdown-item${favoriteClass}`;
-    menuItem.textContent = item.label;
-    menuItem.dataset.menuItemId = item.id;
-    menuItem.setAttribute("role", "menuitemcheckbox");
-    menuItem.setAttribute("aria-checked", item.active ? "true" : "false");
-    menuItem.disabled = item.disabled === true;
-    menuItem.addEventListener("click", () => callback?.(item));
-    root.append(menuItem);
+    root.append(renderMenuItem(item, callback, options));
   }
   if (options.customFilter) {
     if (items.length) root.append(dropdownDivider());
@@ -306,6 +365,63 @@ function renderMenuLane(
     root.append(button);
   }
   return root;
+}
+
+function renderMenuItem(
+  item: ControlPanelMenuItem,
+  callback: ((item: ControlPanelMenuItem) => void) | undefined,
+  options: { favorite?: boolean; deleteFavorite?: (item: ControlPanelMenuItem) => void } = {}
+): HTMLElement {
+  const menuItem = document.createElement("button");
+  menuItem.type = "button";
+  const favoriteClass = options.favorite ? " o_favorite_item" : "";
+  menuItem.className = item.active ? `o_menu_item o-dropdown-item dropdown-item${favoriteClass} selected` : `o_menu_item o-dropdown-item dropdown-item${favoriteClass}`;
+  menuItem.textContent = item.label;
+  menuItem.dataset.menuItemId = item.id;
+  menuItem.setAttribute("role", "menuitemcheckbox");
+  menuItem.setAttribute("aria-checked", item.active ? "true" : "false");
+  menuItem.disabled = item.disabled === true;
+  menuItem.addEventListener("click", () => callback?.(item));
+  applyFavoriteDataset(menuItem, item);
+  if (!options.favorite || !item.favorite) return menuItem;
+
+  const row = document.createElement("div");
+  row.className = item.active ? "o_favorite_row selected" : "o_favorite_row";
+  applyFavoriteDataset(row, item);
+  const meta = document.createElement("span");
+  meta.className = "o_favorite_meta text-muted";
+  meta.textContent = favoriteMetadataLabel(item.favorite);
+  menuItem.append(meta);
+  row.append(menuItem);
+  if (item.favorite.canDelete && options.deleteFavorite) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "o_favorite_delete o-dropdown-item dropdown-item";
+    remove.dataset.favoriteId = String(item.favorite.id ?? "");
+    remove.dataset.favoriteAction = "delete";
+    remove.setAttribute("aria-label", `Delete favorite ${item.label}`);
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => options.deleteFavorite?.(item));
+    row.append(remove);
+  }
+  return row;
+}
+
+function applyFavoriteDataset(element: HTMLElement, item: ControlPanelMenuItem): void {
+  if (!item.favorite) return;
+  if (item.favorite.id !== undefined) element.dataset.favoriteId = String(item.favorite.id);
+  if (item.favorite.userId !== undefined) element.dataset.favoriteUserId = String(item.favorite.userId);
+  if (item.favorite.actionId !== undefined) element.dataset.favoriteActionId = String(item.favorite.actionId);
+  if (item.favorite.embeddedActionId !== undefined) element.dataset.favoriteEmbeddedActionId = String(item.favorite.embeddedActionId);
+  element.dataset.favoriteDefault = item.favorite.isDefault ? "true" : "false";
+  element.dataset.favoriteScope = item.favorite.isGlobal ? "global" : "user";
+}
+
+function favoriteMetadataLabel(favorite: ControlPanelFavoriteMetadata): string {
+  const parts: string[] = [];
+  parts.push(favorite.isGlobal ? "Global" : "Personal");
+  if (favorite.isDefault) parts.push("Default");
+  return parts.join(" / ");
 }
 
 function dropdownDivider(): HTMLElement {
@@ -403,7 +519,23 @@ function normalizeMenuItem(item: ControlPanelMenuItem): ControlPanelMenuItem {
     active: item.active === true,
     disabled: item.disabled === true,
     facet: item.facet ? { ...item.facet } : undefined,
+    favorite: item.favorite ? { ...item.favorite } : undefined,
     children: item.children?.map(normalizeMenuItem),
     separatorBefore: item.separatorBefore === true
+  };
+}
+
+function normalizeSearchSuggestion(suggestion: ControlPanelSearchSuggestion): ControlPanelSearchSuggestion {
+  const field = String(suggestion.field ?? "").trim();
+  const value = String(suggestion.value ?? "").trim();
+  const operator = String(suggestion.operator ?? "ilike").trim() || "ilike";
+  const label = String(suggestion.label ?? "").trim() || (field ? `${field}: ${value}` : value);
+  return {
+    id: String(suggestion.id || `${field}-${operator}-${value}`).trim(),
+    label,
+    field,
+    value,
+    operator,
+    facet: suggestion.facet ? { ...suggestion.facet } : undefined
   };
 }

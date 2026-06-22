@@ -80,6 +80,10 @@ const normalized = createControlPanelState({
         categoryLabel: "Pipeline Stage",
         valueLabels: ["New", "Won"]
       }
+    ],
+    suggestions: [
+      { id: "text-name-azure", label: "Search Name for: azure", field: "name", value: "azure" },
+      { id: "text-email-azure", label: "Search Email for: azure", field: "email", value: "azure" }
     ]
   },
   filters: [{ id: "customers", label: "Customers", active: true }],
@@ -94,7 +98,11 @@ const normalized = createControlPanelState({
     },
     { id: "salesperson", label: "Salesperson" }
   ],
-  favorites: [{ id: "mine", label: "My Search" }]
+  favorites: [{
+    id: "mine",
+    label: "My Search",
+    favorite: { id: 7, userId: 7, isDefault: true, isGlobal: false, canDelete: true }
+  }]
 });
 assert.equal(normalized.pager.offset, 20);
 assert.equal(normalized.search.placeholder, "Search...");
@@ -107,6 +115,8 @@ const root = renderControlPanel(normalized, {
   onPagerNext: () => events.push(["next"]),
   onGroupBy: (item) => events.push(["groupBy", item.id]),
   onFacetRemove: (facet) => events.push(["remove", facet.id]),
+  onSearchSuggestion: (suggestion) => events.push(["suggestion", suggestion.id, suggestion.field, suggestion.value]),
+  onDeleteFavorite: (item) => events.push(["deleteFavorite", item.favorite?.id]),
   onAddCustomFilter: () => events.push(["customFilter"]),
   onAddCustomGroup: () => events.push(["customGroup"]),
   onAddFavorite: () => events.push(["addFavorite"])
@@ -120,6 +130,16 @@ assert.equal(findAll(root, (node) => String(node.className).includes("o_control_
 assert.equal(findAll(root, (node) => node.className === "breadcrumb-item").length, 1);
 assert.equal(findAll(root, (node) => node.className === "breadcrumb-item active").length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_searchview_input_container")).length, 1);
+const autocomplete = findAll(root, (node) => hasClass(node, "o_searchview_autocomplete"))[0];
+assert.ok(autocomplete);
+assert.equal(autocomplete.hidden, false);
+assert.equal(hasClass(autocomplete, "show"), true);
+assert.equal(autocomplete.attributes.role, "listbox");
+assert.deepEqual(
+  findAll(autocomplete, (node) => hasClass(node, "o_searchview_autocomplete_item")).map((node) => [node.textContent, node.dataset?.searchField]),
+  [["Search Name for: azure", "name"], ["Search Email for: azure", "email"], ["Custom Filter...", undefined]]
+);
+assert.equal(findAll(autocomplete, (node) => String(node.className).includes("o_searchview_autocomplete_custom_filter")).length, 1);
 const searchOptionsToggler = findAll(root, (node) => String(node.className).includes("o_searchview_dropdown_toggler"))[0];
 const searchOptionsMenu = findAll(root, (node) => String(node.className).includes("o_search_bar_menu"))[0];
 assert.ok(searchOptionsToggler);
@@ -147,6 +167,11 @@ assert.equal(findAll(root, (node) => String(node.className).includes("o_add_cust
 assert.equal(findAll(root, (node) => String(node.className).includes("o_add_favorite")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu_item")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_row")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_meta"))[0].textContent, "Personal / Default");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_delete")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item"))[0].dataset.favoriteId, "7");
+assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item"))[0].dataset.favoriteScope, "user");
 assert.ok(findAll(root, (node) => String(node.className).includes("dropdown-divider")).length >= 2);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_item_option")).length, 2);
 assert.equal(findAll(root, (node) => node.dataset?.parentMenuItemId === "create_date").length, 2);
@@ -163,7 +188,7 @@ assert.deepEqual(
   findAll(stageFacet, (node) => String(node.className) === "o_facet_value").map((node) => node.textContent),
   ["New", "Won"]
 );
-assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_facet_value_separator"))[0].textContent, "or");
+assert.equal(findAll(stageFacet, (node) => String(node.className).includes("o_facet_values_sep"))[0].textContent, "or");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_value"))[0].textContent, "21-40");
 assert.equal(findAll(root, (node) => node.className === "o_pager_limit")[0].textContent, "45");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_pager_previous"))[0].attributes["aria-label"], "Previous");
@@ -179,9 +204,11 @@ findAll(root, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new 
 findAll(root, (node) => node.dataset?.breadcrumbId === "root")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_pager_next"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => node.dataset?.menuItemId === "create_date:week")[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => node.dataset?.searchSuggestionId === "text-name-azure")[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_facet_remove"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => String(node.className).includes("o_favorite_delete"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
 
 assert.deepEqual(events, [
@@ -190,8 +217,21 @@ assert.deepEqual(events, [
   ["breadcrumb", "root"],
   ["next"],
   ["groupBy", "create_date:week"],
+  ["suggestion", "text-name-azure", "name", "azure"],
   ["remove", "customers"],
   ["customFilter"],
   ["customGroup"],
+  ["deleteFavorite", 7],
   ["addFavorite"]
 ]);
+
+const emptyAutocompleteRoot = renderControlPanel({
+  title: "Empty",
+  search: {
+    query: "",
+    suggestions: [{ id: "text-name-empty", label: "Search Name for: Empty", field: "name", value: "Empty" }]
+  }
+});
+const emptyAutocomplete = findAll(emptyAutocompleteRoot, (node) => String(node.className).includes("o_searchview_autocomplete"))[0];
+assert.equal(emptyAutocomplete.hidden, true);
+assert.equal(hasClass(emptyAutocomplete, "show"), false);
