@@ -58,10 +58,11 @@ export const scenarios = [
         return { ok: hidden || visible, hidden, visible, width: rect.width, height: rect.height, search_active: node.dataset.searchActive || "" };
       })()`);
       if (!searchState.ok) throw new Error(`TS app search is not usable: ${JSON.stringify(searchState)}`);
+      const launcherStyle = await assertEnterpriseLauncherSnapshot(page);
       const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
-      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, action_count: actionCount };
+      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, ...launcherStyle, action_count: actionCount };
     }
   },
   {
@@ -186,23 +187,30 @@ export const scenarios = [
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-view", 1, "TS Groups form");
       const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook.o_notebook", 1, "TS Groups form notebook");
       const tabCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']", 1, "TS Groups form notebook tabs");
+      const x2ManyCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']", 1, "TS Groups x2many tag widget");
       const state = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-form-notebook.o_notebook");
         const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
         const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
-        const inheritedFields = [...document.querySelectorAll(".o_web_client .o_action_manager [data-field='inherited_by_ids']")];
+        const inheritedFields = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-field[data-field='inherited_by_ids']")];
+        const x2many = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']");
+        const tags = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids'] .gorp-x2many-tag")];
         return {
           notebook_id: root?.dataset?.notebook || "",
           tab_labels: tabs.map((node) => node.textContent.trim()),
           selected_tabs: tabs.map((node) => node.getAttribute("aria-selected")),
           visible_pages: pages.filter((node) => !node.hidden).length,
-          inherited_field_count: inheritedFields.length
+          inherited_field_count: inheritedFields.length,
+          x2many_count: x2many?.dataset?.count || "",
+          x2many_relation: x2many?.dataset?.relation || "",
+          x2many_tag_labels: tags.map((node) => node.textContent.trim()).filter(Boolean)
         };
       })()`);
       if (!state.tab_labels.includes("Inherited By")) throw new Error(`Groups notebook tab missing: ${JSON.stringify(state)}`);
       if (state.visible_pages !== 1) throw new Error(`Groups notebook visible page mismatch: ${JSON.stringify(state)}`);
       if (state.inherited_field_count !== 1) throw new Error(`Groups notebook field duplication: ${JSON.stringify(state)}`);
-      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
+      if (state.x2many_relation !== "res.groups") throw new Error(`Groups x2many relation mismatch: ${JSON.stringify(state)}`);
+      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, x2many_widget_count: x2ManyCount, ...state };
     }
   },
   {
@@ -702,6 +710,38 @@ async function assertEnterprisePolishSnapshot(page) {
   if (snapshot.search_radius_px !== 4) issues.push(`search radius ${snapshot.search_radius_px}`);
   if (!acceptedListHeaderBG.has(snapshot.list_header_bg)) issues.push(`list header bg ${snapshot.list_header_bg}`);
   if (issues.length) throw new Error(`enterprise polish style audit failed: ${issues.join("; ")}`);
+  return snapshot;
+}
+
+async function assertEnterpriseLauncherSnapshot(page) {
+  const snapshot = await evaluate(page, `(() => {
+    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
+    const icon = card?.querySelector(".o_app_icon");
+    const cardStyle = card ? getComputedStyle(card) : null;
+    const iconStyle = icon ? getComputedStyle(icon) : null;
+    const rect = card?.getBoundingClientRect();
+    const iconRect = icon?.getBoundingClientRect();
+    return {
+      app_card_width_px: rect ? Math.round(rect.width) : 0,
+      app_card_height_px: rect ? Math.round(rect.height) : 0,
+      app_card_bg: cardStyle?.backgroundColor || "",
+      app_card_border_color: cardStyle?.borderTopColor || "",
+      app_card_border_radius_px: cardStyle ? Number.parseFloat(cardStyle.borderTopLeftRadius) || 0 : 0,
+      app_icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
+      app_icon_height_px: iconRect ? Math.round(iconRect.height) : 0,
+      app_icon_radius_px: iconStyle ? Number.parseFloat(iconStyle.borderTopLeftRadius) || 0 : 0
+    };
+  })()`);
+  const issues = [];
+  const transparent = new Set(["rgba(0, 0, 0, 0)", "transparent"]);
+  if (snapshot.app_card_width_px < 80 || snapshot.app_card_width_px > 100) issues.push(`app card width ${snapshot.app_card_width_px}`);
+  if (snapshot.app_card_height_px < 86 || snapshot.app_card_height_px > 108) issues.push(`app card height ${snapshot.app_card_height_px}`);
+  if (!transparent.has(snapshot.app_card_bg)) issues.push(`app card background ${snapshot.app_card_bg}`);
+  if (!transparent.has(snapshot.app_card_border_color)) issues.push(`app card border ${snapshot.app_card_border_color}`);
+  if (snapshot.app_icon_width_px < 50 || snapshot.app_icon_width_px > 70) issues.push(`app icon width ${snapshot.app_icon_width_px}`);
+  if (snapshot.app_icon_height_px < 50 || snapshot.app_icon_height_px > 70) issues.push(`app icon height ${snapshot.app_icon_height_px}`);
+  if (snapshot.app_icon_radius_px < 10 || snapshot.app_icon_radius_px > 16) issues.push(`app icon radius ${snapshot.app_icon_radius_px}`);
+  if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);
   return snapshot;
 }
 

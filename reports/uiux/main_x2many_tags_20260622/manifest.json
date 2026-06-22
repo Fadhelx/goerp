@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-06-22T05:02:35.036Z",
+  "base_url": "http://127.0.0.1:8078/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "d678a766b66df4fd69326a15c17b0f52c415798166f0d32f0cf4326ba6eaf4a2",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 34,
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 1,
+        "x2many_widget_count": 1,
+        "notebook_id": "notebook-standalone",
+        "tab_labels": [
+          "Inherited By"
+        ],
+        "selected_tabs": [
+          "true"
+        ],
+        "visible_pages": 1,
+        "inherited_field_count": 1,
+        "x2many_count": "0",
+        "x2many_relation": "res.groups",
+        "x2many_tag_labels": []
+      },
+      "duration_ms": 1265
+    }
+  ],
+  "duration_ms": 1425
+}

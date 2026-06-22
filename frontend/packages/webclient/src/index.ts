@@ -342,6 +342,19 @@ interface SettingsActionState {
   renderBody?: () => void;
 }
 
+interface FormActionState {
+  initialValues: Record<string, unknown>;
+  currentValues: Record<string, unknown>;
+  dirtyFields: Set<string>;
+  editing: boolean;
+  fields: Record<string, unknown>;
+  editButton?: HTMLButtonElement;
+  saveButton?: HTMLButtonElement;
+  discardButton?: HTMLButtonElement;
+  status?: HTMLElement;
+  renderBody?: () => void;
+}
+
 export interface FormValidationContext {
   form: HTMLElement;
   values: Record<string, unknown>;
@@ -1745,15 +1758,34 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   const records = options.records ?? result.records;
   const values = options.values ?? records?.[0] ?? result.records[0] ?? {};
   const settingsState = settingsActionState(result, values);
-  const body = settingsState
-    ? renderSettingsActionView(result, viewDescription, fields, settingsState, root)
-    : result.activeView === "form"
+  const formState = settingsState ? null : formActionState(result, values, fields);
+  const controlPanel = renderWindowActionControlPanel(result, root, options);
+  if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
+  if (formState) appendFormActionButtons(controlPanel, root, result, formState, options);
+  let body: HTMLElement;
+  if (settingsState) {
+    body = renderSettingsActionView(result, viewDescription, fields, settingsState, root);
+  } else if (formState) {
+    const renderBody = () => renderFormView(
+      viewDescription,
+      fields,
+      formState.currentValues,
+      result.resModel,
+      formRenderOptions(options, formState),
+      formState.editing
+    );
+    body = renderBody();
+    formState.renderBody = () => {
+      body = renderBody();
+      root.replaceChildren(controlPanel, body);
+    };
+  } else {
+    body = result.activeView === "form"
       ? renderFormView(viewDescription, fields, values, result.resModel, options)
       : result.activeView === "kanban"
         ? renderKanbanView(viewDescription, fields, records, result.resModel, result.action, options)
         : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
-  const controlPanel = renderWindowActionControlPanel(result, root, options);
-  if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
+  }
   root.append(controlPanel, body);
   return root;
 }
@@ -1813,6 +1845,29 @@ function settingsActionState(result: WindowActionResult, values: Record<string, 
     initialValues,
     currentValues: cloneRecord(values),
     dirtyFields: new Set()
+  };
+}
+
+function formActionState(result: WindowActionResult, values: Record<string, unknown>, fields: Record<string, unknown>): FormActionState | null {
+  if (result.activeView !== "form") return null;
+  if (result.resModel === "res.config.settings") return null;
+  const initialValues = cloneRecord(values);
+  return {
+    initialValues,
+    currentValues: cloneRecord(values),
+    dirtyFields: new Set(),
+    editing: false,
+    fields
+  };
+}
+
+function formRenderOptions(options: RenderWindowActionOptions, state: FormActionState): RenderWindowActionOptions {
+  return {
+    ...options,
+    onUpdate(name, value) {
+      updateFormActionPendingValue(state, name, value);
+      options.onUpdate?.(name, value);
+    }
   };
 }
 
@@ -1887,6 +1942,62 @@ function appendSettingsActionButtons(
   updateSettingsButtons(state);
 }
 
+function appendFormActionButtons(
+  controlPanel: HTMLElement,
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: FormActionState,
+  options: RenderWindowActionOptions
+): void {
+  const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
+  if (!mainButtons) return;
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "btn btn-primary o_form_button_edit";
+  edit.dataset.formAction = "edit";
+  edit.textContent = "Edit";
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "btn btn-primary o_form_button_save";
+  save.dataset.formAction = "save";
+  save.textContent = "Save";
+  const discard = document.createElement("button");
+  discard.type = "button";
+  discard.className = "btn btn-secondary o_form_button_cancel";
+  discard.dataset.formAction = "discard";
+  discard.textContent = "Discard";
+  const status = document.createElement("span");
+  status.className = "o_form_dirty_status text-muted";
+  state.editButton = edit;
+  state.saveButton = save;
+  state.discardButton = discard;
+  state.status = status;
+  edit.addEventListener("click", () => {
+    state.editing = true;
+    setFormActionStatus(state, "");
+    updateFormActionButtons(state);
+    state.renderBody?.();
+    eventRoot.dispatchEvent(new CustomEvent("form:edit", {
+      bubbles: true,
+      detail: { model: result.resModel, id: numberRecordID(state.currentValues.id) }
+    }));
+  });
+  save.addEventListener("click", () => {
+    void saveFormAction(eventRoot, result, state, options).catch((error) => {
+      setFormActionStatus(state, error instanceof Error ? error.message : String(error));
+      eventRoot.dispatchEvent(new CustomEvent("form:save-error", {
+        bubbles: true,
+        detail: { model: result.resModel, error }
+      }));
+    });
+  });
+  discard.addEventListener("click", () => {
+    discardFormAction(eventRoot, state);
+  });
+  mainButtons.append(edit, save, discard, status);
+  updateFormActionButtons(state);
+}
+
 function updateSettingsPendingValue(state: SettingsActionState, name: string, value: unknown): void {
   state.currentValues = { ...state.currentValues, [name]: value };
   if (sameSettingsValue(state.initialValues[name], value)) {
@@ -1896,6 +2007,17 @@ function updateSettingsPendingValue(state: SettingsActionState, name: string, va
   }
   setSettingsStatus(state, state.dirtyFields.size ? "Unsaved changes" : "");
   updateSettingsButtons(state);
+}
+
+function updateFormActionPendingValue(state: FormActionState, name: string, value: unknown): void {
+  state.currentValues = { ...state.currentValues, [name]: value };
+  if (sameSettingsValue(state.initialValues[name], value)) {
+    state.dirtyFields.delete(name);
+  } else {
+    state.dirtyFields.add(name);
+  }
+  setFormActionStatus(state, state.dirtyFields.size ? "Unsaved changes" : "");
+  updateFormActionButtons(state);
 }
 
 async function saveSettingsAction(
@@ -1933,6 +2055,54 @@ async function saveSettingsAction(
   }));
 }
 
+async function saveFormAction(
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  state: FormActionState,
+  options: RenderWindowActionOptions
+): Promise<void> {
+  const changes = formChangedValues(state);
+  if (!Object.keys(changes).length) {
+    state.editing = false;
+    updateFormActionButtons(state);
+    state.renderBody?.();
+    return;
+  }
+  state.saveButton?.setAttribute("aria-busy", "true");
+  try {
+    const recordID = numberRecordID(state.currentValues.id);
+    const context = isRecord(result.action.context) ? result.action.context : options.context ?? {};
+    if (options.services?.orm && recordID !== undefined) {
+      await options.services.orm.webSave(result.resModel, [recordID], changes, { context });
+    }
+  } finally {
+    state.saveButton?.removeAttribute("aria-busy");
+  }
+  state.initialValues = cloneRecord(state.currentValues);
+  state.dirtyFields.clear();
+  state.editing = false;
+  setFormActionStatus(state, "Saved");
+  updateFormActionButtons(state);
+  state.renderBody?.();
+  eventRoot.dispatchEvent(new CustomEvent("form:save", {
+    bubbles: true,
+    detail: { model: result.resModel, id: numberRecordID(state.currentValues.id), values: cloneRecord(state.currentValues), changes }
+  }));
+}
+
+function discardFormAction(eventRoot: HTMLElement, state: FormActionState): void {
+  state.currentValues = cloneRecord(state.initialValues);
+  state.dirtyFields.clear();
+  state.editing = false;
+  setFormActionStatus(state, "");
+  updateFormActionButtons(state);
+  state.renderBody?.();
+  eventRoot.dispatchEvent(new CustomEvent("form:discard", {
+    bubbles: true,
+    detail: { values: cloneRecord(state.currentValues) }
+  }));
+}
+
 function discardSettingsAction(eventRoot: HTMLElement, state: SettingsActionState): void {
   state.currentValues = cloneRecord(state.initialValues);
   state.dirtyFields.clear();
@@ -1951,13 +2121,44 @@ function settingsChangedValues(state: SettingsActionState): Record<string, unkno
   return changes;
 }
 
+function formChangedValues(state: FormActionState): Record<string, unknown> {
+  const changes: Record<string, unknown> = {};
+  for (const name of state.dirtyFields) {
+    changes[name] = formSaveValue(state.fields[name], state.currentValues[name]);
+  }
+  return changes;
+}
+
+function formSaveValue(description: unknown, value: unknown): unknown {
+  if (fieldTypeValue(description) !== "many2one") return value;
+  const id = many2OneDisplayData(value).id;
+  return id ?? false;
+}
+
 function updateSettingsButtons(state: SettingsActionState): void {
   const dirty = state.dirtyFields.size > 0;
   if (state.saveButton) state.saveButton.disabled = !dirty;
   if (state.discardButton) state.discardButton.disabled = !dirty;
 }
 
+function updateFormActionButtons(state: FormActionState): void {
+  const dirty = state.dirtyFields.size > 0;
+  if (state.editButton) state.editButton.hidden = state.editing;
+  if (state.saveButton) {
+    state.saveButton.hidden = !state.editing;
+    state.saveButton.disabled = !dirty;
+  }
+  if (state.discardButton) {
+    state.discardButton.hidden = !state.editing;
+    state.discardButton.disabled = !state.editing;
+  }
+}
+
 function setSettingsStatus(state: SettingsActionState, value: string): void {
+  if (state.status) state.status.textContent = value;
+}
+
+function setFormActionStatus(state: FormActionState, value: string): void {
   if (state.status) state.status.textContent = value;
 }
 
@@ -4536,6 +4737,9 @@ function renderReadonlyFieldValue(
       return renderMany2OneLinkValue(node.name, relation, data, form, options);
     }
   }
+  if (fieldTypeValue(description) === "many2many" || fieldTypeValue(description) === "one2many") {
+    return renderX2ManyTagValue(node.name, fieldTypeValue(description), fieldRelationValue(description), value, form, options);
+  }
   const output = document.createElement("output");
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value);
@@ -4578,6 +4782,151 @@ function renderMany2OneLinkValue(
     }));
   });
   return link;
+}
+
+interface X2ManyDisplayItem {
+  id?: number;
+  displayName: string;
+}
+
+function renderX2ManyTagValue(
+  fieldName: string,
+  fieldType: string,
+  relation: string,
+  value: unknown,
+  form?: HTMLElement,
+  options?: RenderWindowActionOptions
+): HTMLElement {
+  const root = document.createElement("span");
+  const odooFieldClass = fieldType === "many2many" ? "o_field_many2many_tags" : "o_field_one2many";
+  root.className = `gorp-x2many-tags o_field_widget ${odooFieldClass} o_readonly_modifier`;
+  root.dataset.field = fieldName;
+  root.dataset.fieldType = fieldType;
+  if (relation) root.dataset.relation = relation;
+  const items = x2ManyDisplayItems(value);
+  root.dataset.count = String(items.length);
+  for (const item of items) {
+    const tag = document.createElement(item.id !== undefined && relation ? "a" : "span");
+    tag.className = "gorp-x2many-tag o_tag";
+    tag.textContent = item.displayName;
+    if (item.id !== undefined) tag.dataset.resId = String(item.id);
+    if (relation) tag.dataset.relation = relation;
+    if (tag.tagName.toLowerCase() === "a") {
+      (tag as HTMLAnchorElement).href = `#model=${encodeURIComponent(relation)}&view_type=form&id=${encodeURIComponent(String(item.id))}`;
+      tag.addEventListener("click", (event) => {
+        if (item.id === undefined) return;
+        const action: Record<string, unknown> = {
+          type: "ir.actions.act_window",
+          name: item.displayName || relation,
+          res_model: relation,
+          res_id: item.id,
+          views: [[false, "form"]],
+          view_mode: "form",
+          target: "current"
+        };
+        if (options?.services?.action) {
+          event.preventDefault?.();
+          void options.services.action.doAction(action, replaceActionOptions(options));
+          return;
+        }
+        if (form) {
+          event.preventDefault?.();
+          form.dispatchEvent(new CustomEvent("action:open-record", {
+            bubbles: true,
+            detail: { action, model: relation, id: item.id }
+          }));
+        }
+      });
+    }
+    root.append(tag);
+  }
+  return root;
+}
+
+interface X2ManyDisplayState {
+  items: Map<string, X2ManyDisplayItem>;
+  order: string[];
+  virtualID: number;
+}
+
+function x2ManyDisplayItems(value: unknown): X2ManyDisplayItem[] {
+  const state: X2ManyDisplayState = { items: new Map(), order: [], virtualID: 0 };
+  applyX2ManyDisplayValue(value, state);
+  return state.order
+    .map((key) => state.items.get(key))
+    .filter((item): item is X2ManyDisplayItem => Boolean(item && item.displayName.trim()));
+}
+
+function applyX2ManyDisplayValue(value: unknown, state: X2ManyDisplayState): void {
+  if (value === null || value === undefined || value === false) return;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    upsertX2ManyDisplayItem(state, { id: value, displayName: String(value) });
+    return;
+  }
+  if (typeof value === "string") {
+    if (value.trim()) upsertX2ManyDisplayItem(state, { displayName: value });
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (applyX2ManyDisplayCommand(value, state)) return;
+    if (typeof value[0] === "number" && typeof value[1] === "string") {
+      upsertX2ManyDisplayItem(state, { id: value[0], displayName: value[1] });
+      return;
+    }
+    for (const item of value) applyX2ManyDisplayValue(item, state);
+    return;
+  }
+  if (isRecord(value)) {
+    const id = numericRecordValue(value, "id");
+    const displayName = firstText(value.display_name, value.name, value.label, id);
+    if (displayName) upsertX2ManyDisplayItem(state, { id, displayName });
+  }
+}
+
+function applyX2ManyDisplayCommand(value: unknown[], state: X2ManyDisplayState): boolean {
+  const command = value[0];
+  if (command === x2ManyCommands.SET && Array.isArray(value[2])) {
+    state.items.clear();
+    state.order = [];
+    applyX2ManyDisplayValue(value[2], state);
+    return true;
+  }
+  if ((command === x2ManyCommands.LINK || command === x2ManyCommands.UPDATE) && typeof value[1] === "number") {
+    if (isRecord(value[2])) {
+      const displayName = firstText(value[2].display_name, value[2].name, value[2].label, value[1]);
+      if (displayName) upsertX2ManyDisplayItem(state, { id: value[1], displayName });
+    } else {
+      upsertX2ManyDisplayItem(state, { id: value[1], displayName: String(value[1]) });
+    }
+    return true;
+  }
+  if (command === x2ManyCommands.CREATE && isRecord(value[2])) {
+    const displayName = firstText(value[2].display_name, value[2].name, value[2].label);
+    if (displayName) upsertX2ManyDisplayItem(state, { displayName });
+    return true;
+  }
+  if ((command === x2ManyCommands.DELETE || command === x2ManyCommands.UNLINK) && typeof value[1] === "number") {
+    removeX2ManyDisplayItem(state, `id:${value[1]}`);
+    return true;
+  }
+  if (command === x2ManyCommands.CLEAR) {
+    state.items.clear();
+    state.order = [];
+    return true;
+  }
+  return false;
+}
+
+function upsertX2ManyDisplayItem(state: X2ManyDisplayState, item: X2ManyDisplayItem): void {
+  const key = item.id !== undefined ? `id:${item.id}` : `virtual:${++state.virtualID}`;
+  const existing = state.items.get(key);
+  state.items.set(key, item);
+  if (!existing) state.order.push(key);
+}
+
+function removeX2ManyDisplayItem(state: X2ManyDisplayState, key: string): void {
+  if (!state.items.delete(key)) return;
+  state.order = state.order.filter((item) => item !== key);
 }
 
 function renderMany2OneAvatarValue(fieldName: string, relation: string, value: unknown): HTMLElement {

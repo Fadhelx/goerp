@@ -1428,6 +1428,129 @@ assert.deepEqual(relationOpenCalls[0].action, {
 });
 assert.deepEqual(relationOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
 
+const x2ManyOpenCalls = [];
+const x2ManyFormWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Group" },
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      inherited_by_ids: { type: "many2many", relation: "res.groups", string: "Inherited By" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="inherited_by_ids"/></sheet></form>`,
+        id: 72
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 3,
+    display_name: "Sales / User",
+    name: "Sales / User",
+    inherited_by_ids: [
+      [11, "Sales / Manager"],
+      { id: 30, display_name: "Export Reports" },
+      [11, "Sales / Manager"],
+      [x2ManyCommands.LINK, 40],
+      [x2ManyCommands.UPDATE, 60, { display_name: "Updated Role" }],
+      [x2ManyCommands.CREATE, false, { display_name: "Transient Role" }]
+    ]
+  },
+  context: { lang: "en_US" },
+  services: {
+    action: {
+      doAction(action, options) {
+        x2ManyOpenCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+const x2ManyTags = findAll(x2ManyFormWindow, (node) => String(node.className ?? "").includes("gorp-x2many-tags"))[0];
+assert.equal(x2ManyTags.dataset.field, "inherited_by_ids");
+assert.equal(x2ManyTags.dataset.fieldType, "many2many");
+assert.equal(x2ManyTags.dataset.relation, "res.groups");
+assert.equal(x2ManyTags.dataset.count, "5");
+assert.ok(String(x2ManyTags.className).includes("o_field_many2many_tags"));
+const x2ManyItems = findAll(x2ManyTags, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag"));
+assert.deepEqual(x2ManyItems.map((node) => node.textContent), ["Sales / Manager", "Export Reports", "40", "Updated Role", "Transient Role"]);
+assert.deepEqual(x2ManyItems.map((node) => node.dataset.resId), ["11", "30", "40", "60", undefined]);
+assert.equal(x2ManyItems[0].tag, "a");
+assert.equal(x2ManyItems[4].tag, "span");
+assert.equal(x2ManyItems[4].href, undefined);
+x2ManyItems[4].dispatchEvent(new TestEvent("click"));
+assert.equal(x2ManyOpenCalls.length, 0);
+x2ManyItems[0].dispatchEvent(new TestEvent("click"));
+assert.equal(x2ManyOpenCalls.length, 1);
+assert.deepEqual(x2ManyOpenCalls[0].action, {
+  type: "ir.actions.act_window",
+  name: "Sales / Manager",
+  res_model: "res.groups",
+  res_id: 11,
+  views: [[false, "form"]],
+  view_mode: "form",
+  target: "current"
+});
+assert.deepEqual(x2ManyOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
+
+function renderX2ManyOnlyWindow(fieldType, value) {
+  return renderWindowAction({
+    type: "ir.actions.act_window",
+    action: { name: "Relation" },
+    activeView: "form",
+    resModel: "x.parent",
+    viewDescriptions: {
+      fields: {
+        rel_ids: { type: fieldType, relation: "res.groups", string: "Relations" }
+      },
+      relatedModels: {},
+      views: {
+        form: {
+          arch: `<form><sheet><field name="rel_ids"/></sheet></form>`,
+          id: 73
+        }
+      }
+    },
+    records: [],
+    length: 0
+  }, {
+    values: { id: 1, display_name: "Parent", rel_ids: value }
+  });
+}
+
+function x2ManyOnlyTags(fieldType, value) {
+  const window = renderX2ManyOnlyWindow(fieldType, value);
+  const tags = findAll(window, (node) => String(node.className ?? "").includes("gorp-x2many-tags"))[0];
+  const items = findAll(tags, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag"));
+  return { tags, items };
+}
+
+let commandTags = x2ManyOnlyTags("many2many", [[x2ManyCommands.LINK, 11], [x2ManyCommands.UNLINK, 11]]);
+assert.equal(commandTags.tags.dataset.count, "0");
+assert.deepEqual(commandTags.items.map((node) => node.textContent), []);
+
+commandTags = x2ManyOnlyTags("many2many", [[x2ManyCommands.SET, false, [11, 12]], [x2ManyCommands.CLEAR]]);
+assert.equal(commandTags.tags.dataset.count, "0");
+assert.deepEqual(commandTags.items.map((node) => node.textContent), []);
+
+commandTags = x2ManyOnlyTags("many2many", [[x2ManyCommands.LINK, 30], [x2ManyCommands.UPDATE, 30, { display_name: "Updated" }]]);
+assert.equal(commandTags.tags.dataset.count, "1");
+assert.deepEqual(commandTags.items.map((node) => node.textContent), ["Updated"]);
+assert.deepEqual(commandTags.items.map((node) => node.dataset.resId), ["30"]);
+
+const one2ManyTags = x2ManyOnlyTags("one2many", [[1, "Line A"], { id: 2, display_name: "Line B" }, 3, [1, "Line A"], false]);
+assert.equal(one2ManyTags.tags.dataset.fieldType, "one2many");
+assert.equal(one2ManyTags.tags.dataset.count, "3");
+assert.ok(String(one2ManyTags.tags.className).includes("o_field_one2many"));
+assert.deepEqual(one2ManyTags.items.map((node) => node.textContent), ["Line A", "Line B", "3"]);
+
 const groupedRequestStart = windowActionRequests.length;
 const groupedWindowResult = await actionServices.action.doAction({
   ...windowResult.action,

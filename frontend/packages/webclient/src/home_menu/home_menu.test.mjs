@@ -85,6 +85,9 @@ assert.equal(findAll(serverActionCard, (node) => String(node.className).includes
 
 const liveMenu = renderHomeMenu(payload);
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41").length, 0);
+const liveCatalogCard = findAll(liveMenu, (node) => node.dataset?.menuId === "42")[0];
+assert.equal(liveCatalogCard.dataset.menuPath, undefined);
+assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_menu_path")).length, 0);
 const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
 const liveSearchWrap = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_search"))[0];
 assert.equal(liveSearchWrap.dataset.searchActive, "false");

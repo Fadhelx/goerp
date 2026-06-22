@@ -63,7 +63,8 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
         searchText: APPS_CATALOG_SEARCH_TEXT,
         menu: { id: "apps", name: "Apps" }
       };
-      grid.append(renderHomeMenuApp(app, () => {
+      const launcherApp = query ? app : { ...app, parentPath: undefined };
+      grid.append(renderHomeMenuApp(launcherApp, () => {
         if (catalogApp && options.onOpenApp) {
           options.onOpenApp?.(catalogApp);
         } else {
