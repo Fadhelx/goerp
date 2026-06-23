@@ -4,6 +4,7 @@ export interface SettingsRendererInput {
   values?: Record<string, unknown>;
   activeApp?: string;
   search?: string;
+  showSearchPanel?: boolean;
 }
 
 export interface SettingsRendererCallbacks {
@@ -95,28 +96,32 @@ export function renderSettingsView(
   root.dataset.search = state.search;
   let activeAppId = state.activeAppId;
   if (activeAppId) root.dataset.activeApp = activeAppId;
+  const showSearchPanel = input.showSearchPanel !== false;
 
-  const toolbar = document.createElement("div");
-  toolbar.className = "o_settings_search_panel";
-  const searchWrapper = document.createElement("div");
-  searchWrapper.className = "o_settings_search_wrapper";
-  searchWrapper.setAttribute("role", "search");
-  const searchIcon = document.createElement("span");
-  searchIcon.className = "o_settings_search_icon";
-  searchIcon.setAttribute("aria-hidden", "true");
-  const search = document.createElement("input");
-  search.type = "search";
-  search.className = "o_settings_search o_input";
-  search.placeholder = "Search...";
-  search.setAttribute("aria-label", "Search settings");
-  search.value = state.search;
-  const searchMenu = document.createElement("button");
-  searchMenu.type = "button";
-  searchMenu.className = "o_settings_search_dropdown";
-  searchMenu.setAttribute("aria-label", "Search options");
-  searchMenu.setAttribute("aria-expanded", "false");
-  searchWrapper.append(searchIcon, search, searchMenu);
-  toolbar.append(searchWrapper);
+  const toolbar = showSearchPanel ? document.createElement("div") : null;
+  let search: HTMLInputElement | null = null;
+  if (toolbar) {
+    toolbar.className = "o_settings_search_panel";
+    const searchWrapper = document.createElement("div");
+    searchWrapper.className = "o_settings_search_wrapper";
+    searchWrapper.setAttribute("role", "search");
+    const searchIcon = document.createElement("span");
+    searchIcon.className = "o_settings_search_icon";
+    searchIcon.setAttribute("aria-hidden", "true");
+    search = document.createElement("input");
+    search.type = "search";
+    search.className = "o_settings_search o_input";
+    search.placeholder = "Search...";
+    search.setAttribute("aria-label", "Search settings");
+    search.value = state.search;
+    const searchMenu = document.createElement("button");
+    searchMenu.type = "button";
+    searchMenu.className = "o_settings_search_dropdown";
+    searchMenu.setAttribute("aria-label", "Search options");
+    searchMenu.setAttribute("aria-expanded", "false");
+    searchWrapper.append(searchIcon, search, searchMenu);
+    toolbar.append(searchWrapper);
+  }
 
   const sidebar = document.createElement("nav");
   sidebar.className = "o_settings_sidebar settings_tab";
@@ -144,7 +149,7 @@ export function renderSettingsView(
   content.append(empty);
 
   const applySearch = () => {
-    const query = cleanText(search.value).toLowerCase();
+    const query = cleanText(search?.value ?? state.search).toLowerCase();
     root.dataset.search = query;
     let visibleSettingCount = 0;
     for (const [appId, article] of articles) {
@@ -175,8 +180,9 @@ export function renderSettingsView(
     applySearch();
     if (emit) callbacks.onAppSelect?.(app);
   }
-  search.addEventListener("input", applySearch);
-  root.append(toolbar, sidebar, content);
+  search?.addEventListener("input", applySearch);
+  if (toolbar) root.append(toolbar);
+  root.append(sidebar, content);
   applySearch();
   return root;
 }

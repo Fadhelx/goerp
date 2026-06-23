@@ -224,6 +224,12 @@ assert.deepEqual(events, [
   ["app", "general_settings"]
 ]);
 
+const rootWithoutSearchPanel = renderSettingsView({ arch, fields, values, activeApp: "workflow", search: "expenses", showSearchPanel: false });
+assert.equal(findAll(rootWithoutSearchPanel, (node) => hasClass(node, "o_settings_search_panel")).length, 0);
+assert.equal(rootWithoutSearchPanel.dataset.search, "expenses");
+assert.equal(findAll(rootWithoutSearchPanel, (node) => node.dataset?.settingId === "module_oi_workflow_expense")[0].hidden, false);
+assert.equal(findAll(rootWithoutSearchPanel, (node) => node.dataset?.settingId === "company")[0].hidden, true);
+
 const fallback = parseSettingsArch(
   `<form><sheet><group><field name="company_id"/><field name="group_multi_currency"/></group></sheet></form>`,
   fields,

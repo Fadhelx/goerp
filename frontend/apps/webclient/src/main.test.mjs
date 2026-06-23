@@ -444,7 +444,7 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_na
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_manager")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
-assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 3);
+assert.deepEqual(findAll(shell, (node) => String(node.className).includes("o_app_name")).map((node) => node.textContent), ["Apps", "Settings"]);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "2").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Partners").length, 1);
 assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [

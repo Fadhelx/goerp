@@ -71,8 +71,8 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
     const query = search.value.trim().toLowerCase();
     setSearchActive(Boolean(query));
     const apps = normalizeHomeMenuApps(payload, { includeDescendantActions: Boolean(query) });
-    const visible = query ? apps.filter((app) => app.searchText.includes(query)) : apps;
     const catalogApp = homeMenuAppsCatalogApp(payload);
+    const visible = query ? apps.filter((app) => app.searchText.includes(query)) : launcherRootApps(apps, catalogApp);
     grid.replaceChildren();
     for (const app of visible) {
       grid.append(renderHomeMenuApp(app, () => options.onOpenApp?.(app)));
@@ -188,6 +188,13 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
 }
 
 const APPS_CATALOG_SEARCH_TEXT = "apps applications modules install";
+
+function launcherRootApps(apps: readonly HomeMenuApp[], catalogApp: HomeMenuApp | null): HomeMenuApp[] {
+  const settings = apps.find((app) => app.key === "settings" || app.name.toLowerCase() === "settings");
+  const appsEntry = catalogApp ?? apps.find(isAppsCatalogApp) ?? apps.find((app) => app.key === "apps" || app.name.toLowerCase() === "apps");
+  if (settings && appsEntry) return [{ ...appsEntry, key: "apps", initials: "A", iconToken: "apps", parentPath: undefined }, settings];
+  return [...apps];
+}
 
 function shouldAppendAppsCatalog(query: string, visible: readonly HomeMenuApp[], catalogApp: HomeMenuApp | null): boolean {
   if (!catalogApp) return false;

@@ -395,6 +395,7 @@ interface SettingsActionState {
   initialValues: Record<string, unknown>;
   currentValues: Record<string, unknown>;
   dirtyFields: Set<string>;
+  search: string;
   saveButton?: HTMLButtonElement;
   discardButton?: HTMLButtonElement;
   status?: HTMLElement;
@@ -1818,7 +1819,7 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   const values = options.values ?? records?.[0] ?? result.records[0] ?? {};
   const settingsState = settingsActionState(result, values);
   const formState = settingsState ? null : formActionState(result, viewDescription, values, fields);
-  const controlPanel = renderWindowActionControlPanel(result, root, options);
+  const controlPanel = renderWindowActionControlPanel(result, root, options, settingsState);
   if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
   if (formState) appendFormActionButtons(controlPanel, root, result, formState, options);
   let body: HTMLElement;
@@ -2050,7 +2051,8 @@ function settingsActionState(result: WindowActionResult, values: Record<string, 
   return {
     initialValues,
     currentValues: cloneRecord(values),
-    dirtyFields: new Set()
+    dirtyFields: new Set(),
+    search: ""
   };
 }
 
@@ -2099,7 +2101,9 @@ function renderSettingsActionView(
       arch: viewDescription?.arch ?? "",
       fields,
       values: state.currentValues,
-      activeApp: settingsActiveApp(result.action)
+      activeApp: settingsActiveApp(result.action),
+      search: state.search,
+      showSearchPanel: false
     }, {
       onFieldChange(name, value) {
         updateSettingsPendingValue(state, name, value);
@@ -2434,8 +2438,14 @@ function createdRecordID(value: unknown): number | undefined {
   return undefined;
 }
 
-function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement {
+function renderWindowActionControlPanel(
+  result: WindowActionResult,
+  root: HTMLElement,
+  options: RenderWindowActionOptions,
+  settingsState?: SettingsActionState | null
+): HTMLElement {
   const pagerLimit = numberActionValue(result.action.limit, 80);
+  const isSettings = Boolean(settingsState && result.resModel === "res.config.settings" && result.activeView === "form");
   const views = normalizeActionViews(result.action)
     .filter((view) => view[1] !== "search")
     .map<ActionControlPanelView>((view) => ({
@@ -2448,8 +2458,13 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
     pager: result.activeView === "form"
       ? undefined
       : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited },
-    views,
-    search: result.activeView === "form" ? undefined : {
+    views: isSettings ? [] : views,
+    search: isSettings ? {
+      query: settingsState?.search ?? "",
+      placeholder: "Search...",
+      facets: [],
+      suggestions: []
+    } : result.activeView === "form" ? undefined : {
       query: result.search?.state.query ?? "",
       facets: result.search?.state.facets ?? [],
       suggestions: result.search?.suggestions ?? []
@@ -2469,6 +2484,15 @@ function renderWindowActionControlPanel(result: WindowActionResult, root: HTMLEl
       }));
     },
     onSearch: (query) => {
+      if (isSettings && settingsState) {
+        settingsState.search = query;
+        settingsState.renderBody?.();
+        root.dispatchEvent(new CustomEvent("settings:search", {
+          bubbles: true,
+          detail: { query }
+        }));
+        return;
+      }
       if (rerunActionWithSearchQuery(result, query, options)) return;
       root.dispatchEvent(new CustomEvent("action:search", {
         bubbles: true,

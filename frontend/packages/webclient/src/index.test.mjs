@@ -2805,6 +2805,8 @@ settingsWindow.addEventListener("settings:field-change", (event) => settingsEven
 settingsWindow.addEventListener("settings:save", (event) => settingsEvents.push(["save", event.detail]));
 settingsWindow.addEventListener("settings:discard", (event) => settingsEvents.push(["discard", event.detail]));
 assert.equal(findAll(settingsWindow, (node) => String(node.className).includes("o_settings_container")).length, 1);
+assert.equal(findAll(settingsWindow, (node) => String(node.className).includes("o_cp_searchview")).length, 1);
+assert.equal(findAll(settingsWindow, (node) => String(node.className).includes("o_settings_search_panel")).length, 0);
 const settingsSave = findAll(settingsWindow, (node) => node.dataset?.settingsAction === "save")[0];
 const settingsDiscard = findAll(settingsWindow, (node) => node.dataset?.settingsAction === "discard")[0];
 assert.equal(settingsSave.disabled, true);

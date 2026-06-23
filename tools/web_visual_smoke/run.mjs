@@ -63,6 +63,10 @@ export const scenarios = [
       const navCount = await waitForCount(page, ".o_navbar > .o_main_navbar", 1, "TS navbar");
       const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "TS app tiles");
       const searchCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app_search_input", 1, "TS app search");
+      const launcherLabels = await evaluate(page, `[...document.querySelectorAll(".o_web_client .o_home_menu .o_app_name")].map((node) => node.textContent.trim())`);
+      if (JSON.stringify(launcherLabels) !== JSON.stringify(["Apps", "Settings"])) {
+        throw new Error(`launcher labels invalid: ${JSON.stringify(launcherLabels)}`);
+      }
       const searchState = await evaluate(page, `(() => {
         const node = document.querySelector(".o_web_client .o_home_menu .o_home_menu_search");
         const input = document.querySelector(".o_web_client .o_home_menu .o_app_search_input");
@@ -82,7 +86,7 @@ export const scenarios = [
       const actionCount = await waitForCount(page, ".o_web_client .o_action_manager", 1, "TS action manager");
       const hasShellCue = await evaluate(page, `document.body.textContent.includes("Gorp") || document.body.textContent.includes("GoERP")`);
       if (hasShellCue) throw new Error("TS takeover exposes non-Odoo shell cue");
-      return { nav_count: navCount, app_count: appCount, search_count: searchCount, search_state: searchState, typed_search_state: typedSearchState, ...launcherStyle, action_count: actionCount };
+      return { nav_count: navCount, app_count: appCount, app_labels: launcherLabels, search_count: searchCount, search_state: searchState, typed_search_state: typedSearchState, ...launcherStyle, action_count: actionCount };
     }
   },
   {
@@ -321,6 +325,28 @@ export const scenarios = [
         const missing = required.filter((id) => !ids.includes(id));
         return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, missing };
       })()`);
+      const settingsChrome = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager");
+        const controlPanel = root?.querySelector(".o_control_panel");
+        const settings = root?.querySelector(".o_settings_container");
+        const cpSearch = controlPanel?.querySelector(".o_cp_searchview");
+        const internalSearch = settings?.querySelector(".o_settings_search_panel");
+        const switchers = controlPanel?.querySelectorAll(".o_switch_view, .o_view_switcher button, [data-view-switch]").length || 0;
+        const controlRect = controlPanel?.getBoundingClientRect();
+        const searchRect = cpSearch?.getBoundingClientRect();
+        const settingsRect = settings?.getBoundingClientRect();
+        return {
+          cp_search_count: cpSearch ? 1 : 0,
+          internal_search_count: internalSearch ? 1 : 0,
+          view_switcher_count: switchers,
+          control_height: Math.round(controlRect?.height || 0),
+          search_top: Math.round(searchRect?.top || 0),
+          settings_top: Math.round(settingsRect?.top || 0)
+        };
+      })()`);
+      if (settingsChrome.cp_search_count !== 1 || settingsChrome.internal_search_count !== 0 || settingsChrome.view_switcher_count !== 0 || settingsChrome.settings_top - settingsChrome.search_top > 80) {
+        throw new Error(`TS Settings chrome invalid: ${JSON.stringify(settingsChrome)}`);
+      }
       if (settingsTargets.missing.length) {
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
@@ -374,7 +400,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, settings_tab_state: settingsTabState, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, settings_chrome: settingsChrome, settings_tab_state: settingsTabState, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
     }
   },
   {
@@ -2855,7 +2881,8 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (!snapshot.banner_text.includes("You will be able to register your database once you have installed your first app.")) issues.push(`registration banner text ${snapshot.banner_text}`);
 	  if (snapshot.banner_close_text !== "\u00d7") issues.push(`registration close text ${snapshot.banner_close_text}`);
 	  if (!snapshot.banner_close_visible) issues.push("registration close hidden");
-	  if (snapshot.launcher_mail_activity_visible_count !== 0) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
+	  if (snapshot.launcher_mail_activity_visible_count !== 2) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
+	  if (snapshot.user_name_display === "none") issues.push("launcher user name hidden");
 	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
 	  if (snapshot.app_card_top_px < 165 || snapshot.app_card_top_px > 230) issues.push(`app card top ${snapshot.app_card_top_px}`);
 	  if (snapshot.app_card_width_px < 120 || snapshot.app_card_width_px > 150) issues.push(`app card width ${snapshot.app_card_width_px}`);

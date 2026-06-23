@@ -6698,7 +6698,7 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--text);
 	}
 	.o-app-shell {
-		max-width: 850px;
+		max-width: 820px;
 		margin: 0 auto;
 	}
 	.o-app-search {
@@ -6745,7 +6745,7 @@ const webClientShellHTML = `<!doctype html>
 		justify-content: flex-start;
 		gap: 0;
 		margin: 44px auto 18px;
-		max-width: 850px;
+		max-width: 820px;
 		padding: 0;
 	}
 	.o-app-launcher-view .o_draggable {
@@ -6865,6 +6865,44 @@ const webClientShellHTML = `<!doctype html>
 		height: auto;
 		border-radius: 50%;
 		background: #263445;
+	}
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon,
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon {
+		background: rgba(31,43,59,.78);
+		border-color: rgba(255,255,255,.12);
+		border-radius: 4px;
+		box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
+	}
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::before,
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::before {
+		left: 10px;
+		top: 10px;
+		right: auto;
+		bottom: auto;
+		width: 50px;
+		height: 50px;
+		border: 0;
+		border-radius: 0;
+		background: #8b6682;
+		box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+		transform: none;
+	}
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::after,
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::after {
+		left: 19px;
+		top: 18px;
+		right: auto;
+		bottom: auto;
+		width: 32px;
+		height: 32px;
+		border-radius: 0;
+		background-color: transparent;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M24 4 42 14 24 24 6 14 24 4Z'/%3E%3Cpath d='M6 14v20l18 10 18-10V14'/%3E%3Cpath d='M24 24v20'/%3E%3C/g%3E%3C/svg%3E");
+		background-position: center;
+		background-repeat: no-repeat;
+		background-size: contain;
+		box-shadow: none;
+		transform: none;
 	}
 	.o-app-launcher-view .o_app[data-app-key="approvals"] .o_app_icon_fallback::before {
 		inset: 16px;
@@ -7686,7 +7724,7 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o_setting_box {
 		display: grid;
-		grid-template-columns: 24px minmax(0, 1fr);
+		grid-template-columns: 28px minmax(0, 1fr);
 		align-items: start;
 		gap: 12px;
 		min-height: 104px;
@@ -7701,15 +7739,17 @@ const webClientShellHTML = `<!doctype html>
 		border-right: 0;
 	}
 	.o_setting_left_pane {
-		width: 16px;
-		height: 16px;
-		margin-top: 2px;
-		border: 1px solid var(--accent-2);
-		border-radius: 50%;
-		background: rgba(1,126,132,.12);
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		width: 28px;
+		min-height: 24px;
+		margin-top: 1px;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
 	}
 	.o_setting_left_pane_empty {
-		border-color: transparent;
 		background: transparent;
 	}
 	.o_setting_right_pane {
@@ -9226,7 +9266,7 @@ const webClientShellHTML = `<!doctype html>
 	@media (min-width: 621px) {
 		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_mail_systray_item,
 		main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_activity_menu {
-			display: none !important;
+			display: inline-flex !important;
 		}
 	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item:hover,
@@ -9238,7 +9278,13 @@ const webClientShellHTML = `<!doctype html>
 	}
 	main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_user_menu_name,
 	body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o_user_menu_name {
-		display: none;
+		display: inline;
+	}
+	@media (max-width: 620px) {
+		main.o_web_client[data-theme="enterprise-like"][data-view="apps"] > .o_navbar > .o_main_navbar .o_user_menu_name,
+		body[data-theme="enterprise"][data-view="apps"] > .o_navbar > .o_main_navbar .o_user_menu_name {
+			display: none;
+		}
 	}
 	main.o_web_client[data-theme="enterprise-like"],
 	body[data-theme="enterprise"] {
