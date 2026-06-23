@@ -23,13 +23,13 @@
             <field name="name">ir.cron.list</field>
             <field name="model">ir.cron</field>
             <field name="type">list</field>
-            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="active"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="state"/&gt;&lt;/list&gt;</field>
+            <field name="arch">&lt;list&gt;&lt;field name="priority"/&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
         </record>
         <record id="view_ir_cron_form" model="ir.ui.view">
             <field name="name">ir.cron.form</field>
             <field name="model">ir.cron</field>
             <field name="type">form</field>
-            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="active"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="ir_actions_server_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="state"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="interval_number"/&gt;&lt;field name="interval_type"/&gt;&lt;field name="active"/&gt;&lt;field name="nextcall"/&gt;&lt;field name="priority"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
 
         <record id="view_base_automation_list" model="ir.ui.view">

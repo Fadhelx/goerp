@@ -59,6 +59,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-technical-form-desktop",
     "default-relation-dropdown-desktop",
     "default-scheduled-action-form-desktop",
+    "default-scheduled-actions-list-parity-desktop",
     "default-automation-form-desktop",
     "default-groups-form-notebook-desktop",
     "default-delegation-one2many-desktop",
@@ -90,8 +91,11 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "technical-list-mobile",
     "technical-form-mobile",
     "normal-user-launcher-desktop",
+    "default-apps-catalog-parity-desktop",
     "default-apps-install-desktop",
     "default-apps-catalog-detail-desktop",
+    "default-users-list-parity-desktop",
+    "default-groups-list-parity-desktop",
     "default-users-flow-desktop",
     "default-apps-lifecycle-cancel-desktop"
   ]);

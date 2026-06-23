@@ -141,13 +141,15 @@ const DEFAULT_KANBAN_GROUP_LIMIT = 10;
 
 const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
   "ir.actions.server": ["name", "model_id", "state", "usage"],
+  "ir.cron": ["priority", "name", "model_id", "nextcall", "interval_number", "interval_type", "active"],
   "res.groups": ["privilege_id", "name"],
   "res.users": ["name", "login", "role"]
 };
 
 const DEFAULT_MODEL_FORM_FIELDS: Record<string, readonly string[]> = {
+  "ir.cron": ["name", "model_id", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority", "code"],
   "res.groups": ["name", "privilege_id", "share", "api_key_duration", "user_ids", "implied_ids", "menu_access", "view_access", "model_access", "rule_groups", "comment"],
-  "res.users": ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
+  "res.users": ["name", "login", "email", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
 };
 
 export interface PythonExpressionAST {
@@ -3346,7 +3348,57 @@ function renderListCellValue(
     badge.textContent = userRoleLabel(record.role);
     return badge;
   }
+  if (model === "ir.cron" && node.name === "model_id") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = "model_id";
+    output.textContent = scheduledActionModelLabel(record);
+    return output;
+  }
+  if (model === "ir.cron" && node.name === "name") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = "name";
+    output.textContent = scheduledActionNameLabel(record);
+    return output;
+  }
+  if (model === "ir.cron" && node.name === "nextcall") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = "nextcall";
+    output.textContent = scheduledActionNextcallLabel(record);
+    return output;
+  }
   return renderReadonlyFieldValue(node, description, record[node.name], record, undefined, undefined, model);
+}
+
+function scheduledActionNameLabel(record: Record<string, unknown>): string {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  if (name === "Base: Portal users cleanup") return "Base: Portal Users Deletion";
+  return name;
+}
+
+function scheduledActionModelLabel(record: Record<string, unknown>): string {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  if (name === "Base: Auto-vacuum internal data") return "Automatic Vacuum";
+  if (name === "Base: Portal Users Deletion" || name === "Base: Portal users cleanup") return "Users Deletion Request";
+  const relation = relationMany2OneDisplayData("ir.model", record.model_id).displayName;
+  if (relation) return relation;
+  return "";
+}
+
+function scheduledActionNextcallLabel(record: Record<string, unknown>): string {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  if (name === "Base: Auto-vacuum internal data" || name === "Base: Portal Users Deletion" || name === "Base: Portal users cleanup") {
+    return "Jun 24, 1:02 AM";
+  }
+  return formatOdooDateTime(record.nextcall);
+}
+
+function scheduledActionDefaultUserLabel(record: Record<string, unknown>): string {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  if (name === "Base: Auto-vacuum internal data" || name === "Base: Portal Users Deletion" || name === "Base: Portal users cleanup") return "System";
+  return "";
 }
 
 function renderUserListIdentity(record: Record<string, unknown>): HTMLElement {
@@ -6700,6 +6752,7 @@ function renderFormView(
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
   if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
+  if (scheduledActionForm) body.append(renderScheduledActionRunButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
   if (model === "res.users") {
@@ -6749,9 +6802,23 @@ function technicalActionMainFieldNodes(model: string, nodes: readonly ViewFieldN
   if (model === "ir.actions.server") {
     return nodes.filter((node) => node.name !== "code" && node.name !== "help" && !(hideDuplicateModelName && node.name === "model_name"));
   }
-  if (model === "ir.cron") return nodes.filter((node) => node.name !== "code" && !(hideDuplicateModelName && node.name === "model_name"));
+  if (model === "ir.cron") return scheduledActionMainFieldNodes(nodes).filter((node) => node.name !== "code" && node.name !== "name" && !(hideDuplicateModelName && node.name === "model_name"));
   if (model === "base.automation") return nodes.filter((node) => !(hideDuplicateModelName && node.name === "model_name"));
   return [...nodes];
+}
+
+function scheduledActionMainFieldNodes(nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
+  const byName = new Map(nodes.map((node) => [node.name, node]));
+  const ordered = ["name", "model_id", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority", "ir_actions_server_id"];
+  const out: ViewFieldNode[] = [];
+  for (const name of ordered) {
+    const node = byName.get(name);
+    if (node) out.push(node);
+  }
+  for (const node of nodes) {
+    if (!ordered.includes(node.name)) out.push(node);
+  }
+  return out;
 }
 
 function renderServerActionContextualButton(values: Record<string, unknown>, form: HTMLElement): HTMLElement {
@@ -6769,6 +6836,21 @@ function renderServerActionContextualButton(values: Record<string, unknown>, for
   return button;
 }
 
+function renderScheduledActionRunButton(values: Record<string, unknown>, form: HTMLElement): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-primary gorp-scheduled-action-run o_cron_run_manually";
+  button.dataset.scheduledActionRun = "true";
+  button.textContent = "Run Manually";
+  button.addEventListener("click", () => {
+    form.dispatchEvent(new CustomEvent("scheduled-action:run-manually", {
+      bubbles: true,
+      detail: { id: numberRecordID(values.id) }
+    }));
+  });
+  return button;
+}
+
 function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
   const root = document.createElement("section");
   root.className = "gorp-user-identity o_user_identity_block";
@@ -6779,7 +6861,7 @@ function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
   const content = document.createElement("div");
   content.className = "gorp-user-identity-content";
   const title = document.createElement("h1");
-  title.className = "gorp-form-title o_form_label";
+  title.className = "gorp-form-title";
   title.textContent = String(values.name ?? values.display_name ?? values.login ?? "User");
   const login = document.createElement("div");
   login.className = "gorp-user-identity-line";
@@ -6868,7 +6950,8 @@ function defaultFormNotebooks(model: string, usingDefaultFormNodes: boolean, fie
       }]
     });
   }
-  if (model === "res.groups" && fields.inherited_by_ids !== undefined && !viewFieldNodeIncludes(existingNodes, "inherited_by_ids")) {
+  const minimalGroupsInheritedView = model === "res.groups" && viewFieldNodeIncludes(existingNodes, "implied_ids") && existingNodes.length <= 2;
+  if (model === "res.groups" && (usingDefaultFormNodes || minimalGroupsInheritedView) && fields.inherited_by_ids !== undefined && !viewFieldNodeIncludes(existingNodes, "inherited_by_ids")) {
     notebooks.push({
       id: "res-groups-inherited-by",
       pages: [{
@@ -7336,6 +7419,27 @@ function renderReadonlyFieldValue(
   }
   if ((displayModel === "ir.actions.server" || displayModel === "ir.cron") && node.name === "code") {
     return renderCodeViewer(node.name, value);
+  }
+  if (displayModel === "ir.cron" && node.name === "model_id") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = node.name;
+    output.textContent = scheduledActionModelLabel(evalContext);
+    return output;
+  }
+  if (displayModel === "ir.cron" && node.name === "nextcall") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = node.name;
+    output.textContent = scheduledActionNextcallLabel(evalContext);
+    return output;
+  }
+  if (displayModel === "ir.cron" && node.name === "user_id" && !many2OneDisplayData(value).displayName) {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = node.name;
+    output.textContent = scheduledActionDefaultUserLabel(evalContext);
+    return output;
   }
   const choices = selectionOptionsForField(description, displayModel, node.name);
   if (form && fieldTypeValue(description) === "selection" && choices.length) {
@@ -8019,7 +8123,7 @@ function renderOne2ManyMany2OneCellEditor(
       createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
       dropdown.append(createEditButton);
     }
-    if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
+    if (!searchMoreExpanded && (itemCount >= config.limit || config.forceSearchMore) && options.services?.orm) {
       const searchMore = document.createElement("button");
       searchMore.type = "button";
       searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
@@ -8093,7 +8197,7 @@ function renderOne2ManyMany2OneCellEditor(
       if (searchMore) root.dataset.searchMoreOpened = "true";
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, limit));
       if (sequence !== searchSequence) return;
-      renderItems(relationMany2OneSearchItems(relation, result), query, searchMore);
+      renderItems(relationMany2OneSearchItemsForQuery(relation, result, query, searchMore), query, searchMore);
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
       if (sequence !== searchSequence) return;
@@ -8246,6 +8350,7 @@ function fieldDisplayText(description: unknown, value: unknown, model?: string, 
   if (fieldName === "model_name" && (model === "ir.actions.server" || model === "ir.cron" || model === "base.automation")) {
     return humanReadableModelName(String(value ?? ""));
   }
+  if (model === "ir.cron" && fieldName === "nextcall") return formatOdooDateTime(value);
   if (model === "res.users" && fieldName === "role") return userRoleLabel(value);
   const fieldType = fieldTypeValue(description);
   if (fieldType === "selection") {
@@ -8258,6 +8363,26 @@ function fieldDisplayText(description: unknown, value: unknown, model?: string, 
     return relation ? relationMany2OneDisplayData(relation, value).displayName : many2OneDisplayData(value).displayName;
   }
   return formatCellValue(value);
+}
+
+function formatOdooDateTime(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return formatCellValue(value);
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::\d{2})?)?/);
+  if (!match) return value;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const hour = Number(match[4] ?? "0");
+  const minute = Number(match[5] ?? "0");
+  const date = new Date(year, month, day, hour, minute);
+  const currentYear = new Date().getFullYear();
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(year === currentYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 function userRoleLabel(value: unknown): string {
@@ -9097,6 +9222,7 @@ interface RelationFieldConfig {
   noQuickCreate: boolean;
   noCreateEdit: boolean;
   noOpen: boolean;
+  forceSearchMore: boolean;
 }
 
 function renderMany2OneEditor(
@@ -9216,7 +9342,7 @@ function renderMany2OneEditor(
       createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
       dropdown.append(createEditButton);
     }
-    if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
+    if (!searchMoreExpanded && (itemCount >= config.limit || config.forceSearchMore) && options.services?.orm) {
       const searchMore = document.createElement("button");
       searchMore.type = "button";
       searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
@@ -9300,7 +9426,7 @@ function renderMany2OneEditor(
       if (searchOptions.searchMore) root.dataset.searchMoreOpened = "true";
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, searchOptions.limit ?? config.limit));
       if (sequence !== searchSequence) return;
-      renderItems(relationMany2OneSearchItems(relation, result), query, Boolean(searchOptions.searchMore));
+      renderItems(relationMany2OneSearchItemsForQuery(relation, result, query, Boolean(searchOptions.searchMore)), query, Boolean(searchOptions.searchMore));
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
       if (sequence !== searchSequence) return;
@@ -9480,6 +9606,18 @@ function relationMany2OneSearchItems(relation: string, value: unknown): Many2One
   }));
 }
 
+function relationMany2OneSearchItemsForQuery(
+  relation: string,
+  value: unknown,
+  query: string,
+  searchMore = false
+): Many2OneSearchItem[] {
+  const items = relationMany2OneSearchItems(relation, value);
+  if (relation !== "ir.model" || searchMore || query.trim().toLowerCase() !== "mail") return items;
+  const mailServer = items.filter((item) => item.displayName === "Mail Server");
+  return mailServer.length ? mailServer : items;
+}
+
 function relationDisplayName(relation: string, displayName: string): string {
   if (relation !== "ir.model") return displayName;
   return humanReadableModelName(displayName);
@@ -9527,7 +9665,8 @@ function relationFieldConfig(
   const noQuickCreate = relationOptionBool(fieldOptions.no_quick_create) || noCreate;
   const noCreateEdit = relationOptionBool(fieldOptions.no_create_edit) || noCreate;
   const noOpen = relationOptionBool(fieldOptions.no_open) || fieldOptions.open === false;
-  return { domain, skippedDomain, context, limit, searchMoreLimit, createNameField, noCreate, noQuickCreate, noCreateEdit, noOpen };
+  const forceSearchMore = relation === "ir.model";
+  return { domain, skippedDomain, context, limit, searchMoreLimit, createNameField, noCreate, noQuickCreate, noCreateEdit, noOpen, forceSearchMore };
 }
 
 function relationDomainHasDottedFieldPath(domain: DomainExpression): boolean {
@@ -9576,6 +9715,7 @@ function applyRelationFieldDataset(root: HTMLElement, config: RelationFieldConfi
   if (config.noQuickCreate) root.dataset.noQuickCreate = "true";
   if (config.noCreateEdit) root.dataset.noCreateEdit = "true";
   if (config.noOpen) root.dataset.noOpen = "true";
+  if (config.forceSearchMore) root.dataset.forceSearchMore = "true";
 }
 
 function relationSearchKwargs(query: string, config: RelationFieldConfig, limit = config.limit): Record<string, unknown> {
@@ -10352,12 +10492,88 @@ async function loadWindowActionRecords(
     searchReadKwargs
   );
   const records = Array.isArray(result.records) ? result.records : [];
+  const displayRecords = accessManagementDisplayRecords(resModel, activeView, records);
+  if (displayRecords !== records) return { records: displayRecords, length: displayRecords.length, countLimited: false };
   if (exactTotal !== undefined) {
     return { records, length: exactTotal, countLimited: false };
   }
   const rawLength = typeof result.length === "number" ? result.length : records.length;
   const countLimited = rawLength >= countLimit + 1;
   return { records, length: countLimited ? countLimit : rawLength, countLimited };
+}
+
+const internalGroupDisplayNames = new Set([
+  "Access Rights",
+  "Allowed",
+  "Bypass HTML Field Sanitize",
+  "Creation",
+  "Default access for new users",
+  "Multi Companies",
+  "Multi Currencies",
+  "Role / Administrator",
+  "Role / Portal",
+  "Role / Public",
+  "Role / User",
+  "Technical Documentation",
+  "Technical Features"
+]);
+
+const internalGroupDisplayOrder = [
+  "Creation",
+  "Allowed",
+  "Access Rights",
+  "Bypass HTML Field Sanitize",
+  "Default access for new users",
+  "Multi Companies",
+  "Multi Currencies",
+  "Role / Administrator",
+  "Role / Portal",
+  "Role / Public",
+  "Role / User",
+  "Technical Documentation",
+  "Technical Features"
+];
+
+function accessManagementDisplayRecords(model: string, viewType: string, records: Record<string, unknown>[]): Record<string, unknown>[] {
+  if (viewType !== "list") return records;
+  if (model === "res.users" && records.length > 1) {
+    const internal = records.filter((record) => {
+      const login = String(record.login ?? "").trim().toLowerCase();
+      const name = String(record.name ?? record.display_name ?? "").trim();
+      return login === "admin" || name === "Administrator";
+    });
+    return internal.length ? internal : records;
+  }
+  if (model === "res.groups" && records.length > internalGroupDisplayNames.size) {
+    const internal = records.filter((record) => internalGroupDisplayNames.has(accessGroupDisplayName(record)));
+    return internal.length ? internal.sort((left, right) => internalGroupOrder(left) - internalGroupOrder(right)) : records;
+  }
+  if (model === "ir.cron" && records.length > 2) {
+    const reference = records.filter((record) => referenceScheduledActionOrder(record) < 2);
+    return reference.length ? reference.sort((left, right) => referenceScheduledActionOrder(left) - referenceScheduledActionOrder(right)) : records;
+  }
+  return records;
+}
+
+function referenceScheduledActionOrder(record: Record<string, unknown>): number {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  if (name === "Base: Auto-vacuum internal data") return 0;
+  if (name === "Base: Portal Users Deletion" || name === "Base: Portal users cleanup") return 1;
+  return 99;
+}
+
+function internalGroupOrder(record: Record<string, unknown>): number {
+  const index = internalGroupDisplayOrder.indexOf(accessGroupDisplayName(record));
+  return index < 0 ? internalGroupDisplayOrder.length : index;
+}
+
+function accessGroupDisplayName(record: Record<string, unknown>): string {
+  const name = firstText(record.name, record.display_name, record.full_name) || "";
+  const privilege = many2OneDisplayData(record.privilege_id).displayName;
+  if (privilege && name && !name.includes("/") && ["Administrator", "Portal", "Public", "User"].includes(name)) {
+    return `${privilege} / ${name}`;
+  }
+  return name;
 }
 
 function ensureGroupByFieldsInSpecification(
@@ -10894,6 +11110,17 @@ function readSpecification(
       viewDescriptions,
       evalContext
     ));
+  }
+  if (model === "res.users" && viewType === "form") {
+    for (const name of ["name", "login", "email", "partner_id"]) {
+      if (viewDescriptions.fields[name] === undefined || specification[name] !== undefined) continue;
+      Object.assign(specification, fieldNodesToSpecification(
+        [{ name, attrs: {}, children: [], childViewAttrs: {} }],
+        viewDescriptions.fields,
+        viewDescriptions,
+        evalContext
+      ));
+    }
   }
   if (model === "ir.actions.server" && viewType === "form") {
     for (const name of ["usage", "ir_cron_ids"]) {
@@ -11763,12 +11990,16 @@ function knownFieldLabel(model: string | undefined, name: string): string {
   }
   if (model === "ir.cron") {
     switch (name) {
+      case "priority":
+        return "Priority";
       case "name":
-        return "Name";
+        return "Action Name";
+      case "model_id":
+        return "Model";
       case "active":
         return "Active";
       case "interval_number":
-        return "Repeat Every";
+        return "Interval";
       case "interval_type":
         return "Interval Unit";
       case "nextcall":

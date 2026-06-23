@@ -315,15 +315,18 @@ export const scenarios = [
       const settingsCount = await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "TS settings renderer");
       const settingsLabelAudit = await assertSettingsLabelSnapshot(page, ".o_web_client .o_action_manager .o_settings_container", "default TS Settings labels");
       const settingsTargets = await evaluate(page, `(() => {
-        const required = ["users", "groups", "access_rights", "record_rules", "views", "server_actions", "scheduled_actions", "email_templates", "apps", "ai"];
+        const required = ["users", "groups", "languages", "company_records", "companies"];
         const buttons = [...document.querySelectorAll(".o_web_client .o_action_manager [data-settings-target]")];
         const ids = buttons.map((button) => button.dataset.settingsTarget).filter(Boolean);
         const models = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.dataset.settingsTargetModel || ""]));
         const labels = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.textContent.trim()]));
         const gridCount = document.querySelectorAll(".o_web_client .o_action_manager .o_setting_grid").length;
         const actionBoxCount = document.querySelectorAll(".o_web_client .o_action_manager .o_setting_box[data-has-settings-action='true']").length;
+        const inviteCount = document.querySelectorAll(".o_web_client .o_action_manager [data-settings-action='invite-users']").length;
+        const appTabs = [...document.querySelectorAll(".o_web_client .o_action_manager .o_settings_tab")].map((node) => node.textContent.trim()).filter(Boolean);
+        const blockTitles = [...document.querySelectorAll(".o_web_client .o_action_manager .o_settings_block_title")].map((node) => node.textContent.trim()).filter(Boolean);
         const missing = required.filter((id) => !ids.includes(id));
-        return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, missing };
+        return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, inviteCount, appTabs, blockTitles, missing };
       })()`);
       const settingsChrome = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager");
@@ -351,28 +354,9 @@ export const scenarios = [
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
       const genericOpenLabels = Object.values(settingsTargets.labels).filter((label) => String(label).startsWith("Open "));
-      if (settingsTargets.gridCount < 4 || settingsTargets.actionBoxCount < 10 || genericOpenLabels.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.server_actions !== "Server Actions" || settingsTargets.labels.automation_rules !== "Automation Rules" || settingsTargets.labels.ai !== "AI Apps") {
+      const expectedBlocks = ["Users", "Languages", "Companies", "Contacts"];
+      if (settingsTargets.gridCount !== 4 || settingsTargets.actionBoxCount !== 5 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
         throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
-      }
-      await clickSelector(page, ".o_web_client .o_action_manager .o_settings_tab[data-app-id='technical']");
-      const settingsTabState = await evaluate(page, `(() => {
-        const root = document.querySelector(".o_web_client .o_action_manager .o_settings_container");
-        const technicalTab = document.querySelector(".o_web_client .o_action_manager .o_settings_tab[data-app-id='technical']");
-        const generalBlock = document.querySelector(".o_web_client .o_action_manager .app_settings_block[data-app-id='general_settings']");
-        const technicalBlock = document.querySelector(".o_web_client .o_action_manager .app_settings_block[data-app-id='technical']");
-        const serverActions = document.querySelector(".o_web_client .o_action_manager .o_setting_box[data-setting-id='server_actions']");
-        const users = document.querySelector(".o_web_client .o_action_manager .o_setting_box[data-setting-id='users']");
-        return {
-          active_app: root?.dataset?.activeApp || "",
-          technical_pressed: technicalTab?.getAttribute("aria-pressed") || "",
-          technical_visible: technicalBlock?.hidden === false,
-          general_hidden: generalBlock?.hidden === true,
-          server_actions_hidden: serverActions?.hidden === true,
-          users_hidden: users?.hidden === true
-        };
-      })()`);
-      if (settingsTabState.active_app !== "technical" || settingsTabState.technical_pressed !== "true" || !settingsTabState.technical_visible || !settingsTabState.general_hidden || settingsTabState.server_actions_hidden || !settingsTabState.users_hidden) {
-        throw new Error(`TS Settings tab switch invalid: ${JSON.stringify(settingsTabState)}`);
       }
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
       const discardDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='discard']")?.disabled === true`);
@@ -400,7 +384,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("action=") && hash.includes("model=res.config.settings") && hash.includes("menu_id=") ? hash : "";
       })()`, "TS action route hash");
-      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, settings_chrome: settingsChrome, settings_tab_state: settingsTabState, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
+      return { title, hash, window_count: windowCount, control_panel_count: controlPanelCount, settings_count: settingsCount, settings_targets: settingsTargets, settings_chrome: settingsChrome, topbar_state: topbarState, ...settingsLabelAudit, save_disabled: saveDisabled, discard_disabled: discardDisabled };
     }
   },
   {
@@ -768,7 +752,7 @@ export const scenarios = [
           input_width: Math.round(input?.getBoundingClientRect().width || 0)
         };
       })()`);
-      if (!state.open || state.input_value !== "mail" || state.expanded !== "true" || state.option_count < 2 || state.active_count < 1 || !state.labels.includes("Mail Server") || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
+      if (!state.open || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
         throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
       }
       return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state };
@@ -788,11 +772,26 @@ export const scenarios = [
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Scheduled Actions form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='form'] .gorp-form-view", 1, "TS Scheduled Actions form");
       const bandCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-band[data-model='ir.cron'][data-state]", 1, "TS Scheduled Actions header band");
+      const runButtonCount = await waitForCount(page, ".o_web_client .o_action_manager [data-scheduled-action-run='true']", 1, "TS Scheduled Actions run manually button");
       const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-form-notebook-tab", 2, "TS Scheduled Actions Code Help notebook");
       const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Scheduled Actions code viewer");
       const selectionPillCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-pills[data-field='interval_type'] .gorp-selection-pill", 1, "TS Scheduled Actions interval pills");
+      const readState = await evaluate(page, `(() => {
+        const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-view .o_form_label")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        return {
+          title: document.querySelector(".o_web_client .o_action_manager .oe_title h1")?.textContent?.trim() || "",
+          run_button: document.querySelector(".o_web_client .o_action_manager [data-scheduled-action-run='true']")?.textContent?.trim() || "",
+          model: document.querySelector(".o_web_client .o_action_manager .gorp-form-field[data-field='model_id'] output")?.textContent?.trim() || "",
+          nextcall: document.querySelector(".o_web_client .o_action_manager .gorp-form-field[data-field='nextcall'] output")?.textContent?.trim() || "",
+          labels
+        };
+      })()`);
+      if (readState.title !== "Base: Auto-vacuum internal data" || readState.run_button !== "Run Manually" || readState.model !== "Automatic Vacuum" || readState.nextcall !== "Jun 24, 1:02 AM" || !readState.labels.includes("Priority")) {
+        throw new Error(`Scheduled Actions read layout invalid: ${JSON.stringify(readState)}`);
+      }
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
-      const stateRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='state'] input[type='radio']", 1, "TS Scheduled Actions state radio");
       const intervalRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] input[type='radio']", 1, "TS Scheduled Actions interval radio");
       const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Scheduled Actions code editor");
       const state = await evaluate(page, `(() => {
@@ -814,7 +813,37 @@ export const scenarios = [
       if (state.badge !== "Scheduled Action" || !state.interval_labels.includes("Hours")) {
         throw new Error(`Scheduled Actions chrome invalid: ${JSON.stringify(state)}`);
       }
-      return { fixture, form_count: formCount, band_count: bandCount, notebook_count: notebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, interval_radio_count: intervalRadioCount, code_editor_count: codeEditorCount, state };
+      return { fixture, form_count: formCount, band_count: bandCount, run_button_count: runButtonCount, notebook_count: notebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, read_state: readState, interval_radio_count: intervalRadioCount, code_editor_count: codeEditorCount, state };
+    }
+  },
+  {
+    name: "default-scheduled-actions-list-parity-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&scheduled_actions_list_setup=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "scheduled actions list setup document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const ids = await externalResIDs(page, config, ["base.action_ir_cron", "base.menu_ir_cron"]);
+      const actionID = Number(ids["base.action_ir_cron"] || 0);
+      const menuID = Number(ids["base.menu_ir_cron"] || 0);
+      if (!actionID || !menuID) throw new Error(`Scheduled Actions menu/action missing: ${JSON.stringify(ids)}`);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${actionID}&model=ir.cron&view_type=list&menu_id=${menuID}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Scheduled Actions list TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Scheduled Actions list ready");
+      const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 2, "Scheduled Actions reference rows");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list']");
+        const headers = [...(root?.querySelectorAll(".gorp-list-view thead .o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const rows = [...(root?.querySelectorAll(".gorp-list-view tbody tr.o_data_row") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean));
+        const pager = document.querySelector(".o_web_client .o_action_manager .o_cp_pager")?.textContent?.trim() || "";
+        return { headers, rows, pager };
+      })()`);
+      const expectedHeaders = ["Priority", "Action Name", "Model", "Next Execution Date", "Interval", "Interval Unit", "Active"];
+      if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request") {
+        throw new Error(`Scheduled Actions list parity invalid: ${JSON.stringify(state)}`);
+      }
+      return { row_count: rowCount, state };
     }
   },
   {
@@ -869,52 +898,39 @@ export const scenarios = [
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Groups list action ready");
       const listCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list']", 1, "TS Groups list");
       const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 1, "TS Groups rows");
+      const listState = await evaluate(page, `(() => {
+        const list = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view");
+        return {
+          headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          text: list?.textContent || ""
+        };
+      })()`);
+      if (JSON.stringify(listState.headers) !== JSON.stringify(["Privilege", "Name"])) throw new Error(`Groups list invalid: ${JSON.stringify(listState)}`);
       await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Groups form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-view", 1, "TS Groups form");
       const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook.o_notebook", 1, "TS Groups form notebook");
-      const tabCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']", 1, "TS Groups form notebook tabs");
-      const x2ManyCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']", 1, "TS Groups x2many tag widget");
+      const tabCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']", 7, "TS Groups form notebook tabs");
       const state = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-form-notebook.o_notebook");
         const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
         const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
-        const inheritedFields = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-field[data-field='inherited_by_ids']")];
-        const x2many = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']");
-        const tags = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids'] .gorp-x2many-tag")];
+        const smartButtons = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-access-smart-button")].map((node) => node.textContent.trim()).filter(Boolean);
         return {
           notebook_id: root?.dataset?.notebook || "",
           tab_labels: tabs.map((node) => node.textContent.trim()),
           selected_tabs: tabs.map((node) => node.getAttribute("aria-selected")),
           visible_pages: pages.filter((node) => !node.hidden).length,
-          inherited_field_count: inheritedFields.length,
-          x2many_count: x2many?.dataset?.count || "",
-          x2many_relation: x2many?.dataset?.relation || "",
-          x2many_tag_labels: tags.map((node) => node.textContent.trim()).filter(Boolean)
+          smart_buttons: smartButtons
         };
       })()`);
-      if (!state.tab_labels.includes("Inherited By")) throw new Error(`Groups notebook tab missing: ${JSON.stringify(state)}`);
+      for (const tab of ["Users", "Inherited", "Menus", "Views", "Access Rights", "Record Rules", "Notes"]) {
+        if (!state.tab_labels.includes(tab)) throw new Error(`Groups notebook tab missing ${tab}: ${JSON.stringify(state)}`);
+      }
+      if (state.tab_labels.includes("Inherited By")) throw new Error(`Groups notebook still has fallback tab: ${JSON.stringify(state)}`);
       if (state.visible_pages !== 1) throw new Error(`Groups notebook visible page mismatch: ${JSON.stringify(state)}`);
-      if (state.inherited_field_count !== 1) throw new Error(`Groups notebook field duplication: ${JSON.stringify(state)}`);
-      if (state.x2many_relation !== "res.groups") throw new Error(`Groups x2many relation mismatch: ${JSON.stringify(state)}`);
-      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
-      const x2ManyEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids'][data-relation='res.groups']", 1, "TS Groups editable x2many tag widget");
-      const editorState = await evaluate(page, `(() => {
-        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids']");
-        const input = editor?.querySelector("input");
-        const tags = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='inherited_by_ids'] .gorp-x2many-editor-tag")];
-        return {
-          relation: editor?.dataset?.relation || "",
-          count: editor?.dataset?.count || "",
-          input_role: input?.getAttribute("role") || "",
-          input_autocomplete: input?.getAttribute("aria-autocomplete") || "",
-          tag_labels: tags.map((node) => node.textContent.trim()).filter(Boolean)
-        };
-      })()`);
-      if (editorState.relation !== "res.groups" || editorState.input_role !== "combobox") throw new Error(`Groups editable x2many invalid: ${JSON.stringify(editorState)}`);
-      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
-      await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-tags[data-field='inherited_by_ids']", 1, "TS Groups readonly x2many after discard");
-      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, x2many_widget_count: x2ManyCount, x2many_editor_count: x2ManyEditorCount, x2many_editor_state: editorState, ...state };
+      if (!state.smart_buttons.some((item) => item.includes("Users"))) throw new Error(`Groups smart button missing: ${JSON.stringify(state)}`);
+      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
   {
@@ -2410,6 +2426,62 @@ export const scenarios = [
     }
   },
   {
+    name: "default-apps-catalog-parity-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultAppsCatalog(page, config, desktopViewport());
+      const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card", 77, "Apps catalog cards");
+      const state = await evaluate(page, `(() => {
+        const categoryState = {};
+        for (const button of document.querySelectorAll(".o_web_client .gorp-apps-catalog-sidebar [data-category]")) {
+          const label = button.querySelector(".o_search_panel_label")?.textContent?.trim() || "";
+          const count = button.querySelector(".o_search_panel_counter")?.textContent?.trim() || "";
+          categoryState[label] = count;
+        }
+        const cards = [...document.querySelectorAll(".o_web_client .gorp-apps-catalog-card")];
+        return {
+          brand: document.querySelector(".o_web_client .o_menu_brand")?.textContent?.trim() || "",
+          navbar_sections: [...document.querySelectorAll(".o_web_client .o_navbar_sections .o_nav_entry")].map((node) => node.textContent.trim()).filter(Boolean),
+          pager: document.querySelector(".o_web_client .gorp-apps-catalog .o_pager")?.textContent?.trim() || "",
+          filters: [...document.querySelectorAll(".o_web_client .gorp-apps-catalog [data-catalog-filter]")].map((node) => node.textContent.trim()).filter(Boolean),
+          category_state: categoryState,
+          first_cards: cards.slice(0, 24).map((card) => card.querySelector(".o_app_name")?.textContent?.trim() || ""),
+          first_card_actions: [...(cards[0]?.querySelectorAll(".o_module_actions button, .o_module_info_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          icon_token_count: new Set(cards.map((card) => card.querySelector(".o_app_icon")?.dataset?.iconToken || "").filter(Boolean)).size,
+          hidden_state_count: [...document.querySelectorAll(".o_web_client .gorp-apps-catalog-card .o_module_state")].filter((node) => getComputedStyle(node).display === "none").length
+        };
+      })()`);
+      const expectedSections = ["Apps", "Update Apps List", "Apply Scheduled Upgrades", "Import Module"];
+      const expectedFirstCards = ["Sales", "Restaurant", "Invoicing", "CRM", "Website", "Inventory", "Accounting", "Equity", "Purchase", "Point of Sale", "Project", "eCommerce", "Manufacturing", "Email Marketing", "Timesheets", "Expenses", "Studio", "Documents", "Time Off", "Recruitment", "Employees", "AI", "Data Recycle", "Databases"];
+      const expectedCategoryCounts = {
+        All: "77",
+        Sales: "11",
+        Website: "5",
+        Services: "6",
+        Accounting: "3",
+        "Supply Chain": "8",
+        Productivity: "9",
+        Marketing: "7",
+        "Human Resources": "14",
+        "Shipping Connectors": "10",
+        ESG: "1",
+        Customizations: "1",
+        Technical: "1",
+        Administration: "1"
+      };
+      for (const label of expectedSections) {
+        if (!state.navbar_sections.includes(label)) throw new Error(`Apps catalog navbar missing ${label}: ${JSON.stringify(state)}`);
+      }
+      for (const [label, count] of Object.entries(expectedCategoryCounts)) {
+        if (state.category_state[label] !== count) throw new Error(`Apps catalog category ${label} expected ${count}: ${JSON.stringify(state)}`);
+      }
+      if (state.brand !== "Apps" || state.pager !== "1-77 / 77" || JSON.stringify(state.first_cards) !== JSON.stringify(expectedFirstCards) || !state.filters.includes("Official Apps") || !state.filters.includes("Industries") || !state.first_card_actions.includes("Activate") || !state.first_card_actions.includes("Learn More") || state.icon_token_count < 8 || state.hidden_state_count < 77) {
+        throw new Error(`Apps catalog parity invalid: ${JSON.stringify(state)}`);
+      }
+      return { card_count: cardCount, ...state };
+    }
+  },
+  {
     name: "default-apps-install-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -2456,10 +2528,10 @@ export const scenarios = [
     run: async (page, config) => {
       await openDefaultAppsCatalogForModule(page, config, "ai", "apps_catalog_detail");
       const sidebarCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-sidebar", 1, "Apps catalog category sidebar");
-      const filterCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter]", 4, "Apps catalog filters");
+      const filterCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter]", 3, "Apps catalog filters");
       const categoryCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-sidebar [data-category]", 1, "Apps catalog categories");
-      await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='installed']");
-      const activeFilter = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog")?.dataset.activeFilter === "installed" ? "installed" : ""`, "Apps catalog installed filter active");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='official']");
+      const activeFilter = await waitFor(page, `document.querySelector(".o_web_client .gorp-apps-catalog")?.dataset.activeFilter === "official" ? "official" : ""`, "Apps catalog official filter active");
       await clickSelector(page, ".o_web_client .gorp-apps-catalog [data-catalog-filter='all']");
       const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai']", 1, "AI module card for detail");
       const catalogIconState = await assertAppsCatalogIconState(page);
@@ -2479,6 +2551,60 @@ export const scenarios = [
     }
   },
   {
+    name: "default-users-list-parity-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&users_list=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "users list TS webclient ready");
+      await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "Users");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Users", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Users list action ready");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.users'][data-view='list']");
+        const list = root?.querySelector(".gorp-list-view");
+        return {
+          headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          row_count: list?.querySelectorAll("tbody tr.o_data_row").length || 0,
+          pager: document.querySelector(".o_web_client .o_control_panel_navigation .o_pager")?.textContent?.trim() || "",
+          role_badge: list?.querySelector(".gorp-user-role-badge")?.textContent?.trim() || "",
+          avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0,
+          text: list?.textContent || ""
+        };
+      })()`);
+      if (JSON.stringify(state.headers) !== JSON.stringify(["Name", "Login", "Role"]) || state.row_count !== 1 || state.role_badge !== "Administrator" || state.avatar_count < 1 || !state.text.includes("Administrator")) {
+        throw new Error(`Users list parity invalid: ${JSON.stringify(state)}`);
+      }
+      return state;
+    }
+  },
+  {
+    name: "default-groups-list-parity-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&groups_list=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "groups list TS webclient ready");
+      await setInput(page, ".o_web_client .o_home_menu .o_app_search_input", "Groups");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Groups", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Groups list action ready");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list']");
+        const list = root?.querySelector(".gorp-list-view");
+        return {
+          headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          row_count: list?.querySelectorAll("tbody tr.o_data_row").length || 0,
+          pager: document.querySelector(".o_web_client .o_control_panel_navigation .o_pager")?.textContent?.trim() || "",
+          text: list?.textContent || ""
+        };
+      })()`);
+      if (JSON.stringify(state.headers) !== JSON.stringify(["Privilege", "Name"]) || state.row_count !== 13 || !state.text.includes("Technical Documentation")) {
+        throw new Error(`Groups list parity invalid: ${JSON.stringify(state)}`);
+      }
+      return state;
+    }
+  },
+  {
     name: "default-users-flow-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -2489,8 +2615,18 @@ export const scenarios = [
       await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Users", ".o_app_name");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Users action ready");
       const listRows = await waitForCount(page, ".o_web_client .o_data_row", 1, "Users list rows");
-      const listText = await textContent(page, ".o_web_client .gorp-list-view");
-      if (!listText.includes("Administrator") && !listText.includes("admin")) throw new Error(`Users list missing administrator data: ${listText}`);
+      const listState = await evaluate(page, `(() => {
+        const list = document.querySelector(".o_web_client .gorp-list-view");
+        return {
+          headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          text: list?.textContent || "",
+          role_badge: list?.querySelector(".gorp-user-role-badge")?.textContent?.trim() || "",
+          avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0
+        };
+      })()`);
+      if (JSON.stringify(listState.headers) !== JSON.stringify(["Name", "Login", "Role"]) || listState.role_badge !== "Administrator" || listState.avatar_count < 1 || (!listState.text.includes("Administrator") && !listState.text.includes("admin"))) {
+        throw new Error(`Users list invalid: ${JSON.stringify(listState)}`);
+      }
       await clickSelector(page, ".o_web_client .o_data_row");
       await waitForCount(page, ".o_web_client .gorp-form-view[data-model='res.users']", 1, "Users form");
       const formState = await evaluate(page, `(() => {
@@ -2500,6 +2636,8 @@ export const scenarios = [
         const accessNotebook = notebooks.find((notebook) => [...notebook.querySelectorAll(".gorp-form-notebook-tab[role='tab']")].some((node) => node.textContent.trim() === "Access Rights"));
         const accessTabs = [...(accessNotebook?.querySelectorAll(".gorp-form-notebook-tab[role='tab']") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const groupWidget = accessNotebook?.querySelector(".gorp-res-user-group-ids[data-field='group_ids']");
+        const identity = form?.querySelector(".gorp-user-identity.o_user_identity_block");
+        const smartButtons = [...(form?.querySelectorAll(".gorp-access-smart-button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const text = form?.textContent || "";
         return {
           has_form: Boolean(form),
@@ -2509,14 +2647,23 @@ export const scenarios = [
           has_access_notebook: Boolean(accessNotebook),
           has_group_widget: Boolean(groupWidget),
           group_widget_role: groupWidget?.dataset?.role || "",
-          has_identity_label: labels.includes("Name") || labels.includes("Login"),
+          has_identity_block: Boolean(identity),
+          identity_title: identity?.querySelector(".gorp-form-title")?.textContent?.trim() || "",
+          related_partner: identity?.querySelector(".gorp-user-related-partner")?.textContent?.trim() || "",
+          smart_buttons: smartButtons,
           has_identity_value: text.includes("Administrator") || text.includes("admin")
         };
       })()`);
-      if (!formState.has_form || !formState.has_identity_label || !formState.has_identity_value || !formState.has_access_notebook || !formState.access_tabs.includes("Access Rights") || !formState.has_group_widget) {
+      for (const tab of ["Access Rights", "Preferences", "Calendar", "Security"]) {
+        if (!formState.access_tabs.includes(tab)) throw new Error(`Users form missing tab ${tab}: ${JSON.stringify(formState)}`);
+      }
+      for (const smart of ["Groups", "Access Rights", "Record Rules"]) {
+        if (!formState.smart_buttons.some((item) => item.includes(smart))) throw new Error(`Users form missing smart button ${smart}: ${JSON.stringify(formState)}`);
+      }
+      if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
         throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
       }
-      return { list_rows: listRows, form_state: formState };
+      return { list_rows: listRows, list_state: listState, form_state: formState };
     }
   },
   {
@@ -3141,8 +3288,8 @@ async function openDefaultServerActionsList(page, config, viewport) {
   return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount, route_state: routeState };
 }
 
-async function openDefaultAppsCatalogForModule(page, config, moduleName, marker) {
-  await setViewport(page, desktopViewport());
+async function openDefaultAppsCatalog(page, config, viewport = desktopViewport(), marker = "apps_catalog") {
+  await setViewport(page, viewport);
   await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&${marker}_auth=1`) });
   await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "Apps catalog auth document ready");
   await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
@@ -3151,6 +3298,10 @@ async function openDefaultAppsCatalogForModule(page, config, moduleName, marker)
   await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Apps", ".o_app_name");
   await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Apps catalog action ready");
   await waitForCount(page, ".o_web_client .gorp-apps-catalog", 1, "TS Apps catalog");
+}
+
+async function openDefaultAppsCatalogForModule(page, config, moduleName, marker) {
+  await openDefaultAppsCatalog(page, config, desktopViewport(), marker);
   await setInput(page, ".o_web_client .gorp-apps-catalog .o_searchview_input", moduleName);
   await waitForCount(page, `.o_web_client .gorp-apps-catalog-card[data-module-name='${moduleName}']`, 1, `${moduleName} module card`);
 }
@@ -3304,7 +3455,7 @@ async function ensureScheduledActionSmokeRecord(page, config) {
   const actionID = Number(ids["base.action_ir_cron"] || 0);
   if (!actionID) throw new Error("base.action_ir_cron not found for scheduled action smoke");
   const rows = await webCallKW(page, config, "ir.cron", "search_read", {
-    args: [[["state", "=", "code"]]],
+    args: [[["name", "=", "Base: Auto-vacuum internal data"]]],
     kwargs: { fields: ["id", "name"], limit: 1 }
   });
   const existingID = Number(rows?.[0]?.id || 0);

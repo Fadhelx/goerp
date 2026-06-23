@@ -183,3 +183,40 @@ assert.deepEqual(catalogOpened, [
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Apps");
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "12");
 assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.className).includes("o_nav_entry active")).length, 1);
+
+const directContextOpened = [];
+const directContextShell = createWebClientShell({
+  theme: {
+    name: "enterprise-like",
+    color: {},
+    typography: {},
+    radius: {},
+    spacing: {},
+    density: "compact"
+  },
+  menus: {
+    root: { children: [20] },
+    20: { id: 20, name: "Settings", children: [21, 22, 23, 24] },
+    21: { id: 21, name: "General Settings", actionID: 121, children: [] },
+    22: { id: 22, name: "Users & Companies", children: [25] },
+    23: { id: 23, name: "Translations", actionID: 123, children: [] },
+    24: { id: 24, name: "Technical", children: [26] },
+    25: { id: 25, name: "Users", actionID: 125, children: [] },
+    26: { id: 26, name: "Server Actions", actionID: 126, children: [] }
+  },
+  onOpenApp(app) {
+    directContextOpened.push(app.id);
+  }
+});
+assert.equal(directContextShell.setMenuContext(26), true);
+const directContextNavbar = findAll(directContextShell, (node) => String(node.className).includes("o_main_navbar"))[0];
+assert.equal(directContextNavbar.dataset.activeMenuId, "24");
+assert.equal(findAll(directContextShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Settings");
+assert.deepEqual(findAll(directContextShell, (node) => String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), [
+  "General Settings",
+  "Users & Companies",
+  "Translations",
+  "Technical"
+]);
+assert.equal(findAll(directContextShell, (node) => node.dataset?.menuId === "24" && String(node.className).includes("active")).length, 1);
+assert.deepEqual(directContextOpened, []);

@@ -316,6 +316,7 @@ func TestManifestDataFilesLoad(t *testing.T) {
 		"base.paperformat_euro",
 		"base.paperformat_us",
 		"base.paperformat_batch_deposit",
+		"base.group_technical_documentation",
 		"base.user_root",
 		"base.user_admin",
 		"base.public_user",
@@ -332,7 +333,7 @@ func TestManifestDataFilesLoad(t *testing.T) {
 	assertRecordCount(t, env, "res.bank", 1)
 	assertRecordCount(t, env, "res.partner", 4)
 	assertRecordCount(t, env, "res.partner.industry", 21)
-	assertRecordCount(t, env, "res.groups", 13)
+	assertRecordCount(t, env, "res.groups", 14)
 	assertRecordCount(t, env, "res.groups.privilege", 3)
 	assertRecordCount(t, env, "ir.model.access", 165)
 	assertRecordCount(t, env, "ir.rule", 32)

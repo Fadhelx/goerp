@@ -27,6 +27,7 @@ export interface WebClientShellOptions {
 
 export interface RenderedWebClientShell extends HTMLElement {
   openMenuApp: (menuId: number | string) => unknown;
+  setMenuContext: (menuId: number | string) => boolean;
 }
 
 export function createWebClientShell(options: WebClientShellOptions): RenderedWebClientShell {
@@ -52,7 +53,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   let setNavbarHomeMenuBackMode: (enabled: boolean) => void = () => {};
   let activeBrandApp: HomeMenuApp | undefined;
   let previousActionChildren: HTMLElement[] = [];
-  const openApp = (app: HomeMenuApp) => {
+  const applyMenuContext = (app: HomeMenuApp) => {
     previousActionChildren = [];
     root.dataset.view = "action";
     delete root.dataset.homeMenuMode;
@@ -63,9 +64,12 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     const catalogApp = appName.toLowerCase() === "apps";
     const brandApp = catalogApp ? app : app.rootId === undefined ? app : menuApps.find((item) => String(item.id) === String(app.rootId)) ?? app;
     activeBrandApp = brandApp;
-    const sections = catalogApp ? [{ id: app.id, name: appName }] : navbarSectionApps(options.menus, brandApp);
+    const sections = catalogApp ? appsCatalogNavbarSections(app) : navbarSectionApps(options.menus, brandApp);
     const activeSectionID = catalogApp ? app.id : app.rootId === undefined ? app.id : navbarActiveSectionId(options.menus, brandApp, app) ?? app.rootId;
     setNavbarApps(sections.length ? sections : apps, activeSectionID, brandApp.name);
+  };
+  const openApp = (app: HomeMenuApp) => {
+    applyMenuContext(app);
     return options.onOpenApp?.(app, action);
   };
   const openAppsCatalog = () => {
@@ -150,6 +154,12 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     if (!menuApp) return undefined;
     return openApp(menuApp);
   };
+  root.setMenuContext = (menuId: number | string): boolean => {
+    const menuApp = menuActions.find((item) => String(item.id) === String(menuId));
+    if (!menuApp) return false;
+    applyMenuContext(menuApp);
+    return true;
+  };
 
   if (options.menus) {
     renderRootApps();
@@ -206,6 +216,15 @@ function navbarMenuEntry(payload: HomeMenuPayload, id: number | string): NavbarA
     action: menuDirectActionValue(entry) !== undefined || (menuActionValue(entry) !== undefined && !children.length),
     children
   };
+}
+
+function appsCatalogNavbarSections(app: HomeMenuApp): NavbarApp[] {
+  return [
+    { id: app.id, name: "Apps", action: true },
+    { id: `${app.id}:update-apps`, name: "Update Apps List" },
+    { id: `${app.id}:scheduled-upgrades`, name: "Apply Scheduled Upgrades" },
+    { id: `${app.id}:import-module`, name: "Import Module" }
+  ];
 }
 
 function firstSectionAction(actions: readonly HomeMenuApp[], sectionName: string, activeRoot: HomeMenuApp | undefined): HomeMenuApp | undefined {

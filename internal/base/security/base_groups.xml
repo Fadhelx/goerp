@@ -58,6 +58,11 @@
             <field name="implied_by_ids" eval="[Command.link(ref('group_user')), Command.link(ref('group_system'))]"/>
         </record>
 
+        <record model="res.groups" id="group_technical_documentation">
+            <field name="name">Technical Documentation</field>
+            <field name="implied_by_ids" eval="[Command.link(ref('group_user')), Command.link(ref('group_system'))]"/>
+        </record>
+
         <record model="res.groups" id="group_allow_export">
             <field name="name">Allowed</field>
             <field name="user_ids" eval="[Command.link(ref('base.user_root'))]"/>

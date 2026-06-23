@@ -1941,13 +1941,13 @@ assert.deepEqual(genericFormSearchCalls[1], {
   kwargs: { name: "mail", domain: [["transient", "=", false]], operator: "ilike", limit: 12, context: { lang: "en_US", active_test: false } }
 });
 genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
-assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Mail", "Mail Server", "Message"]);
+assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Mail Server"]);
 assert.equal(genericRelationOptions.some((node) => /\b[a-z_]+\.[a-z0-9_.]+\b/.test(node.textContent)), false);
 assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create")).length, 0);
 assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit")).length, 0);
 genericRelationOptions[0].dispatchEvent(new TestEvent("click"));
-assert.equal(genericRelation.dataset.resId, "81");
-assert.equal(genericRelationInput.value, "Mail");
+assert.equal(genericRelation.dataset.resId, "45");
+assert.equal(genericRelationInput.value, "Mail Server");
 const genericInitialGroupTags = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-tag"));
 assert.deepEqual(findAll(genericInitialGroupTags[0], (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-editor-label")).map((node) => node.textContent), ["Base / User"]);
 genericGroupsInput.value = "sales";
@@ -2009,7 +2009,7 @@ assert.deepEqual(genericFormSaveCalls, [{
   changes: {
     name: "Send Follow-up",
     email: "follow@example.com",
-    model_id: 81,
+    model_id: 45,
     group_ids: [[6, false, [30]]],
     line_ids: [
       [1, 201, { description: "Updated line", owner_id: 8, quantity: "5" }],
@@ -2026,8 +2026,8 @@ assert.equal(genericSaveButton.hidden, true);
 genericForm = genericFormWindow.children[1];
 const genericSavedRelationValue = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-value") && node.dataset?.field === "model_id")[0];
 assert.equal(genericSavedRelationValue.tag, "output");
-assert.equal(genericSavedRelationValue.textContent, "Mail");
-assert.equal(genericSavedRelationValue.dataset.resId, "81");
+assert.equal(genericSavedRelationValue.textContent, "Mail Server");
+assert.equal(genericSavedRelationValue.dataset.resId, "45");
 assert.equal(genericSavedRelationValue.dataset.noOpen, "true");
 const genericSavedGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-tags") && node.dataset?.field === "group_ids")[0];
 assert.equal(genericSavedGroups.dataset.count, "1");
@@ -2216,14 +2216,15 @@ assert.equal(cronBand.dataset.state, "code");
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-badge"))[0].textContent, "Scheduled Action");
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-meta-value"))[0].textContent, "4 Hours");
+assert.equal(findAll(cronForm, (node) => node.dataset?.scheduledActionRun === "true")[0].textContent, "Run Manually");
 assert.deepEqual(findAll(cronForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 7), [
-  "Name",
-  "Active",
-  "Repeat Every",
-  "Interval Unit",
-  "Next Execution Date",
   "Run As",
-  "Action Type"
+  "Interval",
+  "Interval Unit",
+  "Active",
+  "Next Execution Date",
+  "Action Type",
+  "Code"
 ]);
 const cronNotebook = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-scheduled-action-notebook"))[0];
 assert.deepEqual(findAll(cronNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
@@ -5686,13 +5687,13 @@ const usersFormResult = await usersFormSpecServices.action.doAction({
   views: [[false, "form"]]
 });
 const usersWebRead = usersFormSpecRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
-assert.deepEqual(Object.keys(usersWebRead.params.kwargs.specification), ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+assert.deepEqual(Object.keys(usersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature", "partner_id"]);
 assert.deepEqual(usersWebRead.params.kwargs.specification.company_id, { fields: { display_name: {} } });
 assert.deepEqual(usersWebRead.params.kwargs.specification.partner_id, { fields: { display_name: {} } });
 const usersFormWindow = renderWindowAction(usersFormResult);
 let usersForm = usersFormWindow.children[1];
 assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-sheet")).length, 1);
-assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Administrator", "Name", "Login", "Email", "Partner"]);
+assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Name", "Login", "Email", "Company", "Role"]);
 const usersAccessNotebook = findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(usersAccessNotebook);
 assert.deepEqual(findAll(usersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);
@@ -5774,9 +5775,9 @@ const badUsersFormResult = await usersBadArchServices.action.doAction({
   views: [[26, "form"]]
 });
 const badUsersWebRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
-assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature", "partner_id"]);
 const badUsersFormWindow = renderWindowAction(badUsersFormResult);
-assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Administrator", "Name", "Login", "Email"]);
+assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Name", "Login", "Email", "Company"]);
 const badUsersAccessNotebook = findAll(badUsersFormWindow, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(badUsersAccessNotebook);
 assert.deepEqual(findAll(badUsersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);

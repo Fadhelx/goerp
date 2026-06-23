@@ -7801,6 +7801,46 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--accent-2);
 		text-decoration: none;
 	}
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_fields {
+		display: grid;
+		grid-template-columns: minmax(180px, 1fr) auto;
+		align-items: end;
+		gap: 10px;
+		max-width: 420px;
+	}
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_field_label,
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_field[data-field="invite_email"] .o_setting_field_label {
+		display: none;
+	}
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_field {
+		display: block;
+		min-width: 0;
+	}
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_field .o_input {
+		width: 100%;
+		border-width: 0 0 1px;
+		border-radius: 0;
+		background: transparent;
+		padding-left: 0;
+		box-shadow: none;
+	}
+	.o_setting_box[data-setting-id="invite_users"] .o_setting_buttons {
+		margin: 0;
+	}
+	.o_setting_invite.btn {
+		min-height: 33px;
+		padding: 6px 16px;
+		border-color: #714b67;
+		background: #714b67;
+		color: #fff;
+	}
+	.o_setting_box[data-setting-id="users"] .o_field_widget,
+	.o_setting_box[data-setting-id="languages"] .o_field_widget,
+	.o_setting_box[data-setting-id="companies"] .o_field_widget,
+	.o_setting_box[data-setting-id="company_records"] .o_field_widget,
+	.o_setting_box[data-setting-id="document_layout"] .o_field_widget {
+		display: none;
+	}
 	.gorp-form-body.o_form_sheet_bg {
 		padding: 16px 18px 26px;
 		background: #eef0f3;
@@ -7825,6 +7865,13 @@ const webClientShellHTML = `<!doctype html>
 		line-height: 1.18;
 		font-weight: 500;
 		letter-spacing: 0;
+	}
+	.gorp-scheduled-action-run.o_cron_run_manually {
+		margin: 10px 0 8px;
+		min-height: 33px;
+		border-color: #714b67;
+		background: #714b67;
+		color: #fff;
 	}
 	.gorp-server-action-band.o_server_action_band {
 		display: grid;

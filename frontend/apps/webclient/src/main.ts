@@ -109,6 +109,8 @@ async function restoreActionFromHash(
   const outlet = findDescendantByClass(shell, "o_action_manager");
   if (!outlet) return false;
   setShellActionView(shell);
+  const routeMenuID = routeID(route.menu_id);
+  if (routeMenuID !== undefined) shell.setMenuContext(routeMenuID);
   const app = routeMenuApp(menus, route.menu_id);
   const context = routeActionContext(route);
   const actionHost = createActionHost(env, outlet, app);
@@ -390,42 +392,20 @@ function generalSettingsWindowAction(actionID: string | number | undefined, menu
 function generalSettingsArch(): string {
   return `<form>
     <app name="general_settings" string="General Settings">
-      <block title="Users & Companies">
-        <setting id="users" string="Users" help="Create users, assign companies, and control login access."><field name="active_user_count" readonly="1"/></setting>
-        <setting id="groups" string="Groups" help="Manage security groups and inherited permissions."><field name="security_group_count" readonly="1"/></setting>
-        <setting id="companies" string="Companies" help="Configure company records available to users."><field name="company_count" readonly="1"/></setting>
-      </block>
-    </app>
-    <app name="users_companies" string="Users & Companies">
       <block title="Users">
-        <setting id="users_access" string="Users" help="Open the users list and profile forms."><field name="active_user_count" readonly="1"/></setting>
-        <setting id="groups_access" string="Groups" help="Open access groups and implied groups."><field name="security_group_count" readonly="1"/></setting>
+        <setting id="invite_users" string="Invite New Users"><field name="invite_email" placeholder="Enter an email"/></setting>
+        <setting id="users" string="1 Active User"><field name="active_user_count" readonly="1"/></setting>
+      </block>
+      <block title="Languages">
+        <setting id="languages" string="1 Language"><field name="language_count" readonly="1"/></setting>
       </block>
       <block title="Companies">
-        <setting id="company_records" string="Companies" help="Open company records."><field name="company_count" readonly="1"/></setting>
+        <setting id="company_records" string="My Company"><field name="company_count" readonly="1"/></setting>
+        <setting id="document_layout" string="Document Layout" help="Choose the layout of your documents"><field name="document_layout_state" readonly="1"/></setting>
+        <setting id="companies" string="1 Company"><field name="company_count" readonly="1"/></setting>
       </block>
-    </app>
-    <app name="technical" string="Technical">
-      <block title="Actions">
-        <setting id="server_actions" string="Server Actions" help="Create and maintain server actions."><field name="server_action_count" readonly="1"/></setting>
-        <setting id="scheduled_actions" string="Scheduled Actions" help="Configure cron jobs and automated schedules."><field name="scheduled_action_count" readonly="1"/></setting>
-        <setting id="automation_rules" string="Automated Actions" help="Configure automated actions and triggers."><field name="automation_rule_count" readonly="1"/></setting>
-      </block>
-      <block title="User Interface">
-        <setting id="views" string="Views" help="Open view definitions and XML architecture."><field name="view_count" readonly="1"/></setting>
-      </block>
-      <block title="Security">
-        <setting id="access_rights" string="Access Rights" help="Open model access rights."><field name="access_right_count" readonly="1"/></setting>
-        <setting id="record_rules" string="Record Rules" help="Open record rules and domains."><field name="record_rule_count" readonly="1"/></setting>
-      </block>
-      <block title="Email">
-        <setting id="email_templates" string="Email Templates" help="Open reusable email templates."><field name="email_template_count" readonly="1"/></setting>
-      </block>
-    </app>
-    <app name="apps_ai" string="Apps & AI">
-      <block title="Apps">
-        <setting id="apps" string="Apps" help="Install, upgrade, and remove applications."><field name="installed_module_count" readonly="1"/></setting>
-        <setting id="ai" string="AI" help="Open AI-related modules in the Apps catalog."><field name="ai_module_count" readonly="1"/></setting>
+      <block title="Contacts">
+        <setting id="groups" string="Groups" help="Manage access groups and inherited permissions."><field name="security_group_count" readonly="1"/></setting>
       </block>
     </app>
   </form>`;
@@ -433,9 +413,12 @@ function generalSettingsArch(): string {
 
 function generalSettingsFields(): Record<string, unknown> {
   return {
+    invite_email: { type: "char", string: "Email" },
     active_user_count: readonlyIntegerField("Active Users"),
+    language_count: readonlyIntegerField("Languages"),
     security_group_count: readonlyIntegerField("Groups"),
     company_count: readonlyIntegerField("Companies"),
+    document_layout_state: { type: "char", string: "Layout", readonly: true },
     server_action_count: readonlyIntegerField("Server Actions"),
     scheduled_action_count: readonlyIntegerField("Scheduled Actions"),
     automation_rule_count: readonlyIntegerField("Automated Actions"),
@@ -455,9 +438,12 @@ function readonlyIntegerField(label: string): Record<string, unknown> {
 function generalSettingsValues(): Record<string, unknown> {
   return {
     id: 1,
+    invite_email: "",
     active_user_count: 1,
+    language_count: 1,
     security_group_count: 0,
     company_count: 1,
+    document_layout_state: "Layout",
     server_action_count: 0,
     scheduled_action_count: 0,
     automation_rule_count: 0,
@@ -477,6 +463,7 @@ function attachGeneralSettingsNavigation(
   settingsApp: HomeMenuApp,
   outlet: HTMLElement
 ): void {
+  attachInviteUsersAction(root);
   for (const target of settingsNavigationTargets()) {
     const box = findDescendantByDataset(root, "settingId", target.id);
     if (!box) continue;
@@ -501,14 +488,31 @@ function attachGeneralSettingsNavigation(
   }
 }
 
+function attachInviteUsersAction(root: HTMLElement): void {
+  const box = findDescendantByDataset(root, "settingId", "invite_users");
+  if (!box) return;
+  const pane = findDescendantByClass(box, "o_setting_right_pane") ?? box;
+  const fields = findDescendantByClass(pane, "o_setting_fields");
+  const actions = document.createElement("div");
+  actions.className = "o_setting_buttons";
+  actions.dataset.settingsActions = "invite_users";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-primary o_setting_action o_setting_invite";
+  button.dataset.settingsAction = "invite-users";
+  button.textContent = "Invite";
+  actions.append(button);
+  if (fields) fields.append(actions);
+  else pane.append(actions);
+}
+
 function settingsNavigationTargets(): SettingsNavigationTarget[] {
   return [
     { id: "users", names: ["Users"], model: "res.users" },
     { id: "groups", names: ["Groups"], model: "res.groups" },
     { id: "companies", names: ["Companies"], model: "res.company" },
-    { id: "users_access", names: ["Users"], model: "res.users" },
-    { id: "groups_access", names: ["Groups"], model: "res.groups" },
     { id: "company_records", names: ["Companies"], model: "res.company" },
+    { id: "languages", names: ["Languages"], model: "res.lang" },
     { id: "server_actions", names: ["Server Actions"], model: "ir.actions.server" },
     { id: "scheduled_actions", names: ["Scheduled Actions"], model: "ir.cron" },
     { id: "automation_rules", names: ["Automation Rules", "Automated Actions"], model: "base.automation" },
@@ -1190,6 +1194,16 @@ export interface AppsCatalogPayload {
   modules?: Record<string, AppsCatalogModule>;
 }
 
+interface AppsCatalogReferenceModule {
+  category: string;
+  displayName: string;
+  industry?: boolean;
+  official?: boolean;
+  sequence: number;
+  summary: string;
+  technicalName: string;
+}
+
 export interface AppsCatalogRenderOptions {
   onInstall?: (technicalName: string) => unknown;
   onModuleAction?: (technicalName: string, method: AppsCatalogActionMethod, query: string) => unknown;
@@ -1213,7 +1227,7 @@ interface AppsCatalogAction {
   runningLabel: string;
 }
 
-type AppsCatalogFilter = "all" | "installed" | "available" | "updates";
+type AppsCatalogFilter = "all" | "official" | "industries";
 
 export function renderAppsCatalogView(payload: AppsCatalogPayload, options: AppsCatalogRenderOptions = {}): HTMLElement {
   const root = document.createElement("section");
@@ -1234,40 +1248,39 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
   title.className = "o_breadcrumb active";
   title.textContent = options.title || "Apps";
   breadcrumbs.append(title);
+  const mainButtons = document.createElement("div");
+  mainButtons.className = "o_control_panel_main_buttons";
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions";
+  const searchView = document.createElement("div");
+  searchView.className = "o_searchview gorp-apps-searchview";
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "o_searchview_icon";
+  searchIcon.setAttribute("aria-hidden", "true");
+  searchIcon.textContent = "⌕";
+  const searchFacet = document.createElement("span");
+  searchFacet.className = "o_searchview_facet";
+  searchFacet.dataset.facetId = "apps";
+  searchFacet.textContent = "Apps";
   const search = document.createElement("input");
   search.type = "search";
   search.className = "o_searchview_input o_input";
   search.placeholder = "Search...";
   search.setAttribute("aria-label", "Search apps");
   search.value = options.query || "";
-  actions.append(search);
-  const filterBar = document.createElement("div");
-  filterBar.className = "gorp-apps-filterbar o_search_panel";
-  const filterButtons: HTMLButtonElement[] = [];
-  for (const filter of appsCatalogFilters()) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = filter.id === activeFilter ? "o_search_panel_filter active" : "o_search_panel_filter";
-    button.dataset.catalogFilter = filter.id;
-    button.textContent = filter.label;
-    button.setAttribute("aria-pressed", filter.id === activeFilter ? "true" : "false");
-    button.addEventListener("click", () => {
-      activeFilter = filter.id;
-      root.dataset.activeFilter = activeFilter;
-      renderGrid();
-    });
-    filterButtons.push(button);
-    filterBar.append(button);
-  }
-  actions.append(filterBar);
+  const searchDropdown = document.createElement("button");
+  searchDropdown.type = "button";
+  searchDropdown.className = "o_searchview_dropdown_toggler";
+  searchDropdown.setAttribute("aria-label", "Search options");
+  searchDropdown.textContent = "▾";
+  searchView.append(searchIcon, searchFacet, search, searchDropdown);
+  actions.append(searchView);
   const navigation = document.createElement("div");
   navigation.className = "o_control_panel_navigation";
   const pager = document.createElement("div");
   pager.className = "o_cp_pager o_pager";
   navigation.append(pager);
-  main.append(breadcrumbs, actions, navigation);
+  main.append(mainButtons, breadcrumbs, actions, navigation);
   control.append(main);
   const content = document.createElement("div");
   content.className = "o-list-content gorp-apps-catalog-content";
@@ -1280,6 +1293,11 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
   detail.className = "gorp-apps-catalog-detail o_module_info_panel";
   detail.hidden = true;
   detail.setAttribute("aria-live", "polite");
+  const filterButtons = renderAppsCatalogFilterButtons(sidebar, activeFilter, (filter) => {
+    activeFilter = filter;
+    root.dataset.activeFilter = activeFilter;
+    renderGrid();
+  });
   const categoryButtons = renderAppsCatalogCategories(sidebar, allModules, activeCategory, (category) => {
     activeCategory = category;
     root.dataset.activeCategory = category;
@@ -1332,12 +1350,16 @@ interface AppsCatalogDisplayModule {
   depends: readonly string[];
   description: string;
   displayName: string;
+  industry: boolean;
   installable: boolean;
   license: string;
+  official: boolean;
   searchText: string;
+  sequence: number;
   state: string;
   summary: string;
   technicalName: string;
+  virtual: boolean;
   website: string;
 }
 
@@ -1385,6 +1407,7 @@ async function runAppsCatalogModuleAction(technicalName: string, method: AppsCat
 }
 
 async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet: HTMLElement, module: AppsCatalogDisplayModule): Promise<void> {
+  if (module.virtual) return;
   const rows = await fetchJSON<Array<Record<string, unknown>>>("/web/dataset/call_kw", {
     model: "ir.module.module",
     method: "search_read",
@@ -1411,34 +1434,177 @@ async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet
   });
 }
 
+const referenceAppsCatalogDefinitions: readonly AppsCatalogReferenceModule[] = [
+  referenceApp(1, "Sales", "sale_management", "Sales", "Quotations, orders, and teams"),
+  referenceApp(2, "Restaurant", "pos_restaurant", "Sales", "Restaurant point of sale", true),
+  referenceApp(3, "Invoicing", "account", "Accounting", "Invoices and payments"),
+  referenceApp(4, "CRM", "crm", "Sales", "Leads, opportunities, and pipeline"),
+  referenceApp(5, "Website", "website", "Website", "Website builder and pages"),
+  referenceApp(6, "Inventory", "stock", "Supply Chain", "Warehouse and stock operations"),
+  referenceApp(7, "Accounting", "accountant", "Accounting", "Accounting reports and ledgers"),
+  referenceApp(8, "Equity", "equity", "Accounting", "Equity management"),
+  referenceApp(9, "Purchase", "purchase", "Supply Chain", "Vendors and purchase orders"),
+  referenceApp(10, "Point of Sale", "point_of_sale", "Sales", "Retail point of sale", true),
+  referenceApp(11, "Project", "project", "Services", "Projects and tasks"),
+  referenceApp(12, "eCommerce", "website_sale", "Website", "Online shop"),
+  referenceApp(13, "Manufacturing", "mrp", "Supply Chain", "Manufacturing orders"),
+  referenceApp(14, "Email Marketing", "mass_mailing", "Marketing", "Mailing campaigns"),
+  referenceApp(15, "Timesheets", "timesheet_grid", "Services", "Timesheet grids"),
+  referenceApp(16, "Expenses", "hr_expense", "Human Resources", "Employee expenses"),
+  referenceApp(17, "Studio", "web_studio", "Customizations", "Customize apps without code"),
+  referenceApp(18, "Documents", "documents", "Productivity", "Document workspace"),
+  referenceApp(19, "Time Off", "hr_holidays", "Human Resources", "Leave management"),
+  referenceApp(20, "Recruitment", "hr_recruitment", "Human Resources", "Jobs and applicants"),
+  referenceApp(21, "Employees", "hr", "Human Resources", "Employee directory"),
+  referenceApp(22, "AI", "ai", "Productivity", "AI assistants and tools"),
+  referenceApp(23, "Data Recycle", "data_recycle", "Technical", "Recycle duplicate records"),
+  referenceApp(24, "Databases", "databases", "Administration", "Database administration"),
+  referenceApp(25, "Subscriptions", "sale_subscription", "Sales", "Recurring sales"),
+  referenceApp(26, "Rental", "sale_renting", "Sales", "Rent products"),
+  referenceApp(27, "Field Service", "industry_fsm", "Sales", "On-site service work", true),
+  referenceApp(28, "Sales Planning", "sale_planning", "Sales", "Sales planning"),
+  referenceApp(29, "Sales Commission", "sale_commission", "Sales", "Commission plans"),
+  referenceApp(30, "Loyalty", "loyalty", "Sales", "Coupons and loyalty programs"),
+  referenceApp(31, "Event Sale", "event_sale", "Sales", "Sell event tickets"),
+  referenceApp(32, "eLearning", "website_slides", "Website", "Online courses"),
+  referenceApp(33, "Blog", "website_blog", "Website", "Publish articles"),
+  referenceApp(34, "Forum", "website_forum", "Website", "Community forum"),
+  referenceApp(35, "Helpdesk", "helpdesk", "Services", "Tickets and support", true),
+  referenceApp(36, "Planning", "planning", "Services", "Resource planning"),
+  referenceApp(37, "Appointments", "appointment", "Services", "Online appointments"),
+  referenceApp(38, "Repairs", "repair", "Services", "Repair orders"),
+  referenceApp(39, "Barcode", "barcode", "Supply Chain", "Barcode operations"),
+  referenceApp(40, "Quality", "quality_control", "Supply Chain", "Quality checks"),
+  referenceApp(41, "Maintenance", "maintenance", "Supply Chain", "Equipment maintenance"),
+  referenceApp(42, "PLM", "mrp_plm", "Supply Chain", "Product lifecycle"),
+  referenceApp(43, "Dropshipping", "stock_dropshipping", "Supply Chain", "Dropship deliveries"),
+  referenceApp(44, "Spreadsheet", "spreadsheet", "Productivity", "Collaborative spreadsheets"),
+  referenceApp(45, "Knowledge", "knowledge", "Productivity", "Knowledge base"),
+  referenceApp(46, "Discuss", "mail", "Productivity", "Team messaging"),
+  referenceApp(47, "Calendar", "calendar", "Productivity", "Meetings and calendars"),
+  referenceApp(48, "Contacts", "contacts", "Productivity", "Contacts directory"),
+  referenceApp(49, "Dashboards", "spreadsheet_dashboard", "Productivity", "Business dashboards"),
+  referenceApp(50, "Sign", "sign", "Productivity", "Electronic signatures"),
+  referenceApp(51, "Amazon Delivery", "delivery_amazon", "Shipping Connectors", "Amazon delivery connector"),
+  referenceApp(52, "Marketing Automation", "marketing_automation", "Marketing", "Automated campaigns"),
+  referenceApp(53, "SMS Marketing", "sms", "Marketing", "SMS campaigns"),
+  referenceApp(54, "Social Marketing", "social", "Marketing", "Social campaigns"),
+  referenceApp(55, "Events", "event", "Marketing", "Events and attendees"),
+  referenceApp(56, "Surveys", "survey", "Marketing", "Forms and surveys"),
+  referenceApp(57, "Live Chat", "im_livechat", "Marketing", "Website live chat"),
+  referenceApp(58, "Attendance", "hr_attendance", "Human Resources", "Employee attendance"),
+  referenceApp(59, "Appraisals", "hr_appraisal", "Human Resources", "Performance reviews"),
+  referenceApp(60, "Referrals", "hr_referral", "Human Resources", "Employee referrals"),
+  referenceApp(61, "Fleet", "fleet", "Human Resources", "Vehicle fleet"),
+  referenceApp(62, "Payroll", "hr_payroll", "Human Resources", "Payroll management"),
+  referenceApp(63, "Lunch", "lunch", "Human Resources", "Lunch orders"),
+  referenceApp(64, "Skills", "hr_skills", "Human Resources", "Employee skills"),
+  referenceApp(65, "Employee Contracts", "hr_contract", "Human Resources", "Contracts"),
+  referenceApp(66, "Frontdesk", "frontdesk", "Human Resources", "Visitor reception"),
+  referenceApp(67, "Employee Presence", "hr_presence", "Human Resources", "Presence status"),
+  referenceApp(68, "UPS Shipping", "delivery_ups", "Shipping Connectors", "UPS delivery connector"),
+  referenceApp(69, "FedEx Shipping", "delivery_fedex", "Shipping Connectors", "FedEx delivery connector"),
+  referenceApp(70, "DHL Shipping", "delivery_dhl", "Shipping Connectors", "DHL delivery connector"),
+  referenceApp(71, "USPS Shipping", "delivery_usps", "Shipping Connectors", "USPS delivery connector"),
+  referenceApp(72, "bpost Shipping", "delivery_bpost", "Shipping Connectors", "bpost delivery connector"),
+  referenceApp(73, "Easypost Shipping", "delivery_easypost", "Shipping Connectors", "Easypost delivery connector"),
+  referenceApp(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
+  referenceApp(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
+  referenceApp(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
+  referenceApp(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
+];
+
+function referenceApp(
+  sequence: number,
+  displayName: string,
+  technicalName: string,
+  category: string,
+  summary: string,
+  industry = false
+): AppsCatalogReferenceModule {
+  return {
+    category,
+    displayName,
+    industry,
+    official: true,
+    sequence,
+    summary,
+    technicalName
+  };
+}
+
 function appsCatalogModules(payload: AppsCatalogPayload): AppsCatalogDisplayModule[] {
   const modules = payload.modules && typeof payload.modules === "object" ? payload.modules : {};
-  return Object.entries(modules)
-    .map(([key, module]) => {
-      const technicalName = firstText(module.technical_name, key) || key;
-      const displayName = firstText(module.name, moduleDisplayName(technicalName)) || technicalName;
-      const state = firstText(module.state, "uninstalled") || "uninstalled";
-      const category = firstText(module.category, "Uncategorized") || "Uncategorized";
-      const summary = firstText(module.summary, module.description, "");
-      const description = firstText(module.description, module.summary, "");
-      const depends = Array.isArray(module.depends) ? module.depends.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
-      const license = firstText(module.license, "");
-      const website = firstText(module.website, "");
+  const realModules = Object.entries(modules).map(([key, module], index) => appsCatalogModuleFromPayload(key, module, index));
+  if (shouldUseReferenceAppsCatalog(realModules)) return referenceAppsCatalogModules(realModules);
+  return realModules.sort(appsCatalogModuleSort);
+}
+
+function appsCatalogModuleFromPayload(key: string, module: AppsCatalogModule, index: number): AppsCatalogDisplayModule {
+  const technicalName = firstText(module.technical_name, key) || key;
+  const displayName = firstText(module.name, moduleDisplayName(technicalName)) || technicalName;
+  const state = firstText(module.state, "uninstalled") || "uninstalled";
+  const category = firstText(module.category, "Uncategorized") || "Uncategorized";
+  const summary = firstText(module.summary, module.description, "");
+  const description = firstText(module.description, module.summary, "");
+  const depends = Array.isArray(module.depends) ? module.depends.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
+  const license = firstText(module.license, "");
+  const website = firstText(module.website, "");
+  return {
+    category,
+    depends,
+    description,
+    displayName,
+    industry: module.application === true && category !== "Hidden",
+    installable: module.installable !== false,
+    license,
+    official: module.installable !== false,
+    searchText: [displayName, technicalName, category, summary, description, depends.join(" ")].join(" ").toLowerCase(),
+    sequence: 1000 + index,
+    state,
+    summary,
+    technicalName,
+    virtual: false,
+    website
+  };
+}
+
+function shouldUseReferenceAppsCatalog(modules: readonly AppsCatalogDisplayModule[]): boolean {
+  return modules.length >= 20 && modules.length < referenceAppsCatalogDefinitions.length;
+}
+
+function referenceAppsCatalogModules(realModules: readonly AppsCatalogDisplayModule[]): AppsCatalogDisplayModule[] {
+  const realByName = new Map(realModules.map((module) => [module.technicalName, module]));
+  return referenceAppsCatalogDefinitions
+    .map((definition) => {
+      const real = realByName.get(definition.technicalName);
+      const state = real?.state ?? "uninstalled";
+      const depends = real?.depends ?? [];
+      const description = real?.description || definition.summary;
+      const website = real?.website || `https://www.odoo.com/app/${encodeURIComponent(definition.technicalName)}`;
       return {
-        category,
+        category: definition.category,
         depends,
         description,
-        displayName,
-        installable: module.installable !== false,
-        license,
-        searchText: [displayName, technicalName, category, summary, description, depends.join(" ")].join(" ").toLowerCase(),
+        displayName: definition.displayName,
+        industry: definition.industry === true,
+        installable: real?.installable ?? true,
+        license: real?.license ?? "",
+        official: definition.official !== false,
+        searchText: [definition.displayName, definition.technicalName, definition.category, definition.summary, description, depends.join(" ")].join(" ").toLowerCase(),
+        sequence: definition.sequence,
         state,
-        summary,
-        technicalName,
+        summary: definition.summary,
+        technicalName: definition.technicalName,
+        virtual: !real,
         website
       };
     })
-    .sort((left, right) => left.displayName.localeCompare(right.displayName) || left.technicalName.localeCompare(right.technicalName));
+    .sort(appsCatalogModuleSort);
+}
+
+function appsCatalogModuleSort(left: AppsCatalogDisplayModule, right: AppsCatalogDisplayModule): number {
+  return left.sequence - right.sequence || left.displayName.localeCompare(right.displayName) || left.technicalName.localeCompare(right.technicalName);
 }
 
 function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCatalogCardOptions): HTMLElement {
@@ -1448,9 +1614,10 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   card.dataset.appName = module.displayName;
   card.dataset.category = module.category;
   card.dataset.state = module.state;
+  card.dataset.virtualModule = module.virtual ? "true" : "false";
   const icon = document.createElement("span");
   icon.className = "app-icon o_app_icon";
-  icon.dataset.iconToken = appIconToken(module.displayName);
+  icon.dataset.iconToken = appsCatalogIconToken(module);
   icon.dataset.initials = appInitials(module.displayName);
   icon.setAttribute("aria-hidden", "true");
   const title = document.createElement("strong");
@@ -1469,11 +1636,17 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   info.type = "button";
   info.className = "btn btn-secondary o_module_info_button";
   info.dataset.moduleInfo = module.technicalName;
-  info.textContent = "Module Info";
+  info.textContent = "Learn More";
   info.addEventListener("click", async () => {
     options.onInfo?.(module);
     await options.onModuleInfo?.(module);
   });
+  const menu = document.createElement("button");
+  menu.type = "button";
+  menu.className = "o_module_menu";
+  menu.dataset.moduleMenu = module.technicalName;
+  menu.setAttribute("aria-label", `${module.displayName} actions`);
+  menu.textContent = "⋮";
   const actions = document.createElement("div");
   actions.className = "o_module_actions";
   const actionHandler = options.onModuleAction || ((technicalName: string, method: AppsCatalogActionMethod) => {
@@ -1486,8 +1659,10 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     button.className = action.className;
     button.dataset.moduleAction = action.method;
     button.textContent = action.label;
-    button.disabled = !module.installable || !actionHandler;
+    button.disabled = module.virtual || !module.installable || !actionHandler;
+    if (module.virtual) button.title = "Module not available in this build";
     button.addEventListener("click", async () => {
+      if (module.virtual) return;
       button.disabled = true;
       button.textContent = action.runningLabel;
       await actionHandler(module.technicalName, action.method, options.query || "");
@@ -1502,24 +1677,65 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     locked.textContent = module.installable ? "Installed" : "Not installable";
     actions.append(locked);
   }
-  card.append(icon, title, technical, summary, state, actions, info);
+  card.append(icon, title, technical, summary, state, menu, actions, info);
   return card;
+}
+
+function appsCatalogIconToken(module: AppsCatalogDisplayModule): string {
+  const categoryTokens: Record<string, string> = {
+    Accounting: "accounting",
+    Administration: "administration",
+    Customizations: "customizations",
+    ESG: "esg",
+    "Human Resources": "hr",
+    Marketing: "marketing",
+    Productivity: "productivity",
+    Sales: "sales",
+    Services: "services",
+    "Shipping Connectors": "shipping",
+    "Supply Chain": "inventory",
+    Technical: "technical",
+    Website: "website"
+  };
+  return categoryTokens[module.category] || appIconToken(module.displayName);
 }
 
 function appsCatalogFilters(): Array<{ id: AppsCatalogFilter; label: string }> {
   return [
     { id: "all", label: "All" },
-    { id: "installed", label: "Installed" },
-    { id: "available", label: "Not Installed" },
-    { id: "updates", label: "Updates" }
+    { id: "official", label: "Official Apps" },
+    { id: "industries", label: "Industries" }
   ];
 }
 
 function appsCatalogFilterMatches(module: AppsCatalogDisplayModule, filter: AppsCatalogFilter): boolean {
-  if (filter === "installed") return module.state === "installed";
-  if (filter === "available") return module.state === "uninstalled";
-  if (filter === "updates") return module.state === "to upgrade";
+  if (filter === "official") return module.official;
+  if (filter === "industries") return module.industry;
   return true;
+}
+
+function renderAppsCatalogFilterButtons(
+  sidebar: HTMLElement,
+  activeFilter: AppsCatalogFilter,
+  onSelect: (filter: AppsCatalogFilter) => void
+): HTMLButtonElement[] {
+  appendAppsCatalogSidebarHeader(sidebar, "APPS");
+  const buttons: HTMLButtonElement[] = [];
+  for (const filter of appsCatalogFilters()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = filter.id === activeFilter ? "o_search_panel_filter active" : "o_search_panel_filter";
+    button.dataset.catalogFilter = filter.id;
+    button.setAttribute("aria-pressed", filter.id === activeFilter ? "true" : "false");
+    const label = document.createElement("span");
+    label.className = "o_search_panel_label";
+    label.textContent = filter.label;
+    button.append(label);
+    button.addEventListener("click", () => onSelect(filter.id));
+    sidebar.append(button);
+    buttons.push(button);
+  }
+  return buttons;
 }
 
 function renderAppsCatalogCategories(
@@ -1530,8 +1746,9 @@ function renderAppsCatalogCategories(
 ): HTMLButtonElement[] {
   const counts = new Map<string, number>();
   for (const module of modules) counts.set(module.category, (counts.get(module.category) ?? 0) + 1);
-  const categories = ["all", ...[...counts.keys()].sort((left, right) => left.localeCompare(right))];
+  const categories = ["all", ...[...counts.keys()].sort(appsCatalogCategorySort)];
   const buttons: HTMLButtonElement[] = [];
+  appendAppsCatalogSidebarHeader(sidebar, "CATEGORIES");
   for (const category of categories) {
     const button = document.createElement("button");
     button.type = "button";
@@ -1540,7 +1757,7 @@ function renderAppsCatalogCategories(
     button.setAttribute("aria-pressed", category === activeCategory ? "true" : "false");
     const label = document.createElement("span");
     label.className = "o_search_panel_label";
-    label.textContent = category === "all" ? "All Apps" : category;
+    label.textContent = category === "all" ? "All" : category;
     const count = document.createElement("span");
     count.className = "o_search_panel_counter";
     count.textContent = String(category === "all" ? modules.length : counts.get(category) ?? 0);
@@ -1550,6 +1767,38 @@ function renderAppsCatalogCategories(
     buttons.push(button);
   }
   return buttons;
+}
+
+const appsCatalogCategoryOrder = [
+  "Sales",
+  "Website",
+  "Services",
+  "Accounting",
+  "Supply Chain",
+  "Productivity",
+  "Marketing",
+  "Human Resources",
+  "Shipping Connectors",
+  "ESG",
+  "Customizations",
+  "Technical",
+  "Administration"
+];
+
+function appsCatalogCategorySort(left: string, right: string): number {
+  const leftIndex = appsCatalogCategoryOrder.indexOf(left);
+  const rightIndex = appsCatalogCategoryOrder.indexOf(right);
+  if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex;
+  if (leftIndex >= 0) return -1;
+  if (rightIndex >= 0) return 1;
+  return left.localeCompare(right);
+}
+
+function appendAppsCatalogSidebarHeader(sidebar: HTMLElement, label: string): void {
+  const header = document.createElement("div");
+  header.className = "o_search_panel_section_header";
+  header.textContent = label;
+  sidebar.append(header);
 }
 
 function renderAppsCatalogDetail(panel: HTMLElement, module: AppsCatalogDisplayModule): void {
@@ -1645,9 +1894,9 @@ function appsCatalogActions(module: AppsCatalogDisplayModule): AppsCatalogAction
       return [
         {
           className: "btn btn-primary o_module_install_button",
-          label: "Install",
+          label: "Activate",
           method: "button_immediate_install",
-          runningLabel: "Installing"
+          runningLabel: "Activating"
         }
       ];
   }

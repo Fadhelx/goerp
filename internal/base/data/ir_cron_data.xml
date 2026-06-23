@@ -7,16 +7,23 @@
             <field name="interval_type">days</field>
             <field name="nextcall">1970-01-01 00:00:00</field>
             <field name="failure_count" eval="0"/>
+            <field name="priority" eval="3"/>
+            <field name="state">code</field>
+            <field name="code">model._run_vacuum_cleaner()</field>
             <field name="action_name">base.autovacuum</field>
         </record>
 
         <record id="ir_cron_res_users_deletion" model="ir.cron">
-            <field name="name">Base: Portal users cleanup</field>
+            <field name="name">Base: Portal Users Deletion</field>
             <field name="active" eval="True"/>
             <field name="interval_number" eval="1"/>
             <field name="interval_type">days</field>
             <field name="nextcall">1970-01-01 00:00:00</field>
             <field name="failure_count" eval="0"/>
+            <field name="priority" eval="8"/>
+            <field name="model_id" ref="model_res_users_deletion"/>
+            <field name="state">code</field>
+            <field name="code">model.search([])</field>
             <field name="action_name">base.res_users_cleanup</field>
         </record>
 

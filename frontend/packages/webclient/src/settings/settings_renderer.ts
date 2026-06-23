@@ -323,6 +323,7 @@ function renderFieldLine(
   const caption = document.createElement("span");
   caption.className = "o_setting_field_label";
   caption.textContent = field.label;
+  if (field.attrs.placeholder) line.dataset.placeholder = field.attrs.placeholder;
 
   line.append(caption, renderFieldControl(field, callbacks, eventRoot, true));
   return line;
@@ -455,6 +456,7 @@ function renderTextField(
   input.required = field.required;
   input.value = formatEditableValue(field.value);
   input.type = field.type === "integer" || field.type === "float" ? "number" : "text";
+  if (field.attrs.placeholder) input.placeholder = field.attrs.placeholder;
   if (field.type === "float") input.step = "any";
   input.addEventListener("input", () => emitFieldChange(eventRoot, callbacks, field.name, parseFieldInput(field, input.value)));
   return input;
