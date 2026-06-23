@@ -1585,6 +1585,57 @@ assert.deepEqual(relationOpenCalls[0].action, {
 });
 assert.deepEqual(relationOpenCalls[0].options, { additionalContext: { lang: "en_US" }, replaceLastAction: true });
 
+const serverActionFallbackWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Server Action" },
+  activeView: "form",
+  resModel: "ir.actions.server",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+      model_name: { type: "char", string: "Model Name" },
+      state: { type: "selection", string: "Type" },
+      group_ids: { type: "many2many", relation: "res.groups", string: "Allowed Groups" },
+      active: { type: "boolean", string: "Active" },
+      code: { type: "text", string: "Code" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="model_name"/><field name="state"/><field name="active"/><field name="code"/></sheet></form>`,
+        id: 72
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 24,
+    display_name: "Base: Auto-vacuum internal data",
+    name: "Base: Auto-vacuum internal data",
+    model_id: false,
+    model_name: false,
+    state: "code",
+    group_ids: [],
+    active: true,
+    code: "model._run_vacuum_cleaner()"
+  }
+});
+const serverActionFallbackModel = findAll(serverActionFallbackWindow, (node) => node.tag === "output" && node.dataset?.field === "model_id")[0];
+assert.equal(serverActionFallbackModel.textContent, "Automatic Vacuum");
+assert.equal(findAll(serverActionFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-field") && node.dataset?.field === "group_ids").length, 1);
+assert.equal(findAll(serverActionFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-field") && node.dataset?.field === "name").length, 0);
+assert.deepEqual(findAll(serverActionFallbackWindow, (node) => String(node.className ?? "").includes("gorp-selection-pill")).map((node) => node.textContent).filter(Boolean).slice(0, 6), [
+  "Update Record",
+  "Create Record",
+  "Duplicate Record",
+  "Execute Code",
+  "Send Webhook Notification",
+  "Multi Actions"
+]);
+
 const dottedRelationSearchCalls = [];
 const dottedRelationWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -1872,7 +1923,7 @@ const genericServerBand = findAll(genericForm, (node) => String(node.className ?
 assert.equal(genericServerBand.dataset.state, "code");
 assert.equal(findAll(genericServerBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
 const genericFormLabels = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
-assert.deepEqual(genericFormLabels.slice(0, 5), ["Name", "Model", "Type", "Allowed Groups", "Active"]);
+assert.deepEqual(genericFormLabels.slice(0, 5), ["Model", "Allowed Groups", "Type", "Active", "Code"]);
 assert.equal(genericFormLabels.filter((label) => label === "Model").length, 1);
 assert.equal(findAll(genericForm, (node) => node.dataset?.field === "model_name").length, 0);
 const genericActiveReadonly = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-readonly-boolean") && node.dataset?.field === "active")[0];
@@ -1888,8 +1939,8 @@ const genericReadonlyState = findAll(genericForm, (node) => String(node.classNam
 assert.equal(genericReadonlyState.dataset.value, "code");
 const genericStatePills = findAll(genericReadonlyState, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-selection-pill"));
 assert.deepEqual(genericStatePills.filter((node) => ["Execute Code", "Update Record", "Multi Actions"].includes(node.textContent)).map((node) => [node.textContent, node.dataset.selected]), [
-  ["Execute Code", "true"],
   ["Update Record", "false"],
+  ["Execute Code", "true"],
   ["Multi Actions", "false"]
 ]);
 assert.equal(genericStatePills.some((node) => node.textContent === "Send WhatsApp"), true);
@@ -2096,8 +2147,8 @@ genericDiscardedName.dispatchEvent(new TestEvent("input"));
 assert.equal(genericDiscardButton.disabled, false);
 genericDiscardButton.dispatchEvent(new TestEvent("click"));
 genericForm = genericFormWindow.children[1];
-const genericRestoredName = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "name")[0];
-assert.equal(genericRestoredName.value, "Send Follow-up");
+const genericRestoredTitle = findAll(genericForm, (node) => node.tag === "h1")[0];
+assert.equal(genericRestoredTitle.textContent, "Send Follow-up");
 assert.equal(genericFormSaveCalls.length, 1);
 assert.equal(genericFormDiscardEvents.length, 1);
 

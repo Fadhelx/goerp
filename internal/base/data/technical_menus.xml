@@ -504,7 +504,7 @@
         </record>
 
         <record id="menu_ir_actions_act_window" model="ir.ui.menu">
-            <field name="name">Window Actions</field>
+            <field name="name">Window Action</field>
             <field name="parent_id" ref="menu_technical_actions"/>
             <field name="sequence">20</field>
             <field name="action">ir.actions.act_window,action_ir_actions_act_window</field>
@@ -520,7 +520,7 @@
         </record>
 
         <record id="menu_ir_actions_report" model="ir.ui.menu">
-            <field name="name">Reports</field>
+            <field name="name">Report</field>
             <field name="parent_id" ref="menu_technical_actions"/>
             <field name="sequence">10</field>
             <field name="action">ir.actions.act_window,action_ir_actions_report</field>
@@ -528,7 +528,7 @@
         </record>
 
         <record id="menu_ir_actions_client" model="ir.ui.menu">
-            <field name="name">Client Actions</field>
+            <field name="name">Client Action</field>
             <field name="parent_id" ref="menu_technical_actions"/>
             <field name="sequence">30</field>
             <field name="action">ir.actions.act_window,action_ir_actions_client</field>
@@ -591,7 +591,7 @@
         </record>
 
         <record id="menu_ir_cron_trigger" model="ir.ui.menu">
-            <field name="name">Scheduled Action Triggers</field>
+            <field name="name">Scheduled Actions Triggers</field>
             <field name="parent_id" ref="menu_technical_automation"/>
             <field name="sequence">30</field>
             <field name="action">ir.actions.act_window,action_ir_cron_trigger</field>
@@ -771,7 +771,7 @@
         </record>
 
         <record id="menu_ir_mail_server" model="ir.ui.menu">
-            <field name="name">Outgoing Mail Servers</field>
+            <field name="name">Outgoing Mail Server</field>
             <field name="parent_id" ref="menu_technical_email"/>
             <field name="sequence">5</field>
             <field name="action">ir.actions.act_window,action_ir_mail_server</field>
@@ -938,7 +938,7 @@
         </record>
 
         <record id="menu_report_actions" model="ir.ui.menu">
-            <field name="name">Reports</field>
+            <field name="name">Report</field>
             <field name="parent_id" ref="menu_technical_reporting"/>
             <field name="sequence">20</field>
             <field name="action">ir.actions.act_window,action_ir_actions_report</field>

@@ -6777,7 +6777,7 @@ function renderFormView(
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
     sheet.append(renderAccessSmartButtons(recordValues, "users"));
-  } else if (serverActionForm && recordID === undefined) {
+  } else if (serverActionForm && (recordID === undefined || editMode)) {
     sheet.append(renderServerActionNewTitle(recordValues, form, options));
   } else {
     const title = renderFormTitle(recordValues);
@@ -6827,7 +6827,15 @@ function technicalActionMainFieldNodes(
   const hideDuplicateModelName = viewFieldNodeIncludes(nodes, "model_id");
   if (model === "ir.actions.server") {
     if (numberRecordID(values.id) === undefined) return preferredTechnicalFieldNodes(model, ["model_id", "group_ids"], nodes, fields);
-    return nodes.filter((node) => node.name !== "code" && node.name !== "help" && !(hideDuplicateModelName && node.name === "model_name"));
+    const ordered = preferredTechnicalFieldNodes(model, ["model_id", "group_ids", "state", "active"], nodes, fields);
+    const orderedNames = new Set(ordered.map((node) => node.name));
+    for (const node of nodes) {
+      if (orderedNames.has(node.name)) continue;
+      if (node.name === "code" || node.name === "help" || node.name === "name") continue;
+      if (hideDuplicateModelName && node.name === "model_name") continue;
+      ordered.push(node);
+    }
+    return ordered;
   }
   if (model === "ir.cron") return scheduledActionMainFieldNodes(nodes, fields).filter((node) => node.name !== "code" && node.name !== "name" && node.name !== "state" && node.name !== "interval_type" && !(hideDuplicateModelName && node.name === "model_name"));
   if (model === "base.automation") return nodes.filter((node) => !(hideDuplicateModelName && node.name === "model_name"));
@@ -7495,7 +7503,7 @@ function renderFormNotebook(
 }
 
 function renderFormTitle(values: Record<string, unknown>): HTMLElement | null {
-  const titleText = firstText(values.display_name, values.name);
+  const titleText = firstText(values.name, values.display_name);
   if (!titleText) return null;
   const title = document.createElement("div");
   title.className = "oe_title";
@@ -7526,6 +7534,16 @@ function renderReadonlyFieldValue(
   }
   if ((displayModel === "ir.actions.server" || displayModel === "ir.cron") && node.name === "code") {
     return renderCodeViewer(node.name, value);
+  }
+  if (displayModel === "ir.actions.server" && node.name === "model_id" && !many2OneDisplayData(value).displayName) {
+    const fallback = humanReadableModelName(firstText(evalContext.model_name, evalContext.model) || "") || scheduledActionModelLabel(evalContext);
+    if (fallback) {
+      const output = document.createElement("output");
+      output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+      output.dataset.field = node.name;
+      output.textContent = fallback;
+      return output;
+    }
   }
   if (displayModel === "ir.cron" && node.name === "model_id") {
     const output = document.createElement("output");
@@ -12585,9 +12603,11 @@ function selectionLabel(choices: readonly [string, string][], value: string): st
 }
 
 const serverActionStateSelectionOptions: Array<[string, string]> = [
-  ["code", "Execute Code"],
-  ["object_create", "Create Record"],
   ["object_write", "Update Record"],
+  ["object_create", "Create Record"],
+  ["object_copy", "Duplicate Record"],
+  ["code", "Execute Code"],
+  ["webhook", "Send Webhook Notification"],
   ["multi", "Multi Actions"],
   ["mail_post", "Send Email"],
   ["followers", "Add Followers"],
@@ -12595,7 +12615,6 @@ const serverActionStateSelectionOptions: Array<[string, string]> = [
   ["next_activity", "Create Next Activity"],
   ["sms", "Send SMS"],
   ["whatsapp", "Send WhatsApp"],
-  ["webhook", "Webhook"],
   ["ai", "AI Action"],
   ["documents_account_record_create", "Create Vendor Bill"]
 ];

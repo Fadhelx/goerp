@@ -11282,6 +11282,161 @@ const webClientShellHTML = `<!doctype html>
 		.gorp-code-editor {
 			min-height: 180px;
 		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-body.o_form_sheet_bg {
+			max-width: none;
+			margin: 0;
+			padding: 0 0 24px;
+			background: var(--bg) !important;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet.o_form_sheet {
+			width: 100vw;
+			max-width: none;
+			margin: 0;
+			padding: 16px 16px 0;
+			border: 0 !important;
+			border-radius: 0;
+			background: var(--bg) !important;
+			box-shadow: none;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet .oe_title {
+			margin: 0 0 14px;
+			border-bottom: 1px solid #c7cbd6;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet .oe_title h1 {
+			max-width: 100%;
+			margin: 0;
+			overflow: hidden;
+			color: var(--text);
+			font-size: 24px;
+			font-weight: 500;
+			line-height: 1.35;
+			text-overflow: clip;
+			white-space: nowrap;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-fields.o_inner_group {
+			display: block;
+			gap: 0;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field.o_wrap_field {
+			display: block;
+			margin: 0 0 16px;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="name"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="active"] {
+			display: none;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field > .o_form_label {
+			display: block;
+			margin: 0 0 6px;
+			color: #aeb6c6;
+			font-size: 14px;
+			font-weight: 500;
+			line-height: 1.2;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-contextual.o_server_action_contextual {
+			margin: 12px 16px 8px;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="model_id"] > .o_form_label::after,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="group_ids"] > .o_form_label::after,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="state"] > .o_form_label::after {
+			content: " ?";
+			color: #6bb7ff;
+			font-size: 12px;
+			font-weight: 600;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="model_id"] output,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="model_id"] .gorp-many2one-link,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="group_ids"] .gorp-x2many-tags {
+			position: relative;
+			display: flex;
+			align-items: center;
+			width: 100%;
+			min-height: 29px;
+			padding: 0 20px 5px 0;
+			border-bottom: 1px solid #c7cbd6;
+			color: var(--text);
+			font-size: 15px;
+			line-height: 1.35;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="model_id"] output::after,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="model_id"] .gorp-many2one-link::after,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field[data-field="group_ids"] .gorp-x2many-tags::after {
+			content: "";
+			position: absolute;
+			right: 1px;
+			top: 11px;
+			width: 0;
+			height: 0;
+			border-left: 4px solid transparent;
+			border-right: 4px solid transparent;
+			border-top: 5px solid #d8dbe3;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 5px;
+			align-items: flex-start;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill {
+			min-height: 28px;
+			padding: 5px 9px;
+			border-radius: 2px;
+			font-size: 13px;
+			font-weight: 600;
+			line-height: 1.25;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="object_write"] { order: 1; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="object_create"] { order: 2; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="object_copy"] { order: 3; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="code"] { order: 4; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="webhook"] { order: 5; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="multi"] { order: 6; }
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="mail_post"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="followers"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="remove_followers"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="next_activity"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="sms"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="whatsapp"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="ai"],
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-selection-pills[data-field="state"] .gorp-selection-pill[data-value="documents_account_record_create"] {
+			display: none;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook.o_notebook {
+			margin: 34px -16px 0;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-form-notebook-tabs.nav-tabs {
+			padding-left: 16px;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-form-notebook-tab.nav-link {
+			min-height: 38px;
+			padding: 9px 16px;
+			border-radius: 2px 2px 0 0;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-form-notebook-content.tab-content {
+			border: 0;
+			border-bottom: 1px solid var(--line);
+			padding: 16px 16px 72px;
+			background: transparent !important;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-form-field[data-field="code"] > .o_form_label {
+			display: none;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-code-viewer {
+			min-height: 18px;
+			max-height: 22px;
+			padding: 0 0 0 44px;
+			overflow: hidden;
+			font-size: 13px;
+			line-height: 18px;
+			white-space: pre;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-code-viewer::before {
+			top: 0;
+			line-height: 18px;
+		}
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-server-action-notebook .gorp-code-viewer code {
+			white-space: pre;
+		}
 		.gorp-form-notebook-tab.nav-link {
 			padding: 9px 12px;
 		}

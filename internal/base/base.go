@@ -938,9 +938,11 @@ func resConfigSettingsModel() model.Model {
 
 func serverActionStateField() field.Field {
 	return selectionField("state",
-		field.SelectionOption{Value: "code", Label: "Execute Code"},
-		field.SelectionOption{Value: "object_create", Label: "Create Record"},
 		field.SelectionOption{Value: "object_write", Label: "Update Record"},
+		field.SelectionOption{Value: "object_create", Label: "Create Record"},
+		field.SelectionOption{Value: "object_copy", Label: "Duplicate Record"},
+		field.SelectionOption{Value: "code", Label: "Execute Code"},
+		field.SelectionOption{Value: "webhook", Label: "Send Webhook Notification"},
 		field.SelectionOption{Value: "multi", Label: "Multi Actions"},
 		field.SelectionOption{Value: "mail_post", Label: "Send Email"},
 		field.SelectionOption{Value: "followers", Label: "Add Followers"},
@@ -948,7 +950,6 @@ func serverActionStateField() field.Field {
 		field.SelectionOption{Value: "next_activity", Label: "Create Next Activity"},
 		field.SelectionOption{Value: "sms", Label: "Send SMS"},
 		field.SelectionOption{Value: "whatsapp", Label: "Send WhatsApp"},
-		field.SelectionOption{Value: "webhook", Label: "Webhook"},
 		field.SelectionOption{Value: "ai", Label: "AI Action"},
 		field.SelectionOption{Value: "documents_account_record_create", Label: "Create Vendor Bill"},
 	)

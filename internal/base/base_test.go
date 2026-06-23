@@ -470,7 +470,10 @@ func TestRegisterModels(t *testing.T) {
 		}
 	}
 	stateField := reg.Models["ir.actions.server"].Fields["state"]
-	if stateField.Kind != field.Selection || len(stateField.Selection) < 4 || stateField.Selection[0].Value != "code" || stateField.Selection[0].Label != "Execute Code" {
+	if stateField.Kind != field.Selection || len(stateField.Selection) < 6 ||
+		stateField.Selection[0].Value != "object_write" || stateField.Selection[0].Label != "Update Record" ||
+		stateField.Selection[2].Value != "object_copy" || stateField.Selection[2].Label != "Duplicate Record" ||
+		stateField.Selection[4].Value != "webhook" || stateField.Selection[4].Label != "Send Webhook Notification" {
 		t.Fatalf("ir.actions.server.state selection = %+v", stateField.Selection)
 	}
 	for _, name := range []string{

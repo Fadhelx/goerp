@@ -4621,7 +4621,7 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 
 	body = getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
-	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Users", "Groups", "Technical", "Actions", "Window Actions", "Server Actions", "Scheduled Actions", "Automation Rules", "Scheduled Action Triggers", "Views", "Menu Items", "Customized Views", "User-defined Filters", "Models", "Fields", "External Identifiers", "System Parameters", "Sequences", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages", "Alias Domains", "Activity Types", "Apps"} {
+	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Users", "Groups", "Technical", "Actions", "Window Action", "Server Actions", "Report", "Client Action", "Scheduled Actions", "Automation Rules", "Scheduled Actions Triggers", "Views", "Menu Items", "Customized Views", "User-defined Filters", "Models", "Fields", "External Identifiers", "System Parameters", "Sequences", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Server", "Incoming Mail Servers", "Emails", "Messages", "Alias Domains", "Activity Types", "Apps"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("menu response missing %s: %s", want, body)
 		}
@@ -4682,16 +4682,16 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 		{"base.menu_users_groups", "Groups"},
 		{"base.menu_translations_languages", "Languages"},
 		{"base.menu_ir_actions_actions", "Actions"},
-		{"base.menu_ir_actions_act_window", "Window Actions"},
-		{"base.menu_ir_actions_report", "Reports"},
-		{"base.menu_ir_actions_client", "Client Actions"},
+		{"base.menu_ir_actions_act_window", "Window Action"},
+		{"base.menu_ir_actions_report", "Report"},
+		{"base.menu_ir_actions_client", "Client Action"},
 		{"base.menu_ir_actions_act_url", "URL Actions"},
 		{"base.menu_ir_embedded_actions", "Embedded Actions"},
 		{"base.menu_ir_default", "User-defined Defaults"},
 		{"base.menu_ir_actions_todo", "Configuration Wizards"},
 		{"base.menu_base_automation", "Automation Rules"},
 		{"base.menu_ir_cron", "Scheduled Actions"},
-		{"base.menu_ir_cron_trigger", "Scheduled Action Triggers"},
+		{"base.menu_ir_cron_trigger", "Scheduled Actions Triggers"},
 		{"base.menu_ir_ui_view", "Views"},
 		{"base.menu_ir_ui_menu", "Menu Items"},
 		{"base.menu_ir_ui_view_custom", "Customized Views"},
@@ -4709,7 +4709,7 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 		{"base.menu_ir_model_access", "Access Rights"},
 		{"base.menu_res_device", "User Devices"},
 		{"base.menu_mail_template", "Email Templates"},
-		{"base.menu_ir_mail_server", "Outgoing Mail Servers"},
+		{"base.menu_ir_mail_server", "Outgoing Mail Server"},
 		{"base.menu_fetchmail_server", "Incoming Mail Servers"},
 		{"base.menu_mail_mail", "Emails"},
 		{"base.menu_mail_message", "Messages"},
@@ -4729,7 +4729,7 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 		{"base.menu_res_users_settings", "User Settings"},
 		{"base.menu_mail_gateway_allowed", "Mail Gateway Allowed"},
 		{"base.menu_report_paperformat", "Paper Format"},
-		{"base.menu_report_actions", "Reports"},
+		{"base.menu_report_actions", "Report"},
 		{"base.menu_ir_config_parameter", "System Parameters"},
 		{"base.menu_ir_sequence", "Sequences"},
 		{"base.menu_ir_model_data", "External Identifiers"},

@@ -2373,6 +2373,76 @@ export const scenarios = [
       if (mobileFormChrome.action_toggle_width_px < 32 || mobileFormChrome.action_toggle_width_px > 40 || mobileFormChrome.action_toggle_font_size_px !== 0) {
         throw new Error(`default TS mobile form action toggle not compact: ${JSON.stringify(mobileFormChrome)}`);
       }
+      const mobileFormVisualState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const isVisible = (node) => {
+          if (!node) return false;
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        };
+        const body = root?.querySelector(".gorp-form-body.o_form_sheet_bg");
+        const sheet = root?.querySelector(".gorp-form-sheet.o_form_sheet");
+        const title = root?.querySelector(".oe_title h1");
+        const modelValueNode = root?.querySelector(".gorp-form-field[data-field='model_id'] output, .gorp-form-field[data-field='model_id'] .gorp-many2one-link, .gorp-form-field[data-field='model_id'] .gorp-field-value");
+        const groupField = root?.querySelector(".gorp-form-field[data-field='group_ids']");
+        const activeField = root?.querySelector(".gorp-form-field[data-field='active']");
+        const nameField = root?.querySelector(".gorp-form-field[data-field='name']");
+        const code = root?.querySelector(".gorp-code-viewer");
+        const sheetRect = sheet?.getBoundingClientRect();
+        const bodyRect = body?.getBoundingClientRect();
+        const sheetStyle = sheet ? getComputedStyle(sheet) : null;
+        const titleRect = title?.getBoundingClientRect();
+        const titleStyle = title ? getComputedStyle(title) : null;
+        const lineHeight = titleStyle ? Number.parseFloat(titleStyle.lineHeight) || 0 : 0;
+        const codeRect = code?.getBoundingClientRect();
+        const labels = [...(root?.querySelectorAll(".gorp-form-field > .o_form_label") || [])]
+          .filter(isVisible)
+          .map((node) => node.textContent.trim());
+        const stateLabels = [...(root?.querySelectorAll(".gorp-selection-pills[data-field='state'] .gorp-selection-pill") || [])]
+          .filter(isVisible)
+          .map((node) => node.textContent.trim());
+        return {
+          body_left_px: bodyRect ? Math.round(bodyRect.left) : -1,
+          sheet_left_px: sheetRect ? Math.round(sheetRect.left) : -1,
+          sheet_width_px: sheetRect ? Math.round(sheetRect.width) : 0,
+          viewport_width_px: window.innerWidth,
+          sheet_border_top_width: sheetStyle?.borderTopWidth || "",
+          sheet_radius: sheetStyle?.borderTopLeftRadius || "",
+          title_text: title?.textContent?.trim() || "",
+          title_line_count: titleRect && lineHeight ? Number((titleRect.height / lineHeight).toFixed(2)) : 0,
+          model_value: modelValueNode?.textContent?.trim() || "",
+          labels,
+          state_labels: stateLabels,
+          group_visible: isVisible(groupField),
+          active_visible: isVisible(activeField),
+          name_visible: isVisible(nameField),
+          code_height_px: codeRect ? Math.round(codeRect.height) : 0
+        };
+      })()`);
+      const expectedStateLabels = ["Update Record", "Create Record", "Duplicate Record", "Execute Code", "Send Webhook Notification", "Multi Actions"];
+      if (
+        Math.abs(mobileFormVisualState.sheet_left_px) > 1 ||
+        Math.abs(mobileFormVisualState.sheet_width_px - mobileFormVisualState.viewport_width_px) > 2 ||
+        mobileFormVisualState.sheet_border_top_width !== "0px" ||
+        mobileFormVisualState.sheet_radius !== "0px" ||
+        mobileFormVisualState.title_text !== "Base: Auto-vacuum internal data" ||
+        mobileFormVisualState.title_line_count > 1.15 ||
+        mobileFormVisualState.model_value !== "Automatic Vacuum" ||
+        !mobileFormVisualState.labels.includes("Model") ||
+        !mobileFormVisualState.labels.includes("Allowed Groups") ||
+        !mobileFormVisualState.labels.includes("Type") ||
+        mobileFormVisualState.labels.includes("Name") ||
+        mobileFormVisualState.labels.includes("Code") ||
+        mobileFormVisualState.active_visible ||
+        mobileFormVisualState.name_visible ||
+        !mobileFormVisualState.group_visible ||
+        JSON.stringify(mobileFormVisualState.state_labels) !== JSON.stringify(expectedStateLabels) ||
+        mobileFormVisualState.code_height_px < 16 ||
+        mobileFormVisualState.code_height_px > 60
+      ) {
+        throw new Error(`default TS mobile form visual parity invalid: ${JSON.stringify(mobileFormVisualState)}`);
+      }
       await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_control_panel_actions .gorp-action-menu-toggle[data-action-menu-toggle='action']");
       const actionMenuOpenState = await waitFor(page, `(() => {
         const section = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .gorp-action-menu-section[data-menu='action']");
@@ -2409,7 +2479,7 @@ export const scenarios = [
       })()`, "default TS mobile form hash");
       const overflow = await evaluate(page, `document.documentElement.scrollWidth - window.innerWidth`);
       if (overflow > 1) throw new Error(`default TS mobile action horizontal overflow: ${overflow}px`);
-      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, action_menu_open_state: actionMenuOpenState, action_menu_outside_closed_state: actionMenuOutsideClosedState, action_menu_escape_closed_state: actionMenuEscapeClosedState, hash, horizontal_overflow_px: overflow };
+      return { card_count: cardCount, card_state: cardState, form_count: formCount, breadcrumb_count: breadcrumbCount, sheet_count: sheetCount, form_control_state: formControlState, mobile_form_chrome: mobileFormChrome, mobile_form_visual_state: mobileFormVisualState, action_menu_open_state: actionMenuOpenState, action_menu_outside_closed_state: actionMenuOutsideClosedState, action_menu_escape_closed_state: actionMenuEscapeClosedState, hash, horizontal_overflow_px: overflow };
     }
   },
   {
@@ -3428,6 +3498,9 @@ async function openServerActionsList(page, config, viewport) {
 
 async function openDefaultServerActionsList(page, config, viewport) {
   await setViewport(page, viewport);
+  await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&server_actions_auth=1`) });
+  await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "Server Actions auth document ready");
+  await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
   await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
   await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "TS webclient ready");
   await setInput(page, ".o_web_client .o_app_search_input", "Server Actions");
