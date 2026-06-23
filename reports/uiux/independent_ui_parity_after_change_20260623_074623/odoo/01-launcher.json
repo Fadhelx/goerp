@@ -1,0 +1,24 @@
+{
+  "app_names": [
+    "App",
+    "Setting"
+  ],
+  "body_classes": "o_web_client o_home_menu_background",
+  "breadcrumbs": [],
+  "buttons": [
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [],
+  "rows": [],
+  "search_items": [],
+  "tab_labels": [],
+  "title": "Home",
+  "top_menu": [
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo"
+}

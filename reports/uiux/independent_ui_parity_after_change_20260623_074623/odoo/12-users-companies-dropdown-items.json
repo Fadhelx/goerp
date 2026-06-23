@@ -1,0 +1,26 @@
+[
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable",
+    "href": "http://127.0.0.1:8145/odoo/users",
+    "role": "menuitem",
+    "text": "U er"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable",
+    "href": "http://127.0.0.1:8145/odoo/action-68",
+    "role": "menuitem",
+    "text": "Group"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable",
+    "href": "http://127.0.0.1:8145/odoo/action-67",
+    "role": "menuitem",
+    "text": "Privilege"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable",
+    "href": "http://127.0.0.1:8145/odoo/companies",
+    "role": "menuitem",
+    "text": "Companie"
+  }
+]

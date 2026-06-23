@@ -1,0 +1,66 @@
+timestamp=2026-06-23 07:46:34 +03
+workspace=/Users/fadhelalqaidoom/Documents/gorp
+head=a22aa8170cb06c7e4279c8d76ade9dc0fbe2505a
+ui_dirty_diff_sha256=e84917ee761f974dbc69c8194162bb48d78087d343faaa19718a5d0c93d15e08
+prior_report=reports/uiux/independent_ui_parity_20260623_063912/report.md
+prior_report_mtime=2026-06-23 06:54:48 +03
+source_status:
+ M frontend/packages/webclient/src/index.ts
+ M frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs
+ M frontend/packages/webclient/src/webclient/navbar/navbar.ts
+ M frontend/packages/webclient/src/webclient/shell.ts
+ M internal/http/server.go
+ M tools/web_visual_smoke/run.mjs
+newer_than_prior_report:
+frontend/dist/apps/dev-shell/src/main.js
+frontend/dist/apps/webclient/src/main.js
+frontend/dist/packages/ai/src/index.js
+frontend/dist/packages/oi-flowchart/src/index.js
+frontend/dist/packages/oi-login-as/src/index.js
+frontend/dist/packages/oi-workflow/src/index.js
+frontend/dist/packages/owl-compat/src/index.js
+frontend/dist/packages/qweb-runtime/src/index.js
+frontend/dist/packages/template-compiler/src/index.js
+frontend/dist/packages/theme-tokens/src/index.js
+frontend/dist/packages/webclient/src/aliases/core/browser/browser.js
+frontend/dist/packages/webclient/src/aliases/core/confirmation_dialog/confirmation_dialog.js
+frontend/dist/packages/webclient/src/aliases/core/context.js
+frontend/dist/packages/webclient/src/aliases/core/domain.js
+frontend/dist/packages/webclient/src/aliases/core/l10n/dates.js
+frontend/dist/packages/webclient/src/aliases/core/l10n/translation.js
+frontend/dist/packages/webclient/src/aliases/core/orm_service.js
+frontend/dist/packages/webclient/src/aliases/core/popover/popover_hook.js
+frontend/dist/packages/webclient/src/aliases/core/py_js/py.js
+frontend/dist/packages/webclient/src/aliases/core/py_js/py_builtin.js
+frontend/dist/packages/webclient/src/aliases/core/py_js/py_date.js
+frontend/dist/packages/webclient/src/aliases/core/py_js/py_utils.js
+frontend/dist/packages/webclient/src/aliases/core/registry.js
+frontend/dist/packages/webclient/src/aliases/core/user.js
+frontend/dist/packages/webclient/src/aliases/core/utils/functions.js
+frontend/dist/packages/webclient/src/aliases/core/utils/hooks.js
+frontend/dist/packages/webclient/src/aliases/core/utils/patch.js
+frontend/dist/packages/webclient/src/aliases/session.js
+frontend/dist/packages/webclient/src/aliases/views/fields/statusbar/statusbar_field.js
+frontend/dist/packages/webclient/src/aliases/views/form/form_controller.js
+frontend/dist/packages/webclient/src/aliases/views/list/list_controller.js
+frontend/dist/packages/webclient/src/aliases/views/view_button/view_button.js
+frontend/dist/packages/webclient/src/control_panel/control_panel.js
+frontend/dist/packages/webclient/src/home_menu/app_metadata.js
+frontend/dist/packages/webclient/src/home_menu/home_menu.js
+frontend/dist/packages/webclient/src/index.js
+frontend/dist/packages/webclient/src/router/action_router.js
+frontend/dist/packages/webclient/src/search/search_arch_parser.js
+frontend/dist/packages/webclient/src/search/search_model.js
+frontend/dist/packages/webclient/src/services/action_stack.js
+frontend/dist/packages/webclient/src/settings/settings_renderer.js
+frontend/dist/packages/webclient/src/webclient/navbar/navbar.js
+frontend/dist/packages/webclient/src/webclient/shell.js
+frontend/dist/themes/enterprise-like/src/theme.js
+frontend/dist/themes/standard/src/theme.js
+frontend/packages/webclient/src/index.ts
+frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs
+frontend/packages/webclient/src/webclient/navbar/navbar.ts
+frontend/packages/webclient/src/webclient/shell.test.mjs
+frontend/packages/webclient/src/webclient/shell.ts
+internal/http/server.go
+tools/web_visual_smoke/run.mjs

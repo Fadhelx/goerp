@@ -1,0 +1,62 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "NewU er Admini trator",
+    "U er Admini trator",
+    "U er",
+    "Admini trator"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New",
+    "8Group",
+    "138Acce  Right",
+    "25Record Rule",
+    "Add Photo"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [
+    "Related Partner?",
+    "Role?",
+    "U er",
+    "Admini trator",
+    "Contact?",
+    "Export?",
+    "Acce  Right ?",
+    "Default acce  for new u er ?",
+    "Multi Currencie ?",
+    "Role / Portal?",
+    "Role / U er?",
+    "Technical Feature ?",
+    "Bypa  HTML Field Sanitize?",
+    "Multi Companie ?",
+    "Role / Admini trator?",
+    "Role / Public?",
+    "Technical Documentation?"
+  ],
+  "rows": [],
+  "search_items": [],
+  "tab_labels": [
+    "Acce  Right",
+    "Preference",
+    "Calendar",
+    "Security"
+  ],
+  "title": "Administrator",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/users/2?debug=1"
+}

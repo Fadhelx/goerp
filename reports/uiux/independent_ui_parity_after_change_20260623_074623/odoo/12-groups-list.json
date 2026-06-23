@@ -1,0 +1,50 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "New Group",
+    "Group",
+    "Group"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [],
+  "rows": [
+    "ContactCreation",
+    "ExportAllowed",
+    "Acce  Right",
+    "Bypa  HTML Field Sanitize",
+    "Default acce  for new u er",
+    "Multi Companie",
+    "Multi Currencie",
+    "Role / Admini trator",
+    "Role / Portal",
+    "Role / Public",
+    "Role / U er",
+    "Technical Documentation",
+    "Technical Feature"
+  ],
+  "search_items": [
+    "Internal Group"
+  ],
+  "tab_labels": [],
+  "title": "Groups",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/action-68?debug=1"
+}

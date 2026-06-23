@@ -1,0 +1,38 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "New U er",
+    "U er",
+    "U er"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [],
+  "rows": [
+    "Admini tratoradminAdmini trator"
+  ],
+  "search_items": [
+    "Internal U er"
+  ],
+  "tab_labels": [],
+  "title": "Users",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/users?debug=1"
+}

@@ -1,0 +1,44 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "New Server Action",
+    "Server Action",
+    "Server Action"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [],
+  "rows": [
+    "Ba e: Auto-vacuum internal dataAutomatic VacuumExecute CodeScheduled Action",
+    "Ba e: Portal U er  DeletionU er  Deletion Reque tExecute CodeScheduled Action",
+    "Config: Run Remaining Action TodoConfigExecute CodeServer Action",
+    "Di able two-factor authenticationU erExecute CodeServer Action",
+    "Download (vCard)ContactExecute CodeServer Action",
+    "Export JSTour Execute CodeServer Action",
+    "Failed to in tall demo data for  ome module , demo di abledDemo Failure wizardExecute CodeServer Action"
+  ],
+  "search_items": [
+    "Top-level action"
+  ],
+  "tab_labels": [],
+  "title": "Server Actions",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/server-actions?debug=1"
+}

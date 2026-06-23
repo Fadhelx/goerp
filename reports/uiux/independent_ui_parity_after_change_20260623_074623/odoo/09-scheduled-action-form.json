@@ -1,0 +1,49 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "NewScheduled Action Ba e: Auto-vacuum internal data",
+    "Scheduled Action Ba e: Auto-vacuum internal data",
+    "Scheduled Action",
+    "Ba e: Auto-vacuum internal data"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New",
+    "Run Manually",
+    "Jun 23, 7:47 AM"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [
+    "Model?",
+    "Allowed Group ?",
+    "Scheduler U er?",
+    "Execute Every?",
+    "Active?",
+    "​",
+    "Next Execution Date?",
+    "Priority?"
+  ],
+  "rows": [],
+  "search_items": [],
+  "tab_labels": [
+    "Code",
+    "Help"
+  ],
+  "title": "Base: Auto-vacuum internal data",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/crons/1?debug=1"
+}

@@ -1,0 +1,229 @@
+{
+  "date": "2026-06-23",
+  "workspace": "/Users/fadhelalqaidoom/Documents/gorp",
+  "role": "read-only independent verifier",
+  "reference": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19, screenshots only",
+  "goerp_url": "http://127.0.0.1:8143/web",
+  "odoo_url": "http://127.0.0.1:8145/odoo",
+  "initial_capture_baseline": "timestamp=2026-06-23 07:46:34 +03\nworkspace=/Users/fadhelalqaidoom/Documents/gorp\nhead=a22aa8170cb06c7e4279c8d76ade9dc0fbe2505a\nui_dirty_diff_sha256=e84917ee761f974dbc69c8194162bb48d78087d343faaa19718a5d0c93d15e08\nprior_report=reports/uiux/independent_ui_parity_20260623_063912/report.md\nprior_report_mtime=2026-06-23 06:54:48 +03\nsource_status:\n M frontend/packages/webclient/src/index.ts\n M frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs\n M frontend/packages/webclient/src/webclient/navbar/navbar.ts\n M frontend/packages/webclient/src/webclient/shell.ts\n M internal/http/server.go\n M tools/web_visual_smoke/run.mjs\nnewer_than_prior_report:\nfrontend/dist/apps/dev-shell/src/main.js\nfrontend/dist/apps/webclient/src/main.js\nfrontend/dist/packages/ai/src/index.js\nfrontend/dist/packages/oi-flowchart/src/index.js\nfrontend/dist/packages/oi-login-as/src/index.js\nfrontend/dist/packages/oi-workflow/src/index.js\nfrontend/dist/packages/owl-compat/src/index.js\nfrontend/dist/packages/qweb-runtime/src/index.js\nfrontend/dist/packages/template-compiler/src/index.js\nfrontend/dist/packages/theme-tokens/src/index.js\nfrontend/dist/packages/webclient/src/aliases/core/browser/browser.js\nfrontend/dist/packages/webclient/src/aliases/core/confirmation_dialog/confirmation_dialog.js\nfrontend/dist/packages/webclient/src/aliases/core/context.js\nfrontend/dist/packages/webclient/src/aliases/core/domain.js\nfrontend/dist/packages/webclient/src/aliases/core/l10n/dates.js\nfrontend/dist/packages/webclient/src/aliases/core/l10n/translation.js\nfrontend/dist/packages/webclient/src/aliases/core/orm_service.js\nfrontend/dist/packages/webclient/src/aliases/core/popover/popover_hook.js\nfrontend/dist/packages/webclient/src/aliases/core/py_js/py.js\nfrontend/dist/packages/webclient/src/aliases/core/py_js/py_builtin.js\nfrontend/dist/packages/webclient/src/aliases/core/py_js/py_date.js\nfrontend/dist/packages/webclient/src/aliases/core/py_js/py_utils.js\nfrontend/dist/packages/webclient/src/aliases/core/registry.js\nfrontend/dist/packages/webclient/src/aliases/core/user.js\nfrontend/dist/packages/webclient/src/aliases/core/utils/functions.js\nfrontend/dist/packages/webclient/src/aliases/core/utils/hooks.js\nfrontend/dist/packages/webclient/src/aliases/core/utils/patch.js\nfrontend/dist/packages/webclient/src/aliases/session.js\nfrontend/dist/packages/webclient/src/aliases/views/fields/statusbar/statusbar_field.js\nfrontend/dist/packages/webclient/src/aliases/views/form/form_controller.js\nfrontend/dist/packages/webclient/src/aliases/views/list/list_controller.js\nfrontend/dist/packages/webclient/src/aliases/views/view_button/view_button.js\nfrontend/dist/packages/webclient/src/control_panel/control_panel.js\nfrontend/dist/packages/webclient/src/home_menu/app_metadata.js\nfrontend/dist/packages/webclient/src/home_menu/home_menu.js\nfrontend/dist/packages/webclient/src/index.js\nfrontend/dist/packages/webclient/src/router/action_router.js\nfrontend/dist/packages/webclient/src/search/search_arch_parser.js\nfrontend/dist/packages/webclient/src/search/search_model.js\nfrontend/dist/packages/webclient/src/services/action_stack.js\nfrontend/dist/packages/webclient/src/settings/settings_renderer.js\nfrontend/dist/packages/webclient/src/webclient/navbar/navbar.js\nfrontend/dist/packages/webclient/src/webclient/shell.js\nfrontend/dist/themes/enterprise-like/src/theme.js\nfrontend/dist/themes/standard/src/theme.js\nfrontend/packages/webclient/src/index.ts\nfrontend/packages/webclient/src/webclient/navbar/navbar.test.mjs\nfrontend/packages/webclient/src/webclient/navbar/navbar.ts\nfrontend/packages/webclient/src/webclient/shell.test.mjs\nfrontend/packages/webclient/src/webclient/shell.ts\ninternal/http/server.go\ntools/web_visual_smoke/run.mjs\n",
+  "final_source_state": "timestamp=2026-06-23 08:03:32 +03\nhead=37da10e913bac044ebc879f2461e456c02809256\nui_dirty_diff_sha256=9c624898bd4a1d87e5d19071ca33302be16ff20be53b054c623e82284ae7ebf3\n M frontend/packages/webclient/src/index.test.mjs\n M frontend/packages/webclient/src/index.ts\n M frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs\n M frontend/packages/webclient/src/webclient/navbar/navbar.ts\n M frontend/packages/webclient/src/webclient/shell.test.mjs\n M frontend/packages/webclient/src/webclient/shell.ts\n M internal/http/server.go\n M tools/web_visual_smoke/run.mjs\n",
+  "commands_run": [
+    "git rev-parse HEAD",
+    "git diff -- frontend internal/http/server.go internal/base/data/technical_views.xml tools/web_visual_smoke/run.mjs | shasum -a 256",
+    "find frontend internal/http tools -type f (...) -newer reports/uiux/independent_ui_parity_20260623_063912/report.md -print",
+    "python3 /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo-bin --version",
+    "python3 /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo-bin --addons-path=/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons,/Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise -d gorp_ref_ui_20260623_074623 -i base,web_enterprise --without-demo=all --http-interface=127.0.0.1 --http-port=8145 --gevent-port=8148 --no-database-list --workers=0 --max-cron-threads=0 --data-dir=/tmp/gorp_odoo_ref_data_20260623_074623 --stop-after-init --log-level=warn",
+    "python3 /Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo-bin --addons-path=/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons,/Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise -d gorp_ref_ui_20260623_074623 --http-interface=127.0.0.1 --http-port=8145 --gevent-port=8148 --no-database-list --workers=0 --max-cron-threads=0 --data-dir=/tmp/gorp_odoo_ref_data_20260623_074623 --log-level=warn",
+    "GORP_HTTP_ADDR=127.0.0.1:8143 go run ./cmd/gorpd serve",
+    "source stability poll: 3 polls at 30s cadence, final head 37da10e913bac044ebc879f2461e456c02809256 and UI diff hash 9c624898bd4a1d87e5d19071ca33302be16ff20be53b054c623e82284ae7ebf3",
+    "Restarted GoERP after HEAD changed, then recaptured GoERP screenshots from the restarted server",
+    "Browser Plugin / Node REPL screenshot and DOM capture, desktop 1366x900 and mobile 390x844",
+    "Python Pillow comparison metric script",
+    "targeted secret-pattern scan over generated text evidence; no matches"
+  ],
+  "metrics": [
+    {
+      "flow": "launcher",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/01-launcher.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/01-launcher.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/launcher.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.999,
+      "mean_delta": 26.7652,
+      "rms_delta": 31.0963
+    },
+    {
+      "flow": "apps",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/02-apps.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/02-apps.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/apps.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.4161,
+      "mean_delta": 19.8206,
+      "rms_delta": 45.3637
+    },
+    {
+      "flow": "settings",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/03-settings.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/03-settings.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/settings.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.943,
+      "mean_delta": 14.6789,
+      "rms_delta": 27.5803
+    },
+    {
+      "flow": "technical_dropdown",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/04-technical-dropdown.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/04-technical-dropdown.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/technical_dropdown.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9608,
+      "mean_delta": 16.9357,
+      "rms_delta": 32.4494
+    },
+    {
+      "flow": "server_actions_list",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/05-server-actions-list.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/05-server-actions-list.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/server_actions_list.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.8702,
+      "mean_delta": 17.7267,
+      "rms_delta": 39.853
+    },
+    {
+      "flow": "server_action_form",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/06-server-action-form.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/06-server-action-form.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/server_action_form.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9884,
+      "mean_delta": 10.3595,
+      "rms_delta": 23.012
+    },
+    {
+      "flow": "relation_dropdown",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/07-relation-dropdown.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/07-relation-dropdown.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/relation_dropdown.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9845,
+      "mean_delta": 10.6844,
+      "rms_delta": 23.726
+    },
+    {
+      "flow": "scheduled_actions_list",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/08-scheduled-actions-list.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/08-scheduled-actions-list.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/scheduled_actions_list.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9198,
+      "mean_delta": 5.978,
+      "rms_delta": 22.4561
+    },
+    {
+      "flow": "scheduled_action_form",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/09-scheduled-action-form.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/09-scheduled-action-form.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/scheduled_action_form.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9651,
+      "mean_delta": 7.1437,
+      "rms_delta": 26.6861
+    },
+    {
+      "flow": "users_list",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/10-users-list.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/10-users-list.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/users_list.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.7538,
+      "mean_delta": 3.5403,
+      "rms_delta": 17.3676
+    },
+    {
+      "flow": "users_form",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/11-users-form.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/11-users-form.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/users_form.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.877,
+      "mean_delta": 13.1628,
+      "rms_delta": 36.7369
+    },
+    {
+      "flow": "groups_list",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/12-groups-list.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/12-groups-list.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/groups_list.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.5163,
+      "mean_delta": 6.4422,
+      "rms_delta": 23.6585
+    },
+    {
+      "flow": "groups_form",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/13-groups-form.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/13-groups-form.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/groups_form.png",
+      "size": [
+        1366,
+        900
+      ],
+      "pixel_diff_percent": 99.9412,
+      "mean_delta": 9.1802,
+      "rms_delta": 25.134
+    },
+    {
+      "flow": "mobile_launcher",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/14-mobile-launcher.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/14-mobile-launcher.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/mobile_launcher.png",
+      "size": [
+        390,
+        844
+      ],
+      "pixel_diff_percent": 99.9991,
+      "mean_delta": 30.4071,
+      "rms_delta": 38.571
+    },
+    {
+      "flow": "mobile_users_form",
+      "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo/15-mobile-users-form.png",
+      "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp/15-mobile-users-form.png",
+      "comparison": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons/mobile_users_form.png",
+      "size": [
+        390,
+        844
+      ],
+      "pixel_diff_percent": 99.8688,
+      "mean_delta": 21.5445,
+      "rms_delta": 51.8479
+    }
+  ],
+  "evidence_paths": {
+    "odoo": "reports/uiux/independent_ui_parity_after_change_20260623_074623/odoo",
+    "goerp": "reports/uiux/independent_ui_parity_after_change_20260623_074623/goerp",
+    "comparisons": "reports/uiux/independent_ui_parity_after_change_20260623_074623/comparisons",
+    "metrics": "reports/uiux/independent_ui_parity_after_change_20260623_074623/metrics/image-pixel-metrics.json",
+    "logs": "reports/uiux/independent_ui_parity_after_change_20260623_074623/logs"
+  },
+  "secret_scan_result": "no matches"
+}

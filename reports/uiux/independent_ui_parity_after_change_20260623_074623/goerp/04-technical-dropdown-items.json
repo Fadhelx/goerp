@@ -1,0 +1,254 @@
+[
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "U er"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Group"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Companie"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Language"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Outgoing Mail Server"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Report"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Window Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Client Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Server Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Embedded Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Configuration Wizard"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "U er-defined Default"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "IAP Account"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Menu Item"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "View"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Cu tomized View"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "U er-defined Filter"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Tour"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Decimal Accuracy"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "A et"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Model"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Field"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Field  Selection"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Model Con traint"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "ManyToMany Relation"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Attachment"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Logging"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Profiling"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Scheduled Action"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Scheduled Action  Trigger"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Paper Format"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Report"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "External Identifier"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Sequence"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Sy tem Parameter"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Record Rule"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "Acce  Right"
+  },
+  {
+    "cls": "dropdown-item o_navbar_dropdown_item",
+    "href": "",
+    "role": "menuitem",
+    "text": "U er Device"
+  },
+  {
+    "cls": "o_menu_item o_add_custom_filter o-dropdown-item dropdown-item",
+    "href": "",
+    "role": "",
+    "text": "Cu tom Filter..."
+  },
+  {
+    "cls": "o_menu_item o_add_custom_group_menu o-dropdown-item dropdown-item",
+    "href": "",
+    "role": "",
+    "text": "Add Cu tom Group"
+  },
+  {
+    "cls": "o_menu_item o_add_favorite o-dropdown-item dropdown-item",
+    "href": "",
+    "role": "",
+    "text": "Save current  earch"
+  }
+]

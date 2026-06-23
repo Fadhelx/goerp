@@ -1,0 +1,53 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "NewGroup Acce  Right",
+    "Group Acce  Right",
+    "Group",
+    "Acce  Right"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New",
+    "1U er"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [
+    "Privilege?",
+    "Share Group?",
+    "API Key  maximum duration day ?"
+  ],
+  "rows": [
+    "Add a line",
+    "​",
+    "​",
+    "​"
+  ],
+  "search_items": [],
+  "tab_labels": [
+    "U er",
+    "Inherited",
+    "Menu",
+    "View",
+    "Acce  Right",
+    "Record Rule",
+    "Note"
+  ],
+  "title": "Access Rights",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/action-68/2?debug=1"
+}

@@ -1,0 +1,39 @@
+{
+  "app_names": [],
+  "body_classes": "o_web_client o_debug",
+  "breadcrumbs": [
+    "NewServer Action New",
+    "Server Action New",
+    "Server Action",
+    "New"
+  ],
+  "buttons": [
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New",
+    "Create Contextual Action"
+  ],
+  "dropdowns": [],
+  "hash": "",
+  "labels": [
+    "Model?",
+    "Allowed Group ?"
+  ],
+  "rows": [],
+  "search_items": [],
+  "tab_labels": [],
+  "title": "New",
+  "top_menu": [
+    "Setting",
+    "General Setting",
+    "U er  & Companie",
+    "Tran lation",
+    "Technical",
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623"
+  ],
+  "url": "http://127.0.0.1:8145/odoo/server-actions/new?debug=1"
+}

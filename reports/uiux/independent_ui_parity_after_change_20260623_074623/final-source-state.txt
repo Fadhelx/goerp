@@ -1,0 +1,11 @@
+timestamp=2026-06-23 08:03:32 +03
+head=37da10e913bac044ebc879f2461e456c02809256
+ui_dirty_diff_sha256=9c624898bd4a1d87e5d19071ca33302be16ff20be53b054c623e82284ae7ebf3
+ M frontend/packages/webclient/src/index.test.mjs
+ M frontend/packages/webclient/src/index.ts
+ M frontend/packages/webclient/src/webclient/navbar/navbar.test.mjs
+ M frontend/packages/webclient/src/webclient/navbar/navbar.ts
+ M frontend/packages/webclient/src/webclient/shell.test.mjs
+ M frontend/packages/webclient/src/webclient/shell.ts
+ M internal/http/server.go
+ M tools/web_visual_smoke/run.mjs

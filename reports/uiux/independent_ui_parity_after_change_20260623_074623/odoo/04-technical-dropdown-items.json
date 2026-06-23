@@ -1,0 +1,212 @@
+[
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-19",
+    "role": "menuitem",
+    "text": "Outgoing Mail Server"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-6",
+    "role": "menuitem",
+    "text": "Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-7",
+    "role": "menuitem",
+    "text": "Report"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-8",
+    "role": "menuitem",
+    "text": "Window Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-9",
+    "role": "menuitem",
+    "text": "Client Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/server-actions",
+    "role": "menuitem",
+    "text": "Server Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-11",
+    "role": "menuitem",
+    "text": "Embedded Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-12",
+    "role": "menuitem",
+    "text": "Configuration Wizard"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-34",
+    "role": "menuitem",
+    "text": "U er-defined Default"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/iap-accounts",
+    "role": "menuitem",
+    "text": "IAP Account"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-30",
+    "role": "menuitem",
+    "text": "Menu Item"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-31",
+    "role": "menuitem",
+    "text": "View"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-33",
+    "role": "menuitem",
+    "text": "Cu tomized View"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-18",
+    "role": "menuitem",
+    "text": "U er-defined Filter"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-86",
+    "role": "menuitem",
+    "text": "Tour"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-5",
+    "role": "menuitem",
+    "text": "Decimal Accuracy"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-14",
+    "role": "menuitem",
+    "text": "A et"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-20",
+    "role": "menuitem",
+    "text": "Model"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-21",
+    "role": "menuitem",
+    "text": "Field"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-22",
+    "role": "menuitem",
+    "text": "Field  Selection"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-24",
+    "role": "menuitem",
+    "text": "Model Con traint"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-25",
+    "role": "menuitem",
+    "text": "ManyToMany Relation"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-27",
+    "role": "menuitem",
+    "text": "Attachment"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-38",
+    "role": "menuitem",
+    "text": "Logging"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-52",
+    "role": "menuitem",
+    "text": "Profiling"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/crons",
+    "role": "menuitem",
+    "text": "Scheduled Action"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-17",
+    "role": "menuitem",
+    "text": "Scheduled Action  Trigger"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-76",
+    "role": "menuitem",
+    "text": "Paper Format"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-77",
+    "role": "menuitem",
+    "text": "Report"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-23",
+    "role": "menuitem",
+    "text": "External Identifier"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/action-29",
+    "role": "menuitem",
+    "text": "Sequence"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/system-parameters",
+    "role": "menuitem",
+    "text": "Sy tem Parameter"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/record-rules",
+    "role": "menuitem",
+    "text": "Record Rule"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/access-rights",
+    "role": "menuitem",
+    "text": "Acce  Right"
+  },
+  {
+    "cls": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+    "href": "http://127.0.0.1:8145/odoo/user-device",
+    "role": "menuitem",
+    "text": "U er Device"
+  }
+]

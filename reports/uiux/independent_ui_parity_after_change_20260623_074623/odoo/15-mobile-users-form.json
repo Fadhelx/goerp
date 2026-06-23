@@ -1,0 +1,30 @@
+{
+  "body": "Admini tratorMy CompanyAdmini tratorgorp_ref_ui_20260623_074623New Add Photo Related Partner?Admini tratorAcce  Right Preference CalendarSecurityRole Role?U erAdmini tratorMa ter DataContact?Export?Extra Right Acce  Right ?Default acce  for new u er ?Multi Currencie ?Role / Portal?Role / U er?Technical Feature ?Bypa  HTML Field Sanitize?Multi Companie ?Role / Admini trator?Role / Public?Technical Documentation?",
+  "buttons": [
+    "My Company",
+    "Admini tratorgorp_ref_ui_20260623_074623",
+    "New",
+    "Add Photo"
+  ],
+  "labels": [
+    "Related Partner?",
+    "Role?",
+    "U er",
+    "Admini trator",
+    "Contact?",
+    "Export?",
+    "Acce  Right ?",
+    "Default acce  for new u er ?",
+    "Multi Currencie ?",
+    "Role / Portal?",
+    "Role / U er?",
+    "Technical Feature ?",
+    "Bypa  HTML Field Sanitize?",
+    "Multi Companie ?",
+    "Role / Admini trator?",
+    "Role / Public?",
+    "Technical Documentation?"
+  ],
+  "title": "Administrator",
+  "url": "http://127.0.0.1:8145/odoo/users/2?debug=1"
+}
