@@ -70,11 +70,16 @@ Build releases as source trees:
 release="gorp-$(git rev-parse --short HEAD)"
 rm -rf "dist/$release"
 mkdir -p dist
+pnpm -C frontend install
+pnpm -C frontend build
 git archive --format=tar --prefix="$release/" HEAD | tar -C dist -xf -
-go build -o "dist/$release/gorpd" ./cmd/gorpd
+mkdir -p "dist/$release/frontend/dist"
+rsync -a --delete --exclude='.DS_Store' frontend/dist/ "dist/$release/frontend/dist/"
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "dist/$release/gorpd" ./cmd/gorpd
 test -f "dist/$release/go.mod"
 test -f "dist/$release/internal/base/data/res_bank.xml"
 test -f "dist/$release/addons/oi_workflow/data/ir_cron.xml"
+test -f "dist/$release/frontend/dist/apps/webclient/src/main.js"
 (cd "dist/$release" && ./gorpd modules >/dev/null)
 tar -C dist -czf "dist/$release.tar.gz" "$release"
 ```
