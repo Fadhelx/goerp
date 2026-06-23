@@ -551,7 +551,7 @@ func TestCronMigrationExposeOdooCodeFields(t *testing.T) {
 	for _, migration := range BaseMigrations {
 		sqlByName[migration.Name] = migration.SQL
 	}
-	for _, column := range []string{"ir_actions_server_id", "cron_name", "model_id", "state", "code", "action_name", "lastcall", "priority", "failure_count", "first_failure_date"} {
+	for _, column := range []string{"ir_actions_server_id", "cron_name", "group_ids", "model_id", "state", "code", "action_name", "lastcall", "priority", "failure_count", "first_failure_date"} {
 		if !strings.Contains(sqlByName["ir_cron"], column) {
 			t.Fatalf("ir_cron missing %s: %s", column, sqlByName["ir_cron"])
 		}

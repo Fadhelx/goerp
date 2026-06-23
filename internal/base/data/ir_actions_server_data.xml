@@ -1,0 +1,49 @@
+<odoo>
+    <data noupdate="1">
+        <record id="action_config_run_remaining_action_todo" model="ir.actions.server">
+            <field name="name">Config: Run Remaining Action Todo</field>
+            <field name="model_name">config</field>
+            <field name="state">code</field>
+            <field name="usage">ir_actions_server</field>
+            <field name="active" eval="True"/>
+            <field name="sequence" eval="30"/>
+            <field name="code">model.search([])</field>
+        </record>
+        <record id="action_disable_two_factor_authentication" model="ir.actions.server">
+            <field name="name">Disable two-factor authentication</field>
+            <field name="model_name">res.users</field>
+            <field name="state">code</field>
+            <field name="usage">ir_actions_server</field>
+            <field name="active" eval="True"/>
+            <field name="sequence" eval="40"/>
+            <field name="code">model.search([])</field>
+        </record>
+        <record id="action_download_vcard" model="ir.actions.server">
+            <field name="name">Download (vCard)</field>
+            <field name="model_name">res.partner</field>
+            <field name="state">code</field>
+            <field name="usage">ir_actions_server</field>
+            <field name="active" eval="True"/>
+            <field name="sequence" eval="50"/>
+            <field name="code">model.search([])</field>
+        </record>
+        <record id="action_export_js" model="ir.actions.server">
+            <field name="name">Export JS</field>
+            <field name="model_name">web_tour.tour</field>
+            <field name="state">code</field>
+            <field name="usage">ir_actions_server</field>
+            <field name="active" eval="True"/>
+            <field name="sequence" eval="60"/>
+            <field name="code">model.search([])</field>
+        </record>
+        <record id="action_demo_failure_data" model="ir.actions.server">
+            <field name="name">Failed to install demo data for some modules, demo disabled</field>
+            <field name="model_name">base.module.demo_failure</field>
+            <field name="state">code</field>
+            <field name="usage">ir_actions_server</field>
+            <field name="active" eval="True"/>
+            <field name="sequence" eval="70"/>
+            <field name="code">model.search([])</field>
+        </record>
+    </data>
+</odoo>

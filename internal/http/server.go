@@ -7888,6 +7888,25 @@ const webClientShellHTML = `<!doctype html>
 		font-weight: 500;
 		letter-spacing: 0;
 	}
+	.gorp-form-title-editor.oe_title {
+		margin: 0 0 18px;
+	}
+	.gorp-form-title-input.o_input {
+		width: 100%;
+		min-height: 42px;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--text);
+		font-size: 30px;
+		line-height: 1.18;
+		font-weight: 500;
+		box-shadow: none;
+	}
+	.gorp-form-title-input.o_input::placeholder {
+		color: #6f7481;
+		opacity: 1;
+	}
 	.gorp-scheduled-action-run.o_cron_run_manually {
 		margin: 10px 0 8px;
 		min-height: 33px;
@@ -10874,6 +10893,14 @@ const webClientShellHTML = `<!doctype html>
 		line-height: 1.16;
 		font-weight: 500;
 	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-title-input.o_input {
+		color: var(--text);
+		font-size: 30px;
+		line-height: 1.16;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-title-input.o_input::placeholder {
+		color: #777b86;
+	}
 	.gorp-readonly-boolean {
 		position: relative;
 		display: inline-block;
@@ -10954,6 +10981,44 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="base.automation"] .gorp-form-field.o_wrap_field {
 		grid-template-columns: minmax(72px, .25fr) minmax(0, 1fr);
 		gap: 8px 14px;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="model_id"] {
+		grid-column: 1;
+		grid-row: 1;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="group_ids"] {
+		grid-column: 2;
+		grid-row: 1;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="user_id"] {
+		grid-column: 1;
+		grid-row: 2;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="interval_number"] {
+		grid-column: 1;
+		grid-row: 3;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="active"] {
+		grid-column: 1;
+		grid-row: 4;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="nextcall"] {
+		grid-column: 1;
+		grid-row: 5;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-field[data-field="priority"] {
+		grid-column: 1;
+		grid-row: 6;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-scheduled-execute-every {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-scheduled-execute-every .o_input {
+		width: auto;
+		min-width: 64px;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .gorp-server-action-notebook.o_notebook,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-scheduled-action-notebook.o_notebook {

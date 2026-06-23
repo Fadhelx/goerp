@@ -760,6 +760,42 @@ export const scenarios = [
     }
   },
   {
+    name: "default-server-action-new-form-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      const { action_id: actionID, menu_id: menuID } = opened.route_state;
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${encodeURIComponent(actionID)}&model=ir.actions.server&view_type=form&menu_id=${encodeURIComponent(menuID)}`) });
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Server Actions new form action ready");
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions new form");
+      const titleInputCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-title-input[data-field='name']", 1, "TS Server Actions new title input");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const form = root?.querySelector(".gorp-form-view");
+        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const title = form?.querySelector(".gorp-form-title-input[data-field='name']");
+        const save = root?.querySelector("[data-form-action='save']");
+        const edit = root?.querySelector("[data-form-action='edit']");
+        return {
+          title_placeholder: title?.getAttribute("placeholder") || "",
+          labels,
+          save_hidden: save?.hidden === true,
+          edit_hidden: edit?.hidden === true,
+          code_notebook_count: form?.querySelectorAll(".gorp-server-action-notebook").length || 0,
+          state_field_count: form?.querySelectorAll(".gorp-form-field[data-field='state']").length || 0,
+          active_field_count: form?.querySelectorAll(".gorp-form-field[data-field='active']").length || 0,
+          model_field_count: form?.querySelectorAll(".gorp-form-field[data-field='model_id']").length || 0,
+          groups_field_count: form?.querySelectorAll(".gorp-form-field[data-field='group_ids']").length || 0,
+          search_input_count: root?.querySelectorAll(".o_searchview_input").length || 0
+        };
+      })()`);
+      if (state.title_placeholder !== "Set an explicit name" || JSON.stringify(state.labels) !== JSON.stringify(["Model", "Allowed Groups"]) || state.save_hidden || !state.edit_hidden || state.code_notebook_count !== 0 || state.state_field_count !== 0 || state.active_field_count !== 0 || state.model_field_count !== 1 || state.groups_field_count !== 1 || state.search_input_count !== 0) {
+        throw new Error(`Server Actions new form parity invalid: ${JSON.stringify(state)}`);
+      }
+      return { opened, form_count: formCount, title_input_count: titleInputCount, state };
+    }
+  },
+  {
     name: "default-relation-dropdown-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
@@ -834,7 +870,7 @@ export const scenarios = [
       const runButtonCount = await waitForCount(page, ".o_web_client .o_action_manager [data-scheduled-action-run='true']", 1, "TS Scheduled Actions run manually button");
       const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-form-notebook-tab", 2, "TS Scheduled Actions Code Help notebook");
       const codeViewerCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-viewer[data-field='code']", 1, "TS Scheduled Actions code viewer");
-      const selectionPillCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-pills[data-field='interval_type'] .gorp-selection-pill", 1, "TS Scheduled Actions interval pills");
+      const executeEveryCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-scheduled-execute-every[data-field='interval_number']", 1, "TS Scheduled Actions Execute Every field");
       const readState = await evaluate(page, `(() => {
         const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-view .o_form_label")]
           .map((node) => node.textContent.trim())
@@ -847,32 +883,35 @@ export const scenarios = [
           labels
         };
       })()`);
-      if (readState.title !== "Base: Auto-vacuum internal data" || readState.run_button !== "Run Manually" || readState.model !== "Automatic Vacuum" || readState.nextcall !== "Jun 24, 1:02 AM" || !readState.labels.includes("Priority")) {
+      if (readState.title !== "Base: Auto-vacuum internal data" || readState.run_button !== "Run Manually" || readState.model !== "Automatic Vacuum" || readState.nextcall !== "Jun 24, 1:02 AM" || !readState.labels.includes("Priority") || !readState.labels.includes("Allowed Groups") || !readState.labels.includes("Scheduler User") || !readState.labels.includes("Execute Every") || readState.labels.includes("Run As") || readState.labels.includes("Interval Unit") || readState.labels.includes("Server Action")) {
         throw new Error(`Scheduled Actions read layout invalid: ${JSON.stringify(readState)}`);
       }
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
-      const intervalRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] input[type='radio']", 1, "TS Scheduled Actions interval radio");
+      const executeEveryEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-execute-every[data-field='interval_number'] select[data-field='interval_type']", 1, "TS Scheduled Actions Execute Every unit select");
       const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-scheduled-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Scheduled Actions code editor");
       const state = await evaluate(page, `(() => {
         const band = document.querySelector(".o_web_client .o_action_manager .gorp-scheduled-action-band");
         const badge = band?.querySelector(".gorp-server-action-badge")?.textContent?.trim() || "";
         const status = band?.querySelector(".gorp-server-action-state")?.textContent?.trim() || "";
-        const interval = document.querySelector(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type']");
-        const labels = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] .gorp-selection-radio-pill")]
-          .map((node) => node.textContent.trim())
-          .filter(Boolean);
+        const interval = document.querySelector(".o_web_client .o_action_manager .gorp-scheduled-execute-every[data-field='interval_number']");
+        const number = interval?.querySelector("input[data-field='interval_number']")?.value || "";
+        const unit = interval?.querySelector("select[data-field='interval_type']")?.value || "";
+        const legacyRadioCount = document.querySelectorAll(".o_web_client .o_action_manager .gorp-selection-radio-group[data-field='interval_type'] input[type='radio']").length;
         return {
           badge,
           status,
           state: band?.dataset?.state || "",
-          interval_value: interval?.dataset?.value || "",
-          interval_labels: labels
+          interval_number: number,
+          interval_unit: unit,
+          legacy_radio_count: legacyRadioCount
         };
       })()`);
-      if (state.badge !== "Scheduled Action" || !state.interval_labels.includes("Hours")) {
+      if (state.badge !== "Scheduled Action" || state.interval_number !== "1" || state.interval_unit !== "days" || state.legacy_radio_count !== 0) {
         throw new Error(`Scheduled Actions chrome invalid: ${JSON.stringify(state)}`);
       }
-      return { fixture, form_count: formCount, band_count: bandCount, run_button_count: runButtonCount, notebook_count: notebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, read_state: readState, interval_radio_count: intervalRadioCount, code_editor_count: codeEditorCount, state };
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='discard']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-scheduled-execute-every[data-field='interval_number'].o_readonly_modifier", 1, "TS Scheduled Actions returns to readonly layout");
+      return { fixture, form_count: formCount, band_count: bandCount, run_button_count: runButtonCount, notebook_count: notebookCount, code_viewer_count: codeViewerCount, execute_every_count: executeEveryCount, read_state: readState, execute_every_editor_count: executeEveryEditorCount, code_editor_count: codeEditorCount, state };
     }
   },
   {
@@ -904,7 +943,7 @@ export const scenarios = [
         const pager = document.querySelector(".o_web_client .o_action_manager .o_cp_pager")?.textContent?.trim() || "";
         return { headers, rows, pager, chips, activeWidgets, rawActiveText };
       })()`);
-      const expectedHeaders = ["Priority", "Action Name", "Model", "Next Execution Date", "Interval", "Interval Unit", "Active"];
+      const expectedHeaders = ["Priority", "Action Name", "Model", "Next Execution Date", "Interval Number", "Interval Unit", "Active"];
       if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || !state.chips.includes("All") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request" || JSON.stringify(state.activeWidgets) !== JSON.stringify(["true", "true"]) || state.rawActiveText.length) {
         throw new Error(`Scheduled Actions list parity invalid: ${JSON.stringify(state)}`);
       }
@@ -3396,9 +3435,22 @@ async function openDefaultServerActionsList(page, config, viewport) {
   await clickExactText(page, ".o_web_client .o_home_menu .o_app[data-menu-action='true']", "Server Actions", ".o_app_name");
   await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
   const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
-  const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS Server Actions rows");
+  const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 7, "TS Server Actions reference rows");
   const chips = await evaluate(page, `[...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean)`);
   if (!chips.includes("Top-level actions")) throw new Error(`Server Actions default chip missing: ${JSON.stringify(chips)}`);
+  const referenceRows = await evaluate(page, `[...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row")]
+    .map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean))`);
+  const expectedNames = [
+    "Base: Auto-vacuum internal data",
+    "Base: Portal Users Deletion",
+    "Config: Run Remaining Action Todo",
+    "Disable two-factor authentication",
+    "Download (vCard)",
+    "Export JS",
+    "Failed to install demo data for some modules, demo disabled"
+  ];
+  const actualNames = referenceRows.map((row) => row[0]);
+  if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) throw new Error(`Server Actions reference rows invalid: ${JSON.stringify({ actualNames, referenceRows })}`);
   const routeState = await evaluate(page, `(() => {
     const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
     const row = document.querySelector(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");

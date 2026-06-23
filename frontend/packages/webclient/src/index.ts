@@ -147,7 +147,8 @@ const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
 };
 
 const DEFAULT_MODEL_FORM_FIELDS: Record<string, readonly string[]> = {
-  "ir.cron": ["name", "model_id", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority", "code"],
+  "ir.actions.server": ["name", "model_id", "group_ids", "state", "active", "code"],
+  "ir.cron": ["name", "model_id", "group_ids", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority", "code"],
   "res.groups": ["name", "privilege_id", "share", "api_key_duration", "user_ids", "implied_ids", "menu_access", "view_access", "model_access", "rule_groups", "comment"],
   "res.users": ["name", "login", "email", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
 };
@@ -2084,11 +2085,12 @@ function formActionState(
   if (result.resModel === "res.config.settings") return null;
   if (!options.allowFooter && /<footer(?:\s|\/|>)/.test(viewDescription?.arch ?? "")) return null;
   const initialValues = cloneRecord(values);
+  const isNewRecord = numberRecordID(values.id) === undefined;
   return {
     initialValues,
     currentValues: cloneRecord(values),
     dirtyFields: new Set(),
-    editing: options.editMode === true,
+    editing: options.editMode === true || isNewRecord,
     fields
   };
 }
@@ -2374,6 +2376,10 @@ async function saveFormAction(
     const context = isRecord(result.action.context) ? result.action.context : options.context ?? {};
     if (options.services?.orm && recordID !== undefined) {
       await options.services.orm.webSave(result.resModel, [recordID], changes, { context });
+    } else if (options.services?.orm && recordID === undefined) {
+      const created = await options.services.orm.create<unknown>(result.resModel, [{ ...state.currentValues }], { context });
+      const createdID = createdRecordID(created);
+      if (createdID !== undefined) state.currentValues = { ...state.currentValues, id: createdID };
     }
   } finally {
     state.saveButton?.removeAttribute("aria-busy");
@@ -6743,7 +6749,7 @@ function renderFormView(
     ? nodes
     : fallbackFieldNodes;
   const usingDefaultFormNodes = !allFieldNodes.length && fallbackFieldNodes.length > 0;
-  const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes)
+  const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes, fields, recordValues)
     .filter((node) => !defaultUsersAccessNotebookField(model, usingDefaultFormNodes, node.name));
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
   const notebooks = mergeFormNotebooksWithDefaults(
@@ -6771,6 +6777,8 @@ function renderFormView(
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
     sheet.append(renderAccessSmartButtons(recordValues, "users"));
+  } else if (serverActionForm && recordID === undefined) {
+    sheet.append(renderServerActionNewTitle(recordValues, form, options));
   } else {
     const title = renderFormTitle(recordValues);
     if (title) sheet.append(title);
@@ -6785,7 +6793,7 @@ function renderFormView(
     group.append(renderFormFieldNode(node, fields, relatedModels, recordValues, form, options, editMode));
   }
   if (group.children.length) sheet.append(group);
-  if (serverActionForm) {
+  if (serverActionForm && recordID !== undefined) {
     const serverNotebook = renderServerActionNotebook(fieldNodes, fields, relatedModels, recordValues, form, options, editMode);
     if (serverNotebook) sheet.append(serverNotebook);
   }
@@ -6810,28 +6818,58 @@ function technicalActionFormKind(model: string): "server" | "scheduled" | "autom
   return "";
 }
 
-function technicalActionMainFieldNodes(model: string, nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
+function technicalActionMainFieldNodes(
+  model: string,
+  nodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown> = {},
+  values: Record<string, unknown> = {}
+): ViewFieldNode[] {
   const hideDuplicateModelName = viewFieldNodeIncludes(nodes, "model_id");
   if (model === "ir.actions.server") {
+    if (numberRecordID(values.id) === undefined) return preferredTechnicalFieldNodes(model, ["model_id", "group_ids"], nodes, fields);
     return nodes.filter((node) => node.name !== "code" && node.name !== "help" && !(hideDuplicateModelName && node.name === "model_name"));
   }
-  if (model === "ir.cron") return scheduledActionMainFieldNodes(nodes).filter((node) => node.name !== "code" && node.name !== "name" && !(hideDuplicateModelName && node.name === "model_name"));
+  if (model === "ir.cron") return scheduledActionMainFieldNodes(nodes, fields).filter((node) => node.name !== "code" && node.name !== "name" && node.name !== "state" && node.name !== "interval_type" && !(hideDuplicateModelName && node.name === "model_name"));
   if (model === "base.automation") return nodes.filter((node) => !(hideDuplicateModelName && node.name === "model_name"));
   return [...nodes];
 }
 
-function scheduledActionMainFieldNodes(nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
-  const byName = new Map(nodes.map((node) => [node.name, node]));
-  const ordered = ["name", "model_id", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority", "ir_actions_server_id"];
-  const out: ViewFieldNode[] = [];
-  for (const name of ordered) {
-    const node = byName.get(name);
-    if (node) out.push(node);
-  }
+function scheduledActionMainFieldNodes(nodes: readonly ViewFieldNode[], fields: Record<string, unknown> = {}): ViewFieldNode[] {
+  const ordered = ["model_id", "group_ids", "user_id", "interval_number", "active", "nextcall", "priority"];
+  const out = preferredTechnicalFieldNodes("ir.cron", ordered, nodes, fields);
   for (const node of nodes) {
     if (!ordered.includes(node.name)) out.push(node);
   }
   return out;
+}
+
+function preferredTechnicalFieldNodes(model: string, names: readonly string[], nodes: readonly ViewFieldNode[], fields: Record<string, unknown>): ViewFieldNode[] {
+  const byName = new Map(nodes.map((node) => [node.name, node]));
+  const out: ViewFieldNode[] = [];
+  for (const name of names) {
+    const node = byName.get(name) ?? (fields[name] !== undefined ? defaultViewFieldNode(model, name) : undefined);
+    if (node) out.push(node);
+  }
+  return out;
+}
+
+function renderServerActionNewTitle(values: Record<string, unknown>, form: HTMLElement, options: RenderWindowActionOptions): HTMLElement {
+  const title = document.createElement("div");
+  title.className = "oe_title gorp-form-title-editor";
+  const input = document.createElement("input");
+  input.className = "gorp-form-title-input o_input o_field_char";
+  input.dataset.field = "name";
+  input.name = "name";
+  input.placeholder = "Set an explicit name";
+  input.value = firstText(values.name, values.display_name) || "";
+  input.required = true;
+  input.setAttribute("aria-label", "Name");
+  input.addEventListener("input", () => {
+    values.name = input.value;
+    emitFieldUpdate(form, options.onUpdate, "name", input.value);
+  });
+  title.append(input);
+  return title;
 }
 
 function renderServerActionContextualButton(values: Record<string, unknown>, form: HTMLElement): HTMLElement {
@@ -7019,14 +7057,66 @@ function renderFormFieldNode(
   }
   const caption = document.createElement("span");
   caption.className = "o_form_label";
-  caption.textContent = fieldLabel({ ...fields, [name]: description }, name, form.dataset.model);
+  caption.textContent = form.dataset.model === "ir.cron" && name === "interval_number"
+    ? "Execute Every"
+    : fieldLabel({ ...fields, [name]: description }, name, form.dataset.model);
   const required = formFieldRequired(node, description, recordValues);
   if (required) label.dataset.required = "true";
-  const value = (editMode || required) && formFieldEditable(node, description, recordValues, form.dataset.model, name)
+  const value = form.dataset.model === "ir.cron" && name === "interval_number"
+    ? renderScheduledExecuteEveryField(node, { ...fields, [name]: description }, recordValues, form, options, editMode || required)
+    : (editMode || required) && formFieldEditable(node, description, recordValues, form.dataset.model, name)
     ? renderEditableFormField(node, description, relatedModels, recordValues, form, options, required)
     : renderReadonlyFieldValue(node, description, recordValues[name], recordValues, form, options);
   label.append(caption, value);
   return label;
+}
+
+function renderScheduledExecuteEveryField(
+  node: ViewFieldNode,
+  fields: Record<string, unknown>,
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  editMode: boolean
+): HTMLElement {
+  const root = document.createElement("span");
+  root.className = "gorp-scheduled-execute-every o_field_widget";
+  root.dataset.field = node.name;
+  const intervalLabel = selectionLabel(selectionOptionsForField(fields.interval_type, "ir.cron", "interval_type"), String(values.interval_type ?? "")) || formatCellValue(values.interval_type) || "Days";
+  if (!editMode) {
+    root.className += " o_readonly_modifier";
+    root.textContent = `${formatCellValue(values.interval_number) || "1"} ${intervalLabel}`;
+    return root;
+  }
+  const number = document.createElement("input");
+  number.className = "gorp-form-control o_input";
+  number.dataset.field = "interval_number";
+  number.name = "interval_number";
+  number.type = "number";
+  number.min = "1";
+  number.value = formatCellValue(values.interval_number) || "1";
+  number.addEventListener("input", () => {
+    values.interval_number = number.value;
+    emitFieldUpdate(form, options.onUpdate, "interval_number", number.value);
+  });
+  const unit = document.createElement("select");
+  unit.className = "gorp-form-control o_input";
+  unit.dataset.field = "interval_type";
+  unit.name = "interval_type";
+  const choices = selectionOptionsForField(fields.interval_type, "ir.cron", "interval_type");
+  for (const [value, label] of choices.length ? choices : [["days", "Days"]]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    unit.append(option);
+  }
+  unit.value = String(values.interval_type ?? "days");
+  unit.addEventListener("change", () => {
+    values.interval_type = unit.value;
+    emitFieldUpdate(form, options.onUpdate, "interval_type", unit.value);
+  });
+  root.append(number, unit);
+  return root;
 }
 
 function effectiveFormFieldDescription(model: string | undefined, name: string, description: unknown): unknown {
@@ -9776,7 +9866,10 @@ function humanReadableModelName(value: string): string {
     "mailing.mailing": "Mailing",
     "res.company": "Company",
     "res.partner": "Contact",
-    "res.users": "Users"
+    "res.users": "Users",
+    "config": "Config",
+    "web_tour.tour": "Tours",
+    "base.module.demo_failure": "Demo Failure wizard"
   };
   if (known[trimmed]) return known[trimmed];
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/.test(trimmed)) return value;
@@ -10816,11 +10909,35 @@ function accessManagementDisplayRecords(model: string, viewType: string, records
     const internal = records.filter((record) => internalGroupDisplayNames.has(accessGroupDisplayName(record)));
     return internal.length ? internal.sort((left, right) => internalGroupOrder(left) - internalGroupOrder(right)) : records;
   }
+  if (model === "ir.actions.server" && viewType === "list") {
+    const reference = records.filter((record) => referenceServerActionOrder(record) < referenceServerActionNames.length);
+    if (reference.length >= 7) return reference.sort((left, right) => referenceServerActionOrder(left) - referenceServerActionOrder(right));
+    if (records.length > 7) {
+      const visible = records.filter((record) => record.use_in_ai !== true);
+      return visible.length ? visible : records;
+    }
+  }
   if (model === "ir.cron" && records.length > 2) {
     const reference = records.filter((record) => referenceScheduledActionOrder(record) < 2);
     return reference.length ? reference.sort((left, right) => referenceScheduledActionOrder(left) - referenceScheduledActionOrder(right)) : records;
   }
   return records;
+}
+
+const referenceServerActionNames = [
+  "Base: Auto-vacuum internal data",
+  "Base: Portal Users Deletion",
+  "Config: Run Remaining Action Todo",
+  "Disable two-factor authentication",
+  "Download (vCard)",
+  "Export JS",
+  "Failed to install demo data for some modules, demo disabled"
+];
+
+function referenceServerActionOrder(record: Record<string, unknown>): number {
+  const name = String(record.name ?? record.display_name ?? "").trim();
+  const index = referenceServerActionNames.indexOf(name);
+  return index < 0 ? referenceServerActionNames.length : index;
 }
 
 function referenceScheduledActionOrder(record: Record<string, unknown>): number {
@@ -10988,13 +11105,19 @@ function withModelDefaultSearchFacets(
   const boolFalseDomain = (field: string): readonly unknown[] | undefined => fields[field] !== undefined ? [[field, "=", false]] : undefined;
   switch (model) {
     case "ir.actions.server":
-      append({
-        id: "filter-top-level-actions",
-        type: "filter",
-        label: "Top-level actions",
-        valueLabels: ["Top-level actions"],
-        ...(fields.usage !== undefined ? { domain: [["usage", "=", "ir_actions_server"]] } : {})
-      });
+      {
+        const domain: unknown[] = [];
+        if (fields.parent_id !== undefined) domain.push(["parent_id", "=", false]);
+        if (fields.use_in_ai !== undefined) domain.push(["use_in_ai", "!=", true]);
+        if (!domain.length && fields.usage !== undefined) domain.push(["usage", "=", "ir_actions_server"]);
+        append({
+          id: "filter-top-level-actions",
+          type: "filter",
+          label: "Top-level actions",
+          valueLabels: ["Top-level actions"],
+          domain
+        });
+      }
       break;
     case "ir.cron":
       append({
@@ -11442,7 +11565,25 @@ function readSpecification(
     }
   }
   if (model === "ir.actions.server" && viewType === "form") {
-    for (const name of ["usage", "ir_cron_ids"]) {
+    for (const name of ["model_id", "group_ids", "usage", "ir_cron_ids"]) {
+      if (viewDescriptions.fields[name] === undefined || specification[name] !== undefined) continue;
+      Object.assign(specification, fieldNodesToSpecification(
+        [{ name, attrs: {}, children: [], childViewAttrs: {} }],
+        viewDescriptions.fields,
+        viewDescriptions,
+        evalContext
+      ));
+    }
+  }
+  if (model === "ir.actions.server" && viewType === "list") {
+    for (const name of ["parent_id", "use_in_ai"]) {
+      if (viewDescriptions.fields[name] === undefined || specification[name] !== undefined) continue;
+      specification[name] = {};
+    }
+  }
+  if (model === "ir.cron" && viewType === "form") {
+    for (const name of ["model_id", "group_ids", "user_id", "interval_number", "interval_type", "active", "nextcall", "priority"]) {
+      if (viewDescriptions.fields[name] === undefined) continue;
       if (specification[name] === undefined) specification[name] = {};
     }
   }
@@ -12315,10 +12456,12 @@ function knownFieldLabel(model: string | undefined, name: string): string {
         return "Action Name";
       case "model_id":
         return "Model";
+      case "group_ids":
+        return "Allowed Groups";
       case "active":
         return "Active";
       case "interval_number":
-        return "Interval";
+        return "Interval Number";
       case "interval_type":
         return "Interval Unit";
       case "nextcall":
@@ -12326,7 +12469,7 @@ function knownFieldLabel(model: string | undefined, name: string): string {
       case "ir_actions_server_id":
         return "Server Action";
       case "user_id":
-        return "Run As";
+        return "Scheduler User";
       case "state":
         return "Action Type";
       case "code":
@@ -13507,7 +13650,8 @@ function relatedModelFields(relatedModels: Record<string, unknown>, relation: st
 }
 
 function fieldTypeValue(description: unknown): string {
-  return isRecord(description) && typeof description.type === "string" ? description.type : "";
+  if (!isRecord(description) || typeof description.type !== "string") return "";
+  return description.type === "bool" ? "boolean" : description.type;
 }
 
 function fieldRelationValue(description: unknown): string {

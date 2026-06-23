@@ -948,7 +948,12 @@ const defaultFacetServices = createWebClientServices({
     const model = String(request.route.match(/call_kw\/([^/]+)\//)?.[1] || "");
     if (request.route.endsWith("/get_views")) {
       const fieldsByModel = {
-        "ir.actions.server": { name: { type: "char", string: "Name" }, usage: { type: "selection", string: "Usage" } },
+        "ir.actions.server": {
+          name: { type: "char", string: "Name" },
+          usage: { type: "selection", string: "Usage" },
+          parent_id: { type: "many2one", relation: "ir.actions.server", string: "Parent Action" },
+          use_in_ai: { type: "boolean", string: "Use in AI" }
+        },
         "ir.cron": { name: { type: "char", string: "Name" } },
         "res.users": { name: { type: "char", string: "Name" }, share: { type: "boolean", string: "Share" } },
         "res.groups": { name: { type: "char", string: "Name" }, share: { type: "boolean", string: "Share" } }
@@ -966,7 +971,7 @@ const defaultFacetServices = createWebClientServices({
   }
 });
 const defaultFacetCases = [
-  ["ir.actions.server", "Top-level actions", [["usage", "=", "ir_actions_server"]]],
+  ["ir.actions.server", "Top-level actions", [["parent_id", "=", false], ["use_in_ai", "!=", true]]],
   ["ir.cron", "All", []],
   ["res.users", "Internal Users", [["share", "=", false]]],
   ["res.groups", "Internal Groups", [["share", "=", false]]]
@@ -2225,11 +2230,14 @@ const cronWindow = renderWindowAction({
   viewDescriptions: {
     fields: {
       name: { type: "char", string: "name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "model_id" },
+      group_ids: { type: "many2many", relation: "res.groups", string: "group_ids" },
       active: { type: "boolean", string: "active" },
       interval_number: { type: "integer", string: "interval_number" },
       interval_type: { type: "selection", string: "interval_type" },
       nextcall: { type: "datetime", string: "nextcall" },
       user_id: { type: "many2one", relation: "res.users", string: "user_id" },
+      priority: { type: "integer", string: "priority" },
       state: { type: "selection", string: "state" },
       code: { type: "text", string: "code" }
     },
@@ -2248,11 +2256,14 @@ const cronWindow = renderWindowAction({
     id: 41,
     display_name: "Mail: Email Queue Manager",
     name: "Mail: Email Queue Manager",
+    model_id: [12, "Mail"],
+    group_ids: [],
     active: true,
     interval_number: 4,
     interval_type: "hours",
     nextcall: "2026-06-22 12:00:00",
     user_id: [1, "Administrator"],
+    priority: 6,
     state: "code",
     code: "model._process_queue()"
   }
@@ -2265,32 +2276,30 @@ assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-meta-value"))[0].textContent, "4 Hours");
 assert.equal(findAll(cronForm, (node) => node.dataset?.scheduledActionRun === "true")[0].textContent, "Run Manually");
-assert.deepEqual(findAll(cronForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 7), [
-  "Run As",
-  "Interval",
-  "Interval Unit",
+const cronLabels = findAll(cronForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
+assert.deepEqual(cronLabels.slice(0, 7), [
+  "Model",
+  "Allowed Groups",
+  "Scheduler User",
+  "Execute Every",
   "Active",
   "Next Execution Date",
-  "Action Type",
-  "Code"
+  "Priority"
 ]);
+assert.equal(cronLabels.includes("Server Action"), false);
 const cronNotebook = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-scheduled-action-notebook"))[0];
 assert.deepEqual(findAll(cronNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
 assert.equal(findAll(cronNotebook, (node) => String(node.className ?? "").includes("gorp-code-viewer") && node.dataset?.field === "code").length, 1);
 const cronEditButton = findAll(cronWindow, (node) => node.dataset?.formAction === "edit")[0];
 cronEditButton.dispatchEvent(new TestEvent("click"));
 cronForm = cronWindow.children[1];
-const cronStateRadio = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "state")[0];
-const cronIntervalRadio = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "interval_type")[0];
+const cronExecuteEvery = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-scheduled-execute-every") && node.dataset?.field === "interval_number")[0];
+const cronIntervalNumber = findAll(cronExecuteEvery, (node) => node.tag === "input" && node.dataset?.field === "interval_number")[0];
+const cronIntervalUnit = findAll(cronExecuteEvery, (node) => node.tag === "select" && node.dataset?.field === "interval_type")[0];
 const cronCodeEditor = findAll(cronForm, (node) => node.tag === "textarea" && String(node.className ?? "").includes("gorp-code-editor") && node.dataset?.field === "code")[0];
-assert.equal(cronStateRadio.dataset.value, "code");
-assert.deepEqual(findAll(cronIntervalRadio, (node) => node.tag === "input").map((node) => [node.value, node.checked]), [
-  ["minutes", false],
-  ["hours", true],
-  ["days", false],
-  ["weeks", false],
-  ["months", false]
-]);
+assert.equal(findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "state").length, 0);
+assert.equal(cronIntervalNumber.value, "4");
+assert.equal(cronIntervalUnit.value, "hours");
 assert.equal(cronCodeEditor.value, "model._process_queue()");
 
 const automationWindow = renderWindowAction({
@@ -6012,14 +6021,17 @@ const newFormServices = createWebClientServices({
     if (request.route === "/web/dataset/call_kw/ir.actions.server/get_views") {
       return Promise.resolve({
         views: {
-          form: { arch: "<form><sheet><field name=\"name\"/><field name=\"state\"/><field name=\"active\"/></sheet></form>", id: 12 }
+          form: { arch: "<form><sheet><field name=\"name\"/><field name=\"model_id\"/><field name=\"group_ids\"/><field name=\"state\"/><field name=\"active\"/><field name=\"code\"/></sheet></form>", id: 12 }
         },
         models: {
           "ir.actions.server": {
             fields: {
               name: { type: "char", string: "Name" },
+              model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+              group_ids: { type: "many2many", relation: "res.groups", string: "Allowed Groups" },
               state: { type: "selection", string: "Action To Do" },
-              active: { type: "boolean", string: "Active" }
+              active: { type: "boolean", string: "Active" },
+              code: { type: "text", string: "Code" }
             }
           }
         }
@@ -6044,8 +6056,18 @@ assert.equal(newServerActionResult.activeView, "form");
 assert.equal(newServerActionResult.length, 0);
 assert.deepEqual(newServerActionResult.records, [{ state: "code", active: true }]);
 assert.equal(newFormActionRequests[1].route, "/web/dataset/call_kw/ir.actions.server/default_get");
-assert.deepEqual(newFormActionRequests[1].params.args, [["name", "state", "active", "usage", "ir_cron_ids"]]);
+assert.deepEqual(newFormActionRequests[1].params.args, [["name", "model_id", "group_ids", "state", "active", "code"]]);
 assert.deepEqual(newFormActionRequests[1].params.kwargs.context, { default_state: "code" });
+const newServerActionWindow = renderWindowAction(newServerActionResult, { services: newFormServices });
+const newServerTitleInput = findAll(newServerActionWindow, (node) => node.tag === "input" && String(node.className ?? "").includes("gorp-form-title-input") && node.dataset?.field === "name")[0];
+assert.equal(newServerTitleInput.placeholder, "Set an explicit name");
+assert.equal(findAll(newServerActionWindow, (node) => node.dataset?.formAction === "edit")[0].hidden, true);
+assert.equal(findAll(newServerActionWindow, (node) => node.dataset?.formAction === "save")[0].hidden, false);
+const newServerLabels = findAll(newServerActionWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
+assert.deepEqual(newServerLabels, ["Model", "Allowed Groups"]);
+assert.equal(newServerLabels.includes("Type"), false);
+assert.equal(newServerLabels.includes("Active"), false);
+assert.equal(findAll(newServerActionWindow, (node) => String(node.className ?? "").includes("gorp-server-action-notebook")).length, 0);
 
 const workflowSelectionRequests = [];
 const workflowSelectionServices = createWebClientServices({
