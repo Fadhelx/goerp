@@ -10,7 +10,7 @@
             <field name="name">ir.actions.server.form</field>
             <field name="model">ir.actions.server</field>
             <field name="type">form</field>
-            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="model_name"/&gt;&lt;field name="state"/&gt;&lt;field name="active"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id" domain="[('transient','=',False)]" options="{'no_create': True}"/&gt;&lt;field name="model_name"/&gt;&lt;field name="state"/&gt;&lt;field name="active"/&gt;&lt;field name="code"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
         <record id="view_ir_actions_server_search" model="ir.ui.view">
             <field name="name">ir.actions.server.search</field>
@@ -49,38 +49,38 @@
             <field name="name">res.users.list</field>
             <field name="model">res.users</field>
             <field name="type">list</field>
-            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="login"/&gt;&lt;field name="email"/&gt;&lt;field name="company_id"/&gt;&lt;field name="groups_count"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="login"/&gt;&lt;field name="role"/&gt;&lt;/list&gt;</field>
         </record>
         <record id="view_users_form" model="ir.ui.view">
             <field name="name">res.users.form</field>
             <field name="model">res.users</field>
             <field name="type">form</field>
-            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="login"/&gt;&lt;field name="email"/&gt;&lt;field name="company_id"/&gt;&lt;field name="role" readonly="1"/&gt;&lt;field name="active"/&gt;&lt;field name="notification_type"/&gt;&lt;field name="signature"/&gt;&lt;/group&gt;&lt;notebook name="access_notebook"&gt;&lt;page string="Access Rights" name="access_rights"&gt;&lt;field name="group_ids" widget="res_user_group_ids"/&gt;&lt;/page&gt;&lt;page string="Preferences" name="preferences"&gt;&lt;field name="company_ids"/&gt;&lt;field name="partner_id"/&gt;&lt;/page&gt;&lt;/notebook&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="role" readonly="1"/&gt;&lt;field name="active"/&gt;&lt;field name="notification_type"/&gt;&lt;field name="signature"/&gt;&lt;/group&gt;&lt;notebook name="access_notebook"&gt;&lt;page string="Access Rights" name="access_rights"&gt;&lt;field name="group_ids" widget="res_user_group_ids"/&gt;&lt;/page&gt;&lt;page string="Preferences" name="preferences"&gt;&lt;field name="company_ids"/&gt;&lt;field name="company_id"/&gt;&lt;/page&gt;&lt;page string="Calendar" name="calendar"/&gt;&lt;page string="Security" name="security"/&gt;&lt;/notebook&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
         <record id="view_users_search" model="ir.ui.view">
             <field name="name">res.users.search</field>
             <field name="model">res.users</field>
             <field name="type">search</field>
-            <field name="arch">&lt;search string="Users"&gt;&lt;field name="name"/&gt;&lt;field name="login"/&gt;&lt;field name="email"/&gt;&lt;filter string="Active" name="active" domain="[('active','=',True)]"/&gt;&lt;/search&gt;</field>
+            <field name="arch">&lt;search string="Users"&gt;&lt;field name="name"/&gt;&lt;field name="login"/&gt;&lt;field name="email"/&gt;&lt;filter string="Internal Users" name="internal_users" domain="[('share','=',False)]" default="1"/&gt;&lt;/search&gt;</field>
         </record>
 
         <record id="view_groups_list" model="ir.ui.view">
             <field name="name">res.groups.list</field>
             <field name="model">res.groups</field>
             <field name="type">list</field>
-            <field name="arch">&lt;list&gt;&lt;field name="full_name"/&gt;&lt;field name="name"/&gt;&lt;field name="category_id"/&gt;&lt;field name="privilege_id"/&gt;&lt;field name="share"/&gt;&lt;/list&gt;</field>
+            <field name="arch">&lt;list&gt;&lt;field name="privilege_id"/&gt;&lt;field name="name"/&gt;&lt;/list&gt;</field>
         </record>
         <record id="view_groups_form" model="ir.ui.view">
             <field name="name">res.groups.form</field>
             <field name="model">res.groups</field>
             <field name="type">form</field>
-            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="full_name"/&gt;&lt;field name="category_id"/&gt;&lt;field name="privilege_id"/&gt;&lt;field name="share"/&gt;&lt;field name="api_key_duration"/&gt;&lt;/group&gt;&lt;notebook&gt;&lt;page string="Inherited" name="inherited"&gt;&lt;field name="implied_ids"/&gt;&lt;/page&gt;&lt;page string="Users" name="users"&gt;&lt;field name="user_ids"/&gt;&lt;/page&gt;&lt;page string="Access" name="access"&gt;&lt;field name="model_access"/&gt;&lt;field name="rule_groups"/&gt;&lt;field name="menu_access"/&gt;&lt;field name="view_access"/&gt;&lt;/page&gt;&lt;page string="Comment" name="comment"&gt;&lt;field name="comment"/&gt;&lt;/page&gt;&lt;/notebook&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="privilege_id"/&gt;&lt;field name="share"/&gt;&lt;field name="api_key_duration"/&gt;&lt;/group&gt;&lt;notebook&gt;&lt;page string="Users" name="users"&gt;&lt;field name="user_ids"/&gt;&lt;/page&gt;&lt;page string="Inherited" name="inherited"&gt;&lt;field name="implied_ids"/&gt;&lt;/page&gt;&lt;page string="Menus" name="menus"&gt;&lt;field name="menu_access"/&gt;&lt;/page&gt;&lt;page string="Views" name="views"&gt;&lt;field name="view_access"/&gt;&lt;/page&gt;&lt;page string="Access Rights" name="access_rights"&gt;&lt;field name="model_access"/&gt;&lt;/page&gt;&lt;page string="Record Rules" name="record_rules"&gt;&lt;field name="rule_groups"/&gt;&lt;/page&gt;&lt;page string="Notes" name="notes"&gt;&lt;field name="comment"/&gt;&lt;/page&gt;&lt;/notebook&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
         <record id="view_groups_search" model="ir.ui.view">
             <field name="name">res.groups.search</field>
             <field name="model">res.groups</field>
             <field name="type">search</field>
-            <field name="arch">&lt;search string="Groups"&gt;&lt;field name="name"/&gt;&lt;field name="full_name"/&gt;&lt;field name="category_id"/&gt;&lt;filter string="Shared" name="share" domain="[('share','=',True)]"/&gt;&lt;/search&gt;</field>
+            <field name="arch">&lt;search string="Groups"&gt;&lt;field name="name"/&gt;&lt;field name="full_name"/&gt;&lt;field name="category_id"/&gt;&lt;filter string="Internal Groups" name="internal_groups" domain="[('share','=',False)]" default="1"/&gt;&lt;/search&gt;</field>
         </record>
 
         <record id="view_ir_ui_view_list" model="ir.ui.view">

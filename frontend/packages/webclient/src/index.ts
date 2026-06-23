@@ -141,11 +141,13 @@ const DEFAULT_KANBAN_GROUP_LIMIT = 10;
 
 const DEFAULT_MODEL_LIST_FIELDS: Record<string, readonly string[]> = {
   "ir.actions.server": ["name", "model_id", "state", "usage"],
-  "res.users": ["name", "login", "email", "company_id", "groups_count", "active"]
+  "res.groups": ["privilege_id", "name"],
+  "res.users": ["name", "login", "role"]
 };
 
 const DEFAULT_MODEL_FORM_FIELDS: Record<string, readonly string[]> = {
-  "res.users": ["name", "login", "email", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
+  "res.groups": ["name", "privilege_id", "share", "api_key_duration", "user_ids", "implied_ids", "menu_access", "view_access", "model_access", "rule_groups", "comment"],
+  "res.users": ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "active", "notification_type", "signature"]
 };
 
 export interface PythonExpressionAST {
@@ -1821,7 +1823,10 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
   const formState = settingsState ? null : formActionState(result, viewDescription, values, fields);
   const controlPanel = renderWindowActionControlPanel(result, root, options, settingsState);
   if (settingsState) appendSettingsActionButtons(controlPanel, root, result, settingsState, options);
-  if (formState) appendFormActionButtons(controlPanel, root, result, formState, options);
+  if (formState) {
+    appendFormActionButtons(controlPanel, root, result, formState, options);
+    appendTechnicalFormSmartButtons(controlPanel, root, result, formState.currentValues);
+  }
   let body: HTMLElement;
   if (settingsState) {
     body = renderSettingsActionView(result, viewDescription, fields, settingsState, root);
@@ -2236,6 +2241,49 @@ function appendFormActionButtonsToContainer(
   if (includeEdit) container.append(edit);
   container.append(save, discard, status);
   updateFormActionButtons(state);
+}
+
+function appendTechnicalFormSmartButtons(
+  controlPanel: HTMLElement,
+  eventRoot: HTMLElement,
+  result: WindowActionResult,
+  values: Record<string, unknown>
+): void {
+  if (result.activeView !== "form" || result.resModel !== "ir.actions.server") return;
+  const count = serverActionScheduledCount(values);
+  if (count < 1) return;
+  const actions = findDescendantByClass(controlPanel, "o_control_panel_actions");
+  if (!actions) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary gorp-server-action-smart-button o_stat_button";
+  button.dataset.serverActionSmartButton = "scheduled-action";
+  button.dataset.count = String(count);
+  button.textContent = "Scheduled Action";
+  button.addEventListener("click", () => {
+    eventRoot.dispatchEvent(new CustomEvent("server-action:open-scheduled", {
+      bubbles: true,
+      detail: {
+        id: numberRecordID(values.id),
+        count
+      }
+    }));
+  });
+  const target = actions as HTMLElement & { prepend?: (...nodes: HTMLElement[]) => void; children?: unknown[] };
+  if (typeof target.prepend === "function") {
+    target.prepend(button);
+  } else if (Array.isArray(target.children)) {
+    target.children.unshift(button);
+  } else {
+    actions.append(button);
+  }
+}
+
+function serverActionScheduledCount(values: Record<string, unknown>): number {
+  const relations = values.ir_cron_ids;
+  if (Array.isArray(relations)) return Math.max(0, relations.length);
+  if (firstText(values.usage) === "ir_cron") return 1;
+  return 0;
 }
 
 function updateSettingsPendingValue(state: SettingsActionState, name: string, value: unknown): void {
@@ -3254,7 +3302,7 @@ function renderListView(
     for (const node of fieldNodes) {
       const cell = document.createElement("td");
       cell.dataset.field = node.name;
-      cell.append(renderReadonlyFieldValue(node, fields[node.name], record[node.name], record, undefined, undefined, model));
+      cell.append(renderListCellValue(node, fields[node.name], record, model));
       row.append(cell);
     }
     tbody.append(row);
@@ -3282,6 +3330,37 @@ function renderListView(
   }
   shell.append(table, renderMobileListCards(fieldNodes, fields, records, model, action, options));
   return shell;
+}
+
+function renderListCellValue(
+  node: ViewFieldNode,
+  description: unknown,
+  record: Record<string, unknown>,
+  model?: string
+): HTMLElement {
+  if (model === "res.users" && node.name === "name") return renderUserListIdentity(record);
+  if (model === "res.users" && node.name === "role") {
+    const badge = document.createElement("span");
+    badge.className = "gorp-user-role-badge";
+    badge.dataset.role = String(record.role ?? "");
+    badge.textContent = userRoleLabel(record.role);
+    return badge;
+  }
+  return renderReadonlyFieldValue(node, description, record[node.name], record, undefined, undefined, model);
+}
+
+function renderUserListIdentity(record: Record<string, unknown>): HTMLElement {
+  const root = document.createElement("span");
+  root.className = "gorp-user-list-identity";
+  const avatar = document.createElement("span");
+  avatar.className = "gorp-user-avatar o_avatar";
+  avatar.dataset.userId = String(record.id ?? "");
+  avatar.textContent = userInitial(record);
+  const name = document.createElement("output");
+  name.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  name.textContent = fieldDisplayText({ type: "char" }, record.name, "res.users", "name");
+  root.append(avatar, name);
+  return root;
 }
 
 function listRowCheckboxes(tbody: HTMLElement): HTMLInputElement[] {
@@ -6620,10 +6699,17 @@ function renderFormView(
   }
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
+  if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
-  const title = renderFormTitle(recordValues);
-  if (title) sheet.append(title);
+  if (model === "res.users") {
+    sheet.append(renderUserIdentityBlock(recordValues));
+    sheet.append(renderAccessSmartButtons(recordValues, "users"));
+  } else {
+    const title = renderFormTitle(recordValues);
+    if (title) sheet.append(title);
+    if (model === "res.groups") sheet.append(renderAccessSmartButtons(recordValues, "groups"));
+  }
   const technicalBand = renderTechnicalActionBand(model, fields, recordValues);
   if (technicalBand) sheet.append(technicalBand);
   const group = document.createElement("div");
@@ -6659,9 +6745,110 @@ function technicalActionFormKind(model: string): "server" | "scheduled" | "autom
 }
 
 function technicalActionMainFieldNodes(model: string, nodes: readonly ViewFieldNode[]): ViewFieldNode[] {
-  if (model === "ir.actions.server") return nodes.filter((node) => node.name !== "code" && node.name !== "help");
-  if (model === "ir.cron") return nodes.filter((node) => node.name !== "code");
+  const hideDuplicateModelName = viewFieldNodeIncludes(nodes, "model_id");
+  if (model === "ir.actions.server") {
+    return nodes.filter((node) => node.name !== "code" && node.name !== "help" && !(hideDuplicateModelName && node.name === "model_name"));
+  }
+  if (model === "ir.cron") return nodes.filter((node) => node.name !== "code" && !(hideDuplicateModelName && node.name === "model_name"));
+  if (model === "base.automation") return nodes.filter((node) => !(hideDuplicateModelName && node.name === "model_name"));
   return [...nodes];
+}
+
+function renderServerActionContextualButton(values: Record<string, unknown>, form: HTMLElement): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary gorp-server-action-contextual o_server_action_contextual";
+  button.dataset.serverActionContextual = "true";
+  button.textContent = "Create Contextual Action";
+  button.addEventListener("click", () => {
+    form.dispatchEvent(new CustomEvent("server-action:create-contextual", {
+      bubbles: true,
+      detail: { id: numberRecordID(values.id) }
+    }));
+  });
+  return button;
+}
+
+function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
+  const root = document.createElement("section");
+  root.className = "gorp-user-identity o_user_identity_block";
+  const avatar = document.createElement("span");
+  avatar.className = "gorp-user-identity-avatar o_avatar";
+  avatar.dataset.userId = String(values.id ?? "");
+  avatar.textContent = userInitial(values);
+  const content = document.createElement("div");
+  content.className = "gorp-user-identity-content";
+  const title = document.createElement("h1");
+  title.className = "gorp-form-title o_form_label";
+  title.textContent = String(values.name ?? values.display_name ?? values.login ?? "User");
+  const login = document.createElement("div");
+  login.className = "gorp-user-identity-line";
+  login.dataset.line = "login";
+  login.textContent = String(values.login ?? "");
+  const email = document.createElement("div");
+  email.className = "gorp-user-identity-line muted";
+  email.dataset.line = "email";
+  email.textContent = String(values.email || "Email");
+  const phone = document.createElement("div");
+  phone.className = "gorp-user-identity-line muted";
+  phone.dataset.line = "phone";
+  phone.textContent = String(values.phone || "Phone");
+  const related = document.createElement("div");
+  related.className = "gorp-user-related-partner";
+  const label = document.createElement("span");
+  label.textContent = "Related Partner";
+  const partner = document.createElement("output");
+  partner.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  partner.dataset.field = "partner_id";
+  partner.textContent = many2OneDisplayData(values.partner_id).displayName || String(values.name ?? "");
+  related.append(label, partner);
+  content.append(title, login, email, phone, related);
+  root.append(avatar, content);
+  return root;
+}
+
+function renderAccessSmartButtons(values: Record<string, unknown>, kind: "users" | "groups"): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "gorp-access-smart-buttons oe_button_box o_button_box";
+  root.dataset.kind = kind;
+  if (kind === "users") {
+    root.append(
+      renderAccessSmartButton("Groups", relationCount(values.all_group_ids) || relationCount(values.group_ids) || numericValue(values.groups_count)),
+      renderAccessSmartButton("Access Rights", numericValue(values.accesses_count) || numericValue(values.access_rights_count)),
+      renderAccessSmartButton("Record Rules", numericValue(values.rules_count) || numericValue(values.record_rules_count))
+    );
+  } else {
+    root.append(renderAccessSmartButton("Users", relationCount(values.user_ids) || numericValue(values.users_count)));
+  }
+  return root;
+}
+
+function renderAccessSmartButton(labelText: string, count: number | undefined): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary oe_stat_button gorp-access-smart-button";
+  button.dataset.smartButton = labelText.toLowerCase().replace(/\s+/g, "-");
+  const icon = document.createElement("span");
+  icon.className = "gorp-access-smart-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.className = "o_stat_text";
+  label.textContent = labelText;
+  const value = document.createElement("span");
+  value.className = "o_stat_value";
+  value.textContent = count === undefined ? "" : String(count);
+  button.append(icon, label, value);
+  return button;
+}
+
+function numericValue(value: unknown): number | undefined {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function relationCount(value: unknown): number | undefined {
+  const ids = normalizeGroupIds(value);
+  return ids.length || undefined;
 }
 
 function defaultUsersAccessNotebookField(model: string, usingDefaultFormNodes: boolean, fieldName: string): boolean {
@@ -6724,22 +6911,31 @@ function renderFormFieldNode(
   editMode = false
 ): HTMLElement {
   const name = node.name;
+  const description = effectiveFormFieldDescription(form.dataset.model, name, fields[name]);
   if (node.attrs.widget === "res_user_group_ids" && name === "group_ids") {
-    return renderResUserGroupIdsField(node, fields, recordValues, form, options.onUpdate);
+    return renderResUserGroupIdsField(node, { ...fields, [name]: description }, recordValues, form, options.onUpdate);
   }
   const label = document.createElement("label");
   label.className = "gorp-form-field o_wrap_field";
   label.dataset.field = name;
   const caption = document.createElement("span");
   caption.className = "o_form_label";
-  caption.textContent = fieldLabel(fields, name, form.dataset.model);
-  const required = formFieldRequired(node, fields[name], recordValues);
+  caption.textContent = fieldLabel({ ...fields, [name]: description }, name, form.dataset.model);
+  const required = formFieldRequired(node, description, recordValues);
   if (required) label.dataset.required = "true";
-  const value = (editMode || required) && formFieldEditable(node, fields[name], recordValues, form.dataset.model, name)
-    ? renderEditableFormField(node, fields[name], relatedModels, recordValues, form, options, required)
-    : renderReadonlyFieldValue(node, fields[name], recordValues[name], recordValues, form, options);
+  const value = (editMode || required) && formFieldEditable(node, description, recordValues, form.dataset.model, name)
+    ? renderEditableFormField(node, description, relatedModels, recordValues, form, options, required)
+    : renderReadonlyFieldValue(node, description, recordValues[name], recordValues, form, options);
   label.append(caption, value);
   return label;
+}
+
+function effectiveFormFieldDescription(model: string | undefined, name: string, description: unknown): unknown {
+  if (description !== undefined && description !== null) return description;
+  if ((model === "ir.actions.server" || model === "base.automation") && name === "model_id") {
+    return { type: "many2one", relation: "ir.model", string: "Model" };
+  }
+  return description;
 }
 
 function renderTechnicalActionBand(model: string, fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement | null {
@@ -7147,7 +7343,8 @@ function renderReadonlyFieldValue(
   }
   if (fieldTypeValue(description) === "many2one") {
     const relation = fieldRelationValue(description);
-    const data = relation ? relationMany2OneDisplayData(relation, value) : many2OneDisplayData(value);
+    const rawData = relation ? relationMany2OneDisplayData(relation, value) : many2OneDisplayData(value);
+    const data = relation ? modelRelationDisplayData(node.name, relation, rawData, evalContext) : rawData;
     if (relation && data.id !== undefined) {
       const config = relationFieldConfig(node, evalContext, options, relation);
       if (config.noOpen) return renderMany2OnePlainValue(node.name, relation, data, config);
@@ -8049,6 +8246,7 @@ function fieldDisplayText(description: unknown, value: unknown, model?: string, 
   if (fieldName === "model_name" && (model === "ir.actions.server" || model === "ir.cron" || model === "base.automation")) {
     return humanReadableModelName(String(value ?? ""));
   }
+  if (model === "res.users" && fieldName === "role") return userRoleLabel(value);
   const fieldType = fieldTypeValue(description);
   if (fieldType === "selection") {
     const key = String(value ?? "");
@@ -8060,6 +8258,32 @@ function fieldDisplayText(description: unknown, value: unknown, model?: string, 
     return relation ? relationMany2OneDisplayData(relation, value).displayName : many2OneDisplayData(value).displayName;
   }
   return formatCellValue(value);
+}
+
+function userRoleLabel(value: unknown): string {
+  const key = String(value ?? "").trim();
+  switch (key) {
+    case "group_system":
+    case "admin":
+    case "administrator":
+      return "Administrator";
+    case "group_user":
+    case "user":
+      return "User";
+    case "group_portal":
+    case "portal":
+      return "Portal";
+    case "group_public":
+    case "public":
+      return "Public";
+    default:
+      return key ? humanizeFieldName(key.replace(/^group_/, "")) : "";
+  }
+}
+
+function userInitial(record: Record<string, unknown>): string {
+  const name = String(record.name ?? record.display_name ?? record.login ?? "A").trim();
+  return (name[0] || "A").toUpperCase();
 }
 
 function many2OneDisplayData(value: unknown): { id?: number; displayName: string } {
@@ -8884,7 +9108,7 @@ function renderMany2OneEditor(
   required: boolean
 ): HTMLElement {
   const relation = fieldRelationValue(description);
-  const current = relationMany2OneDisplayData(relation, values[node.name]);
+  const current = modelRelationDisplayData(node.name, relation, relationMany2OneDisplayData(relation, values[node.name]), values);
   const config = relationFieldConfig(node, values, options, relation);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
@@ -9234,6 +9458,19 @@ function many2OneSearchItems(value: unknown): Many2OneSearchItem[] {
 function relationMany2OneDisplayData(relation: string, value: unknown): { id?: number; displayName: string } {
   const data = many2OneDisplayData(value);
   return { ...data, displayName: relationDisplayName(relation, data.displayName) };
+}
+
+function modelRelationDisplayData(
+  fieldName: string,
+  relation: string,
+  data: { id?: number; displayName: string },
+  values: Record<string, unknown>
+): { id?: number; displayName: string } {
+  if (relation !== "ir.model" || fieldName !== "model_id") return data;
+  if (data.displayName.trim() && (data.id === undefined || data.displayName !== String(data.id))) return data;
+  const fallback = firstText(values.model_name, values.model);
+  if (!fallback) return data;
+  return { ...data, displayName: relationDisplayName(relation, fallback) };
 }
 
 function relationMany2OneSearchItems(relation: string, value: unknown): Many2OneSearchItem[] {
@@ -10658,6 +10895,11 @@ function readSpecification(
       evalContext
     ));
   }
+  if (model === "ir.actions.server" && viewType === "form") {
+    for (const name of ["usage", "ir_cron_ids"]) {
+      if (specification[name] === undefined) specification[name] = {};
+    }
+  }
   return specification;
 }
 
@@ -11588,6 +11830,36 @@ function knownFieldLabel(model: string | undefined, name: string): string {
         return "";
     }
   }
+  if (model === "res.groups") {
+    switch (name) {
+      case "privilege_id":
+        return "Privilege";
+      case "name":
+        return "Name";
+      case "full_name":
+        return "Full Name";
+      case "share":
+        return "Share Group";
+      case "api_key_duration":
+        return "API Keys maximum duration days";
+      case "user_ids":
+        return "Users";
+      case "implied_ids":
+        return "Inherited";
+      case "menu_access":
+        return "Menus";
+      case "view_access":
+        return "Views";
+      case "model_access":
+        return "Access Rights";
+      case "rule_groups":
+        return "Record Rules";
+      case "comment":
+        return "Notes";
+      default:
+        return "";
+    }
+  }
   return "";
 }
 
@@ -11666,6 +11938,13 @@ const automationTriggerSelectionOptions: Array<[string, string]> = [
   ["manual", "Manually"]
 ];
 
+const userRoleSelectionOptions: Array<[string, string]> = [
+  ["group_user", "User"],
+  ["group_system", "Administrator"],
+  ["group_portal", "Portal"],
+  ["group_public", "Public"]
+];
+
 function selectionOptionsForField(description: unknown, model: string | undefined, fieldName: string): Array<[string, string]> {
   const choices = selectionOptions(description);
   if (choices.length) return choices;
@@ -11684,6 +11963,7 @@ function selectionOptionsForField(description: unknown, model: string | undefine
   if (model === "base.automation" && fieldName === "trigger" && fieldTypeValue(description) === "selection") {
     return automationTriggerSelectionOptions;
   }
+  if (model === "res.users" && fieldName === "role") return userRoleSelectionOptions;
   return [];
 }
 

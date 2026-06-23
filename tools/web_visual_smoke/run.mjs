@@ -634,6 +634,25 @@ export const scenarios = [
       if (!relationState.text || !relationState.res_id || !relationState.href.includes("model=ir.model")) {
         throw new Error(`TS Server Actions relation link invalid: ${JSON.stringify(relationState)}`);
       }
+      const contextualButtonCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-contextual[data-server-action-contextual='true']", 1, "TS Server Actions contextual action button");
+      const smartButtonCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-server-action-smart-button[data-server-action-smart-button='scheduled-action']", 1, "TS Server Actions scheduled smart button");
+      const serverActionChromeState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const form = root?.querySelector(".gorp-form-view");
+        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const contextual = form?.querySelector(".gorp-server-action-contextual[data-server-action-contextual='true']");
+        const smart = root?.querySelector(".gorp-server-action-smart-button[data-server-action-smart-button='scheduled-action']");
+        return {
+          model_label_count: labels.filter((label) => label === "Model").length,
+          model_name_field_count: form?.querySelectorAll(".gorp-form-field[data-field='model_name']").length || 0,
+          contextual_text: contextual?.textContent?.trim() || "",
+          smart_text: smart?.textContent?.trim() || "",
+          smart_count: smart?.dataset?.count || ""
+        };
+      })()`);
+      if (serverActionChromeState.model_label_count !== 1 || serverActionChromeState.model_name_field_count !== 0 || serverActionChromeState.contextual_text !== "Create Contextual Action" || serverActionChromeState.smart_text !== "Scheduled Action" || !serverActionChromeState.smart_count) {
+        throw new Error(`TS Server Actions form chrome invalid: ${JSON.stringify(serverActionChromeState)}`);
+      }
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
       const stateRadioCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-selection-radio-group[data-field='state'] input[type='radio']", 1, "TS Server Actions state radio editor");
       const codeEditorCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-server-action-notebook .gorp-code-editor[data-field='code']", 1, "TS Server Actions code editor");
@@ -694,7 +713,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, opened, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, opened, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, contextual_button_count: contextualButtonCount, scheduled_smart_button_count: smartButtonCount, server_action_chrome_state: serverActionChromeState, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -708,7 +727,25 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
       await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "relation dropdown editor");
       await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-dropdown-toggle");
-      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 2, "relation dropdown options");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 2, "relation dropdown open-state options");
+      const initialState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const options = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])];
+        return {
+          selected_count: options.filter((node) => node.dataset.selected === "true").length,
+          active_count: options.filter((node) => node.dataset.active === "true").length,
+          labels: options.map((node) => node.textContent.trim()).filter(Boolean)
+        };
+      })()`);
+      if (initialState.selected_count < 1 || initialState.active_count < 1) {
+        throw new Error(`relation dropdown selected-open state invalid: ${JSON.stringify(initialState)}`);
+      }
+      await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
+      await waitFor(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const labels = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        return labels.some((label) => label === "Mail Server");
+      })()`, "relation dropdown typed mail result");
       const state = await evaluate(page, `(() => {
         const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
         const input = editor?.querySelector("input");
@@ -723,15 +760,18 @@ export const scenarios = [
           selected_count: options.filter((node) => node.dataset.selected === "true").length,
           active_count: options.filter((node) => node.dataset.active === "true").length,
           labels: options.map((node) => node.textContent.trim()).filter(Boolean),
+          raw_label_count: options.filter((node) => /\\b[a-z_]+\\.[a-z0-9_.]+\\b/.test(node.textContent.trim())).length,
+          create_count: editor?.querySelectorAll(".gorp-many2one-create").length || 0,
+          create_edit_count: editor?.querySelectorAll(".gorp-many2one-create-edit").length || 0,
           search_more_label: editor?.querySelector(".gorp-many2one-search-more")?.textContent?.trim() || "",
           dropdown_width: Math.round(dropdown?.getBoundingClientRect().width || 0),
           input_width: Math.round(input?.getBoundingClientRect().width || 0)
         };
       })()`);
-      if (!state.open || state.expanded !== "true" || state.option_count < 2 || state.selected_count < 1 || state.active_count < 1 || state.search_more_label !== "Search more..." || state.dropdown_width < state.input_width - 4) {
+      if (!state.open || state.input_value !== "mail" || state.expanded !== "true" || state.option_count < 2 || state.active_count < 1 || !state.labels.includes("Mail Server") || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
         throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
       }
-      return { opened, relation_dropdown_state: state };
+      return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state };
     }
   },
   {
@@ -3083,13 +3123,17 @@ async function openDefaultServerActionsList(page, config, viewport) {
   })()`);
   const relationRecords = await webCallKW(page, config, "ir.actions.server", "search_read", {
     args: [[]],
-    kwargs: { fields: ["id", "model_id"], limit: 30, order: "id" }
+    kwargs: { fields: ["id", "model_id", "usage", "ir_cron_ids"], limit: 30, order: "id" }
   });
+  const scheduledRecord = Array.isArray(relationRecords)
+    ? relationRecords.find((record) => (Array.isArray(record?.model_id) || Number(record?.model_id)) && (record?.usage === "ir_cron" || (Array.isArray(record?.ir_cron_ids) && record.ir_cron_ids.length > 0)))
+    : null;
   const relationRecord = Array.isArray(relationRecords)
-    ? relationRecords.find((record) => Array.isArray(record?.model_id) || Number(record?.model_id))
+    ? scheduledRecord || relationRecords.find((record) => Array.isArray(record?.model_id) || Number(record?.model_id))
     : null;
   if (relationRecord?.id !== undefined && relationRecord?.id !== null) {
     routeState.record_id = String(relationRecord.id);
+    routeState.scheduled_action = relationRecord?.usage === "ir_cron" || (Array.isArray(relationRecord?.ir_cron_ids) && relationRecord.ir_cron_ids.length > 0);
   }
   if (!routeState.action_id || !routeState.menu_id || !routeState.record_id) {
     throw new Error(`TS Server Actions route metadata missing: ${JSON.stringify(routeState)}`);

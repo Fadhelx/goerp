@@ -1721,6 +1721,7 @@ const genericFormWindow = renderWindowAction({
       name: { type: "char", string: "Name", required: true },
       email: { type: "char", string: "Email" },
       model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+      model_name: { type: "char", string: "model_name" },
       state: { type: "selection", string: "Type" },
       code: { type: "text", string: "Code" },
       group_ids: { type: "many2many", relation: "res.groups", string: "Groups" },
@@ -1738,7 +1739,7 @@ const genericFormWindow = renderWindowAction({
     },
     views: {
       form: {
-        arch: `<form><sheet><field name="name"/><field name="model_id" domain="[('transient','=',False)]" context="{'active_test': False}" options="{'no_create': True, 'no_open': True}" limit="12"/><field name="state"/><field name="code"/><field name="group_ids" domain="[('share','=',False)]" context="{'active_test': False}" options="{'no_create': True}" limit="15"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="owner_id" domain="[('active','=',True)]" context="{'active_test': False}" options="{'no_create': True}" limit="5"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
+        arch: `<form><sheet><field name="name"/><field name="model_id" domain="[('transient','=',False)]" context="{'active_test': False}" options="{'no_create': True, 'no_open': True}" limit="12"/><field name="model_name"/><field name="state"/><field name="code"/><field name="group_ids" domain="[('share','=',False)]" context="{'active_test': False}" options="{'no_create': True}" limit="15"/><field name="active"/><notebook><page string="Details"><field name="email"/><field name="line_ids"><list><field name="description"/><field name="owner_id" domain="[('active','=',True)]" context="{'active_test': False}" options="{'no_create': True}" limit="5"/><field name="quantity"/></list></field></page></notebook></sheet></form>`,
         id: 73
       }
     }
@@ -1752,7 +1753,10 @@ const genericFormWindow = renderWindowAction({
     name: "Update Records",
     email: "old@example.com",
     model_id: [5, "Contact"],
+    model_name: "res.partner",
     state: "code",
+    usage: "ir_cron",
+    ir_cron_ids: [[41, "Update Records"]],
     code: "result = True\nlog('ok')",
     group_ids: [[11, "Base / User"]],
     line_ids: [
@@ -1787,6 +1791,9 @@ const genericControlPanelButtons = findAll(genericControlPanel, (node) => String
 const genericControlPanelActions = findAll(genericControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_actions"))[0];
 assert.equal(findAll(genericControlPanelButtons, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 0);
 assert.equal(findAll(genericControlPanelActions, (node) => String(node.className ?? "").includes("gorp-form-action-menu") && node.dataset?.controlPanelPlacement === "actions").length, 1);
+const genericScheduledSmartButton = findAll(genericControlPanelActions, (node) => node.dataset?.serverActionSmartButton === "scheduled-action")[0];
+assert.equal(genericScheduledSmartButton.textContent, "Scheduled Action");
+assert.equal(genericScheduledSmartButton.dataset.count, "1");
 const genericActionMenuSection = findAll(genericControlPanelActions, (node) => String(node.className ?? "").includes("gorp-action-menu-section") && node.dataset?.menu === "action")[0];
 const genericActionMenuToggle = findAll(genericActionMenuSection, (node) => node.dataset?.actionMenuToggle === "action")[0];
 assert.equal(genericActionMenuToggle.attributes["aria-expanded"], "false");
@@ -1816,6 +1823,10 @@ assert.equal(genericServerBand.dataset.state, "code");
 assert.equal(findAll(genericServerBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
 const genericFormLabels = findAll(genericForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
 assert.deepEqual(genericFormLabels.slice(0, 5), ["Name", "Model", "Type", "Allowed Groups", "Active"]);
+assert.equal(genericFormLabels.filter((label) => label === "Model").length, 1);
+assert.equal(findAll(genericForm, (node) => node.dataset?.field === "model_name").length, 0);
+const genericContextualButton = findAll(genericForm, (node) => node.dataset?.serverActionContextual === "true")[0];
+assert.equal(genericContextualButton.textContent, "Create Contextual Action");
 const genericServerNotebook = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-notebook"))[0];
 assert.deepEqual(findAll(genericServerNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Code", "Help"]);
 const genericCodeViewer = findAll(genericServerNotebook, (node) => String(node.className ?? "").includes("gorp-code-viewer") && node.dataset?.field === "code")[0];
@@ -2280,7 +2291,6 @@ assert.equal(findAll(automationBand, (node) => String(node.className ?? "").incl
 assert.deepEqual(findAll(automationForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 7), [
   "Name",
   "Active",
-  "Model",
   "Model",
   "Trigger",
   "Server Action",
@@ -5613,6 +5623,7 @@ const usersListSpecServices = createWebClientServices({
           login: "admin",
           email: "admin@example.test",
           company_id: [1, "My Company"],
+          role: "group_system",
           groups_count: 2,
           active: true
         }]
@@ -5629,13 +5640,12 @@ const usersListResult = await usersListSpecServices.action.doAction({
   views: [[false, "list"]]
 });
 const usersSearchRead = usersListSpecRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_search_read");
-assert.deepEqual(Object.keys(usersSearchRead.params.kwargs.specification), ["name", "login", "email", "company_id", "groups_count", "active"]);
-assert.deepEqual(usersSearchRead.params.kwargs.specification.company_id, { fields: { display_name: {} } });
+assert.deepEqual(Object.keys(usersSearchRead.params.kwargs.specification), ["name", "login", "role"]);
 const usersListWindow = renderWindowAction(usersListResult);
 const usersListTable = findAll(usersListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
-assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Email", "Company", "Groups", "Active"]);
-assert.deepEqual(findAll(usersListTable.children[1].children[0], (node) => node.tag === "output").map((node) => node.textContent), ["Administrator", "admin", "admin@example.test", "2", "true"]);
-assert.equal(findAll(usersListTable.children[1].children[0], (node) => String(node.className ?? "").includes("gorp-many2one-link"))[0].textContent, "My Company");
+assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Role"]);
+assert.deepEqual(findAll(usersListTable.children[1].children[0], (node) => node.tag === "output").map((node) => node.textContent), ["Administrator", "admin"]);
+assert.equal(findAll(usersListTable.children[1].children[0], (node) => String(node.className ?? "").includes("gorp-user-role-badge"))[0].textContent, "Administrator");
 
 const usersFormSpecRequests = [];
 const usersFormSpecServices = createWebClientServices({
@@ -5676,19 +5686,20 @@ const usersFormResult = await usersFormSpecServices.action.doAction({
   views: [[false, "form"]]
 });
 const usersWebRead = usersFormSpecRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
-assert.deepEqual(Object.keys(usersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+assert.deepEqual(Object.keys(usersWebRead.params.kwargs.specification), ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
 assert.deepEqual(usersWebRead.params.kwargs.specification.company_id, { fields: { display_name: {} } });
+assert.deepEqual(usersWebRead.params.kwargs.specification.partner_id, { fields: { display_name: {} } });
 const usersFormWindow = renderWindowAction(usersFormResult);
 let usersForm = usersFormWindow.children[1];
 assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-sheet")).length, 1);
-assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Name", "Login", "Email", "Company", "Role"]);
+assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Administrator", "Name", "Login", "Email", "Partner"]);
 const usersAccessNotebook = findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(usersAccessNotebook);
 assert.deepEqual(findAll(usersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);
 assert.equal(findAll(usersAccessNotebook, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
 const usersMainFields = findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-fields"))[0];
 assert.equal(usersMainFields.children.some((node) => String(node.className ?? "").includes("gorp-res-user-group-ids")), false);
-assert.equal(findAll(usersForm, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+assert.equal(findAll(usersForm, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
 findAll(usersFormWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
 usersForm = usersFormWindow.children[1];
 assert.equal(findAll(usersForm, (node) => node.tag === "input" && node.dataset?.field === "login")[0].value, "admin");
@@ -5717,6 +5728,7 @@ const usersBadArchServices = createWebClientServices({
           login: "admin",
           email: "admin@example.test",
           company_id: [1, "My Company"],
+          role: "group_system",
           groups_count: 2,
           active: true
         }]
@@ -5749,10 +5761,10 @@ const badUsersListResult = await usersBadArchServices.action.doAction({
   views: [[25, "list"]]
 });
 const badUsersSearchRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_search_read");
-assert.deepEqual(Object.keys(badUsersSearchRead.params.kwargs.specification), ["name", "login", "email", "company_id", "groups_count", "active"]);
+assert.deepEqual(Object.keys(badUsersSearchRead.params.kwargs.specification), ["name", "login", "role"]);
 const badUsersListWindow = renderWindowAction(badUsersListResult);
-assert.deepEqual(findAll(badUsersListWindow, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Email", "Company", "Groups", "Active"]);
-assert.equal(findAll(badUsersListWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+assert.deepEqual(findAll(badUsersListWindow, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Role"]);
+assert.equal(findAll(badUsersListWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
 const badUsersFormResult = await usersBadArchServices.action.doAction({
   type: "ir.actions.act_window",
   name: "Users",
@@ -5762,14 +5774,14 @@ const badUsersFormResult = await usersBadArchServices.action.doAction({
   views: [[26, "form"]]
 });
 const badUsersWebRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
-assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
+assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "partner_id", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature"]);
 const badUsersFormWindow = renderWindowAction(badUsersFormResult);
-assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Name", "Login", "Email", "Company"]);
+assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Administrator", "Name", "Login", "Email"]);
 const badUsersAccessNotebook = findAll(badUsersFormWindow, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(badUsersAccessNotebook);
 assert.deepEqual(findAll(badUsersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);
 assert.equal(findAll(badUsersAccessNotebook, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
-assert.equal(findAll(badUsersFormWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
+assert.equal(findAll(badUsersFormWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
 
 assert.equal(windowActionRequests[0].route, "/web/action/load");
 assert.deepEqual(windowActionRequests[0].params.context, { active_id: 42, active_ids: [1, 2], lang: "en_US", from_context: 7 });
@@ -5897,7 +5909,7 @@ assert.equal(newServerActionResult.activeView, "form");
 assert.equal(newServerActionResult.length, 0);
 assert.deepEqual(newServerActionResult.records, [{ state: "code", active: true }]);
 assert.equal(newFormActionRequests[1].route, "/web/dataset/call_kw/ir.actions.server/default_get");
-assert.deepEqual(newFormActionRequests[1].params.args, [["name", "state", "active"]]);
+assert.deepEqual(newFormActionRequests[1].params.args, [["name", "state", "active", "usage", "ir_cron_ids"]]);
 assert.deepEqual(newFormActionRequests[1].params.kwargs.context, { default_state: "code" });
 
 const workflowSelectionRequests = [];
