@@ -1,0 +1,182 @@
+{
+  "generated_at": "2026-06-23T03:33:33.504Z",
+  "base_url": "https://api.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "9fbfa888b9e945e2d7177f16bd18ae4533cbe26acdfad1fcc57164730e164c1a",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=65&menu_id=13",
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 20,
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "65",
+            "scheduled_action": true
+          }
+        },
+        "form_count": 1,
+        "field_count": 5,
+        "form_control_state": {
+          "search_inputs": 0,
+          "search_toggles": 0
+        },
+        "form_toolbar_state": {
+          "action_menu_count": 1,
+          "main_button_action_menu_count": 0,
+          "action_lane_action_menu_count": 1,
+          "duplicate_actions_label_count": 1,
+          "action_labels": [
+            "Actions"
+          ],
+          "main_overlaps_breadcrumb": false,
+          "actions_overlaps_breadcrumb": false
+        },
+        "server_action_band_count": 1,
+        "server_action_notebook_count": 2,
+        "code_viewer_count": 1,
+        "selection_pill_count": 13,
+        "contextual_button_count": 1,
+        "scheduled_smart_button_count": 1,
+        "server_action_chrome_state": {
+          "model_label_count": 1,
+          "model_name_field_count": 0,
+          "contextual_text": "Create Contextual Action",
+          "smart_text": "Scheduled Action",
+          "smart_count": "1"
+        },
+        "state_radio_count": 13,
+        "code_editor_count": 1,
+        "relation_link_count": 1,
+        "relation_state": {
+          "text": "Mail",
+          "res_id": "81",
+          "href": "#model=ir.model&view_type=form&id=81"
+        },
+        "relation_editor_count": 1,
+        "relation_dropdown_state": {
+          "toggle_expanded": "true",
+          "input_expanded": "true",
+          "dropdown_open": true,
+          "option_count": 9,
+          "search_more_count": 1,
+          "selected_count": 1,
+          "active_count": 1,
+          "option_labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ],
+          "search_more_label": "Search more...",
+          "current_res_id": "81"
+        },
+        "relation_option_count": 9,
+        "relation_editor_state": {
+          "relation": "ir.model",
+          "input_value": "mail",
+          "option_labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_selected_state": {
+          "res_id": "81",
+          "save_hidden": false,
+          "save_disabled": false
+        }
+      },
+      "duration_ms": 9014
+    },
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "bb2a1a597272c9bef09b1f8f5fe44086298151f69393f6e20a4e50e770c6add9",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 20,
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "65",
+            "scheduled_action": true
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 8,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Incoming Mail Server",
+            "Mail Server",
+            "Activity",
+            "Mixin",
+            "Type",
+            "Alias",
+            "Domain",
+            "Blacklist"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 160,
+          "input_width": 489
+        }
+      },
+      "duration_ms": 9855
+    }
+  ],
+  "duration_ms": 19621
+}
