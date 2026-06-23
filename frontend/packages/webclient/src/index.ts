@@ -1556,7 +1556,7 @@ export function createWindowActionExecutor(
         loadIrFilters: views.some((view) => view[1] === "search")
       }
     );
-    const search = buildWindowActionSearch(action, context, viewDescriptions);
+    const search = buildWindowActionSearch(action, context, viewDescriptions, resModel);
     const data = orm
       ? await loadWindowActionRecords(orm, action, activeView, resModel, context, viewDescriptions, search.state)
       : { records: [], length: 0, countLimited: false };
@@ -7014,6 +7014,9 @@ function renderFormFieldNode(
   const label = document.createElement("label");
   label.className = "gorp-form-field o_wrap_field";
   label.dataset.field = name;
+  if (form.dataset.model === "res.groups" && name === "user_ids") {
+    label.className += " gorp-groups-users-field o_field_x2many_list";
+  }
   const caption = document.createElement("span");
   caption.className = "o_form_label";
   caption.textContent = fieldLabel({ ...fields, [name]: description }, name, form.dataset.model);
@@ -7470,6 +7473,9 @@ function renderReadonlyFieldValue(
     }
   }
   if (fieldType === "many2many" || fieldType === "one2many") {
+    if (displayModel === "res.groups" && node.name === "user_ids") {
+      return renderGroupsUsersListValue(node.name, value);
+    }
     return renderX2ManyTagValue(node.name, fieldType, fieldRelationValue(description), value, form, options);
   }
   if (fieldType === "boolean") {
@@ -7698,6 +7704,97 @@ function renderX2ManyTagValue(
     root.append(tag);
   }
   return root;
+}
+
+interface GroupsUsersListRow {
+  id?: number;
+  name: string;
+  login: string;
+  role: string;
+}
+
+function renderGroupsUsersListValue(fieldName: string, value: unknown): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "gorp-groups-users-list o_field_widget o_field_one2many o_readonly_modifier";
+  root.dataset.field = fieldName;
+  root.dataset.fieldType = "one2many";
+  root.dataset.relation = "res.users";
+  const rows = groupsUsersListRows(value);
+  root.dataset.count = String(rows.length);
+
+  const table = document.createElement("table");
+  table.className = "gorp-groups-users-table o_list_table table table-sm";
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const column of ["Name", "Login", "Role"]) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = column;
+    headerRow.append(th);
+  }
+  thead.append(headerRow);
+
+  const tbody = document.createElement("tbody");
+  for (const row of rows) tbody.append(renderGroupsUsersListRow(row));
+  tbody.append(renderGroupsUsersAddLineRow());
+  const blankCount = Math.max(4, 7 - rows.length);
+  for (let index = 0; index < blankCount; index += 1) tbody.append(renderGroupsUsersBlankRow());
+  table.append(thead, tbody);
+  root.append(table);
+  return root;
+}
+
+function renderGroupsUsersListRow(row: GroupsUsersListRow): HTMLTableRowElement {
+  const tr = document.createElement("tr");
+  tr.className = "gorp-groups-users-row o_data_row";
+  if (row.id !== undefined) tr.dataset.resId = String(row.id);
+  for (const value of [row.name, row.login, row.role]) {
+    const td = document.createElement("td");
+    td.textContent = value;
+    tr.append(td);
+  }
+  return tr;
+}
+
+function renderGroupsUsersAddLineRow(): HTMLTableRowElement {
+  const tr = document.createElement("tr");
+  tr.className = "gorp-groups-users-add-row";
+  const td = document.createElement("td");
+  td.colSpan = 3;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "gorp-groups-users-add btn btn-link";
+  add.dataset.one2manyAction = "add";
+  add.textContent = "Add a line";
+  td.append(add);
+  tr.append(td);
+  return tr;
+}
+
+function renderGroupsUsersBlankRow(): HTMLTableRowElement {
+  const tr = document.createElement("tr");
+  tr.className = "gorp-groups-users-blank-row";
+  for (let index = 0; index < 3; index += 1) tr.append(document.createElement("td"));
+  return tr;
+}
+
+function groupsUsersListRows(value: unknown): GroupsUsersListRow[] {
+  const rows: One2ManyEditorRow[] = [];
+  collectOne2ManyRows(value, rows);
+  return rows
+    .map((row) => groupsUsersListRow(row.values))
+    .filter((row) => row.name || row.login || row.role);
+}
+
+function groupsUsersListRow(values: Record<string, unknown>): GroupsUsersListRow {
+  const id = numericRecordValue(values, "id");
+  const name = firstText(values.name, values.display_name, values.login, id) || "";
+  return {
+    id,
+    name,
+    login: firstText(values.login, values.email) || "",
+    role: firstText(values.role, values.user_type, values.share) || ""
+  };
 }
 
 interface X2ManyDisplayState {
@@ -10639,7 +10736,8 @@ function ensureGroupByFieldsInSpecification(
 function buildWindowActionSearch(
   action: Record<string, unknown>,
   context: Record<string, unknown>,
-  viewDescriptions: ViewDescriptions
+  viewDescriptions: ViewDescriptions,
+  resModel = typeof action.res_model === "string" ? action.res_model : ""
 ): WindowActionSearchState {
   const searchView = viewDescriptions.views.search;
   const parsed = parseActionSearchArch(searchView?.arch ?? "", {
@@ -10650,7 +10748,7 @@ function buildWindowActionSearch(
   const explicitFacets = searchFacetsFromAction(action);
   const searchFields = validSearchFields(parsed.searchFields, viewDescriptions.fields) ?? fallbackSearchFields(viewDescriptions.fields);
   const model = createActionSearchModel({
-    facets: explicitFacets ?? initialSearchFacets(parsed),
+    facets: explicitFacets ?? withModelDefaultSearchFacets(initialSearchFacets(parsed), resModel, viewDescriptions.fields),
     query: typeof action.__search_query === "string" ? action.__search_query : "",
     searchFields,
     baseDomain: normalizeDomainExpression(action.domain, context),
@@ -10747,6 +10845,56 @@ function initialSearchFacets(parsed: ParsedSearchArch): SearchFacet[] {
     else facets.push(parsedSearchItemFacet(item));
   }
   return facets;
+}
+
+function withModelDefaultSearchFacets(
+  facets: readonly SearchFacet[],
+  model: string,
+  fields: Record<string, unknown>
+): SearchFacet[] {
+  const out = facets.map(cloneSearchFacet);
+  const append = (facet: SearchFacet) => {
+    if (!out.some((item) => item.id === facet.id)) out.push(facet);
+  };
+  const boolFalseDomain = (field: string): readonly unknown[] | undefined => fields[field] !== undefined ? [[field, "=", false]] : undefined;
+  switch (model) {
+    case "ir.actions.server":
+      append({
+        id: "filter-top-level-actions",
+        type: "filter",
+        label: "Top-level actions",
+        valueLabels: ["Top-level actions"],
+        ...(fields.usage !== undefined ? { domain: [["usage", "=", "ir_actions_server"]] } : {})
+      });
+      break;
+    case "ir.cron":
+      append({
+        id: "filter-all",
+        type: "filter",
+        label: "All",
+        valueLabels: ["All"]
+      });
+      break;
+    case "res.users":
+      append({
+        id: "filter-internal-users",
+        type: "filter",
+        label: "Internal Users",
+        valueLabels: ["Internal Users"],
+        ...(boolFalseDomain("share") ? { domain: boolFalseDomain("share") } : {})
+      });
+      break;
+    case "res.groups":
+      append({
+        id: "filter-internal-groups",
+        type: "filter",
+        label: "Internal Groups",
+        valueLabels: ["Internal Groups"],
+        ...(boolFalseDomain("share") ? { domain: boolFalseDomain("share") } : {})
+      });
+      break;
+  }
+  return out;
 }
 
 function dateFilterMenuItem(item: ParsedSearchItem, activeFacetIDs: ReadonlySet<string>): ActionControlPanelMenuItem | null {

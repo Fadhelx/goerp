@@ -895,16 +895,17 @@ export const scenarios = [
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list']");
         const headers = [...(root?.querySelectorAll(".gorp-list-view thead .o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const rows = [...(root?.querySelectorAll(".gorp-list-view tbody tr.o_data_row") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean));
+        const chips = [...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
         const activeWidgets = [...(root?.querySelectorAll(".gorp-list-view tbody td[data-field='active'] .gorp-readonly-boolean") || [])]
           .map((node) => node.getAttribute("aria-checked") || "");
         const rawActiveText = [...(root?.querySelectorAll(".gorp-list-view tbody td[data-field='active']") || [])]
           .map((node) => node.textContent.trim())
           .filter(Boolean);
         const pager = document.querySelector(".o_web_client .o_action_manager .o_cp_pager")?.textContent?.trim() || "";
-        return { headers, rows, pager, activeWidgets, rawActiveText };
+        return { headers, rows, pager, chips, activeWidgets, rawActiveText };
       })()`);
       const expectedHeaders = ["Priority", "Action Name", "Model", "Next Execution Date", "Interval", "Interval Unit", "Active"];
-      if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request" || JSON.stringify(state.activeWidgets) !== JSON.stringify(["true", "true"]) || state.rawActiveText.length) {
+      if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || !state.chips.includes("All") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request" || JSON.stringify(state.activeWidgets) !== JSON.stringify(["true", "true"]) || state.rawActiveText.length) {
         throw new Error(`Scheduled Actions list parity invalid: ${JSON.stringify(state)}`);
       }
       return { row_count: rowCount, state };
@@ -977,6 +978,9 @@ export const scenarios = [
       const tabCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']", 7, "TS Groups form notebook tabs");
       const state = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-form-notebook.o_notebook");
+        const actionManager = document.querySelector(".o_web_client .o_action_manager");
+        const sheet = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-sheet.o_form_sheet");
+        const usersGrid = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-groups-users-list[data-field='user_ids']");
         const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
         const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
         const smartButtons = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-access-smart-button")].map((node) => node.textContent.trim()).filter(Boolean);
@@ -985,7 +989,13 @@ export const scenarios = [
           tab_labels: tabs.map((node) => node.textContent.trim()),
           selected_tabs: tabs.map((node) => node.getAttribute("aria-selected")),
           visible_pages: pages.filter((node) => !node.hidden).length,
-          smart_buttons: smartButtons
+          smart_buttons: smartButtons,
+          action_width: Math.round(actionManager?.getBoundingClientRect?.().width || 0),
+          sheet_width: Math.round(sheet?.getBoundingClientRect?.().width || 0),
+          users_grid_count: usersGrid ? 1 : 0,
+          users_headers: [...(usersGrid?.querySelectorAll("th") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          users_add_line: usersGrid?.querySelector(".gorp-groups-users-add")?.textContent?.trim() || "",
+          users_blank_rows: usersGrid?.querySelectorAll(".gorp-groups-users-blank-row")?.length || 0
         };
       })()`);
       for (const tab of ["Users", "Inherited", "Menus", "Views", "Access Rights", "Record Rules", "Notes"]) {
@@ -994,6 +1004,11 @@ export const scenarios = [
       if (state.tab_labels.includes("Inherited By")) throw new Error(`Groups notebook still has fallback tab: ${JSON.stringify(state)}`);
       if (state.visible_pages !== 1) throw new Error(`Groups notebook visible page mismatch: ${JSON.stringify(state)}`);
       if (!state.smart_buttons.some((item) => item.includes("Users"))) throw new Error(`Groups smart button missing: ${JSON.stringify(state)}`);
+      if (state.sheet_width < Math.min(1180, Math.floor(state.action_width * 0.92))) throw new Error(`Groups sheet width too narrow: ${JSON.stringify(state)}`);
+      if (state.users_grid_count !== 1) throw new Error(`Groups Users grid missing: ${JSON.stringify(state)}`);
+      if (JSON.stringify(state.users_headers) !== JSON.stringify(["Name", "Login", "Role"])) throw new Error(`Groups Users grid headers invalid: ${JSON.stringify(state)}`);
+      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
+      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
       return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
@@ -2631,12 +2646,13 @@ export const scenarios = [
           headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           row_count: list?.querySelectorAll("tbody tr.o_data_row").length || 0,
           pager: document.querySelector(".o_web_client .o_control_panel_navigation .o_pager")?.textContent?.trim() || "",
+          chips: [...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean),
           role_badge: list?.querySelector(".gorp-user-role-badge")?.textContent?.trim() || "",
           avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0,
           text: list?.textContent || ""
         };
       })()`);
-      if (JSON.stringify(state.headers) !== JSON.stringify(["Name", "Login", "Role"]) || state.row_count !== 1 || state.role_badge !== "Administrator" || state.avatar_count < 1 || !state.text.includes("Administrator")) {
+      if (JSON.stringify(state.headers) !== JSON.stringify(["Name", "Login", "Role"]) || state.row_count !== 1 || !state.chips.includes("Internal Users") || state.role_badge !== "Administrator" || state.avatar_count < 1 || !state.text.includes("Administrator")) {
         throw new Error(`Users list parity invalid: ${JSON.stringify(state)}`);
       }
       return state;
@@ -2659,10 +2675,11 @@ export const scenarios = [
           headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           row_count: list?.querySelectorAll("tbody tr.o_data_row").length || 0,
           pager: document.querySelector(".o_web_client .o_control_panel_navigation .o_pager")?.textContent?.trim() || "",
+          chips: [...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean),
           text: list?.textContent || ""
         };
       })()`);
-      if (JSON.stringify(state.headers) !== JSON.stringify(["Privilege", "Name"]) || state.row_count !== 13 || !state.text.includes("Technical Documentation")) {
+      if (JSON.stringify(state.headers) !== JSON.stringify(["Privilege", "Name"]) || state.row_count !== 13 || !state.chips.includes("Internal Groups") || !state.text.includes("Technical Documentation")) {
         throw new Error(`Groups list parity invalid: ${JSON.stringify(state)}`);
       }
       return state;
@@ -3046,6 +3063,18 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	    const userName = document.querySelector(".o_web_client .o_user_menu_name");
 	    const databaseName = document.querySelector(".o_web_client .o_database_name");
 	    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
+	    const launcherIcons = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")].map((node) => {
+	      const icon = node.querySelector(".o_app_icon");
+	      const before = icon ? getComputedStyle(icon, "::before") : null;
+	      const after = icon ? getComputedStyle(icon, "::after") : null;
+	      return {
+	        key: node.dataset.appKey || "",
+	        kind: icon?.dataset?.iconKind || node.dataset.iconKind || "",
+	        token: icon?.dataset?.iconToken || "",
+	        before_bg: before?.backgroundImage || before?.backgroundColor || "",
+	        after_bg: after?.backgroundImage || after?.backgroundColor || ""
+	      };
+	    });
 	    const wrapper = document.querySelector(".o_web_client .o_home_menu .o_draggable");
 	    const icon = card?.querySelector(".o_app_icon");
 	    const hiddenSearch = document.querySelector(".o_web_client .o_home_menu .o_search_hidden");
@@ -3110,7 +3139,8 @@ async function assertEnterpriseLauncherSnapshot(page) {
       app_icon_width_px: iconRect ? Math.round(iconRect.width) : 0,
       app_icon_height_px: iconRect ? Math.round(iconRect.height) : 0,
       app_icon_radius_px: iconStyle ? Number.parseFloat(iconStyle.borderTopLeftRadius) || 0 : 0,
-      app_icon_text: icon?.textContent?.trim() || ""
+      app_icon_text: icon?.textContent?.trim() || "",
+      launcher_icons: launcherIcons
     };
   })()`);
   const issues = [];
@@ -3148,6 +3178,14 @@ async function assertEnterpriseLauncherSnapshot(page) {
   if (snapshot.app_icon_height_px < 66 || snapshot.app_icon_height_px > 74) issues.push(`app icon height ${snapshot.app_icon_height_px}`);
   if (snapshot.app_icon_radius_px < 4 || snapshot.app_icon_radius_px > 8) issues.push(`app icon radius ${snapshot.app_icon_radius_px}`);
   if (snapshot.app_icon_text) issues.push(`synthetic app icon text ${snapshot.app_icon_text}`);
+  const appIcon = snapshot.launcher_icons.find((item) => item.key === "apps");
+  const settingsIcon = snapshot.launcher_icons.find((item) => item.key === "settings");
+  if (!appIcon || appIcon.kind !== "apps" || !String(appIcon.before_bg).includes("conic-gradient") || String(appIcon.after_bg).includes("svg")) {
+    issues.push(`apps launcher icon invalid ${JSON.stringify(appIcon)}`);
+  }
+  if (!settingsIcon || settingsIcon.kind !== "settings" || !String(settingsIcon.before_bg).includes("conic-gradient") || String(settingsIcon.after_bg).includes("svg")) {
+    issues.push(`settings launcher icon invalid ${JSON.stringify(settingsIcon)}`);
+  }
   if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);
   return snapshot;
 }
@@ -3328,6 +3366,8 @@ async function openDefaultServerActionsList(page, config, viewport) {
   await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
   const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
   const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS Server Actions rows");
+  const chips = await evaluate(page, `[...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean)`);
+  if (!chips.includes("Top-level actions")) throw new Error(`Server Actions default chip missing: ${JSON.stringify(chips)}`);
   const routeState = await evaluate(page, `(() => {
     const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
     const row = document.querySelector(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");
@@ -3354,7 +3394,7 @@ async function openDefaultServerActionsList(page, config, viewport) {
   if (!routeState.action_id || !routeState.menu_id || !routeState.record_id) {
     throw new Error(`TS Server Actions route metadata missing: ${JSON.stringify(routeState)}`);
   }
-  return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount, route_state: routeState };
+  return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount, chips, route_state: routeState };
 }
 
 async function openDefaultAppsCatalog(page, config, viewport = desktopViewport(), marker = "apps_catalog") {

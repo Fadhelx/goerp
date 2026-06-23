@@ -940,6 +940,51 @@ assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, 
   [14, 7, 7, false, true]
 ]);
 assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], create_date: "2026-06-22 09:00:00", legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
+
+const defaultFacetRequests = [];
+const defaultFacetServices = createWebClientServices({
+  transport(request) {
+    defaultFacetRequests.push(request);
+    const model = String(request.route.match(/call_kw\/([^/]+)\//)?.[1] || "");
+    if (request.route.endsWith("/get_views")) {
+      const fieldsByModel = {
+        "ir.actions.server": { name: { type: "char", string: "Name" }, usage: { type: "selection", string: "Usage" } },
+        "ir.cron": { name: { type: "char", string: "Name" } },
+        "res.users": { name: { type: "char", string: "Name" }, share: { type: "boolean", string: "Share" } },
+        "res.groups": { name: { type: "char", string: "Name" }, share: { type: "boolean", string: "Share" } }
+      };
+      return Promise.resolve({
+        views: {
+          list: { arch: "<list><field name=\"name\"/></list>", id: 101 },
+          search: { arch: "<search/>", id: 102 }
+        },
+        models: { [model]: { fields: fieldsByModel[model] || { name: { type: "char", string: "Name" } } } }
+      });
+    }
+    if (request.route.endsWith("/web_search_read")) return Promise.resolve({ length: 0, records: [] });
+    return Promise.resolve({});
+  }
+});
+const defaultFacetCases = [
+  ["ir.actions.server", "Top-level actions", [["usage", "=", "ir_actions_server"]]],
+  ["ir.cron", "All", []],
+  ["res.users", "Internal Users", [["share", "=", false]]],
+  ["res.groups", "Internal Groups", [["share", "=", false]]]
+];
+for (const [model, expectedLabel, expectedDomain] of defaultFacetCases) {
+  const result = await defaultFacetServices.action.doAction({
+    type: "ir.actions.act_window",
+    name: expectedLabel,
+    res_model: model,
+    views: [[false, "list"], [false, "search"]]
+  });
+  assert.deepEqual(result.search.state.facets.map((facet) => facet.label), [expectedLabel]);
+  const request = defaultFacetRequests.filter((item) => item.route === `/web/dataset/call_kw/${model}/web_search_read`).at(-1);
+  assert.deepEqual(request.params.kwargs.domain, expectedDomain);
+  const rendered = renderWindowAction(result);
+  assert.equal(findAll(rendered, (node) => node.className === "o_facet_value")[0].textContent, expectedLabel);
+}
+
 const renderedWindow = renderWindowAction(windowResult);
 assert.equal(renderedWindow.className, "gorp-window-action");
 assert.equal(renderedWindow.dataset.model, "res.partner");
@@ -2528,6 +2573,60 @@ const groupsInheritedByTags = findAll(groupsInheritedByFallbackWindow, (node) =>
 assert.equal(groupsInheritedByTags.dataset.relation, "res.groups");
 assert.equal(groupsInheritedByTags.dataset.count, "1");
 assert.deepEqual(findAll(groupsInheritedByTags, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-tag")).map((node) => node.textContent), ["Administrator"]);
+
+const groupsUsersGridWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups" },
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      user_ids: { type: "one2many", relation: "res.users", string: "Users" }
+    },
+    relatedModels: {
+      "res.users": {
+        fields: {
+          name: { type: "char", string: "Name" },
+          login: { type: "char", string: "Login" },
+          role: { type: "char", string: "Role" }
+        }
+      }
+    },
+    views: {
+      form: {
+        arch: `<form><sheet><group><field name="name"/></group><notebook><page string="Users"><field name="user_ids"/></page></notebook></sheet></form>`,
+        id: 74
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 4,
+    name: "Internal User",
+    user_ids: [
+      { id: 1, name: "Administrator", login: "admin", role: "Internal User" },
+      { id: 6, display_name: "Demo User", login: "demo" }
+    ]
+  }
+});
+const groupsUsersField = findAll(groupsUsersGridWindow, (node) => String(node.className ?? "").includes("gorp-groups-users-field"))[0];
+assert.equal(groupsUsersField.dataset.field, "user_ids");
+const groupsUsersGrid = findAll(groupsUsersGridWindow, (node) => String(node.className ?? "").includes("gorp-groups-users-list"))[0];
+assert.equal(groupsUsersGrid.dataset.field, "user_ids");
+assert.equal(groupsUsersGrid.dataset.relation, "res.users");
+assert.equal(groupsUsersGrid.dataset.count, "2");
+const groupsUsersHeaders = findAll(groupsUsersGrid, (node) => node.tag === "th").map((node) => node.textContent);
+assert.deepEqual(groupsUsersHeaders, ["Name", "Login", "Role"]);
+const groupsUsersRows = findAll(groupsUsersGrid, (node) => String(node.className ?? "").includes("gorp-groups-users-row"));
+assert.deepEqual(groupsUsersRows.map((row) => findAll(row, (node) => node.tag === "td").map((cell) => cell.textContent)), [
+  ["Administrator", "admin", "Internal User"],
+  ["Demo User", "demo", ""]
+]);
+assert.equal(findAll(groupsUsersGrid, (node) => String(node.className ?? "").includes("gorp-groups-users-add") && node.textContent === "Add a line").length, 1);
+assert.ok(findAll(groupsUsersGrid, (node) => String(node.className ?? "").includes("gorp-groups-users-blank-row")).length >= 4);
 
 function renderX2ManyOnlyWindow(fieldType, value) {
   return renderWindowAction({

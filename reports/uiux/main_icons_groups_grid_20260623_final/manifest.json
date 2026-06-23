@@ -1,0 +1,243 @@
+{
+  "generated_at": "2026-06-23T05:22:34.565Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "4234896b2dadae79c86c2ade315b8a1fb08b2bd0d615464a000fad1b80db4145",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "settings_targets": {
+          "count": 5,
+          "ids": [
+            "users",
+            "languages",
+            "company_records",
+            "companies",
+            "groups"
+          ],
+          "models": {
+            "users": "res.users",
+            "languages": "res.lang",
+            "company_records": "res.company",
+            "companies": "res.company",
+            "groups": "res.groups"
+          },
+          "labels": {
+            "users": "Manage Users",
+            "languages": "Languages",
+            "company_records": "Manage Companies",
+            "companies": "Manage Companies",
+            "groups": "Manage Groups"
+          },
+          "gridCount": 4,
+          "actionBoxCount": 5,
+          "inviteCount": 1,
+          "appTabs": [
+            "General Settings"
+          ],
+          "blockTitles": [
+            "Users",
+            "Languages",
+            "Companies",
+            "Contacts"
+          ],
+          "missing": []
+        },
+        "settings_chrome": {
+          "cp_search_count": 1,
+          "internal_search_count": 0,
+          "view_switcher_count": 0,
+          "control_height": 58,
+          "search_top": 58,
+          "settings_top": 104
+        },
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(40, 42, 53)",
+          "launcher_width": 36,
+          "launcher_dot": "rgb(135, 90, 123)",
+          "systray_count": 17
+        },
+        "visible_setting_count": 7,
+        "visible_label_count": 13,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 379
+    },
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "53fd3edbad9b99ec5b725668f3df6d1407efc0986ce53bc9c1d7bcd8281e8101",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 13,
+        "list_state": {
+          "headers": [
+            "Privilege",
+            "Name"
+          ],
+          "text": "PrivilegeNameContactCreationExportAllowedAccess RightsBypass HTML Field SanitizeDefault access for new usersMulti CompaniesMulti CurrenciesRole / AdministratorRole / PortalRole / PublicRole / UserTechnical DocumentationTechnical Features"
+        },
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 7,
+        "notebook_id": "notebook-0",
+        "tab_labels": [
+          "Users",
+          "Inherited",
+          "Menus",
+          "Views",
+          "Access Rights",
+          "Record Rules",
+          "Notes"
+        ],
+        "selected_tabs": [
+          "true",
+          "false",
+          "false",
+          "false",
+          "false",
+          "false",
+          "false"
+        ],
+        "visible_pages": 1,
+        "smart_buttons": [
+          "Users"
+        ],
+        "action_width": 1366,
+        "sheet_width": 1334,
+        "users_grid_count": 1,
+        "users_headers": [
+          "Name",
+          "Login",
+          "Role"
+        ],
+        "users_add_line": "Add a line",
+        "users_blank_rows": 7
+      },
+      "duration_ms": 1612
+    },
+    {
+      "name": "default-apps-catalog-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-parity-desktop.png",
+      "sha256": "897e824b270fe829f5566e2c5b41a6244e97e781e81c296bc06dbe9882890745",
+      "assertions": {
+        "card_count": 77,
+        "brand": "Apps",
+        "navbar_sections": [
+          "Apps",
+          "Update Apps List",
+          "Apply Scheduled Upgrades",
+          "Import Module"
+        ],
+        "pager": "1-77 / 77",
+        "filters": [
+          "All",
+          "Official Apps",
+          "Industries"
+        ],
+        "category_state": {
+          "All": "77",
+          "Sales": "11",
+          "Website": "5",
+          "Services": "6",
+          "Accounting": "3",
+          "Supply Chain": "8",
+          "Productivity": "9",
+          "Marketing": "7",
+          "Human Resources": "14",
+          "Shipping Connectors": "10",
+          "ESG": "1",
+          "Customizations": "1",
+          "Technical": "1",
+          "Administration": "1"
+        },
+        "first_cards": [
+          "Sales",
+          "Restaurant",
+          "Invoicing",
+          "CRM",
+          "Website",
+          "Inventory",
+          "Accounting",
+          "Equity",
+          "Purchase",
+          "Point of Sale",
+          "Project",
+          "eCommerce",
+          "Manufacturing",
+          "Email Marketing",
+          "Timesheets",
+          "Expenses",
+          "Studio",
+          "Documents",
+          "Time Off",
+          "Recruitment",
+          "Employees",
+          "AI",
+          "Data Recycle",
+          "Databases"
+        ],
+        "first_card_actions": [
+          "Activate",
+          "Learn More"
+        ],
+        "icon_token_count": 13,
+        "hidden_state_count": 77
+      },
+      "duration_ms": 1204
+    },
+    {
+      "name": "default-groups-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-list-parity-desktop.png",
+      "sha256": "1682cbc3106f0d0b6efdc1ab8d7480cac0fb4996076a20830e6bc3979d5a0d57",
+      "assertions": {
+        "headers": [
+          "Privilege",
+          "Name"
+        ],
+        "row_count": 13,
+        "pager": "1-13 / 13<>",
+        "text": "PrivilegeNameContactCreationExportAllowedAccess RightsBypass HTML Field SanitizeDefault access for new usersMulti CompaniesMulti CurrenciesRole / AdministratorRole / PortalRole / PublicRole / UserTechnical DocumentationTechnical Features"
+      },
+      "duration_ms": 1462
+    }
+  ],
+  "duration_ms": 5462
+}

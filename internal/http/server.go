@@ -6873,35 +6873,57 @@ const webClientShellHTML = `<!doctype html>
 		border-radius: 4px;
 		box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
 	}
-	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::before,
-	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::before {
-		left: 10px;
-		top: 10px;
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::before {
+		left: 13px;
+		top: 13px;
 		right: auto;
 		bottom: auto;
-		width: 50px;
-		height: 50px;
+		width: 44px;
+		height: 44px;
 		border: 0;
-		border-radius: 0;
-		background: #8b6682;
-		box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+		border-radius: 50%;
+		background: conic-gradient(#875a7b 0 25%, #4fc3c8 0 50%, #ef6c56 0 75%, #6ca6d9 0);
+		box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
 		transform: none;
 	}
-	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::after,
-	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::after {
-		left: 17px;
-		top: 16px;
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::after {
+		left: 13px;
+		top: 13px;
 		right: auto;
 		bottom: auto;
-		width: 36px;
-		height: 36px;
-		border-radius: 0;
-		background-color: transparent;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M32 8 52 19 32 30 12 19 32 8Z' fill='%23ffffff' fill-opacity='.88'/%3E%3Cpath d='M12 19v24l20 13V30Z' fill='%23ffffff' fill-opacity='.28'/%3E%3Cpath d='M52 19v24L32 56V30Z' fill='%23ffffff' fill-opacity='.58'/%3E%3Cpath d='M32 8 52 19 32 30 12 19 32 8Z'/%3E%3Cpath d='M12 19v24l20 13 20-13V19'/%3E%3Cpath d='M32 30v26'/%3E%3C/g%3E%3C/svg%3E");
-		background-position: center;
-		background-repeat: no-repeat;
-		background-size: contain;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background:
+			conic-gradient(from 0deg, transparent 0 24%, #263445 24% 26%, transparent 26% 74%, #263445 74% 76%, transparent 76% 100%),
+			conic-gradient(from 90deg, transparent 0 24%, #263445 24% 26%, transparent 26% 74%, #263445 74% 76%, transparent 76% 100%);
 		box-shadow: none;
+		transform: none;
+	}
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::before {
+		left: 16px;
+		top: 12px;
+		right: auto;
+		bottom: auto;
+		width: 38px;
+		height: 46px;
+		border: 0;
+		border-radius: 0;
+		background: conic-gradient(from 315deg, #f7c462 0 50%, #ee8543 50% 100%);
+		clip-path: polygon(50% 0, 88% 21%, 88% 72%, 50% 100%, 12% 72%, 12% 21%);
+		box-shadow: 0 0 0 1px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.24);
+		transform: none;
+	}
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::after {
+		left: 28px;
+		top: 26px;
+		right: auto;
+		bottom: auto;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: #263445;
+		box-shadow: 0 0 0 7px rgba(135,90,123,.86);
 		transform: none;
 	}
 	.o-app-launcher-view .o_app[data-app-key="approvals"] .o_app_icon_fallback::before {
@@ -8650,6 +8672,87 @@ const webClientShellHTML = `<!doctype html>
 	.gorp-one2many-empty-row td {
 		color: var(--muted);
 		font-style: italic;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-body.o_form_sheet_bg {
+		max-width: none;
+		margin: 0;
+		padding: 8px 16px 28px;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-sheet.o_form_sheet {
+		width: min(100%, 1320px);
+		max-width: none;
+		margin: 0 auto;
+		min-height: 560px;
+		padding: 24px 24px 28px;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-access-smart-buttons.o_button_box {
+		margin: -2px 0 26px;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-fields.o_inner_group {
+		grid-template-columns: minmax(148px, .24fr) minmax(0, .76fr);
+		max-width: 560px;
+		gap: 10px 16px;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-notebook.o_notebook {
+		margin-top: 28px;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-notebook-page .gorp-form-fields.o_inner_group {
+		display: block;
+		max-width: none;
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-form-field.gorp-groups-users-field.o_wrap_field {
+		display: block;
+		color: var(--text);
+	}
+	.gorp-form-view[data-model="res.groups"] .gorp-groups-users-field > .o_form_label {
+		display: none;
+	}
+	.gorp-groups-users-list.o_field_one2many {
+		display: block;
+		width: 100%;
+		min-width: 0;
+	}
+	.gorp-groups-users-table.o_list_table {
+		width: 100%;
+		border-collapse: collapse;
+		border: 1px solid var(--line);
+		border-radius: 0;
+		background: var(--panel);
+		color: var(--text);
+	}
+	.gorp-groups-users-table th,
+	.gorp-groups-users-table td {
+		height: 37px;
+		padding: 7px 10px;
+		border-bottom: 1px solid var(--line);
+		vertical-align: middle;
+		text-align: left;
+	}
+	.gorp-groups-users-table th {
+		background: #f8f9fa;
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.gorp-groups-users-table tr:last-child td {
+		border-bottom: 0;
+	}
+	.gorp-groups-users-add.btn {
+		border: 0;
+		background: transparent;
+		color: #017e84;
+		padding: 0;
+		font-size: 13px;
+		font-weight: 500;
+	}
+	.gorp-groups-users-add.btn:hover,
+	.gorp-groups-users-add.btn:focus {
+		color: #015f63;
+		text-decoration: underline;
+		outline: none;
+	}
+	.gorp-groups-users-blank-row td {
+		color: transparent;
 	}
 	.gorp-one2many-table td::before {
 		display: none;
@@ -10644,6 +10747,17 @@ const webClientShellHTML = `<!doctype html>
 		padding: 28px 24px 24px;
 		border-radius: 3px;
 	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="res.groups"] .gorp-form-body.o_form_sheet_bg {
+		max-width: none;
+		margin: 0;
+		padding: 8px 16px 28px;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="res.groups"] .gorp-form-sheet.o_form_sheet {
+		width: calc(100vw - 32px);
+		max-width: none;
+		margin: 0;
+		border-radius: 3px;
+	}
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet .oe_title h1,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-sheet .oe_title h1,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="base.automation"] .gorp-form-sheet .oe_title h1 {
@@ -12270,6 +12384,43 @@ const webClientShellHTML = `<!doctype html>
       return colors[hash % colors.length];
     }
 
+    function launcherIconKind(name) {
+      const key = appKey(name);
+      if (["apps", "settings", "approvals", "delegation"].includes(key)) return key;
+      return "generated";
+    }
+
+    function moduleIconToken(moduleName, displayName) {
+      const key = String(moduleName || "").toLowerCase();
+      const tokens = {
+        sale_management: "sales",
+        pos_restaurant: "sales",
+        account: "accounting",
+        crm: "sales",
+        website: "website",
+        stock: "inventory",
+        accountant: "accounting",
+        equity: "accounting",
+        purchase: "inventory",
+        point_of_sale: "sales",
+        project: "services",
+        website_sale: "website",
+        mrp: "inventory",
+        mass_mailing: "marketing",
+        timesheet_grid: "services",
+        hr_expense: "hr",
+        web_studio: "customizations",
+        documents: "productivity",
+        hr_holidays: "hr",
+        hr_recruitment: "hr",
+        hr: "hr",
+        ai: "technical",
+        data_recycle: "technical",
+        databases: "administration"
+      };
+      return tokens[key] || appIconToken(displayName || moduleName);
+    }
+
     function setLegacyAppSearchActive(active) {
       const wrap = document.querySelector("#appsView .o_home_menu_search");
       const input = document.getElementById("appSearch");
@@ -12519,11 +12670,13 @@ const webClientShellHTML = `<!doctype html>
         button.setAttribute("href", menuID ? "#menu_id=" + encodeURIComponent(String(menuID)) : "#");
         button.dataset.appName = name;
         button.dataset.appKey = app.key || appKey(name);
+        button.dataset.iconKind = launcherIconKind(name);
         if (menuID) button.dataset.menuId = String(menuID);
         if (app.menu && app.menu.xmlid) button.dataset.menuXmlid = app.menu.xmlid;
         button.innerHTML = '<span class="o_app_icon" aria-hidden="true"></span><strong class="o_app_name"></strong>';
         const icon = button.querySelector(".o_app_icon");
         icon.dataset.iconToken = appIconToken(name);
+        icon.dataset.iconKind = launcherIconKind(name);
         button.querySelector("strong").textContent = name;
         if (app.subtitle) {
           const path = document.createElement("small");
@@ -12663,7 +12816,8 @@ const webClientShellHTML = `<!doctype html>
           card.dataset.appName = displayName;
           const icon = document.createElement("span");
           icon.className = "app-icon o_app_icon";
-          icon.dataset.iconToken = appIconToken(displayName);
+          icon.dataset.iconToken = moduleIconToken(name, displayName);
+          icon.dataset.iconKind = moduleIconToken(name, displayName);
           icon.dataset.initials = appInitials(displayName);
           icon.setAttribute("aria-hidden", "true");
           const title = document.createElement("strong");
