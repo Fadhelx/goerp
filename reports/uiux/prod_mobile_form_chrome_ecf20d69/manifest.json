@@ -1,0 +1,120 @@
+{
+  "generated_at": "2026-06-23T07:53:05.555Z",
+  "base_url": "https://api.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-mobile-launcher-parity",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-launcher-parity.png",
+      "sha256": "3de39154a16625f3d8a54c0ae0ae0873053be1d355b2ac1d026fbdc89da440e7",
+      "assertions": {
+        "app_count": 2,
+        "launcher_state": {
+          "launcher_bg": "rgb(8, 11, 21)",
+          "launcher_bg_image": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.28' stop-color='%23122532'/%3E%3Cstop offset='.66' stop-color='%23111525'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3CradialGradient id='r' cx='.34' cy='.05' r='.55'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.11'/%3E%3Cstop offset='.48' stop-color='%23ffffff' stop-opacity='.025'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='0'/%3E%3C/radialGradient%3E%3ClinearGradient id='beam' x1='0' y1='0' x2='.55' y2='.35'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='1' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.04'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.42'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Cpath d='M0 0h245L0 470Z' fill='url(%23beam)'/%3E%3Crect width='1920' height='1080' fill='url(%23r)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E\")",
+          "draggable_count": 2,
+          "first_row_count": 2,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
+          "hidden_search_count": 1,
+          "banner_count": 1,
+          "search_hidden": true,
+          "user_avatar_visible": true,
+          "systray_visible_count": 3,
+          "horizontal_overflow_px": 0
+        }
+      },
+      "duration_ms": 5536
+    },
+    {
+      "name": "default-mobile-server-actions-flow",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-server-actions-flow.png",
+      "sha256": "f3232c0e50445f1b2a5086f2718d92096b93c380572eb343a6d74f0356bc0138",
+      "assertions": {
+        "card_count": 7,
+        "card_state": {
+          "role": "link",
+          "title": "Base: Auto-vacuum internal data",
+          "state": "Execute Code",
+          "open_buttons": 0
+        },
+        "form_count": 1,
+        "breadcrumb_count": 1,
+        "sheet_count": 1,
+        "form_control_state": {
+          "search_inputs": 0,
+          "search_toggles": 0
+        },
+        "mobile_form_chrome": {
+          "action_menu_in_actions": true,
+          "action_menu_in_main_buttons": false,
+          "action_menu_placement": "actions",
+          "action_toggle_width_px": 36,
+          "action_toggle_font_size_px": 0,
+          "loose_action_menus": 0,
+          "visible_switch_buttons": 0
+        },
+        "mobile_form_visual_state": {
+          "body_left_px": 0,
+          "sheet_left_px": 0,
+          "sheet_width_px": 390,
+          "viewport_width_px": 390,
+          "sheet_border_top_width": "0px",
+          "sheet_radius": "0px",
+          "title_text": "Base: Auto-vacuum internal data",
+          "title_line_count": 1,
+          "model_value": "Automatic Vacuum",
+          "labels": [
+            "Model",
+            "Allowed Groups",
+            "Type"
+          ],
+          "state_labels": [
+            "Update Record",
+            "Create Record",
+            "Duplicate Record",
+            "Execute Code",
+            "Send Webhook Notification",
+            "Multi Actions"
+          ],
+          "group_visible": true,
+          "active_visible": false,
+          "name_visible": false,
+          "code_height_px": 18
+        },
+        "action_menu_open_state": {
+          "open": "true",
+          "expanded": "true",
+          "item_count": 3,
+          "width": 190,
+          "height": 141,
+          "display": "grid"
+        },
+        "action_menu_outside_closed_state": {
+          "open": "false",
+          "expanded": "false"
+        },
+        "action_menu_escape_closed_state": {
+          "open": "false",
+          "expanded": "false"
+        },
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=63&menu_id=13",
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 8323
+    }
+  ],
+  "duration_ms": 14056
+}
