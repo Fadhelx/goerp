@@ -1768,7 +1768,7 @@ const genericFormWindow = renderWindowAction({
         genericFormSearchCalls.push({ model, method, args, kwargs });
         if (model === "res.groups") return Promise.resolve([[11, "Base / User"], [30, "Sales / Manager"]]);
         if (model === "res.users") return Promise.resolve([[7, "Administrator"], [8, "Demo User"]]);
-        return Promise.resolve([[81, "mail.mail"], [82, "mail.message"]]);
+        return Promise.resolve([[81, "mail.mail"], [45, "ir.mail_server"], [82, "mail.message"]]);
       },
       webSave(model, ids, changes, kwargs) {
         genericFormSaveCalls.push({ model, ids, changes, kwargs });
@@ -1835,6 +1835,9 @@ const genericNameInput = findAll(genericForm, (node) => node.tag === "input" && 
 const genericEmailInput = findAll(genericForm, (node) => node.tag === "input" && node.dataset?.field === "email")[0];
 const genericRelation = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-many2one-editor"))[0];
 const genericRelationInput = findAll(genericRelation, (node) => node.tag === "input" && node.dataset?.field === "model_id")[0];
+assert.equal(genericRelation.dataset.relation, "ir.model");
+assert.equal(genericRelation.dataset.noCreate, "true");
+assert.equal(genericRelation.dataset.noCreateEdit, "true");
 const genericStateRadio = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-selection-radio-group") && node.dataset?.field === "state")[0];
 const genericCodeEditor = findAll(genericForm, (node) => node.tag === "textarea" && String(node.className ?? "").includes("gorp-code-editor") && node.dataset?.field === "code")[0];
 const genericGroups = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor"))[0];
@@ -1908,7 +1911,7 @@ assert.equal(genericRelationToggle.attributes["aria-expanded"], "true");
 assert.equal(genericRelationInput.attributes["aria-expanded"], "true");
 assert.equal(genericRelation.dataset.resId, "5");
 let genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
-assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Contact", "Mail", "Message"]);
+assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Contact", "Mail", "Mail Server", "Message"]);
 assert.equal(genericRelationOptions[0].dataset.selected, "true");
 assert.equal(genericRelationOptions[0].dataset.active, "true");
 assert.equal(genericRelationInput.attributes["aria-activedescendant"], genericRelationOptions[0].id);
@@ -1927,7 +1930,8 @@ assert.deepEqual(genericFormSearchCalls[1], {
   kwargs: { name: "mail", domain: [["transient", "=", false]], operator: "ilike", limit: 12, context: { lang: "en_US", active_test: false } }
 });
 genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
-assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Mail", "Message"]);
+assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Mail", "Mail Server", "Message"]);
+assert.equal(genericRelationOptions.some((node) => /\b[a-z_]+\.[a-z0-9_.]+\b/.test(node.textContent)), false);
 assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create")).length, 0);
 assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit")).length, 0);
 genericRelationOptions[0].dispatchEvent(new TestEvent("click"));

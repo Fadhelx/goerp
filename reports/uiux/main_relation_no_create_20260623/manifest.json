@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-06-23T01:58:28.675Z",
+  "base_url": "http://127.0.0.1:8114/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "4c7233cc4ead891bb60285ed00f4a8260a31bf0e4690c40e881c91f23f62170c",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 20,
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "65"
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 8,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Incoming Mail Server",
+            "Mail Server",
+            "Activity",
+            "Mixin",
+            "Type",
+            "Alias",
+            "Domain",
+            "Blacklist"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 160,
+          "input_width": 489
+        }
+      },
+      "duration_ms": 1026
+    }
+  ],
+  "duration_ms": 1184
+}

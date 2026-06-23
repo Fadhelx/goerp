@@ -7149,7 +7149,7 @@ function renderReadonlyFieldValue(
     const relation = fieldRelationValue(description);
     const data = relation ? relationMany2OneDisplayData(relation, value) : many2OneDisplayData(value);
     if (relation && data.id !== undefined) {
-      const config = relationFieldConfig(node, evalContext, options);
+      const config = relationFieldConfig(node, evalContext, options, relation);
       if (config.noOpen) return renderMany2OnePlainValue(node.name, relation, data, config);
       return renderMany2OneLinkValue(node.name, relation, data, form, options);
     }
@@ -7722,7 +7722,7 @@ function renderOne2ManyMany2OneCellEditor(
 ): HTMLElement {
   const relation = fieldRelationValue(description);
   const current = relationMany2OneDisplayData(relation, row.values[column.name]);
-  const config = relationFieldConfig(column, row.values, options);
+  const config = relationFieldConfig(column, row.values, options, relation);
   const root = document.createElement("span");
   root.className = "gorp-one2many-many2one-editor gorp-many2one-editor o_field_widget o_field_many2one";
   root.dataset.field = column.name;
@@ -8885,7 +8885,7 @@ function renderMany2OneEditor(
 ): HTMLElement {
   const relation = fieldRelationValue(description);
   const current = relationMany2OneDisplayData(relation, values[node.name]);
-  const config = relationFieldConfig(node, values, options);
+  const config = relationFieldConfig(node, values, options, relation);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
   root.className = "gorp-many2one-editor o_field_widget o_field_many2one";
@@ -9272,7 +9272,8 @@ function humanReadableModelName(value: string): string {
 function relationFieldConfig(
   node: ViewFieldNode,
   evalContext: Record<string, unknown>,
-  options?: Pick<RenderWindowActionOptions, "context">
+  options?: Pick<RenderWindowActionOptions, "context">,
+  relation?: string
 ): RelationFieldConfig {
   const fieldOptions = parseObjectLiteral(node.attrs.options || "{}", evalContext) ?? {};
   const rawDomain = normalizeDomainExpression(node.attrs.domain, evalContext);
@@ -9285,7 +9286,7 @@ function relationFieldConfig(
   const createNameField = typeof fieldOptions.create_name_field === "string" && fieldOptions.create_name_field.trim()
     ? fieldOptions.create_name_field.trim()
     : "name";
-  const noCreate = relationOptionBool(fieldOptions.no_create) || fieldOptions.create === false;
+  const noCreate = relation === "ir.model" || relationOptionBool(fieldOptions.no_create) || fieldOptions.create === false;
   const noQuickCreate = relationOptionBool(fieldOptions.no_quick_create) || noCreate;
   const noCreateEdit = relationOptionBool(fieldOptions.no_create_edit) || noCreate;
   const noOpen = relationOptionBool(fieldOptions.no_open) || fieldOptions.open === false;
@@ -9375,7 +9376,7 @@ function renderMany2ManyTagEditor(
   required: boolean
 ): HTMLElement {
   const relation = fieldRelationValue(description);
-  const config = relationFieldConfig(node, values, options);
+  const config = relationFieldConfig(node, values, options, relation);
   let selected = x2ManyDisplayItems(values[node.name]).filter((item) => item.id !== undefined);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
