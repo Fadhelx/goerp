@@ -1,0 +1,33 @@
+{
+  "menu_count": 11,
+  "matched": [
+    {
+      "id": 62,
+      "name": "Users",
+      "actionID": 70,
+      "parent_id": null,
+      "path": "users"
+    },
+    {
+      "id": 48,
+      "name": "Apps",
+      "actionID": false,
+      "parent_id": null,
+      "path": false
+    },
+    {
+      "id": 15,
+      "name": "Apps",
+      "actionID": 39,
+      "parent_id": null,
+      "path": "apps"
+    },
+    {
+      "id": 1,
+      "name": "Settings",
+      "actionID": 85,
+      "parent_id": null,
+      "path": "settings"
+    }
+  ]
+}

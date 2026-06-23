@@ -1,0 +1,7 @@
+Error: timeout text Groups: {"href":"http://127.0.0.1:8135/odoo?debug=assets","ready":"complete","text":"My Company\nAdministrator\ngorp_ref_ui_20260623_063912\n×\nYou will be able to register your database once you have installed your first app.\nApps\nSettings"}
+    at waitFor (file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:24:400)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async navigate (file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:25:456)
+    at async file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:56:43
+    at async step (file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:32:39)
+    at async file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:56:3

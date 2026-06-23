@@ -1,0 +1,14 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/users/2?debug=assets",
+  "title": "Administrator",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Users Administrator 8 Groups 138 Access Rights 25 Record Rules 1 / 1 Add Photo Related Partner? Administrator Access Rights Preferences Calendar Security ROLES Role? User Administrator MASTER DATA Contact? Export? EXTRA RIGHTS Access Rights? Default access for new users? Multi Currencies? Role / Portal? Role / User? Technical Features? Bypass HTML Field Sanitize? Multi Companies? Role / Administrator? Role / Public? Technical Documentation?",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 4,
+    "fields": 41
+  },
+  "extra": {}
+}

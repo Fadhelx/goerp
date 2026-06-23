@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/server-actions?debug=assets",
+  "title": "Server Actions",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Server Actions Top-level actions 1-7 / 7 Name Model Type Usage Base: Auto-vacuum internal data Automatic Vacuum Execute Code Scheduled Action Base: Portal Users Deletion Users Deletion Request Execute Code Scheduled Action Config: Run Remaining Action Todo Config Execute Code Server Action Disable two-factor authentication User Execute Code Server Action Download (vCard) Contact Execute Code Server Action Export JS Tours Execute Code Server Action Failed to install demo data for some modules, demo disabled Demo Failure wizard Execute Code Server Action",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 7,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 31
+  },
+  "extra": {
+    "pager": "1-7 / 7",
+    "headers": [
+      "Name",
+      "Model",
+      "Type",
+      "Usage"
+    ]
+  }
+}

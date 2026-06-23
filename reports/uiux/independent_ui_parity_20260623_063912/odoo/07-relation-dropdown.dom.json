@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/server-actions/new?debug=assets",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Server Actions New Create Contextual Action Model? Mail Server Search more... Allowed Groups?",
+  "counts": {
+    "rows": 0,
+    "dropdownItems": 4,
+    "tabs": 0,
+    "fields": 7
+  },
+  "extra": {
+    "inputs": [
+      {
+        "id": "model_id_0",
+        "value": "mail",
+        "parent": "model_id"
+      }
+    ],
+    "dropdowns": [
+      "Mail Server\nSearch more..."
+    ]
+  }
+}

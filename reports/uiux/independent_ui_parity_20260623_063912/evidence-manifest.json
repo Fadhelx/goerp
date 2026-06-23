@@ -1,0 +1,278 @@
+{
+  "pairs": [
+    {
+      "screen": "launcher",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/01-launcher.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/01-launcher.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 99.97,
+      "mae_pct": 4.44,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "apps",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/02-apps.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/02-apps.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 7.77,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "settings",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/03-settings.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/03-settings.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 5.69,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "technical_dropdown",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/04-technical-dropdown.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/04-technical-dropdown.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 6.64,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "server_actions_list",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/05-server-actions-list.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/05-server-actions-list.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 6.88,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "server_action_form",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/06-server-action-form.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/06-server-action-form.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 2.83,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "relation_dropdown",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/07-relation-dropdown.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/07-relation-dropdown.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 4.47,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "scheduled_actions_list",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/08-scheduled-actions-list.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/08-scheduled-actions-list.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 2.07,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "scheduled_action_form",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/09-scheduled-action-form.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/09-scheduled-action-form.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 2.28,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "users_list",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/10-users-list.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/10-users-list.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 1.1,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "users_form",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/11-users-form.png",
+      "odoo": "reports/uiux/independent_ui_parity_20260623_063912/odoo/11-users-form.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 5.05,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "groups_list",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/12-groups-list.png",
+      "odoo": "reports/uiux/verifier_strict_parity_20260623_continued/odoo/13-groups-list.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 2.46,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    },
+    {
+      "screen": "groups_form",
+      "goerp": "reports/uiux/independent_ui_parity_20260623_063912/goerp/13-groups-form.png",
+      "odoo": "reports/uiux/verifier_strict_parity_20260623_continued/odoo/14-groups-access-form.png",
+      "goerp_size": [
+        1366,
+        900
+      ],
+      "odoo_size": [
+        1366,
+        900
+      ],
+      "changed_pct": 100.0,
+      "mae_pct": 3.41,
+      "diff_bbox": [
+        0,
+        0,
+        1366,
+        900
+      ]
+    }
+  ],
+  "groups_reference_note": "Fresh Odoo minimal DB did not expose Groups menu; groups pairs use prior Odoo reference screenshots from verifier_strict_parity_20260623_continued."
+}

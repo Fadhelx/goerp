@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=groups#action=5&model=res.groups&view_type=form&id=12&menu_id=5",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator Edit Groups F Creation Users Name Creation Privilege Contact Share Group API Keys maximum duration days Users Inherited Menus Views Access Rights Record Rules Notes Users",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 7,
+    "fields": 18
+  },
+  "extra": {}
+}

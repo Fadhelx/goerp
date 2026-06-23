@@ -1,0 +1,11 @@
+Error: {"code":-32000,"message":"Object reference chain is too long"}
+    at ws.onmessage (file:///Users/fadhelalqaidoom/Documents/gorp/[eval1]:37:160)
+    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:816:20)
+    at WebSocket.dispatchEvent (node:internal/event_target:751:26)
+    at fireEvent (node:internal/deps/undici/undici:10966:14)
+    at websocketMessageReceived (node:internal/deps/undici/undici:10988:7)
+    at ByteParser.run (node:internal/deps/undici/undici:11439:17)
+    at ByteParser._write (node:internal/deps/undici/undici:11315:14)
+    at writeOrBuffer (node:internal/streams/writable:564:12)
+    at _write (node:internal/streams/writable:493:10)
+    at Writable.write (node:internal/streams/writable:502:10)

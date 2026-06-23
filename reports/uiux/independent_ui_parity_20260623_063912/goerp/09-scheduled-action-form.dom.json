@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=scheduled#action=8&model=ir.cron&view_type=form&id=1&menu_id=22",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator Edit Scheduled Actions Actions F Run Manually Base: Auto-vacuum internal data Run As Interval 1 Interval Unit Minutes Hours Days Weeks Months Active true Next Execution Date Jun 24, 1:02 AM Server Action Base: Auto-vacuum internal data Action Type Execute Code Code Help",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 2,
+    "fields": 13
+  },
+  "extra": {}
+}

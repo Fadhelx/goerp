@@ -1,0 +1,19 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=server-actions#action=7&model=ir.actions.server&view_type=form&id=63&menu_id=13",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator Save Discard Server Actions Scheduled Action Actions F Create Contextual Action Base: Auto-vacuum internal data Name Model Mail Server Search more... Type Execute Code Create Record Update Record Multi Actions Send Email Add Followers Remove Followers Create Next Activity Send SMS Send WhatsApp Webhook AI Action Create Vendor Bill Active true Code Help",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 2,
+    "tabs": 2,
+    "fields": 24
+  },
+  "extra": {
+    "labels": [
+      "Mail Server",
+      "Search more..."
+    ],
+    "input": "mail"
+  }
+}

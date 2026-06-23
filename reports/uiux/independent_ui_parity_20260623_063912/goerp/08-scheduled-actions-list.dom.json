@@ -1,0 +1,23 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=scheduled#action=8&model=ir.cron&view_type=list&menu_id=22",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator New Actions Scheduled Actions 1-2 / 2 < > L F Action Name Active Interval Interval Unit Next Execution Date Action Type Base: Auto-vacuum internal data true 1 Days Jun 24, 1:02 AM Base: Portal Users Deletion true 1 Days Jun 24, 1:02 AM",
+  "counts": {
+    "apps": 0,
+    "cards": 2,
+    "rows": 4,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 28
+  },
+  "extra": {
+    "pager": "1-2 / 2\n<\n>",
+    "headers": [
+      "Action Name",
+      "Active",
+      "Interval",
+      "Interval Unit",
+      "Next Execution Date",
+      "Action Type"
+    ]
+  }
+}

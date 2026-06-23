@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=apps-start#action=16&model=ir.module.module&view_type=kanban&menu_id=73",
+  "text": "Apps Apps Update Apps List Apply Scheduled Upgrades Import Module My Company A Administrator Apps ⌕ Apps ▾ 1-77 / 77 APPS All Official Apps Industries CATEGORIES All 77 Sales 11 Website 5 Services 6 Accounting 3 Supply Chain 8 Productivity 9 Marketing 7 Human Resources 14 Shipping Connectors 10 ESG 1 Customizations 1 Technical 1 Administration 1 Sales sale_management Quotations, orders, and teams ⋮ Activate Learn More Restaurant pos_restaurant Restaurant point of sale ⋮ Activate Learn More Invoicing account Invoices and payments ⋮ Activate Learn More CRM crm Leads, opportunities, and pipeline ⋮ Activate Learn More Website website Website builder and pages ⋮ Activate Learn More Inventory stock Warehouse and stock operations ⋮ Activate Learn More Accounting accountant Accounting reports and ledgers ⋮ Activate Learn More Equity equity Equity management ⋮ Activate Learn More Purchase purchase Vendors and purchase orders ⋮ Activate Learn More Point of Sale point_of_sale Retail point of sale ⋮ Activate Learn More Project project Projects and tasks ⋮ Activate Learn More eCommerce website_sale Online shop ⋮ Activate Learn More Manufacturing mrp Manufacturing orders ⋮ Activate Learn More Email Marketing mass_mailing Mailing campaigns ⋮ Activate Learn More Timesheets timesheet_grid Timesheet grids ⋮ Activate Learn More Expenses hr_expense Employee expenses ⋮ Activate Learn More Studio web_studio Customize apps without code ⋮ Activate Learn More Documents documents Document workspace ⋮ Activate Learn More Time Off hr_holidays Leave management ⋮ Activate Learn More Recruitment hr_recruitment Jobs and applicants ⋮ Activate Learn More Employees hr Employee directory ⋮ Upgrade Uninstall Learn More AI ai AI assistants and tools ⋮ Upgrade Uninstall Learn More Data Recycle data_recycle Recycle duplicate records ⋮ Activate Learn More Databases databases Database administration ⋮ Activate Learn More Subscriptions sale_subscription Recurring sales ⋮ Activate Learn More Rental sale_renting Rent products ⋮ Activate Learn More Field Service industry_fsm On-site service work ⋮ Activate Learn More Sales Planning sale_planning Sales planning ⋮ Activate Learn More Sales Commission sale_commission Commission plans ⋮ Activate Learn More Loyalty loyalty Coupons and loyalty programs ⋮ Activate Learn More Event Sale event_sale Sell event tickets ⋮ Activate Learn More eLearning website_slides Online courses ⋮ Activate Learn More Blog website_blog Publish articles ⋮ Activate Learn More Foru",
+  "counts": {
+    "apps": 0,
+    "cards": 77,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 0
+  },
+  "extra": {
+    "pager": "1-77 / 77",
+    "cards": 77,
+    "categories": 14,
+    "filters": 3
+  }
+}

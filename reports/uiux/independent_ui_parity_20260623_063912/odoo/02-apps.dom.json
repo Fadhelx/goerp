@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/apps?debug=assets",
+  "title": "Apps",
+  "text": "Apps Apps Update Apps List Apply Scheduled Upgrades Import Module My Company Administrator gorp_ref_ui_20260623_063912 Apps Apps 1-77 / 77 APPS All Official Apps Industries CATEGORIES All Sales 11 Website 5 Services 6 Accounting 3 Supply Chain 8 Productivity 9 Marketing 7 Human Resources 14 Shipping Connectors 10 ESG 1 Customizations 1 Technical 1 Administration 1 Sales sale_management Activate Learn More Restaurant pos_restaurant Activate Learn More Invoicing account Activate Learn More CRM crm Activate Learn More Website website Activate Learn More Inventory stock Activate Learn More Accounting accountant Activate Learn More Equity equity Activate Module Info Purchase purchase Activate Learn More Point of Sale point_of_sale Activate Learn More Project project Activate Learn More eCommerce website_sale Activate Learn More Manufacturing mrp Activate Learn More Email Marketing mass_mailing Activate Learn More Timesheets timesheet_grid Activate Learn More Expenses hr_expense Activate Learn More Studio web_studio Activate Learn More Documents documents Activate Learn More Time Off hr_holidays Activate Learn More Recruitment hr_recruitment Activate Learn More Employees hr Activate Learn More AI ai_app Activate Module Info Data Recycle data_recycle Activate Module Info Databases databases Activate Module Info DHL Express Shipping delivery_dhl_rest Activate Module Info Envia Shipping delivery_envia Activate Module Info Fedex Shipping delivery_fedex_rest Activate Module Info Starshipit Shipping delivery_starshipit Activate Module Info UPS Shipping delivery_ups_rest Activate Module Info ESG esg Activate Module Info Frontdesk frontdesk Activate Module Info Knowledge knowledge Activate Module Info Maintenance maintenance Activate Learn More Marketing Card marketing_card Activate Module Info Meeting Rooms room Activate Module Info Lazada Connector sale_lazada Activate Module Info WhatsApp Messaging whatsapp Activate Module Info Sign sign Activate Learn More Helpdesk helpdesk Activate Learn More Subscriptions sale_subscription Activate Learn More Quality quality_control Activate Learn More eLearning website_slides Activate Learn More Planning planning Activate Module Info Events website_event Activate Learn More Discuss mail Activate Learn More Contacts contacts Activate Module Info Product Lifecycle Management (PLM) mrp_plm Activate Learn More Rental sale_renting Activate Learn More Calendar calendar Activate Module Info Field Service industry_fsm Activate Module Inf",
+  "counts": {
+    "apps": 0,
+    "cards": 83,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 271
+  },
+  "extra": {
+    "pager": "1-77 / 77",
+    "headers": [
+      "Apps",
+      "Update Apps List",
+      "Apply Scheduled Upgrades",
+      "Import Module"
+    ]
+  }
+}

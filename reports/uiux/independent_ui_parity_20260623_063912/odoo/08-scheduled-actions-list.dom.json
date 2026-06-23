@@ -1,0 +1,25 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/crons?debug=assets",
+  "title": "Scheduled Actions",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Scheduled Actions All 1-2 / 2 Priority Action Name Model Next Execution Date Interval Number Interval Unit Active 3 Base: Auto-vacuum internal data Automatic Vacuum Jun 23, 6:40 AM 1 Days 8 Base: Portal Users Deletion Users Deletion Request Jun 23, 6:40 AM 1 Days ​ ​",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 4,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 17
+  },
+  "extra": {
+    "pager": "1-2 / 2",
+    "headers": [
+      "Priority",
+      "Action Name",
+      "Model",
+      "Next Execution Date",
+      "Interval Number",
+      "Interval Unit",
+      "Active"
+    ]
+  }
+}

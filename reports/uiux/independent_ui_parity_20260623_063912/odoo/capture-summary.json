@@ -1,0 +1,16 @@
+{
+  "failures": [
+    {
+      "name": "relation-dropdown",
+      "error": "{\"code\":-32000,\"message\":\"Object reference chain is too long\"}"
+    },
+    {
+      "name": "groups-list",
+      "error": "timeout text Groups: {\"href\":\"http://127.0.0.1:8135/odoo?debug=assets\",\"ready\":\"complete\",\"text\":\"My Company\\nAdministrator\\ngorp_ref_ui_20260623_063912\\n×\\nYou will be able to register your database once you have installed your first app.\\nApps\\nSettings\"}"
+    },
+    {
+      "name": "groups-form",
+      "error": "timeout text Groups: {\"href\":\"http://127.0.0.1:8135/odoo?debug=assets\",\"ready\":\"complete\",\"text\":\"My Company\\nAdministrator\\ngorp_ref_ui_20260623_063912\\n×\\nYou will be able to register your database once you have installed your first app.\\nApps\\nSettings\"}"
+    }
+  ]
+}

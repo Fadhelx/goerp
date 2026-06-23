@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=users#action=4&model=res.users&view_type=list&menu_id=4",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator New Users 1-1 / 1 < > L F Name Login Role A Administrator admin Administrator",
+  "counts": {
+    "apps": 0,
+    "cards": 1,
+    "rows": 2,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 6
+  },
+  "extra": {
+    "pager": "1-1 / 1\n<\n>",
+    "headers": [
+      "Name",
+      "Login",
+      "Role"
+    ]
+  }
+}

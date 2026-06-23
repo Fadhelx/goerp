@@ -1,0 +1,19 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=groups#action=5&model=res.groups&view_type=list&menu_id=5",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator New Groups 1-13 / 13 < > L F Privilege Name Contact Creation Export Allowed Access Rights Bypass HTML Field Sanitize Default access for new users Multi Companies Multi Currencies Role / Administrator Role / Portal Role / Public Role / User Technical Documentation Technical Features",
+  "counts": {
+    "apps": 0,
+    "cards": 13,
+    "rows": 26,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 45
+  },
+  "extra": {
+    "pager": "1-13 / 13\n<\n>",
+    "headers": [
+      "Privilege",
+      "Name"
+    ]
+  }
+}

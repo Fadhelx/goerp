@@ -1,0 +1,14 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/crons/1?debug=assets",
+  "title": "Base: Auto-vacuum internal data",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Scheduled Actions Base: Auto-vacuum internal data 1 / 1 Run Manually Model? Allowed Groups? Scheduler User? Execute Every? Active? ​ Next Execution Date? Jun 23, 6:40 AM Priority? Code Help 1 model._run_vacuum_cleaner()",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 2,
+    "fields": 18
+  },
+  "extra": {}
+}

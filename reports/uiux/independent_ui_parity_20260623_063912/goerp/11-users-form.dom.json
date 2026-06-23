@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=users#action=4&model=res.users&view_type=form&id=2&menu_id=4",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator Edit Users Actions F A Administrator admin Email Phone Related Partner My Company Groups 11 Access Rights Record Rules Access Rights Preferences Calendar Security Access Rights Email Marketing Email Marketing No Email Marketing / User Extra Rights Access Rights Administrator Bypass HTML Field Sanitize Default access for new users Delegable Multiple Role Delegable Role Delegation / Administrator Delegation / Manager Delegation / User Employee Employee Manager Login As / Administrator Login As / Allow Inactive Login As / Allow Superuser Login As / Debug Route Login As / User Multi Companies Multi Currencies OI Base / Administrator OI Base / User Role / Administrator Role / Portal Role / Public Role / User Technical Documentation Technical Features Workflow / Administrator Workflow / Manager Workflow / User Workflow Advance / Administrator Workflow Advance / Manager Workflow Advance / User Master Data Contact No Creation Export No Allowed",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 4,
+    "fields": 6
+  },
+  "extra": {}
+}

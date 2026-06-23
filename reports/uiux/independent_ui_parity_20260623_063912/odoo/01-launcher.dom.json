@@ -1,0 +1,14 @@
+{
+  "url": "http://127.0.0.1:8135/odoo?debug=assets",
+  "title": "Home",
+  "text": "My Company Administrator gorp_ref_ui_20260623_063912 × You will be able to register your database once you have installed your first app. Apps Settings",
+  "counts": {
+    "apps": 4,
+    "cards": 2,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 3
+  },
+  "extra": {}
+}

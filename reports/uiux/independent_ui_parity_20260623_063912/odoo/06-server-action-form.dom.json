@@ -1,0 +1,14 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/server-actions/35?debug=assets",
+  "title": "Base: Auto-vacuum internal data",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Server Actions Base: Auto-vacuum internal data Scheduled Action 1 / 1 Create Contextual Action Model? Allowed Groups? Type? Update Record Create Record Duplicate Record Execute Code Send Webhook Notification Multi Actions Code Help 1 model._run_vacuum_cleaner()",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 2,
+    "fields": 13
+  },
+  "extra": {}
+}

@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:8135/odoo/users?debug=assets",
+  "title": "Users",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company Administrator gorp_ref_ui_20260623_063912 New Users Internal Users 1-1 / 1 Name Login Role Administrator admin Administrator",
+  "counts": {
+    "apps": 0,
+    "cards": 0,
+    "rows": 1,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 10
+  },
+  "extra": {
+    "pager": "1-1 / 1",
+    "headers": [
+      "Name",
+      "Login",
+      "Role"
+    ]
+  }
+}

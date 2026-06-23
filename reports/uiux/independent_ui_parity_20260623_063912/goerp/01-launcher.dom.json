@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=launcher",
+  "text": "My Company A Administrator You will be able to register your database once you have installed your first app. × Apps Settings",
+  "counts": {
+    "apps": 2,
+    "cards": 0,
+    "rows": 0,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 0
+  },
+  "extra": {
+    "labels": [
+      "Apps",
+      "Settings"
+    ]
+  }
+}

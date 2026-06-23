@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:8133/web?capture=server-actions#action=7&model=ir.actions.server&view_type=list&menu_id=13",
+  "text": "Settings General Settings Users & Companies Translations Technical My Company A Administrator New Actions Server Actions 1-20 / 20 < > L F Name Model Type Usage Base: Auto-vacuum internal data Execute Code Scheduled Action Base: Portal users cleanup Execute Code Scheduled Action Mail: Email Queue Manager Mail Execute Code Scheduled Action Mass Mailing: Process queue Mailing Execute Code Scheduled Action Digest Emails Digest Execute Code Scheduled Action AI: Get Fields Agent Execute Code Server Action AI: Search Agent Execute Code Server Action AI: Read Group Agent Execute Code Server Action AI: Get Menu Details Agent Execute Code Server Action AI: Compute Report Measures Agent Execute Code Server Action AI: Open Menu List Agent Execute Code Server Action AI: Open Menu Kanban Agent Execute Code Server Action AI: Open Menu Pivot Agent Execute Code Server Action AI: Open Menu Graph Agent Execute Code Server Action AI: Adjust Search Agent Execute Code Server Action Ask AI Thread AI Action Server Action AI: Process Sources Execute Code Scheduled Action Workflow: Update approval activities Settings Execute Code Scheduled Action Clear Access Cache Delegation Execute Code Scheduled Action Process Workflow Escalation Process Execute Code Scheduled Action",
+  "counts": {
+    "apps": 0,
+    "cards": 20,
+    "rows": 40,
+    "dropdownItems": 0,
+    "tabs": 0,
+    "fields": 137
+  },
+  "extra": {
+    "pager": "1-20 / 20\n<\n>",
+    "headers": [
+      "Name",
+      "Model",
+      "Type",
+      "Usage"
+    ]
+  }
+}
