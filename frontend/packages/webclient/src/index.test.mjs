@@ -2315,8 +2315,11 @@ const serverActionListWindow = renderWindowAction({
       }
     }
   },
-  records: [{ id: 31, name: "Mail: Email Queue Manager", model_id: [12, "Mail"], state: "code", model_name: "mail.mail", usage: "ir_cron", active: true }],
-  length: 1
+  records: [
+    { id: 31, name: "Mail: Email Queue Manager", model_id: [12, "Mail"], state: "code", model_name: "mail.mail", usage: "ir_cron", active: true },
+    { id: 32, name: "Delegation Approval", model_id: [13, "Delegation"], state: "code", model_name: "delegation", usage: "ir_actions_server", active: true }
+  ],
+  length: 2
 });
 const serverActionListTable = findAll(serverActionListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
 assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Model", "Type", "Usage"]);
@@ -2324,7 +2327,9 @@ const serverActionModelCellTexts = findAll(serverActionListTable, (node) => node
   .flatMap((node) => findAll(node, (child) => child.tag === "output" || String(child.className ?? "").includes("gorp-many2one-link")).map((child) => child.textContent))
   .filter(Boolean);
 assert.ok(serverActionModelCellTexts.includes("Mail"));
+assert.ok(serverActionModelCellTexts.includes("Delegation"));
 assert.ok(!serverActionModelCellTexts.includes("mail.mail"));
+assert.ok(!serverActionModelCellTexts.includes("delegation"));
 const serverActionStateCell = findAll(serverActionListTable, (node) => node.dataset?.field === "state")[0];
 assert.equal(findAll(serverActionStateCell, (node) => node.tag === "output")[0].textContent, "Execute Code");
 const serverActionUsageCell = findAll(serverActionListTable, (node) => node.dataset?.field === "usage")[0];

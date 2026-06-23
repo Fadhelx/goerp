@@ -9241,7 +9241,7 @@ function humanReadableModelName(value: string): string {
     "res.users": "Users"
   };
   if (known[trimmed]) return known[trimmed];
-  if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(trimmed)) return value;
+  if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/.test(trimmed)) return value;
   return humanizeFieldName(trimmed.split(".").at(-1) ?? trimmed);
 }
 

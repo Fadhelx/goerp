@@ -542,7 +542,7 @@ export const scenarios = [
         if (!labelState.headers.includes(label)) throw new Error(`TS technical list missing header ${label}: ${JSON.stringify(labelState)}`);
       }
       if (labelState.state === "code") throw new Error(`TS technical list shows raw state value: ${JSON.stringify(labelState)}`);
-      if (labelState.model_values.some((value) => /^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$/.test(value))) throw new Error(`TS technical list shows raw model value: ${JSON.stringify(labelState)}`);
+      if (labelState.model_values.some((value) => /^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$/.test(value))) throw new Error(`TS technical list shows raw model value: ${JSON.stringify(labelState)}`);
       if (labelState.usage_values.some((value) => /^ir_/.test(value) || value.includes("_"))) throw new Error(`TS technical list shows raw usage value: ${JSON.stringify(labelState)}`);
       if (!labelState.usage_values.some((value) => value === "Scheduled Action" || value === "Server Action")) throw new Error(`TS technical list missing usage labels: ${JSON.stringify(labelState)}`);
       return { title, hash, ...opened, ...themeAudit, label_state: labelState };
