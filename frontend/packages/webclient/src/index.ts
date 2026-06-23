@@ -10090,6 +10090,7 @@ function renderMany2ManyTagEditor(
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
     input.setAttribute("aria-expanded", "false");
+    setX2ManyDropdownActiveItem(dropdown, input, -1);
   };
   const openDropdown = () => {
     applyMany2OneDropdownGeometry(root, input, dropdown);
@@ -10205,6 +10206,7 @@ function renderMany2ManyTagEditor(
       dropdown.append(empty);
       appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
+      setX2ManyDropdownActiveItem(dropdown, input, 0);
       return;
     }
     for (const item of available) {
@@ -10221,6 +10223,7 @@ function renderMany2ManyTagEditor(
     }
     appendCommands(query, items.length, searchMoreExpanded);
     openDropdown();
+    setX2ManyDropdownActiveItem(dropdown, input, 0);
   };
   const search = async (limit = config.limit, searchMore = false) => {
     const query = input.value.trim();
@@ -10254,12 +10257,72 @@ function renderMany2ManyTagEditor(
     if (input.value.trim()) void search();
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    closeDropdown();
+    if (event.key === "Escape") {
+      closeDropdown();
+      return;
+    }
+    if (dropdown.hidden) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const buttons = x2ManyDropdownButtons(dropdown);
+      if (!buttons.length) return;
+      const current = x2ManyDropdownActiveIndex(dropdown);
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const next = current < 0 ? 0 : (current + delta + buttons.length) % buttons.length;
+      setX2ManyDropdownActiveItem(dropdown, input, next);
+      return;
+    }
+    if (event.key === "Enter") {
+      const active = x2ManyDropdownButtons(dropdown)[x2ManyDropdownActiveIndex(dropdown)];
+      if (!active) return;
+      event.preventDefault();
+      active.click();
+    }
   });
   renderTags();
   root.append(tagList, input, dropdown);
   return root;
+}
+
+function x2ManyDropdownButtons(dropdown: HTMLElement): HTMLButtonElement[] {
+  return Array.from(dropdown.children).filter((child): child is HTMLButtonElement => {
+    const button = child as HTMLButtonElement;
+    return button.tagName === "BUTTON" && (
+      classNameIncludes(button.className, "gorp-x2many-option") ||
+      classNameIncludes(button.className, "gorp-x2many-create") ||
+      classNameIncludes(button.className, "gorp-x2many-create-edit") ||
+      classNameIncludes(button.className, "gorp-x2many-search-more")
+    ) && !button.disabled;
+  });
+}
+
+function setX2ManyDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputElement, index: number): number {
+  const buttons = x2ManyDropdownButtons(dropdown);
+  if (!buttons.length || index < 0) {
+    delete dropdown.dataset.activeIndex;
+    for (const button of buttons) {
+      button.className = toggleClassToken(String(button.className ?? ""), "active", false);
+      button.dataset.active = "false";
+    }
+    input.removeAttribute("aria-activedescendant");
+    return -1;
+  }
+  const nextIndex = Math.max(0, Math.min(index, buttons.length - 1));
+  dropdown.dataset.activeIndex = String(nextIndex);
+  buttons.forEach((button, buttonIndex) => {
+    const active = buttonIndex === nextIndex;
+    if (!button.id) button.id = `x2m-${input.dataset.field || "field"}-option-${buttonIndex}`;
+    button.className = toggleClassToken(String(button.className ?? ""), "active", active);
+    button.dataset.active = active ? "true" : "false";
+    if (active) input.setAttribute("aria-activedescendant", button.id);
+  });
+  return nextIndex;
+}
+
+function x2ManyDropdownActiveIndex(dropdown: HTMLElement): number {
+  const datasetIndex = Number.parseInt(dropdown.dataset.activeIndex ?? "", 10);
+  if (Number.isFinite(datasetIndex)) return datasetIndex;
+  return x2ManyDropdownButtons(dropdown).findIndex((button) => button.dataset.active === "true" || classNameIncludes(button.className, "active"));
 }
 
 interface One2ManyEditorRow {

@@ -1799,6 +1799,8 @@ const relationAffordanceM2MDropdown = findAll(relationAffordanceM2M, (node) => S
 assert.equal(relationAffordanceM2M.dataset.dropdownPlacement, "bottom-start");
 assert.equal(relationAffordanceM2MDropdown.dataset.placement, "bottom-start");
 assert.equal(relationAffordanceM2MDropdown.dataset.widthSource, "field");
+assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-option"))[0].dataset.active, "true");
+assert.equal(Boolean(relationAffordanceM2MInput.attributes["aria-activedescendant"]), true);
 assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more")).map((node) => node.textContent)[0], "Search more...");
 findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more"))[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -2080,6 +2082,8 @@ assert.equal(genericGroups.dataset.dropdownPlacement, "bottom-start");
 const genericGroupsDropdown = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-dropdown"))[0];
 assert.equal(genericGroupsDropdown.dataset.placement, "bottom-start");
 assert.equal(genericGroupsDropdown.dataset.widthSource, "field");
+assert.equal(genericGroupOptions[0].dataset.active, "true");
+assert.equal(Boolean(genericGroupsInput.attributes["aria-activedescendant"]), true);
 assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
 assert.equal(findAll(genericGroups, (node) => String(node.className ?? "").includes("gorp-x2many-create")).length, 0);
 genericGroupOptions[0].dispatchEvent(new TestEvent("click"));

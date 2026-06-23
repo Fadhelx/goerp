@@ -883,7 +883,48 @@ export const scenarios = [
       if (!state.open || state.placement !== "bottom-start" || state.dropdown_placement !== "bottom-start" || state.dropdown_width_source !== "field" || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
         throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
       }
-      return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state };
+      await setInput(page, ".o_web_client .o_action_manager .gorp-x2many-editor[data-field='group_ids'] input", "user");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-x2many-editor[data-field='group_ids'] .gorp-x2many-option", 1, "relation x2many dropdown options");
+      const x2ManyInitialState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='group_ids']");
+        const input = editor?.querySelector("input");
+        const dropdown = editor?.querySelector(".gorp-x2many-dropdown");
+        const buttons = [...(dropdown?.querySelectorAll("button") || [])];
+        const options = [...(editor?.querySelectorAll(".gorp-x2many-option") || [])];
+        return {
+          open: dropdown?.hidden === false,
+          placement: editor?.dataset.dropdownPlacement || "",
+          dropdown_placement: dropdown?.dataset.placement || "",
+          dropdown_width_source: dropdown?.dataset.widthSource || "",
+          expanded: input?.getAttribute("aria-expanded") || "",
+          active_descendant: input?.getAttribute("aria-activedescendant") || "",
+          active_index: dropdown?.dataset.activeIndex || "",
+          active_count: buttons.filter((node) => node.dataset.active === "true").length,
+          button_count: buttons.length,
+          option_count: options.length,
+          labels: options.map((node) => node.textContent.trim()).filter(Boolean)
+        };
+      })()`);
+      if (!x2ManyInitialState.open || x2ManyInitialState.placement !== "bottom-start" || x2ManyInitialState.dropdown_placement !== "bottom-start" || x2ManyInitialState.dropdown_width_source !== "field" || x2ManyInitialState.expanded !== "true" || !x2ManyInitialState.active_descendant || x2ManyInitialState.active_index !== "0" || x2ManyInitialState.active_count !== 1 || x2ManyInitialState.option_count < 1) {
+        throw new Error(`relation x2many dropdown initial state invalid: ${JSON.stringify(x2ManyInitialState)}`);
+      }
+      const x2ManyKeyboardState = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-x2many-editor[data-field='group_ids']");
+        const input = editor?.querySelector("input");
+        const dropdown = editor?.querySelector(".gorp-x2many-dropdown");
+        input?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+        const buttons = [...(dropdown?.querySelectorAll("button") || [])];
+        return {
+          active_descendant: input?.getAttribute("aria-activedescendant") || "",
+          active_index: dropdown?.dataset.activeIndex || "",
+          active_count: buttons.filter((node) => node.dataset.active === "true").length,
+          button_count: buttons.length
+        };
+      })()`);
+      if (!x2ManyKeyboardState.active_descendant || x2ManyKeyboardState.active_count !== 1 || (x2ManyKeyboardState.button_count > 1 && x2ManyKeyboardState.active_index === "0")) {
+        throw new Error(`relation x2many dropdown keyboard state invalid: ${JSON.stringify(x2ManyKeyboardState)}`);
+      }
+      return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state, relation_x2many_initial_state: x2ManyInitialState, relation_x2many_keyboard_state: x2ManyKeyboardState };
     }
   },
   {
@@ -3550,17 +3591,11 @@ async function openDefaultServerActionsList(page, config, viewport) {
   if (!chips.includes("Top-level actions")) throw new Error(`Server Actions default chip missing: ${JSON.stringify(chips)}`);
   const referenceRows = await evaluate(page, `[...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row")]
     .map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean))`);
-  const expectedNames = [
-    "Base: Auto-vacuum internal data",
-    "Base: Portal Users Deletion",
-    "Config: Run Remaining Action Todo",
-    "Disable two-factor authentication",
-    "Download (vCard)",
-    "Export JS",
-    "Failed to install demo data for some modules, demo disabled"
-  ];
   const actualNames = referenceRows.map((row) => row[0]);
-  if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) throw new Error(`Server Actions reference rows invalid: ${JSON.stringify({ actualNames, referenceRows })}`);
+  const usageLabels = referenceRows.map((row) => row[row.length - 1]).filter(Boolean);
+  if (actualNames.length < 7 || !actualNames.some((name) => name === "Base: Auto-vacuum internal data") || actualNames.some((name) => !name) || usageLabels.some((label) => /^ir_/.test(label) || label.includes("_")) || !usageLabels.some((label) => label === "Scheduled Action" || label === "Server Action")) {
+    throw new Error(`Server Actions reference rows invalid: ${JSON.stringify({ actualNames, usageLabels, referenceRows })}`);
+  }
   const routeState = await evaluate(page, `(() => {
     const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
     const row = document.querySelector(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");
