@@ -56,6 +56,7 @@ const navbar = renderNavbar({
   activeAppId: 7,
   userName: "Administrator",
   companyName: "My Company",
+  databaseName: "gorp_ref_ui_20260623_0100",
   debug: true
 });
 
@@ -79,14 +80,19 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("o-systra
 assert.equal(findAll(navbar, (node) => String(node.className).split(/\s+/).includes("o_switch_company_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("oe_topbar_name")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_debug_manager")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).split(/\s+/).includes("o_debug_tools")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).split(/\s+/).includes("o_user_menu")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_avatar") && node.textContent === "A").length, 1);
-assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 5);
-assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu") && node.hidden === true).length, 5);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_name")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_icon")).length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_label") && node.textContent === "gorp_ref_ui_20260623_0100").length, 1);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 6);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu") && node.hidden === true).length, 6);
 assert.equal(findAll(navbar, (node) => String(node.textContent).includes("Gorp")).length, 0);
 const systray = findAll(navbar, (node) => String(node.className).includes("o_menu_systray"))[0];
 assert.match(String(systray.children[0].className), /o_debug_manager/);
-assert.match(String(systray.children[2].className), /o_mail_systray_item/);
+assert.match(String(systray.children[2].className), /o_debug_tools/);
+assert.match(String(systray.children[4].className), /o_mail_systray_item/);
 const messageSystray = findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item"))[0];
 const messageMenu = findAll(navbar, (node) => node.dataset?.systrayDropdown === "messages")[0];
 messageSystray.listeners.click[0]({ stopPropagation() {} });

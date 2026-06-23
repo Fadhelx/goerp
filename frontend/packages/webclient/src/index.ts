@@ -1735,6 +1735,7 @@ export function createWebClient(options: WebClientOptions) {
         menus: options.menus,
         userName: sessionUserName(options.session),
         companyName: sessionCompanyName(options.session),
+        databaseName: sessionDatabaseName(options.session),
         systray: options.systray ?? sessionSystrayState(options.session),
         onOpenApp: options.onOpenApp,
         onOpenAppsCatalog: options.onOpenAppsCatalog,
@@ -1757,6 +1758,15 @@ function sessionCompanyName(sessionInfo: Record<string, unknown> | undefined): s
     company?.name,
     sessionInfo?.db
   ) ?? "My Company";
+}
+
+function sessionDatabaseName(sessionInfo: Record<string, unknown> | undefined): string | undefined {
+  return firstText(
+    sessionInfo?.db_name,
+    sessionInfo?.db,
+    sessionInfo?.database_name,
+    sessionInfo?.dbname
+  );
 }
 
 function sessionSystrayState(sessionInfo: Record<string, unknown> | undefined): NavbarSystrayState {
@@ -3368,6 +3378,9 @@ function renderListCellValue(
     output.dataset.field = "nextcall";
     output.textContent = scheduledActionNextcallLabel(record);
     return output;
+  }
+  if (inferredReadonlyFieldType(model, node.name, record[node.name]) === "boolean") {
+    return renderReadonlyBooleanValue(node.name, record[node.name]);
   }
   return renderReadonlyFieldValue(node, description, record[node.name], record, undefined, undefined, model);
 }
@@ -7411,7 +7424,8 @@ function renderReadonlyFieldValue(
   model?: string
 ): HTMLElement {
   const displayModel = form?.dataset.model || model;
-  if (node.attrs.widget === "many2one_avatar_employee" && fieldTypeValue(description) === "many2one") {
+  const fieldType = fieldTypeValue(description) || inferredReadonlyFieldType(displayModel, node.name, value);
+  if (node.attrs.widget === "many2one_avatar_employee" && fieldType === "many2one") {
     return renderMany2OneAvatarValue(node.name, fieldRelationValue(description) || "hr.employee", value);
   }
   if (node.attrs.widget === "badge" || node.attrs.widget === "selection_badge") {
@@ -7442,10 +7456,10 @@ function renderReadonlyFieldValue(
     return output;
   }
   const choices = selectionOptionsForField(description, displayModel, node.name);
-  if (form && fieldTypeValue(description) === "selection" && choices.length) {
+  if (form && fieldType === "selection" && choices.length) {
     return renderSelectionPillValue(node, choices, value, fieldLabel({ [node.name]: description }, node.name, displayModel));
   }
-  if (fieldTypeValue(description) === "many2one") {
+  if (fieldType === "many2one") {
     const relation = fieldRelationValue(description);
     const rawData = relation ? relationMany2OneDisplayData(relation, value) : many2OneDisplayData(value);
     const data = relation ? modelRelationDisplayData(node.name, relation, rawData, evalContext) : rawData;
@@ -7455,13 +7469,41 @@ function renderReadonlyFieldValue(
       return renderMany2OneLinkValue(node.name, relation, data, form, options);
     }
   }
-  if (fieldTypeValue(description) === "many2many" || fieldTypeValue(description) === "one2many") {
-    return renderX2ManyTagValue(node.name, fieldTypeValue(description), fieldRelationValue(description), value, form, options);
+  if (fieldType === "many2many" || fieldType === "one2many") {
+    return renderX2ManyTagValue(node.name, fieldType, fieldRelationValue(description), value, form, options);
+  }
+  if (fieldType === "boolean") {
+    return renderReadonlyBooleanValue(node.name, value);
   }
   const output = document.createElement("output");
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value, displayModel, node.name);
   return output;
+}
+
+function renderReadonlyBooleanValue(fieldName: string, value: unknown): HTMLElement {
+  const checkbox = document.createElement("span");
+  checkbox.className = "gorp-readonly-boolean o_field_boolean o_field_widget o_readonly_modifier";
+  checkbox.dataset.field = fieldName;
+  const checked = readonlyBooleanChecked(value);
+  checkbox.dataset.checked = checked ? "true" : "false";
+  checkbox.setAttribute("role", "checkbox");
+  checkbox.setAttribute("aria-checked", checked ? "true" : "false");
+  checkbox.setAttribute("aria-readonly", "true");
+  return checkbox;
+}
+
+function inferredReadonlyFieldType(model: string | undefined, fieldName: string, value: unknown): string {
+  if (["active", "share", "perm_read", "perm_write", "perm_create", "perm_unlink"].includes(fieldName)) return "boolean";
+  if ((model === "ir.cron" || model === "ir.actions.server" || model === "res.users" || model === "res.groups") && typeof value === "boolean") return "boolean";
+  return "";
+}
+
+function readonlyBooleanChecked(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") return ["true", "1", "yes", "y"].includes(value.trim().toLowerCase());
+  return false;
 }
 
 function renderCodeViewer(fieldName: string, value: unknown): HTMLElement {

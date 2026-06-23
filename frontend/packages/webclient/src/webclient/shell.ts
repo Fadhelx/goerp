@@ -18,6 +18,7 @@ export interface WebClientShellOptions {
   apps?: readonly NavbarApp[];
   userName?: string;
   companyName?: string;
+  databaseName?: string;
   systray?: NavbarSystrayState;
   menus?: HomeMenuPayload;
   onOpenApp?: (app: HomeMenuApp, outlet: HTMLElement) => unknown;
@@ -132,6 +133,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     apps,
     userName: options.userName,
     companyName: options.companyName,
+    databaseName: options.databaseName,
     debug: options.debug,
     systray: options.systray,
     onOpenApps: toggleAppsMenu,
@@ -239,11 +241,11 @@ const TECHNICAL_GROUP_ORDER = [
   "IAP",
   "User Interface",
   "Database Structure",
-  "Security",
+  "Automation",
   "Reporting",
-  "Parameters",
   "Sequences & Identifiers",
-  "Automation"
+  "Parameters",
+  "Security"
 ];
 
 const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
@@ -272,8 +274,11 @@ const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
     "Logging",
     "Profiling"
   ],
+  Automation: ["Scheduled Actions", "Scheduled Actions Triggers"],
   Reporting: ["Paper Format", "Reports"],
-  Automation: ["Automation Rules", "Scheduled Actions"]
+  "Sequences & Identifiers": ["External Identifiers", "Sequences"],
+  Parameters: ["System Parameters"],
+  Security: ["Record Rules", "Access Rights", "User Devices"]
 };
 
 const TECHNICAL_REFERENCE_PLACEHOLDERS: Record<string, Record<string, NavbarApp>> = {
@@ -307,8 +312,20 @@ const TECHNICAL_REFERENCE_PLACEHOLDERS: Record<string, Record<string, NavbarApp>
     Reports: technicalPlaceholder("Reports", "reporting_reports")
   },
   Automation: {
-    "Automation Rules": technicalPlaceholder("Automation Rules", "automation_rules"),
-    "Scheduled Actions": technicalPlaceholder("Scheduled Actions", "scheduled_actions")
+    "Scheduled Actions": technicalPlaceholder("Scheduled Actions", "scheduled_actions"),
+    "Scheduled Actions Triggers": technicalPlaceholder("Scheduled Actions Triggers", "scheduled_actions_triggers")
+  },
+  "Sequences & Identifiers": {
+    "External Identifiers": technicalPlaceholder("External Identifiers", "external_identifiers"),
+    Sequences: technicalPlaceholder("Sequences", "sequences")
+  },
+  Parameters: {
+    "System Parameters": technicalPlaceholder("System Parameters", "system_parameters")
+  },
+  Security: {
+    "Record Rules": technicalPlaceholder("Record Rules", "record_rules"),
+    "Access Rights": technicalPlaceholder("Access Rights", "access_rights"),
+    "User Devices": technicalPlaceholder("User Devices", "user_devices")
   }
 };
 
@@ -323,10 +340,6 @@ function normalizeTechnicalNavbarSection(section: NavbarApp): NavbarApp {
     const group = existing ?? { id: `technical:${technicalKey(groupName)}`, name: groupName, action: false, children: [] };
     used.add(group.name);
     ordered.push(normalizeTechnicalNavbarGroup(group));
-  }
-  for (const child of children) {
-    if (used.has(child.name) || child.name === "Apps") continue;
-    ordered.push(normalizeTechnicalNavbarGroup(child));
   }
   return { ...section, children: ordered };
 }
@@ -344,11 +357,6 @@ function normalizeTechnicalNavbarGroup(group: NavbarApp): NavbarApp {
     if (!child) continue;
     ordered.push(child);
     used.add(name);
-  }
-  if (group.name !== "Email" && group.name !== "Actions") {
-    for (const child of children) {
-      if (!used.has(child.name)) ordered.push(child);
-    }
   }
   return { ...group, children: ordered };
 }
@@ -372,6 +380,8 @@ function technicalNavbarLabel(name: string): string {
       return "ManyToMany Relations";
     case "Paper Formats":
       return "Paper Format";
+    case "Scheduled Action Triggers":
+      return "Scheduled Actions Triggers";
     default:
       return cleanAppName(name);
   }

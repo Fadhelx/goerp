@@ -46,6 +46,7 @@ export interface NavbarOptions {
   apps?: readonly NavbarApp[];
   userName?: string;
   companyName?: string;
+  databaseName?: string;
   debug?: boolean;
   systray?: NavbarSystrayState;
   activeAppId?: number | string;
@@ -164,10 +165,13 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   systray.className = "o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit";
   systray.setAttribute("role", "menu");
   systray.setAttribute("aria-label", "Systray");
-  if (options.debug) appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
+  if (options.debug) {
+    appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
+    appendDropdown(systray, renderDebugToolsItem(), renderSystrayMenu("debug-tools", debugToolsMenuItems(), options.onSystrayAction));
+  }
   for (const item of defaultSystrayItems(options.systray?.store)) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label], options.onSystrayAction));
   appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderCompanySwitcherMenu(options.systray, options.companyName ?? "My Company", options.onSystrayAction));
-  appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator"), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
+  appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator", options.databaseName), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
 
   mainNavbar.append(brand, mobileMenu, nav, systray);
   header.append(mainNavbar);
@@ -781,12 +785,29 @@ function renderDebugItem(): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "o-systray-item o_debug_manager dropdown-toggle";
+  button.setAttribute("aria-label", "Debug");
   button.setAttribute("role", "menuitem");
-  button.textContent = "Debug";
+  const icon = document.createElement("i");
+  icon.className = "o-systray-icon o_debug_icon";
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
   return button;
 }
 
-function renderUserMenu(userName: string): HTMLElement {
+function renderDebugToolsItem(): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o-systray-item o_debug_tools dropdown-toggle";
+  button.setAttribute("aria-label", "Developer tools");
+  button.setAttribute("role", "menuitem");
+  const icon = document.createElement("i");
+  icon.className = "o-systray-icon o_debug_tools_icon";
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
+  return button;
+}
+
+function renderUserMenu(userName: string, databaseName?: string): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "o-systray-item o_user_menu o-user-menu-button dropdown-toggle";
@@ -800,6 +821,18 @@ function renderUserMenu(userName: string): HTMLElement {
   label.className = "o_user_menu_name";
   label.textContent = userName;
   button.append(avatar, label);
+  if (databaseName?.trim()) {
+    const database = document.createElement("span");
+    database.className = "o_database_name";
+    const databaseIcon = document.createElement("i");
+    databaseIcon.className = "o_database_icon";
+    databaseIcon.setAttribute("aria-hidden", "true");
+    const databaseLabel = document.createElement("span");
+    databaseLabel.className = "o_database_label";
+    databaseLabel.textContent = databaseName.trim();
+    database.append(databaseIcon, databaseLabel);
+    button.append(database);
+  }
   return button;
 }
 
@@ -827,6 +860,13 @@ function debugMenuItems(): SystrayMenuEntry[] {
     { label: "Record Rules", action: { type: "view-record-rules" } },
     { label: "Become Superuser", action: { type: "become-superuser" } },
     { label: "Leave Debug Mode", action: { type: "leave-debug-mode" } }
+  ];
+}
+
+function debugToolsMenuItems(): SystrayMenuEntry[] {
+  return [
+    { label: "Open Developer Tools", action: { type: "open-debug-tools" } },
+    { label: "View Metadata", action: { type: "view-metadata" } }
   ];
 }
 

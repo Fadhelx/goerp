@@ -6889,15 +6889,15 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::after,
 	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::after {
-		left: 19px;
-		top: 18px;
+		left: 17px;
+		top: 16px;
 		right: auto;
 		bottom: auto;
-		width: 32px;
-		height: 32px;
+		width: 36px;
+		height: 36px;
 		border-radius: 0;
 		background-color: transparent;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M24 4 42 14 24 24 6 14 24 4Z'/%3E%3Cpath d='M6 14v20l18 10 18-10V14'/%3E%3Cpath d='M24 24v20'/%3E%3C/g%3E%3C/svg%3E");
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23fff' stroke-width='4' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M32 8 52 19 32 30 12 19 32 8Z' fill='%23ffffff' fill-opacity='.88'/%3E%3Cpath d='M12 19v24l20 13V30Z' fill='%23ffffff' fill-opacity='.28'/%3E%3Cpath d='M52 19v24L32 56V30Z' fill='%23ffffff' fill-opacity='.58'/%3E%3Cpath d='M32 8 52 19 32 30 12 19 32 8Z'/%3E%3Cpath d='M12 19v24l20 13 20-13V19'/%3E%3Cpath d='M32 30v26'/%3E%3C/g%3E%3C/svg%3E");
 		background-position: center;
 		background-repeat: no-repeat;
 		background-size: contain;
@@ -10235,6 +10235,7 @@ const webClientShellHTML = `<!doctype html>
 		text-transform: none;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o_menu_sections .o_navbar_dropdown_item {
+		height: 28px;
 		min-height: 28px;
 		padding: 4px 32px;
 		font-size: 14px;
@@ -10390,7 +10391,7 @@ const webClientShellHTML = `<!doctype html>
 	body[data-view="apps"],
 	body.o_home_menu_background {
 		--home-bg: #080b15;
-		--home-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.34' stop-color='%23112230'/%3E%3Cstop offset='.72' stop-color='%23101124'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='.48' stop-color='%23000000' stop-opacity='.02'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.36'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E");
+		--home-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231b4650'/%3E%3Cstop offset='.28' stop-color='%23122532'/%3E%3Cstop offset='.66' stop-color='%23111525'/%3E%3Cstop offset='1' stop-color='%23080b15'/%3E%3C/linearGradient%3E%3CradialGradient id='r' cx='.34' cy='.05' r='.55'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.11'/%3E%3Cstop offset='.48' stop-color='%23ffffff' stop-opacity='.025'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='0'/%3E%3C/radialGradient%3E%3ClinearGradient id='beam' x1='0' y1='0' x2='.55' y2='.35'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.08'/%3E%3Cstop offset='1' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='v' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.04'/%3E%3Cstop offset='1' stop-color='%23000000' stop-opacity='.42'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1920' height='1080' fill='url(%23g)'/%3E%3Cpath d='M0 0h245L0 470Z' fill='url(%23beam)'/%3E%3Crect width='1920' height='1080' fill='url(%23r)'/%3E%3Crect width='1920' height='1080' fill='url(%23v)'/%3E%3C/svg%3E");
 		--home-panel: rgba(255,255,255,.10);
 		--home-line: rgba(255,255,255,.18);
 		--home-text: #ffffff;
@@ -10509,6 +10510,123 @@ const webClientShellHTML = `<!doctype html>
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+	.o_database_name {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		max-width: 202px;
+		height: 14px;
+		margin-left: 28px;
+		margin-top: -4px;
+		padding: 0 4px;
+		overflow: hidden;
+		background: #f4d7b1;
+		color: #5b351c;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+		font-size: 11px;
+		font-weight: 500;
+		line-height: 13px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.o_database_icon {
+		position: relative;
+		display: inline-block;
+		width: 9px;
+		height: 10px;
+		flex: 0 0 9px;
+		color: #5b351c;
+	}
+	.o_database_icon::before,
+	.o_database_icon::after {
+		content: "";
+		position: absolute;
+		left: 1px;
+		width: 7px;
+		border: 1px solid currentColor;
+	}
+	.o_database_icon::before {
+		top: 1px;
+		height: 4px;
+		border-radius: 50%;
+		background: rgba(91,53,28,.08);
+	}
+	.o_database_icon::after {
+		top: 3px;
+		height: 5px;
+		border-top: 0;
+		border-radius: 0 0 45% 45%;
+		box-shadow: inset 0 -2px 0 rgba(91,53,28,.18);
+	}
+	.o_database_label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	main.o_web_client[data-view="apps"] .o_user_menu,
+	body[data-view="apps"] .o_user_menu {
+		display: grid;
+		grid-template-columns: 24px minmax(0, auto);
+		column-gap: 8px;
+		row-gap: 0;
+		align-items: center;
+		height: 42px;
+	}
+	main.o_web_client[data-view="apps"] .o_user_menu .o_user_avatar,
+	body[data-view="apps"] .o_user_menu .o_user_avatar {
+		grid-row: 1 / 3;
+	}
+	main.o_web_client[data-view="apps"] .o_user_menu .o_database_name,
+	body[data-view="apps"] .o_user_menu .o_database_name {
+		grid-column: 2;
+		margin: -3px 0 0;
+	}
+	.o_debug_icon,
+	.o_debug_tools_icon {
+		position: relative;
+		display: inline-block;
+		width: 16px;
+		height: 16px;
+	}
+	.o_debug_icon::before {
+		content: "";
+		position: absolute;
+		left: 4px;
+		top: 5px;
+		width: 8px;
+		height: 8px;
+		border: 2px solid currentColor;
+		border-radius: 50% 50% 45% 45%;
+		box-shadow: -5px 1px 0 -3px currentColor, 5px 1px 0 -3px currentColor, -5px 6px 0 -3px currentColor, 5px 6px 0 -3px currentColor;
+	}
+	.o_debug_icon::after {
+		content: "";
+		position: absolute;
+		left: 7px;
+		top: 1px;
+		width: 2px;
+		height: 15px;
+		background: currentColor;
+		transform: rotate(90deg);
+	}
+	.o_debug_tools_icon::before,
+	.o_debug_tools_icon::after {
+		content: "";
+		position: absolute;
+		left: 7px;
+		top: 1px;
+		width: 2px;
+		height: 15px;
+		border-radius: 2px;
+		background: currentColor;
+	}
+	.o_debug_tools_icon::before {
+		transform: rotate(45deg);
+	}
+	.o_debug_tools_icon::after {
+		transform: rotate(-45deg);
+	}
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-body.o_form_sheet_bg,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-body.o_form_sheet_bg,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="base.automation"] .gorp-form-body.o_form_sheet_bg {
@@ -10533,6 +10651,34 @@ const webClientShellHTML = `<!doctype html>
 		font-size: 30px;
 		line-height: 1.16;
 		font-weight: 500;
+	}
+	.gorp-readonly-boolean {
+		position: relative;
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		vertical-align: middle;
+		border: 1px solid #3f4554;
+		border-radius: 1px;
+		background: transparent;
+	}
+	.gorp-readonly-boolean[data-checked="true"] {
+		border-color: #017e84;
+		background: #017e84;
+	}
+	.gorp-readonly-boolean[data-checked="true"]::after {
+		content: "";
+		position: absolute;
+		left: 3px;
+		top: 1px;
+		width: 5px;
+		height: 8px;
+		border: solid #fff;
+		border-width: 0 2px 2px 0;
+		transform: rotate(45deg);
+	}
+	main.o_web_client[data-theme="enterprise-like"] .gorp-readonly-boolean {
+		border-color: #4a5061;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .gorp-server-action-contextual.o_server_action_contextual {
 		margin: 0 0 10px;

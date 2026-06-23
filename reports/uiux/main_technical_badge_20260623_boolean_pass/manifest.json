@@ -1,0 +1,103 @@
+{
+  "generated_at": "2026-06-23T05:07:24.528Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-scheduled-actions-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-scheduled-actions-list-parity-desktop.png",
+      "sha256": "d0a942679c77301a29a6ae087046b8a4392497d4ae5eca3245ce149c50225f0a",
+      "assertions": {
+        "row_count": 2,
+        "state": {
+          "headers": [
+            "Priority",
+            "Action Name",
+            "Model",
+            "Next Execution Date",
+            "Interval",
+            "Interval Unit",
+            "Active"
+          ],
+          "rows": [
+            [
+              "3",
+              "Base: Auto-vacuum internal data",
+              "Automatic Vacuum",
+              "Jun 24, 1:02 AM",
+              "1",
+              "Days"
+            ],
+            [
+              "8",
+              "Base: Portal Users Deletion",
+              "Users Deletion Request",
+              "Jun 24, 1:02 AM",
+              "1",
+              "Days"
+            ]
+          ],
+          "pager": "1-2 / 2<>",
+          "activeWidgets": [
+            "true",
+            "true"
+          ],
+          "rawActiveText": []
+        }
+      },
+      "duration_ms": 562
+    },
+    {
+      "name": "default-users-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-list-parity-desktop.png",
+      "sha256": "542ccbed7ad6edf9b7ff40ed3400204ff10d2405aa67e65210fcc4d27f039a26",
+      "assertions": {
+        "headers": [
+          "Name",
+          "Login",
+          "Role"
+        ],
+        "row_count": 1,
+        "pager": "1-1 / 1<>",
+        "role_badge": "Administrator",
+        "avatar_count": 1,
+        "text": "NameLoginRoleAAdministratoradminAdministrator"
+      },
+      "duration_ms": 439
+    },
+    {
+      "name": "default-groups-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-list-parity-desktop.png",
+      "sha256": "227c05457aff24d3725376980f4f0dcbafacda5b2858e4632a44b35f4be6f1e1",
+      "assertions": {
+        "headers": [
+          "Privilege",
+          "Name"
+        ],
+        "row_count": 13,
+        "pager": "1-13 / 13<>",
+        "text": "PrivilegeNameContactCreationExportAllowedAccess RightsBypass HTML Field SanitizeDefault access for new usersMulti CompaniesMulti CurrenciesRole / AdministratorRole / PortalRole / PublicRole / UserTechnical DocumentationTechnical Features"
+      },
+      "duration_ms": 541
+    }
+  ],
+  "duration_ms": 1698
+}

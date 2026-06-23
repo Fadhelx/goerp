@@ -235,7 +235,7 @@ const technicalShell = createWebClientShell({
     root: { children: [100] },
     100: { id: 100, name: "Settings", children: [101, 102] },
     101: { id: 101, name: "General Settings", actionID: 201, children: [] },
-    102: { id: 102, name: "Technical", children: [110, 120, 130, 140, 150, 160, 170] },
+    102: { id: 102, name: "Technical", children: [110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 205] },
     110: { id: 110, name: "Actions", children: [111, 112, 113, 114, 115, 116, 117, 118, 119] },
     111: { id: 111, name: "Actions", actionID: 211, children: [] },
     112: { id: 112, name: "Window Actions", actionID: 212, children: [] },
@@ -246,8 +246,10 @@ const technicalShell = createWebClientShell({
     117: { id: 117, name: "Embedded Actions", actionID: 217, children: [] },
     118: { id: 118, name: "User-defined Defaults", actionID: 218, children: [] },
     119: { id: 119, name: "Configuration Wizards", actionID: 219, children: [] },
-    120: { id: 120, name: "Automation", children: [121] },
+    120: { id: 120, name: "Automation", children: [121, 122, 123] },
     121: { id: 121, name: "Scheduled Actions", actionID: 221, children: [] },
+    122: { id: 122, name: "Automation Rules", actionID: 222, children: [] },
+    123: { id: 123, name: "Scheduled Action Triggers", actionID: 223, children: [] },
     130: { id: 130, name: "User Interface", children: [131, 132, 133, 134] },
     131: { id: 131, name: "Views", actionID: 231, children: [] },
     132: { id: 132, name: "Menu Items", actionID: 232, children: [] },
@@ -266,7 +268,17 @@ const technicalShell = createWebClientShell({
     160: { id: 160, name: "Reporting", children: [161, 162] },
     161: { id: 161, name: "Paper Formats", actionID: 261, children: [] },
     162: { id: 162, name: "Reports", actionID: 262, children: [] },
-    170: { id: 170, name: "Apps", actionID: 270, children: [] }
+    170: { id: 170, name: "Apps", actionID: 270, children: [] },
+    180: { id: 180, name: "Parameters", children: [181] },
+    181: { id: 181, name: "System Parameters", actionID: 281, children: [] },
+    190: { id: 190, name: "Sequences & Identifiers", children: [191, 192] },
+    191: { id: 191, name: "Sequences", actionID: 291, children: [] },
+    192: { id: 192, name: "External Identifiers", actionID: 292, children: [] },
+    200: { id: 200, name: "Security", children: [201, 202, 203] },
+    201: { id: 201, name: "Access Rights", actionID: 301, children: [] },
+    202: { id: 202, name: "Record Rules", actionID: 302, children: [] },
+    203: { id: 203, name: "User Devices", actionID: 303, children: [] },
+    205: { id: 205, name: "Users", actionID: 305, children: [] }
   },
   onOpenApp(app) {
     technicalOpened.push(app.id);
@@ -277,7 +289,7 @@ const technicalButton = findAll(technicalShell, (node) => node.dataset?.menuId =
 technicalButton.listeners.click[0]({ stopPropagation() {} });
 const technicalDropdown = findAll(technicalShell, (node) => node.dataset?.navbarDropdown === "102")[0];
 const technicalLabels = [...technicalDropdown.children].map((node) => node.textContent).filter(Boolean);
-assert.deepEqual(technicalLabels.slice(0, 18), [
+assert.deepEqual(technicalLabels, [
   "Email",
   "Outgoing Mail Servers",
   "Actions",
@@ -295,13 +307,42 @@ assert.deepEqual(technicalLabels.slice(0, 18), [
   "Menu Items",
   "Views",
   "Customized Views",
-  "User-defined Filters"
+  "User-defined Filters",
+  "Tours",
+  "Database Structure",
+  "Decimal Accuracy",
+  "Assets",
+  "Models",
+  "Fields",
+  "Fields Selection",
+  "Model Constraints",
+  "ManyToMany Relations",
+  "Attachments",
+  "Logging",
+  "Profiling",
+  "Automation",
+  "Scheduled Actions",
+  "Scheduled Actions Triggers",
+  "Reporting",
+  "Paper Format",
+  "Reports",
+  "Sequences & Identifiers",
+  "External Identifiers",
+  "Sequences",
+  "Parameters",
+  "System Parameters",
+  "Security",
+  "Record Rules",
+  "Access Rights",
+  "User Devices"
 ]);
 assert.equal(technicalLabels.includes("Tours"), true);
 assert.equal(technicalLabels.includes("Fields Selection"), true);
 assert.equal(technicalLabels.includes("ManyToMany Relations"), true);
 assert.equal(technicalLabels.includes("Paper Format"), true);
 assert.equal(technicalLabels.includes("Scheduled Messages"), false);
+assert.equal(technicalLabels.includes("Automation Rules"), false);
 assert.equal(technicalLabels.includes("Apps"), false);
+assert.equal(technicalLabels.includes("Users"), false);
 findAll(technicalDropdown, (node) => node.dataset?.menuId === "113")[0].listeners.click[0]();
 assert.deepEqual(technicalOpened, [113]);

@@ -11,6 +11,53 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_BASE_URL = "http://127.0.0.1:8069";
 const DEFAULT_OUT_DIR = "reports/web_visual_smoke";
+const ODOO_TECHNICAL_DROPDOWN_LABELS = [
+  "Email",
+  "Outgoing Mail Servers",
+  "Actions",
+  "Actions",
+  "Reports",
+  "Window Actions",
+  "Client Actions",
+  "Server Actions",
+  "Embedded Actions",
+  "Configuration Wizards",
+  "User-defined Defaults",
+  "IAP",
+  "IAP Accounts",
+  "User Interface",
+  "Menu Items",
+  "Views",
+  "Customized Views",
+  "User-defined Filters",
+  "Tours",
+  "Database Structure",
+  "Decimal Accuracy",
+  "Assets",
+  "Models",
+  "Fields",
+  "Fields Selection",
+  "Model Constraints",
+  "ManyToMany Relations",
+  "Attachments",
+  "Logging",
+  "Profiling",
+  "Automation",
+  "Scheduled Actions",
+  "Scheduled Actions Triggers",
+  "Reporting",
+  "Paper Format",
+  "Reports",
+  "Sequences & Identifiers",
+  "External Identifiers",
+  "Sequences",
+  "Parameters",
+  "System Parameters",
+  "Security",
+  "Record Rules",
+  "Access Rights",
+  "User Devices"
+];
 let navigationCounter = 0;
 
 export const scenarios = [
@@ -102,6 +149,7 @@ export const scenarios = [
         ".o_web_client .o_activity_menu",
         ".o_web_client .o_switch_company_menu",
         ".o_web_client .o_debug_manager",
+        ".o_web_client .o_debug_tools",
         ".o_web_client .o_user_menu"
       ];
       const actionStatusBefore = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus || ""`);
@@ -240,35 +288,17 @@ export const scenarios = [
       }
       if (technicalMenu.items.length < 8) throw new Error(`Technical dropdown has too few items: ${JSON.stringify(technicalMenu)}`);
       const visibleLabels = technicalMenu.raw_children.map((item) => item.text).filter(Boolean);
-      const expectedStart = [
-        "Email",
-        "Outgoing Mail Servers",
-        "Actions",
-        "Actions",
-        "Reports",
-        "Window Actions",
-        "Client Actions",
-        "Server Actions",
-        "Embedded Actions",
-        "Configuration Wizards",
-        "User-defined Defaults",
-        "IAP",
-        "IAP Accounts",
-        "User Interface",
-        "Menu Items",
-        "Views"
-      ];
-      if (JSON.stringify(visibleLabels.slice(0, expectedStart.length)) !== JSON.stringify(expectedStart)) {
-        throw new Error(`Technical dropdown reference order mismatch: ${JSON.stringify({ visibleLabels, expectedStart })}`);
+      if (JSON.stringify(visibleLabels) !== JSON.stringify(ODOO_TECHNICAL_DROPDOWN_LABELS)) {
+        throw new Error(`Technical dropdown reference order mismatch: ${JSON.stringify({ visibleLabels, expected: ODOO_TECHNICAL_DROPDOWN_LABELS })}`);
       }
       for (const label of ["Email", "Actions", "IAP", "User Interface", "Database Structure"]) {
         if (!technicalMenu.headers.includes(label)) throw new Error(`Technical dropdown missing header ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Servers", "IAP Accounts", "Tours", "Paper Format"]) {
+      for (const label of ["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Servers", "IAP Accounts", "Tours", "Paper Format"]) {
         if (!technicalMenu.item_labels.includes(label)) throw new Error(`Technical dropdown missing item ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Scheduled Messages", "Apps", "Email Templates", "Incoming Mail Servers"]) {
-        if (visibleLabels.slice(0, 24).includes(label)) throw new Error(`Technical dropdown exposes non-reference label too early: ${JSON.stringify({ label, visibleLabels })}`);
+      for (const label of ["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers"]) {
+        if (visibleLabels.includes(label)) throw new Error(`Technical dropdown exposes non-reference label: ${JSON.stringify({ label, visibleLabels })}`);
       }
       await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Actions");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Server Actions ready");
@@ -319,9 +349,9 @@ export const scenarios = [
           items,
           visibleLabels,
           has_grouped_sections: headers.length >= 5,
-          has_admin_items: ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"].every((label) => items.includes(label)),
-          reference_order: JSON.stringify(visibleLabels.slice(0, 16)) === JSON.stringify(["Email", "Outgoing Mail Servers", "Actions", "Actions", "Reports", "Window Actions", "Client Actions", "Server Actions", "Embedded Actions", "Configuration Wizards", "User-defined Defaults", "IAP", "IAP Accounts", "User Interface", "Menu Items", "Views"]),
-          hidden_custom_first_page: !visibleLabels.slice(0, 24).some((label) => ["Scheduled Messages", "Apps", "Email Templates", "Incoming Mail Servers"].includes(label))
+          has_admin_items: ${JSON.stringify(["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"])}.every((label) => items.includes(label)),
+          reference_order: JSON.stringify(visibleLabels) === ${JSON.stringify(JSON.stringify(ODOO_TECHNICAL_DROPDOWN_LABELS))},
+          hidden_custom_first_page: !visibleLabels.some((label) => ${JSON.stringify(["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers"])}.includes(label))
         };
       })()`, "Technical dropdown remains open");
       if (!state.menu_visible || !state.dropdown_on_top || !state.has_grouped_sections || !state.has_admin_items || !state.reference_order || !state.hidden_custom_first_page) {
@@ -865,11 +895,16 @@ export const scenarios = [
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list']");
         const headers = [...(root?.querySelectorAll(".gorp-list-view thead .o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const rows = [...(root?.querySelectorAll(".gorp-list-view tbody tr.o_data_row") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean));
+        const activeWidgets = [...(root?.querySelectorAll(".gorp-list-view tbody td[data-field='active'] .gorp-readonly-boolean") || [])]
+          .map((node) => node.getAttribute("aria-checked") || "");
+        const rawActiveText = [...(root?.querySelectorAll(".gorp-list-view tbody td[data-field='active']") || [])]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
         const pager = document.querySelector(".o_web_client .o_action_manager .o_cp_pager")?.textContent?.trim() || "";
-        return { headers, rows, pager };
+        return { headers, rows, pager, activeWidgets, rawActiveText };
       })()`);
       const expectedHeaders = ["Priority", "Action Name", "Model", "Next Execution Date", "Interval", "Interval Unit", "Active"];
-      if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request") {
+      if (rowCount !== 2 || JSON.stringify(state.headers) !== JSON.stringify(expectedHeaders) || !state.pager.startsWith("1-2 / 2") || state.rows[0]?.[1] !== "Base: Auto-vacuum internal data" || state.rows[0]?.[2] !== "Automatic Vacuum" || state.rows[1]?.[1] !== "Base: Portal Users Deletion" || state.rows[1]?.[2] !== "Users Deletion Request" || JSON.stringify(state.activeWidgets) !== JSON.stringify(["true", "true"]) || state.rawActiveText.length) {
         throw new Error(`Scheduled Actions list parity invalid: ${JSON.stringify(state)}`);
       }
       return { row_count: rowCount, state };
@@ -3009,6 +3044,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	    const banner = document.querySelector(".o_web_client .o_home_menu_registration_banner");
 	    const bannerClose = document.querySelector(".o_web_client .o_home_menu_registration_close");
 	    const userName = document.querySelector(".o_web_client .o_user_menu_name");
+	    const databaseName = document.querySelector(".o_web_client .o_database_name");
 	    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
 	    const wrapper = document.querySelector(".o_web_client .o_home_menu .o_draggable");
 	    const icon = card?.querySelector(".o_app_icon");
@@ -3062,6 +3098,8 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
 	        }).length,
 	      user_name_display: userNameStyle?.display || "",
+	      database_badge_text: databaseName?.textContent?.trim() || "",
+	      database_badge_count: document.querySelectorAll(".o_web_client .o_database_name").length,
 	      app_card_left_px: wrapperRect ? Math.round(wrapperRect.left) : rect ? Math.round(rect.left) : 0,
 	      app_card_top_px: wrapperRect ? Math.round(wrapperRect.top) : rect ? Math.round(rect.top) : 0,
 	      app_card_width_px: rect ? Math.round(rect.width) : 0,
@@ -3099,6 +3137,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (!snapshot.banner_close_visible) issues.push("registration close hidden");
 	  if (snapshot.launcher_mail_activity_visible_count !== 2) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
 	  if (snapshot.user_name_display === "none") issues.push("launcher user name hidden");
+	  if (snapshot.database_badge_count !== 1 || !snapshot.database_badge_text) issues.push(`launcher database badge ${JSON.stringify({ count: snapshot.database_badge_count, text: snapshot.database_badge_text })}`);
 	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
 	  if (snapshot.app_card_top_px < 165 || snapshot.app_card_top_px > 230) issues.push(`app card top ${snapshot.app_card_top_px}`);
 	  if (snapshot.app_card_width_px < 120 || snapshot.app_card_width_px > 150) issues.push(`app card width ${snapshot.app_card_width_px}`);
@@ -3128,8 +3167,9 @@ function isDarkLauncherBackground(value) {
 function isEnterpriseHomeBackgroundImage(value) {
   const image = String(value || "").toLowerCase();
   const hasSVG = image.includes("data:image/svg+xml");
-  const hasOldShellShapes = image.includes("%3cpath") || image.includes("<path") || image.includes("%3ccircle") || image.includes("<circle");
-  return hasSVG && !hasOldShellShapes;
+  const hasGradient = image.includes("lineargradient") || image.includes("radialgradient");
+  const hasOldOrbs = image.includes("%3ccircle") || image.includes("<circle");
+  return hasSVG && hasGradient && !hasOldOrbs;
 }
 
 async function main() {

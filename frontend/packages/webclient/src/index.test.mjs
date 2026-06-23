@@ -1825,6 +1825,9 @@ const genericFormLabels = findAll(genericForm, (node) => String(node.className ?
 assert.deepEqual(genericFormLabels.slice(0, 5), ["Name", "Model", "Type", "Allowed Groups", "Active"]);
 assert.equal(genericFormLabels.filter((label) => label === "Model").length, 1);
 assert.equal(findAll(genericForm, (node) => node.dataset?.field === "model_name").length, 0);
+const genericActiveReadonly = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-readonly-boolean") && node.dataset?.field === "active")[0];
+assert.equal(genericActiveReadonly.attributes["aria-checked"], "true");
+assert.equal(genericActiveReadonly.textContent, "");
 const genericContextualButton = findAll(genericForm, (node) => node.dataset?.serverActionContextual === "true")[0];
 assert.equal(genericContextualButton.textContent, "Create Contextual Action");
 const genericServerNotebook = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-server-action-notebook"))[0];
