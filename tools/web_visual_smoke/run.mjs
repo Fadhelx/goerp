@@ -530,15 +530,19 @@ export const scenarios = [
           .map((node) => node.textContent.trim())
           .filter(Boolean);
         const state = document.querySelector(".o_web_client .o_action_manager .gorp-list-view td[data-field='state']")?.textContent?.trim() || "";
+        const model_values = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view td[data-field='model_name'], .o_web_client .o_action_manager .gorp-list-view td[data-field='model_id']")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
         const usage_values = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view td[data-field='usage']")]
           .map((node) => node.textContent.trim())
           .filter(Boolean);
-        return { headers, state, usage_values };
+        return { headers, state, model_values, usage_values };
       })()`);
       for (const label of ["Name", "Model", "Type", "Usage"]) {
         if (!labelState.headers.includes(label)) throw new Error(`TS technical list missing header ${label}: ${JSON.stringify(labelState)}`);
       }
       if (labelState.state === "code") throw new Error(`TS technical list shows raw state value: ${JSON.stringify(labelState)}`);
+      if (labelState.model_values.some((value) => /^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$/.test(value))) throw new Error(`TS technical list shows raw model value: ${JSON.stringify(labelState)}`);
       if (labelState.usage_values.some((value) => /^ir_/.test(value) || value.includes("_"))) throw new Error(`TS technical list shows raw usage value: ${JSON.stringify(labelState)}`);
       if (!labelState.usage_values.some((value) => value === "Scheduled Action" || value === "Server Action")) throw new Error(`TS technical list missing usage labels: ${JSON.stringify(labelState)}`);
       return { title, hash, ...opened, ...themeAudit, label_state: labelState };

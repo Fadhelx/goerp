@@ -2320,6 +2320,11 @@ const serverActionListWindow = renderWindowAction({
 });
 const serverActionListTable = findAll(serverActionListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
 assert.deepEqual(findAll(serverActionListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Model", "Type", "Usage"]);
+const serverActionModelCellTexts = findAll(serverActionListTable, (node) => node.tag === "td" && (node.dataset?.field === "model_name" || node.dataset?.field === "model_id"))
+  .flatMap((node) => findAll(node, (child) => child.tag === "output" || String(child.className ?? "").includes("gorp-many2one-link")).map((child) => child.textContent))
+  .filter(Boolean);
+assert.ok(serverActionModelCellTexts.includes("Mail"));
+assert.ok(!serverActionModelCellTexts.includes("mail.mail"));
 const serverActionStateCell = findAll(serverActionListTable, (node) => node.dataset?.field === "state")[0];
 assert.equal(findAll(serverActionStateCell, (node) => node.tag === "output")[0].textContent, "Execute Code");
 const serverActionUsageCell = findAll(serverActionListTable, (node) => node.dataset?.field === "usage")[0];

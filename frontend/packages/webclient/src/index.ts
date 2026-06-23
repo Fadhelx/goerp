@@ -6729,7 +6729,7 @@ function renderServerActionBand(fields: Record<string, unknown>, values: Record<
   const stateChoices = selectionOptionsForField(fields.state, "ir.actions.server", "state");
   const stateValue = String(values.state ?? "");
   const stateLabel = selectionLabel(stateChoices, stateValue) || "Action";
-  const modelLabel = many2OneDisplayData(values.model_id).displayName || firstText(values.model_name) || "No target model";
+  const modelLabel = relationMany2OneDisplayData("ir.model", values.model_id).displayName || humanReadableModelName(firstText(values.model_name) || "") || "No target model";
   const activeLabel = values.active === false ? "Archived" : "Active";
   const root = document.createElement("section");
   root.className = "gorp-server-action-band o_server_action_band";
@@ -6795,7 +6795,7 @@ function renderAutomationActionBand(fields: Record<string, unknown>, values: Rec
   const triggerChoices = selectionOptionsForField(fields.trigger, "base.automation", "trigger");
   const triggerValue = String(values.trigger ?? "");
   const triggerLabel = selectionLabel(triggerChoices, triggerValue) || "Automation";
-  const modelLabel = many2OneDisplayData(values.model_id).displayName || firstText(values.model_name) || "No target model";
+  const modelLabel = relationMany2OneDisplayData("ir.model", values.model_id).displayName || humanReadableModelName(firstText(values.model_name) || "") || "No target model";
   const activeLabel = values.active === false ? "Archived" : "Active";
   const root = document.createElement("section");
   root.className = "gorp-automation-action-band gorp-server-action-band o_server_action_band";
@@ -7123,7 +7123,7 @@ function renderReadonlyFieldValue(
   }
   if (fieldTypeValue(description) === "many2one") {
     const relation = fieldRelationValue(description);
-    const data = many2OneDisplayData(value);
+    const data = relation ? relationMany2OneDisplayData(relation, value) : many2OneDisplayData(value);
     if (relation && data.id !== undefined) {
       const config = relationFieldConfig(node, evalContext, options);
       if (config.noOpen) return renderMany2OnePlainValue(node.name, relation, data, config);
@@ -8022,6 +8022,9 @@ function listDecorationClassName(attrs: Record<string, string>, evalContext: Rec
 }
 
 function fieldDisplayText(description: unknown, value: unknown, model?: string, fieldName?: string): string {
+  if (fieldName === "model_name" && (model === "ir.actions.server" || model === "ir.cron" || model === "base.automation")) {
+    return humanReadableModelName(String(value ?? ""));
+  }
   const fieldType = fieldTypeValue(description);
   if (fieldType === "selection") {
     const key = String(value ?? "");
@@ -8029,7 +8032,8 @@ function fieldDisplayText(description: unknown, value: unknown, model?: string, 
     if (found) return found[1];
   }
   if (fieldType === "many2one" || fieldType === "reference") {
-    return many2OneDisplayData(value).displayName;
+    const relation = fieldRelationValue(description);
+    return relation ? relationMany2OneDisplayData(relation, value).displayName : many2OneDisplayData(value).displayName;
   }
   return formatCellValue(value);
 }
@@ -10700,7 +10704,7 @@ function shouldUseDefaultModelFieldNames(model: string | undefined, names: reado
 }
 
 function defaultViewFieldNodes(model: string | undefined, fields: Record<string, unknown>, viewType?: string): ViewFieldNode[] {
-  const preferred = defaultModelFieldNames(model, viewType)
+  const preferred = defaultModelFieldNamesForFields(model, fields, viewType)
     .filter((name) => fields[name] !== undefined)
     .map((name) => defaultViewFieldNode(model, name));
   if (preferred.length) return preferred;
@@ -10714,6 +10718,13 @@ function defaultModelFieldNames(model: string | undefined, viewType?: string): r
   if (!model) return [];
   if (viewType === "form") return DEFAULT_MODEL_FORM_FIELDS[model] ?? [];
   return DEFAULT_MODEL_LIST_FIELDS[model] ?? [];
+}
+
+function defaultModelFieldNamesForFields(model: string | undefined, fields: Record<string, unknown>, viewType?: string): readonly string[] {
+  if (model === "ir.actions.server" && viewType !== "form") {
+    return fields.model_name ? ["name", "model_name", "state", "usage"] : DEFAULT_MODEL_LIST_FIELDS[model] ?? [];
+  }
+  return defaultModelFieldNames(model, viewType);
 }
 
 function defaultViewFieldNode(model: string | undefined, name: string): ViewFieldNode {
