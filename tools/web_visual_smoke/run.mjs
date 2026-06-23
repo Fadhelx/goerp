@@ -13,13 +13,13 @@ const DEFAULT_BASE_URL = "http://127.0.0.1:8069";
 const DEFAULT_OUT_DIR = "reports/web_visual_smoke";
 const ODOO_TECHNICAL_DROPDOWN_LABELS = [
   "Email",
-  "Outgoing Mail Servers",
+  "Outgoing Mail Server",
   "Actions",
   "Actions",
-  "Reports",
-  "Window Actions",
-  "Client Actions",
-  "Server Actions",
+  "Report",
+  "Window Action",
+  "Client Action",
+  "Server Action",
   "Embedded Actions",
   "Configuration Wizards",
   "User-defined Defaults",
@@ -47,7 +47,7 @@ const ODOO_TECHNICAL_DROPDOWN_LABELS = [
   "Scheduled Actions Triggers",
   "Reporting",
   "Paper Format",
-  "Reports",
+  "Report",
   "Sequences & Identifiers",
   "External Identifiers",
   "Sequences",
@@ -294,13 +294,13 @@ export const scenarios = [
       for (const label of ["Email", "Actions", "IAP", "User Interface", "Database Structure"]) {
         if (!technicalMenu.headers.includes(label)) throw new Error(`Technical dropdown missing header ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Servers", "IAP Accounts", "Tours", "Paper Format"]) {
+      for (const label of ["Server Action", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Server", "IAP Accounts", "Tours", "Paper Format"]) {
         if (!technicalMenu.item_labels.includes(label)) throw new Error(`Technical dropdown missing item ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers"]) {
+      for (const label of ["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers", "Incoming Mail Server"]) {
         if (visibleLabels.includes(label)) throw new Error(`Technical dropdown exposes non-reference label: ${JSON.stringify({ label, visibleLabels })}`);
       }
-      await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Actions");
+      await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Action");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Server Actions ready");
       const activeTitle = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       if (activeTitle !== "Server Actions") throw new Error(`Technical dropdown did not open Server Actions: ${activeTitle}`);
@@ -349,9 +349,9 @@ export const scenarios = [
           items,
           visibleLabels,
           has_grouped_sections: headers.length >= 5,
-          has_admin_items: ${JSON.stringify(["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"])}.every((label) => items.includes(label)),
+          has_admin_items: ${JSON.stringify(["Server Action", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"])}.every((label) => items.includes(label)),
           reference_order: JSON.stringify(visibleLabels) === ${JSON.stringify(JSON.stringify(ODOO_TECHNICAL_DROPDOWN_LABELS))},
-          hidden_custom_first_page: !visibleLabels.some((label) => ${JSON.stringify(["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers"])}.includes(label))
+          hidden_custom_first_page: !visibleLabels.some((label) => ${JSON.stringify(["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers", "Incoming Mail Server"])}.includes(label))
         };
       })()`, "Technical dropdown remains open");
       if (!state.menu_visible || !state.dropdown_on_top || !state.has_grouped_sections || !state.has_admin_items || !state.reference_order || !state.hidden_custom_first_page) {
@@ -2715,11 +2715,20 @@ export const scenarios = [
         const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const notebooks = [...(form?.querySelectorAll(".gorp-form-notebook") || [])];
         const accessNotebook = notebooks.find((notebook) => [...notebook.querySelectorAll(".gorp-form-notebook-tab[role='tab']")].some((node) => node.textContent.trim() === "Access Rights"));
-        const accessTabs = [...(accessNotebook?.querySelectorAll(".gorp-form-notebook-tab[role='tab']") || [])].map((node) => node.textContent.trim()).filter(Boolean);
-        const groupWidget = accessNotebook?.querySelector(".gorp-res-user-group-ids[data-field='group_ids']");
-        const identity = form?.querySelector(".gorp-user-identity.o_user_identity_block");
-        const smartButtons = [...(form?.querySelectorAll(".gorp-access-smart-button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
-        const text = form?.textContent || "";
+	        const accessTabs = [...(accessNotebook?.querySelectorAll(".gorp-form-notebook-tab[role='tab']") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+	        const groupWidget = accessNotebook?.querySelector(".gorp-res-user-group-ids[data-field='group_ids']");
+	        const accessSections = [...(groupWidget?.querySelectorAll(".gorp-res-user-access-section h2") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+	        const groupWidgetStyle = groupWidget ? getComputedStyle(groupWidget) : null;
+	        const sheet = form?.querySelector(".gorp-form-sheet.o_form_sheet");
+	        const boxedAccessChrome = Boolean(groupWidgetStyle && (
+	          parseFloat(groupWidgetStyle.borderTopWidth || "0") > 0 ||
+	          parseFloat(groupWidgetStyle.borderRightWidth || "0") > 0 ||
+	          parseFloat(groupWidgetStyle.borderBottomWidth || "0") > 0 ||
+	          parseFloat(groupWidgetStyle.borderLeftWidth || "0") > 0
+	        ));
+	        const identity = form?.querySelector(".gorp-user-identity.o_user_identity_block");
+	        const smartButtons = [...(form?.querySelectorAll(".gorp-access-smart-button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+	        const text = form?.textContent || "";
         return {
           has_form: Boolean(form),
           labels,
@@ -2727,8 +2736,20 @@ export const scenarios = [
           access_tabs: accessTabs,
           has_access_notebook: Boolean(accessNotebook),
           has_group_widget: Boolean(groupWidget),
-          group_widget_role: groupWidget?.dataset?.role || "",
-          has_identity_block: Boolean(identity),
+	          group_widget_role: groupWidget?.dataset?.role || "",
+	          access_sections: accessSections,
+	          role_radios: [...(groupWidget?.querySelectorAll("input[name='res-user-role']") || [])].map((node) => node.value),
+	          role_options: [...(groupWidget?.querySelectorAll(".gorp-res-user-role-option") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+	          access_select_count: groupWidget?.querySelectorAll(".gorp-res-user-access-select").length || 0,
+	          master_data_rows: groupWidget?.querySelectorAll(".gorp-res-user-access-master-data .gorp-res-user-group-privilege").length || 0,
+	          master_data_values: [...(groupWidget?.querySelectorAll(".gorp-res-user-access-master-data .gorp-res-user-group-privilege") || [])].map((row) => ({
+	            label: row.querySelector(".gorp-res-user-access-label")?.textContent?.replace("?", "").trim() || "",
+	            value: row.querySelector(".gorp-res-user-access-select")?.selectedOptions?.[0]?.textContent?.trim() || ""
+	          })),
+	          extra_right_rows: groupWidget?.querySelectorAll(".gorp-res-user-access-extra-rights .gorp-res-user-group-option").length || 0,
+	          boxed_access_chrome: boxedAccessChrome,
+	          access_width_ratio: groupWidget && sheet ? Number((groupWidget.getBoundingClientRect().width / sheet.getBoundingClientRect().width).toFixed(2)) : 0,
+	          has_identity_block: Boolean(identity),
           identity_title: identity?.querySelector(".gorp-form-title")?.textContent?.trim() || "",
           related_partner: identity?.querySelector(".gorp-user-related-partner")?.textContent?.trim() || "",
           smart_buttons: smartButtons,
@@ -2741,6 +2762,16 @@ export const scenarios = [
       for (const smart of ["Groups", "Access Rights", "Record Rules"]) {
         if (!formState.smart_buttons.some((item) => item.includes(smart))) throw new Error(`Users form missing smart button ${smart}: ${JSON.stringify(formState)}`);
       }
+      for (const section of ["Roles", "Master Data", "Extra Rights"]) {
+        if (!formState.access_sections.includes(section)) throw new Error(`Users form missing access section ${section}: ${JSON.stringify(formState)}`);
+      }
+	      if (JSON.stringify(formState.role_radios) !== JSON.stringify(["group_user", "group_system"]) || JSON.stringify(formState.role_options) !== JSON.stringify(["User", "Administrator"]) || formState.access_select_count < 1 || formState.master_data_rows < 1 || formState.extra_right_rows < 6 || formState.boxed_access_chrome || formState.access_width_ratio < 0.74) {
+	        throw new Error(`Users access layout invalid: ${JSON.stringify(formState)}`);
+	      }
+	      const masterValues = new Map(formState.master_data_values.map((item) => [item.label, item.value]));
+	      if (masterValues.get("Contact") !== "Creation" || masterValues.get("Export") !== "Allowed") {
+	        throw new Error(`Users master data access values invalid: ${JSON.stringify(formState)}`);
+	      }
       if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
         throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
       }

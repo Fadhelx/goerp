@@ -10337,78 +10337,207 @@ function renderResUserGroupIdsField(
   onUpdate?: (name: string, value: unknown) => void
 ): HTMLElement {
   const field = document.createElement("fieldset");
-  field.className = "gorp-form-field gorp-res-user-group-ids";
+  field.className = "gorp-form-field gorp-res-user-group-ids o_res_users_access_rights";
   field.dataset.field = node.name;
   if (typeof values.role === "string") field.dataset.role = values.role;
   const legend = document.createElement("legend");
+  legend.className = "gorp-res-user-access-legend";
   legend.textContent = fieldLabel(fields, node.name, form.dataset.model);
   field.append(legend);
   const selected = new Set(normalizeGroupIds(values[node.name]));
-  const controls = normalizeResUserGroupControls(values, selected);
-  for (const section of groupControlsBySection(controls)) {
-    const group = document.createElement("section");
-    group.className = "gorp-res-user-group-section";
-    group.dataset.section = section.name;
-    const heading = document.createElement("h2");
-    heading.textContent = section.name;
-    group.append(heading);
-    for (const privilege of section.privileges) {
-      const label = document.createElement("label");
-      label.className = "gorp-res-user-group-privilege";
-      label.dataset.privilegeId = String(privilege.id);
-      const caption = document.createElement("span");
-      caption.textContent = privilege.name;
-      const select = document.createElement("select");
-      select.dataset.privilegeId = String(privilege.id);
-      const empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = privilege.placeholder;
-      select.append(empty);
-      for (const option of privilege.options) {
-        const item = document.createElement("option");
-        item.value = String(option.id);
-        item.textContent = option.name;
-        item.dataset.groupId = String(option.id);
-        applyGroupDebugMetadata(item, option);
-        select.append(item);
-      }
-      const current = privilege.options.find((option) => selected.has(option.id));
-      select.value = current ? String(current.id) : "";
-      select.addEventListener("change", () => {
-        for (const option of privilege.options) selected.delete(option.id);
-        const id = Number(select.value);
-        if (Number.isFinite(id) && id > 0) selected.add(id);
-        emitFieldUpdate(form, onUpdate, node.name, [x2ManyCommands.set(orderedSelectedGroupIds(controls.options, selected))]);
-      });
-      label.append(caption, select);
-      group.append(label);
+  const effectiveSelectedIDs = normalizeGroupIds(values.all_group_ids);
+  const controls = normalizeResUserGroupControls(values, new Set([...selected, ...effectiveSelectedIDs]));
+  const displaySelected = resUserDisplaySelectedGroups(selected, effectiveSelectedIDs, controls.options);
+  field.append(renderResUserRolesSection(values, form, onUpdate));
+  if (controls.privileges.length) {
+    const masterData = renderResUserAccessSection("Master Data", "master-data");
+    for (const privilege of controls.privileges) {
+      masterData.append(renderResUserPrivilegeRow(privilege, selected, displaySelected, controls, form, node.name, onUpdate));
     }
-    for (const option of section.extras) {
-      const label = document.createElement("label");
-      label.className = "gorp-res-user-group-option";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.value = String(option.id);
-      checkbox.checked = selected.has(option.id);
-      checkbox.dataset.groupId = String(option.id);
-      applyGroupDebugMetadata(checkbox, option);
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) {
-          selected.add(option.id);
-        } else {
-          selected.delete(option.id);
-        }
-        emitFieldUpdate(form, onUpdate, node.name, [x2ManyCommands.set(orderedSelectedGroupIds(controls.options, selected))]);
-      });
-      const caption = document.createElement("span");
-      caption.textContent = option.name;
-      applyGroupDebugMetadata(label, option);
-      label.append(checkbox, caption);
-      group.append(label);
-    }
-    field.append(group);
+    field.append(masterData);
+  }
+  if (controls.extras.length) {
+    const extraRights = renderResUserAccessSection("Extra Rights", "extra-rights");
+    const rows = controls.extras.map((option) => renderResUserExtraRightRow(option, selected, displaySelected, controls, form, node.name, onUpdate));
+    for (const row of orderResUserExtraRightRows(rows)) extraRights.append(row);
+    field.append(extraRights);
   }
   return field;
+}
+
+function resUserDisplaySelectedGroups(
+  directSelected: ReadonlySet<number>,
+  effectiveSelectedIDs: readonly number[],
+  options: readonly ResUserGroupOption[]
+): Set<number> {
+  const display = new Set(directSelected);
+  if (!effectiveSelectedIDs.length) return display;
+  const optionIDs = new Set(options.map((option) => option.id));
+  const allOptionsSelected = effectiveSelectedIDs.length === optionIDs.size && effectiveSelectedIDs.every((id) => optionIDs.has(id));
+  if (allOptionsSelected) return display;
+  for (const id of effectiveSelectedIDs) display.add(id);
+  return display;
+}
+
+function renderResUserAccessSection(title: string, key: string): HTMLElement {
+  const section = document.createElement("section");
+  section.className = `gorp-res-user-access-section gorp-res-user-access-${key}`;
+  section.dataset.section = title;
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+  section.append(heading);
+  return section;
+}
+
+function renderResUserRolesSection(
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  onUpdate?: (name: string, value: unknown) => void
+): HTMLElement {
+  const section = renderResUserAccessSection("Roles", "roles");
+  const row = document.createElement("div");
+  row.className = "gorp-res-user-access-row gorp-res-user-role-row";
+  const label = document.createElement("span");
+  label.className = "gorp-res-user-access-label";
+  label.textContent = "Role";
+  label.append(renderAccessHelpMark());
+  const choices = document.createElement("span");
+  choices.className = "gorp-res-user-role-options";
+  choices.setAttribute("role", "radiogroup");
+  choices.setAttribute("aria-label", "Role");
+  const currentRole = normalizedUserRoleValue(values.role);
+  for (const [value, text] of userRoleSelectionOptions.filter(([value]) => value === "group_user" || value === "group_system")) {
+    const option = document.createElement("label");
+    option.className = "gorp-res-user-role-option";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "res-user-role";
+    input.value = value;
+    input.checked = currentRole === value;
+    input.addEventListener("change", () => {
+      if (input.checked) emitFieldUpdate(form, onUpdate, "role", value);
+    });
+    const caption = document.createElement("span");
+    caption.textContent = text;
+    option.append(input, caption);
+    choices.append(option);
+  }
+  row.append(label, choices);
+  section.append(row);
+  return section;
+}
+
+function normalizedUserRoleValue(value: unknown): string {
+  const key = String(value ?? "").trim();
+  if (key === "group_system" || key === "admin" || key === "administrator") return "group_system";
+  return "group_user";
+}
+
+function renderResUserPrivilegeRow(
+  privilege: ResUserGroupPrivilegeControl,
+  selected: Set<number>,
+  displaySelected: ReadonlySet<number>,
+  controls: ResUserGroupControls,
+  form: HTMLElement,
+  fieldName: string,
+  onUpdate?: (name: string, value: unknown) => void
+): HTMLElement {
+  const row = document.createElement("label");
+  row.className = "gorp-res-user-access-row gorp-res-user-group-privilege";
+  row.dataset.privilegeId = String(privilege.id);
+  const caption = document.createElement("span");
+  caption.className = "gorp-res-user-access-label";
+  caption.textContent = accessRightLabel(privilege.name);
+  caption.append(renderAccessHelpMark());
+  const select = document.createElement("select");
+  select.className = "gorp-res-user-access-select o_input";
+  select.dataset.privilegeId = String(privilege.id);
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = privilege.placeholder;
+  select.append(empty);
+  for (const option of privilege.options) {
+    const item = document.createElement("option");
+    item.value = String(option.id);
+    item.textContent = accessRightValueLabel(option.name);
+    item.dataset.groupId = String(option.id);
+    applyGroupDebugMetadata(item, option);
+    select.append(item);
+  }
+  const current = privilege.options.find((option) => selected.has(option.id)) ?? privilege.options.find((option) => displaySelected.has(option.id));
+  select.value = current ? String(current.id) : "";
+  select.addEventListener("change", () => {
+    for (const option of privilege.options) selected.delete(option.id);
+    const id = Number(select.value);
+    if (Number.isFinite(id) && id > 0) selected.add(id);
+    emitFieldUpdate(form, onUpdate, fieldName, [x2ManyCommands.set(orderedSelectedGroupIds(controls.options, selected))]);
+  });
+  row.append(caption, select);
+  return row;
+}
+
+function renderResUserExtraRightRow(
+  option: ResUserGroupOption,
+  selected: Set<number>,
+  displaySelected: ReadonlySet<number>,
+  controls: ResUserGroupControls,
+  form: HTMLElement,
+  fieldName: string,
+  onUpdate?: (name: string, value: unknown) => void
+): HTMLElement {
+  const label = document.createElement("label");
+  label.className = "gorp-res-user-access-row gorp-res-user-group-option";
+  label.dataset.groupId = String(option.id);
+  label.dataset.label = accessRightLabel(option.name);
+  const caption = document.createElement("span");
+  caption.className = "gorp-res-user-access-label";
+  caption.textContent = accessRightLabel(option.name);
+  caption.append(renderAccessHelpMark());
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.value = String(option.id);
+  checkbox.checked = selected.has(option.id) || displaySelected.has(option.id);
+  checkbox.dataset.groupId = String(option.id);
+  applyGroupDebugMetadata(checkbox, option);
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) {
+      selected.add(option.id);
+    } else {
+      selected.delete(option.id);
+    }
+    emitFieldUpdate(form, onUpdate, fieldName, [x2ManyCommands.set(orderedSelectedGroupIds(controls.options, selected))]);
+  });
+  applyGroupDebugMetadata(label, option);
+  label.append(caption, checkbox);
+  return label;
+}
+
+function renderAccessHelpMark(): HTMLElement {
+  const help = document.createElement("span");
+  help.className = "gorp-res-user-access-help";
+  help.textContent = "?";
+  help.setAttribute("aria-hidden", "true");
+  return help;
+}
+
+function accessRightLabel(value: string): string {
+  return value.replace(/\s*\/\s*/g, " / ").replace(/\s+/g, " ").trim();
+}
+
+function accessRightValueLabel(value: string): string {
+  const parts = accessRightLabel(value).split(" / ");
+  return parts[parts.length - 1] || accessRightLabel(value);
+}
+
+function orderResUserExtraRightRows(rows: HTMLElement[]): HTMLElement[] {
+  const order = new Map(internalGroupDisplayOrder.map((label, index) => [label, index]));
+  return rows.sort((left, right) => {
+    const leftLabel = left.dataset.label || "";
+    const rightLabel = right.dataset.label || "";
+    const leftIndex = order.get(leftLabel) ?? internalGroupDisplayOrder.length;
+    const rightIndex = order.get(rightLabel) ?? internalGroupDisplayOrder.length;
+    return leftIndex - rightIndex || leftLabel.localeCompare(rightLabel);
+  });
 }
 
 function threadPayload(thread: PortalThreadRef): Record<string, unknown> {

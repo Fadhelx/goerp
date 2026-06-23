@@ -249,13 +249,13 @@ const TECHNICAL_GROUP_ORDER = [
 ];
 
 const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
-  Email: ["Outgoing Mail Servers"],
+  Email: ["Outgoing Mail Server"],
   Actions: [
     "Actions",
-    "Reports",
-    "Window Actions",
-    "Client Actions",
-    "Server Actions",
+    "Report",
+    "Window Action",
+    "Client Action",
+    "Server Action",
     "Embedded Actions",
     "Configuration Wizards",
     "User-defined Defaults"
@@ -275,7 +275,7 @@ const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
     "Profiling"
   ],
   Automation: ["Scheduled Actions", "Scheduled Actions Triggers"],
-  Reporting: ["Paper Format", "Reports"],
+  Reporting: ["Paper Format", "Report"],
   "Sequences & Identifiers": ["External Identifiers", "Sequences"],
   Parameters: ["System Parameters"],
   Security: ["Record Rules", "Access Rights", "User Devices"]
@@ -284,9 +284,10 @@ const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
 const TECHNICAL_REFERENCE_PLACEHOLDERS: Record<string, Record<string, NavbarApp>> = {
   Actions: {
     Actions: technicalPlaceholder("Actions", "actions"),
-    Reports: technicalPlaceholder("Reports", "reports"),
-    "Window Actions": technicalPlaceholder("Window Actions", "window_actions"),
-    "Client Actions": technicalPlaceholder("Client Actions", "client_actions"),
+    Report: technicalPlaceholder("Report", "reports"),
+    "Window Action": technicalPlaceholder("Window Action", "window_actions"),
+    "Client Action": technicalPlaceholder("Client Action", "client_actions"),
+    "Server Action": technicalPlaceholder("Server Action", "server_actions"),
     "Embedded Actions": technicalPlaceholder("Embedded Actions", "embedded_actions"),
     "Configuration Wizards": technicalPlaceholder("Configuration Wizards", "configuration_wizards"),
     "User-defined Defaults": technicalPlaceholder("User-defined Defaults", "user_defined_defaults")
@@ -309,7 +310,7 @@ const TECHNICAL_REFERENCE_PLACEHOLDERS: Record<string, Record<string, NavbarApp>
   },
   Reporting: {
     "Paper Format": technicalPlaceholder("Paper Format", "paper_format"),
-    Reports: technicalPlaceholder("Reports", "reporting_reports")
+    Report: technicalPlaceholder("Report", "reporting_reports")
   },
   Automation: {
     "Scheduled Actions": technicalPlaceholder("Scheduled Actions", "scheduled_actions"),
@@ -373,7 +374,18 @@ function normalizeTechnicalNavbarLabels(entry: NavbarApp): NavbarApp {
 function technicalNavbarLabel(name: string): string {
   switch (cleanAppName(name)) {
     case "Report Actions":
-      return "Reports";
+    case "Reports":
+      return "Report";
+    case "Outgoing Mail Servers":
+      return "Outgoing Mail Server";
+    case "Incoming Mail Servers":
+      return "Incoming Mail Server";
+    case "Window Actions":
+      return "Window Action";
+    case "Client Actions":
+      return "Client Action";
+    case "Server Actions":
+      return "Server Action";
     case "Selection Values":
       return "Fields Selection";
     case "Many-to-Many Relations":

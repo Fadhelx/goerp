@@ -120,11 +120,13 @@ assert.equal(registrationBanner.hidden, true);
 assert.equal(registrationBanner.dataset.dismissed, "true");
 const liveCatalogCard = findAll(liveMenu, (node) => node.dataset?.menuId === "42")[0];
 assert.equal(liveCatalogCard.dataset.appKey, "apps");
+assert.equal(liveCatalogCard.dataset.iconKind, "apps");
 assert.equal(liveCatalogCard.dataset.menuXmlid, "base.menu_ir_module_module");
 assert.equal(liveCatalogCard.dataset.menuPath, undefined);
 assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_menu_path")).length, 0);
 const liveSettingsCard = findAll(liveMenu, (node) => node.dataset?.menuId === "4")[0];
 assert.equal(liveSettingsCard.dataset.appKey, "settings");
+assert.equal(liveSettingsCard.dataset.iconKind, "settings");
 const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
 const liveSearchWrap = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_search"))[0];
 assert.equal(liveSearchWrap.dataset.searchActive, "false");
@@ -182,6 +184,7 @@ const coreIconMenu = renderHomeMenu({
 });
 assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
 assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback")).length, 1);
+assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback"))[0].dataset.iconKind, "settings");
 const defaultGlyphMenu = renderHomeMenu({
   root: { children: [1] },
   1: { id: 1, name: "Approvals", children: [] }

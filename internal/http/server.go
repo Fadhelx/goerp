@@ -8125,6 +8125,114 @@ const webClientShellHTML = `<!doctype html>
 		font-weight: 700;
 		line-height: 1.1;
 	}
+	.gorp-res-user-group-ids.o_res_users_access_rights {
+		display: grid;
+		gap: 22px;
+		width: 100%;
+		min-inline-size: 0;
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		color: var(--text);
+	}
+	.gorp-res-user-access-legend {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+	.gorp-res-user-access-section {
+		display: grid;
+		gap: 10px;
+		padding-top: 14px;
+		border-top: 1px solid var(--line);
+	}
+	.gorp-res-user-access-section:first-of-type {
+		padding-top: 0;
+		border-top: 0;
+	}
+	.gorp-res-user-access-section h2 {
+		margin: 0 0 4px;
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: .02em;
+		line-height: 1.2;
+		text-transform: uppercase;
+	}
+	.gorp-res-user-access-row {
+		display: grid;
+		grid-template-columns: minmax(170px, .36fr) minmax(0, 1fr);
+		gap: 12px;
+		align-items: center;
+		min-height: 32px;
+		color: var(--text);
+	}
+	.gorp-res-user-access-label {
+		display: inline-flex;
+		gap: 4px;
+		align-items: center;
+		color: var(--text);
+		font-weight: 600;
+		line-height: 1.2;
+	}
+	.gorp-res-user-access-help {
+		color: var(--accent-2);
+		font-size: 11px;
+		font-weight: 700;
+		line-height: 1;
+	}
+	.gorp-res-user-role-options {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		align-items: center;
+	}
+	.gorp-res-user-role-option,
+	.gorp-res-user-group-option {
+		margin: 0;
+		cursor: default;
+	}
+	.gorp-res-user-role-option {
+		display: inline-flex;
+		gap: 6px;
+		align-items: center;
+		font-weight: 600;
+	}
+	.gorp-res-user-role-option input,
+	.gorp-res-user-group-option input {
+		accent-color: var(--accent-2);
+	}
+	.gorp-res-user-access-select.o_input {
+		width: min(100%, 360px);
+		min-height: 30px;
+		padding: 3px 24px 3px 0;
+		border-color: transparent;
+		background-color: transparent;
+		color: var(--text);
+		box-shadow: none;
+	}
+	.gorp-res-user-access-select.o_input:focus {
+		border-color: var(--accent-2);
+		background-color: var(--panel);
+	}
+	.gorp-res-user-access-extra-rights {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 4px 36px;
+	}
+	.gorp-res-user-access-extra-rights h2 {
+		grid-column: 1 / -1;
+	}
+	.gorp-res-user-access-extra-rights .gorp-res-user-access-row {
+		grid-template-columns: minmax(0, 1fr) auto;
+		min-height: 30px;
+	}
+	.gorp-form-view[data-model="res.users"] .gorp-res-user-group-ids.o_res_users_access_rights {
+		grid-column: 1 / -1;
+	}
 	.gorp-selection-pills.o_field_selection {
 		display: inline-flex;
 		align-items: stretch;
@@ -11067,6 +11175,17 @@ const webClientShellHTML = `<!doctype html>
 			font-size: 28px;
 			line-height: 1.2;
 		}
+		.gorp-res-user-access-row,
+		.gorp-res-user-access-extra-rights,
+		.gorp-res-user-access-extra-rights .gorp-res-user-access-row {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.gorp-res-user-access-extra-rights {
+			gap: 8px;
+		}
+		.gorp-res-user-access-select.o_input {
+			width: 100%;
+		}
 		.gorp-server-action-band.o_server_action_band {
 			grid-template-columns: minmax(0, 1fr);
 			align-items: stretch;
@@ -12175,12 +12294,26 @@ const webClientShellHTML = `<!doctype html>
       }
     }
 
+    function menuDisplayName(menu) {
+      const name = (menu && typeof menu.name === "string" && menu.name.trim()) ? menu.name.trim() : "Menu";
+      const technicalNames = {
+        "Outgoing Mail Servers": "Outgoing Mail Server",
+        "Incoming Mail Servers": "Incoming Mail Server",
+        "Window Actions": "Window Action",
+        "Client Actions": "Client Action",
+        "Server Actions": "Server Action",
+        "Report Actions": "Report Action",
+        "Reports": "Report"
+      };
+      return technicalNames[name] || name;
+    }
+
     function renderSidebarMenu(menu) {
       const moduleHost = document.getElementById("modules");
       const topMenu = document.getElementById("topMenu");
       moduleHost.replaceChildren();
       topMenu.replaceChildren();
-      document.getElementById("sidebarTitle").textContent = menu && menu.name ? menu.name : "Menu";
+      document.getElementById("sidebarTitle").textContent = menuDisplayName(menu);
       const childIDs = (menu && menu.children) || [];
       for (const childID of childIDs) {
         const child = menuEntry(childID);
@@ -12189,14 +12322,14 @@ const webClientShellHTML = `<!doctype html>
         const button = document.createElement("button");
         button.type = "button";
         button.className = "secondary";
-        button.textContent = child.name || "Menu";
+        button.textContent = menuDisplayName(child);
         button.addEventListener("click", () => openMenu(child.id));
         item.append(button);
         moduleHost.append(item);
         const topButton = document.createElement("button");
         topButton.type = "button";
         topButton.className = "o_nav_entry";
-        topButton.textContent = child.name || "Menu";
+        topButton.textContent = menuDisplayName(child);
         topButton.dataset.menuId = String(child.id);
         if (child.xmlid) topButton.dataset.menuXmlid = child.xmlid;
         if ((child.children || []).length) {
@@ -12219,7 +12352,7 @@ const webClientShellHTML = `<!doctype html>
       if (!moduleHost.children.length && menu) {
         const item = document.createElement("li");
         const left = document.createElement("span");
-        left.textContent = menu.name || "Menu";
+        left.textContent = menuDisplayName(menu);
         item.append(left);
         moduleHost.append(item);
       }
@@ -12254,7 +12387,7 @@ const webClientShellHTML = `<!doctype html>
           item.setAttribute("role", "menuitem");
           item.setAttribute("aria-haspopup", "menu");
           item.setAttribute("aria-expanded", "false");
-          item.textContent = child.name || "Menu";
+          item.textContent = menuDisplayName(child);
           const submenu = document.createElement("div");
           submenu.className = "dropdown-menu o-dropdown-menu o_navbar_submenu_menu";
           submenu.dataset.navbarSubmenu = String(child.id);
@@ -12277,7 +12410,7 @@ const webClientShellHTML = `<!doctype html>
           item.dataset.menuLevel = String(level);
           if (child.xmlid) item.dataset.menuXmlid = child.xmlid;
           item.setAttribute("role", "menuitem");
-          item.textContent = child.name || "Menu";
+          item.textContent = menuDisplayName(child);
           item.addEventListener("click", () => {
             closeTopMenuDropdowns();
             openMenu(child.id);
@@ -12288,7 +12421,7 @@ const webClientShellHTML = `<!doctype html>
           header.className = "dropdown-header o_navbar_dropdown_header";
           header.dataset.menuId = String(child.id);
           header.dataset.menuLevel = String(level);
-          header.textContent = child.name || "Menu";
+          header.textContent = menuDisplayName(child);
           dropdown.append(header);
         }
       }
@@ -12739,7 +12872,7 @@ const webClientShellHTML = `<!doctype html>
         const button = document.createElement("button");
         button.type = "button";
         button.className = menuHasDirectAction(child) ? "o_menuitem" : "secondary o_menu_section";
-        button.textContent = child.name || "Menu";
+        button.textContent = menuDisplayName(child);
         button.dataset.menuId = String(child.id);
         if (child.xmlid) button.dataset.menuXmlid = child.xmlid;
         button.style.marginLeft = Math.min(depth, 4) * 12 + "px";

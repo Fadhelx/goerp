@@ -5561,16 +5561,25 @@ const groupWindow = renderWindowAction(groupResult, {
     groupUpdates.push({ name, value });
   }
 });
-const groupField = findAll(groupWindow, (node) => node.className === "gorp-form-field gorp-res-user-group-ids")[0];
+const groupField = findAll(groupWindow, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids"))[0];
 assert.equal(groupField.dataset.field, "group_ids");
 assert.equal(groupField.dataset.role, "user");
-assert.deepEqual(findAll(groupField, (node) => node.tag === "h2").map((node) => node.textContent), ["Extra Rights", "Inventory", "Sales"]);
+assert.equal(String(groupField.className).includes("o_res_users_access_rights"), true);
+assert.deepEqual(findAll(groupField, (node) => node.tag === "h2").map((node) => node.textContent), ["Roles", "Master Data", "Extra Rights"]);
+assert.deepEqual(findAll(groupField, (node) => node.tag === "input" && node.name === "res-user-role").map((node) => [node.value, node.checked]), [["group_user", true], ["group_system", false]]);
+const roleInputs = findAll(groupField, (node) => node.tag === "input" && node.type === "radio");
+assert.deepEqual(roleInputs.map((node) => [node.value, node.checked]), [["group_user", true], ["group_system", false]]);
+const administratorRole = roleInputs.find((node) => node.value === "group_system");
+administratorRole.checked = true;
+administratorRole.dispatchEvent(new TestEvent("change"));
+assert.deepEqual(groupUpdates.at(-1), { name: "role", value: "group_system" });
 const selects = findAll(groupField, (node) => node.tag === "select");
 assert.equal(selects.length, 2);
 const salesSelect = selects.find((node) => node.dataset.privilegeId === "100");
 assert.equal(salesSelect.value, "10");
 assert.equal(findAll(salesSelect, (node) => node.tag === "option")[0].textContent, "No Sales");
 const managerOption = findAll(salesSelect, (node) => node.tag === "option").find((node) => node.dataset.groupId === "11");
+assert.equal(managerOption.textContent, "Manager");
 assert.equal(managerOption.dataset.impliedIds, "30");
 assert.equal(managerOption.dataset.impliedByIds, "40");
 assert.equal(managerOption.dataset.disjointIds, "20");
@@ -5581,12 +5590,35 @@ assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, [1
 salesSelect.value = "";
 salesSelect.dispatchEvent(new TestEvent("change"));
 assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, []]] });
-const checkboxes = findAll(groupField, (node) => node.tag === "input");
+const checkboxes = findAll(groupField, (node) => node.tag === "input" && node.type === "checkbox");
 assert.equal(checkboxes.length, 1);
 const exportCheckbox = checkboxes.find((node) => node.dataset.groupId === "30");
 exportCheckbox.checked = true;
 exportCheckbox.dispatchEvent(new TestEvent("change"));
 assert.deepEqual(groupUpdates.at(-1), { name: "group_ids", value: [[6, false, [30]]] });
+const effectiveGroupWindow = renderWindowAction(groupResult, {
+  values: {
+    role: "group_system",
+    group_ids: [[10, "Sales / User"]],
+    all_group_ids: [[10, "Sales / User"], [30, "Export Reports"]],
+    view_group_hierarchy: {
+      groups: {
+        "10": { id: 10, name: "Sales / User", privilege_id: 100 },
+        "11": { id: 11, name: "Sales / Manager", privilege_id: 100 },
+        "30": { id: 30, name: "Export Reports" }
+      },
+      privileges: {
+        "100": { id: 100, name: "Sales Access", category_id: 1, placeholder: "No Sales", group_ids: [10, 11] }
+      },
+      categories: [{ id: 1, name: "Sales", privilege_ids: [100] }]
+    }
+  }
+});
+const effectiveField = findAll(effectiveGroupWindow, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids"))[0];
+const effectiveSelect = findAll(effectiveField, (node) => node.tag === "select").find((node) => node.dataset.privilegeId === "100");
+assert.equal(effectiveSelect.value, "10");
+const effectiveExportCheckbox = findAll(effectiveField, (node) => node.tag === "input" && node.type === "checkbox").find((node) => node.dataset.groupId === "30");
+assert.equal(effectiveExportCheckbox.checked, true);
 
 const userGroupSpecRequests = [];
 const userGroupSpecServices = createWebClientServices({

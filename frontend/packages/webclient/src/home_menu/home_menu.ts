@@ -160,6 +160,7 @@ export function renderHomeMenuApp(app: HomeMenuApp, onClick?: () => void): HTMLE
   button.setAttribute("href", appHref(app));
   button.dataset.appName = app.name;
   button.dataset.appKey = app.key || appKey(app.name);
+  button.dataset.iconKind = launcherIconKind(app);
   button.dataset.menuId = String(app.id);
   if (typeof app.menu.xmlid === "string" && app.menu.xmlid) button.dataset.menuXmlid = app.menu.xmlid;
   if (app.rootId !== undefined) button.dataset.rootMenuId = String(app.rootId);
@@ -218,6 +219,7 @@ function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
   image.className = "o_app_icon rounded-3";
   image.alt = "";
   image.src = iconSource;
+  image.dataset.iconKind = launcherIconKind(app);
   image.setAttribute("aria-hidden", "true");
   if (typeof app.menu.webIconDataMimetype === "string" && app.menu.webIconDataMimetype.trim()) {
     image.dataset.mimetype = app.menu.webIconDataMimetype.trim();
@@ -231,11 +233,13 @@ function appIconElement(app: HomeMenuApp): HTMLElement {
   const icon = document.createElement("span");
   icon.className = "o_app_icon o_app_icon_fallback position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
   icon.dataset.iconToken = app.iconToken;
+  icon.dataset.iconKind = launcherIconKind(app);
   icon.setAttribute("aria-hidden", "true");
   const webIcon = appWebIcon(app);
   if (webIcon) {
     icon.className = "o_app_icon o_app_icon_with_glyph position-relative d-flex justify-content-center align-items-center p-2 rounded-3";
     icon.dataset.webIcon = webIcon.iconClass;
+    icon.dataset.iconKind = launcherIconKind(app);
     icon.setAttribute("style", `background-color: ${webIcon.backgroundColor}; --app-icon-bg: ${webIcon.backgroundColor}; color: ${webIcon.color};`);
     const glyph = document.createElement("i");
     glyph.className = `${webIcon.iconClass} o_app_icon_glyph`;
@@ -248,6 +252,12 @@ interface ParsedWebIcon {
   iconClass: string;
   color: string;
   backgroundColor: string;
+}
+
+function launcherIconKind(app: HomeMenuApp): string {
+  const key = app.key.split(":")[0] || appKey(app.name);
+  if (key === "apps" || key === "settings" || key === "approvals" || key === "delegation") return key;
+  return "generated";
 }
 
 function appWebIcon(app: HomeMenuApp): ParsedWebIcon | null {
