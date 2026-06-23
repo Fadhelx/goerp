@@ -8145,9 +8145,12 @@ const webClientShellHTML = `<!doctype html>
 		z-index: 30;
 		top: calc(100% + 2px);
 		left: 0;
-		right: 0;
+		right: auto;
 		display: grid;
 		gap: 0;
+		width: max-content;
+		min-width: min(100%, 160px);
+		max-width: min(520px, calc(100vw - 32px));
 		max-height: 320px;
 		overflow: auto;
 		padding: 4px 0;
@@ -8170,6 +8173,9 @@ const webClientShellHTML = `<!doctype html>
 		color: inherit;
 		padding: 6px 12px;
 		text-align: left;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.gorp-many2one-search-more.dropdown-item {
 		color: #017e84;
