@@ -98,13 +98,25 @@ export function renderSettingsView(
 
   const toolbar = document.createElement("div");
   toolbar.className = "o_settings_search_panel";
+  const searchWrapper = document.createElement("div");
+  searchWrapper.className = "o_settings_search_wrapper";
+  searchWrapper.setAttribute("role", "search");
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "o_settings_search_icon";
+  searchIcon.setAttribute("aria-hidden", "true");
   const search = document.createElement("input");
   search.type = "search";
   search.className = "o_settings_search o_input";
   search.placeholder = "Search...";
   search.setAttribute("aria-label", "Search settings");
   search.value = state.search;
-  toolbar.append(search);
+  const searchMenu = document.createElement("button");
+  searchMenu.type = "button";
+  searchMenu.className = "o_settings_search_dropdown";
+  searchMenu.setAttribute("aria-label", "Search options");
+  searchMenu.setAttribute("aria-expanded", "false");
+  searchWrapper.append(searchIcon, search, searchMenu);
+  toolbar.append(searchWrapper);
 
   const sidebar = document.createElement("nav");
   sidebar.className = "o_settings_sidebar settings_tab";

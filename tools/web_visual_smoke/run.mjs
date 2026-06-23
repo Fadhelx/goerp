@@ -530,12 +530,17 @@ export const scenarios = [
           .map((node) => node.textContent.trim())
           .filter(Boolean);
         const state = document.querySelector(".o_web_client .o_action_manager .gorp-list-view td[data-field='state']")?.textContent?.trim() || "";
-        return { headers, state };
+        const usage_values = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view td[data-field='usage']")]
+          .map((node) => node.textContent.trim())
+          .filter(Boolean);
+        return { headers, state, usage_values };
       })()`);
       for (const label of ["Name", "Model", "Type", "Usage"]) {
         if (!labelState.headers.includes(label)) throw new Error(`TS technical list missing header ${label}: ${JSON.stringify(labelState)}`);
       }
       if (labelState.state === "code") throw new Error(`TS technical list shows raw state value: ${JSON.stringify(labelState)}`);
+      if (labelState.usage_values.some((value) => /^ir_/.test(value) || value.includes("_"))) throw new Error(`TS technical list shows raw usage value: ${JSON.stringify(labelState)}`);
+      if (!labelState.usage_values.some((value) => value === "Scheduled Action" || value === "Server Action")) throw new Error(`TS technical list missing usage labels: ${JSON.stringify(labelState)}`);
       return { title, hash, ...opened, ...themeAudit, label_state: labelState };
     }
   },
@@ -543,8 +548,9 @@ export const scenarios = [
     name: "default-technical-form-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      await openDefaultServerActionsList(page, config, desktopViewport());
-      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=7&model=ir.actions.server&view_type=form&id=25&menu_id=8`) });
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      const { action_id: actionID, menu_id: menuID, record_id: recordID } = opened.route_state;
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${encodeURIComponent(actionID)}&model=ir.actions.server&view_type=form&id=${encodeURIComponent(recordID)}&menu_id=${encodeURIComponent(menuID)}`) });
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
       const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
@@ -615,10 +621,14 @@ export const scenarios = [
           dropdown_open: dropdown?.hidden === false,
           option_count: editor?.querySelectorAll(".gorp-many2one-option").length || 0,
           search_more_count: editor?.querySelectorAll(".gorp-many2one-search-more").length || 0,
+          selected_count: editor?.querySelectorAll(".gorp-many2one-option[data-selected='true']").length || 0,
+          active_count: editor?.querySelectorAll(".gorp-many2one-option[data-active='true']").length || 0,
+          option_labels: [...(editor?.querySelectorAll(".gorp-many2one-option") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          search_more_label: editor?.querySelector(".gorp-many2one-search-more")?.textContent?.trim() || "",
           current_res_id: editor?.dataset?.resId || ""
         };
       })()`);
-      if (relationDropdownState.toggle_expanded !== "true" || relationDropdownState.input_expanded !== "true" || !relationDropdownState.dropdown_open || relationDropdownState.option_count < 1 || relationDropdownState.search_more_count < 1 || !relationDropdownState.current_res_id) {
+      if (relationDropdownState.toggle_expanded !== "true" || relationDropdownState.input_expanded !== "true" || !relationDropdownState.dropdown_open || relationDropdownState.option_count < 2 || relationDropdownState.search_more_count < 1 || relationDropdownState.selected_count < 1 || relationDropdownState.active_count < 1 || relationDropdownState.search_more_label !== "Search more..." || !relationDropdownState.current_res_id) {
         throw new Error(`TS Server Actions many2one dropdown invalid: ${JSON.stringify(relationDropdownState)}`);
       }
       await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-search-more");
@@ -654,7 +664,44 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, opened, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+    }
+  },
+  {
+    name: "default-relation-dropdown-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      const { action_id: actionID, menu_id: menuID, record_id: recordID } = opened.route_state;
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${encodeURIComponent(actionID)}&model=ir.actions.server&view_type=form&id=${encodeURIComponent(recordID)}&menu_id=${encodeURIComponent(menuID)}`) });
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS relation dropdown form ready");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "relation dropdown editor");
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-dropdown-toggle");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 2, "relation dropdown options");
+      const state = await evaluate(page, `(() => {
+        const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
+        const input = editor?.querySelector("input");
+        const dropdown = editor?.querySelector(".gorp-many2one-dropdown");
+        const options = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])];
+        return {
+          open: dropdown?.hidden === false,
+          input_value: input?.value || "",
+          expanded: input?.getAttribute("aria-expanded") || "",
+          active_descendant: input?.getAttribute("aria-activedescendant") || "",
+          option_count: options.length,
+          selected_count: options.filter((node) => node.dataset.selected === "true").length,
+          active_count: options.filter((node) => node.dataset.active === "true").length,
+          labels: options.map((node) => node.textContent.trim()).filter(Boolean),
+          search_more_label: editor?.querySelector(".gorp-many2one-search-more")?.textContent?.trim() || "",
+          dropdown_width: Math.round(dropdown?.getBoundingClientRect().width || 0),
+          input_width: Math.round(input?.getBoundingClientRect().width || 0)
+        };
+      })()`);
+      if (!state.open || state.expanded !== "true" || state.option_count < 2 || state.selected_count < 1 || state.active_count < 1 || state.search_more_label !== "Search more..." || state.dropdown_width < state.input_width - 4) {
+        throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
+      }
+      return { opened, relation_dropdown_state: state };
     }
   },
   {
@@ -2994,7 +3041,29 @@ async function openDefaultServerActionsList(page, config, viewport) {
   await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical action ready");
   const windowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='list']", 1, "TS Server Actions list");
   const rowCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", 1, "TS Server Actions rows");
-  return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount };
+  const routeState = await evaluate(page, `(() => {
+    const params = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+    const row = document.querySelector(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row");
+    return {
+      action_id: params.get("action") || "",
+      menu_id: params.get("menu_id") || "",
+      record_id: row?.dataset?.id || ""
+    };
+  })()`);
+  const relationRecords = await webCallKW(page, config, "ir.actions.server", "search_read", {
+    args: [[]],
+    kwargs: { fields: ["id", "model_id"], limit: 30, order: "id" }
+  });
+  const relationRecord = Array.isArray(relationRecords)
+    ? relationRecords.find((record) => Array.isArray(record?.model_id) || Number(record?.model_id))
+    : null;
+  if (relationRecord?.id !== undefined && relationRecord?.id !== null) {
+    routeState.record_id = String(relationRecord.id);
+  }
+  if (!routeState.action_id || !routeState.menu_id || !routeState.record_id) {
+    throw new Error(`TS Server Actions route metadata missing: ${JSON.stringify(routeState)}`);
+  }
+  return { action_card_count: actionCardCount, window_count: windowCount, row_count: rowCount, route_state: routeState };
 }
 
 async function openDefaultAppsCatalogForModule(page, config, moduleName, marker) {

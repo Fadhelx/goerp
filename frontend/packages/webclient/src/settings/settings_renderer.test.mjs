@@ -157,6 +157,9 @@ const root = renderSettingsView({ arch, fields, values, activeApp: "workflow" },
 
 assert.ok(hasClass(root, "o_settings_container"));
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_panel")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_wrapper")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_icon")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_dropdown")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_tab")).length, 2);
 assert.equal(findAll(root, (node) => hasClass(node, "app_settings_block")).length, 2);

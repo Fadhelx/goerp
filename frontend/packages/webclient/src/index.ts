@@ -6750,7 +6750,7 @@ function renderServerActionBand(fields: Record<string, unknown>, values: Record<
   meta.append(
     serverActionMetaItem("Target Model", modelLabel),
     serverActionMetaItem("Status", activeLabel),
-    serverActionMetaItem("Usage", firstText(values.usage) || "Action")
+    serverActionMetaItem("Usage", selectionLabel(serverActionUsageSelectionOptions, firstText(values.usage) || "") || "Action")
   );
   root.append(identity, meta);
   return root;
@@ -7697,7 +7697,7 @@ function renderOne2ManyMany2OneCellEditor(
   onChange: () => void
 ): HTMLElement {
   const relation = fieldRelationValue(description);
-  const current = many2OneDisplayData(row.values[column.name]);
+  const current = relationMany2OneDisplayData(relation, row.values[column.name]);
   const config = relationFieldConfig(column, row.values, options);
   const root = document.createElement("span");
   root.className = "gorp-one2many-many2one-editor gorp-many2one-editor o_field_widget o_field_many2one";
@@ -7705,6 +7705,8 @@ function renderOne2ManyMany2OneCellEditor(
   if (relation) root.dataset.relation = relation;
   if (current.id !== undefined) root.dataset.resId = String(current.id);
   applyRelationFieldDataset(root, config);
+  let selectedItemID = current.id;
+  let committedDisplayName = current.displayName;
   const input = document.createElement("input");
   input.type = "text";
   input.className = "gorp-one2many-input o_input";
@@ -7724,18 +7726,24 @@ function renderOne2ManyMany2OneCellEditor(
   toggle.setAttribute("aria-expanded", "false");
   const dropdown = document.createElement("div");
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
+  dropdown.id = uniqueId("m2o-dropdown-");
   dropdown.setAttribute("role", "listbox");
   dropdown.hidden = true;
+  input.setAttribute("aria-controls", dropdown.id);
+  toggle.setAttribute("aria-controls", dropdown.id);
   let searchSequence = 0;
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
+    dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", false);
     input.setAttribute("aria-expanded", "false");
     toggle.setAttribute("aria-expanded", "false");
+    setMany2OneDropdownActiveItem(dropdown, input, -1);
   };
   const openDropdown = () => {
     dropdown.hidden = false;
     dropdown.removeAttribute("hidden");
+    dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", true);
     input.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-expanded", "true");
   };
@@ -7748,11 +7756,13 @@ function renderOne2ManyMany2OneCellEditor(
         context: relationCreateContext(query, config),
         create_name_field: config.createNameField
       });
-      const item = many2OneSearchItems([created])[0];
+      const item = relationMany2OneSearchItems(relation, [created])[0];
       if (!item) throw new Error("Create did not return a record");
       row.values[column.name] = [item.id, item.displayName];
       root.dataset.resId = String(item.id);
       input.value = item.displayName;
+      selectedItemID = item.id;
+      committedDisplayName = item.displayName;
       onChange();
       closeDropdown();
     } catch (error) {
@@ -7791,9 +7801,9 @@ function renderOne2ManyMany2OneCellEditor(
     if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
       const searchMore = document.createElement("button");
       searchMore.type = "button";
-      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option_search_more dropdown-item";
+      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
-      searchMore.textContent = "Search More...";
+      searchMore.textContent = "Search more...";
       searchMore.addEventListener("click", () => {
         void search(query, false, config.searchMoreLimit, true);
       });
@@ -7802,6 +7812,11 @@ function renderOne2ManyMany2OneCellEditor(
   };
   const renderItems = (items: readonly Many2OneSearchItem[], query = "", searchMoreExpanded = false) => {
     dropdown.replaceChildren();
+    const refreshed = refreshSelectedMany2OneDisplay(items, selectedItemID, committedDisplayName, input);
+    if (refreshed) {
+      committedDisplayName = refreshed.displayName;
+      row.values[column.name] = [refreshed.id, refreshed.displayName];
+    }
     if (!items.length) {
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
@@ -7814,20 +7829,28 @@ function renderOne2ManyMany2OneCellEditor(
     for (const item of items) {
       const option = document.createElement("button");
       option.type = "button";
-      option.className = "gorp-many2one-option dropdown-item";
+      const selected = selectedItemID !== undefined && item.id === selectedItemID;
+      option.className = `gorp-many2one-option o_m2o_dropdown_option dropdown-item${selected ? " selected o_m2o_selected" : ""}`;
       option.dataset.resId = String(item.id);
+      option.dataset.selected = selected ? "true" : "false";
       option.textContent = item.displayName;
       option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", selected ? "true" : "false");
+      setMany2OneDropdownItemID(option, column.name);
       option.addEventListener("click", () => {
         row.values[column.name] = [item.id, item.displayName];
         root.dataset.resId = String(item.id);
         input.value = item.displayName;
+        selectedItemID = item.id;
+        committedDisplayName = item.displayName;
         onChange();
         closeDropdown();
       });
       dropdown.append(option);
     }
     appendCommands(query, items.length, searchMoreExpanded);
+    const selectedIndex = items.findIndex((item) => selectedItemID !== undefined && item.id === selectedItemID);
+    setMany2OneDropdownActiveItem(dropdown, input, selectedIndex >= 0 ? selectedIndex : (items.length ? 0 : -1));
     openDropdown();
   };
   const search = async (queryOverride?: string, clearSelection = true, limit = config.limit, searchMore = false) => {
@@ -7836,6 +7859,8 @@ function renderOne2ManyMany2OneCellEditor(
     if (clearSelection) {
       delete root.dataset.resId;
       row.values[column.name] = false;
+      selectedItemID = undefined;
+      committedDisplayName = "";
       onChange();
     }
     if (!relation || !options.services?.orm) {
@@ -7847,7 +7872,7 @@ function renderOne2ManyMany2OneCellEditor(
       if (searchMore) root.dataset.searchMoreOpened = "true";
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, limit));
       if (sequence !== searchSequence) return;
-      renderItems(many2OneSearchItems(result), query, searchMore);
+      renderItems(relationMany2OneSearchItems(relation, result), query, searchMore);
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
       if (sequence !== searchSequence) return;
@@ -7857,17 +7882,27 @@ function renderOne2ManyMany2OneCellEditor(
     }
   };
   input.addEventListener("input", () => {
+    delete input.dataset.textSelected;
     void search();
   });
   input.addEventListener("focus", () => {
-    void search(undefined, false);
+    selectMany2OneInputText(input);
+    void search(many2OneOpenQuery(input, selectedItemID, committedDisplayName), false);
   });
   toggle.addEventListener("click", () => {
     input.focus();
+    selectMany2OneInputText(input);
     void search("", false);
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeDropdown();
+    handleMany2OneDropdownKeydown(event as KeyboardEvent, dropdown, input, () => {
+      void search(many2OneOpenQuery(input, selectedItemID, committedDisplayName), false);
+    }, closeDropdown);
+  });
+  dropdown.addEventListener("keydown", (event) => {
+    handleMany2OneDropdownKeydown(event as KeyboardEvent, dropdown, input, () => {
+      void search(many2OneOpenQuery(input, selectedItemID, committedDisplayName), false);
+    }, closeDropdown);
   });
   root.append(input, toggle, dropdown);
   return root;
@@ -8821,7 +8856,7 @@ function renderMany2OneEditor(
   required: boolean
 ): HTMLElement {
   const relation = fieldRelationValue(description);
-  const current = many2OneDisplayData(values[node.name]);
+  const current = relationMany2OneDisplayData(relation, values[node.name]);
   const config = relationFieldConfig(node, values, options);
   const fieldDisplayName = fieldLabel({ [node.name]: description }, node.name, form.dataset.model);
   const root = document.createElement("span");
@@ -8830,6 +8865,8 @@ function renderMany2OneEditor(
   if (relation) root.dataset.relation = relation;
   if (current.id !== undefined) root.dataset.resId = String(current.id);
   applyRelationFieldDataset(root, config);
+  let selectedItemID = current.id;
+  let committedDisplayName = current.displayName;
   const input = document.createElement("input");
   input.type = "text";
   input.className = "gorp-form-control o_input";
@@ -8854,18 +8891,24 @@ function renderMany2OneEditor(
   toggle.setAttribute("aria-expanded", "false");
   const dropdown = document.createElement("div");
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
+  dropdown.id = uniqueId("m2o-dropdown-");
   dropdown.setAttribute("role", "listbox");
   dropdown.hidden = true;
+  input.setAttribute("aria-controls", dropdown.id);
+  toggle.setAttribute("aria-controls", dropdown.id);
   let searchSequence = 0;
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
+    dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", false);
     input.setAttribute("aria-expanded", "false");
     toggle.setAttribute("aria-expanded", "false");
+    setMany2OneDropdownActiveItem(dropdown, input, -1);
   };
   const openDropdown = () => {
     dropdown.hidden = false;
     dropdown.removeAttribute("hidden");
+    dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", true);
     input.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-expanded", "true");
   };
@@ -8878,11 +8921,13 @@ function renderMany2OneEditor(
         context: relationCreateContext(query, config),
         create_name_field: config.createNameField
       });
-      const item = many2OneSearchItems([created])[0];
+      const item = relationMany2OneSearchItems(relation, [created])[0];
       if (!item) throw new Error("Create did not return a record");
       values[node.name] = [item.id, item.displayName];
       root.dataset.resId = String(item.id);
       input.value = item.displayName;
+      selectedItemID = item.id;
+      committedDisplayName = item.displayName;
       if (required) setRequiredControlInvalid(input as RequiredFormControl, false);
       emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
       closeDropdown();
@@ -8922,9 +8967,9 @@ function renderMany2OneEditor(
     if (!searchMoreExpanded && itemCount >= config.limit && options.services?.orm) {
       const searchMore = document.createElement("button");
       searchMore.type = "button";
-      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option_search_more dropdown-item";
+      searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
-      searchMore.textContent = "Search More...";
+      searchMore.textContent = "Search more...";
       searchMore.addEventListener("click", () => {
         void search({ allowEmpty: true, clearSelection: false, query, limit: config.searchMoreLimit, searchMore: true });
       });
@@ -8933,33 +8978,51 @@ function renderMany2OneEditor(
   };
   const renderItems = (items: readonly Many2OneSearchItem[], query = "", searchMoreExpanded = false) => {
     dropdown.replaceChildren();
-    if (!items.length) {
+    const refreshed = refreshSelectedMany2OneDisplay(items, selectedItemID, committedDisplayName, input);
+    if (refreshed) {
+      committedDisplayName = refreshed.displayName;
+      values[node.name] = [refreshed.id, refreshed.displayName];
+    }
+    const visibleItems = [...items];
+    if (!query.trim() && selectedItemID !== undefined && committedDisplayName.trim() && !visibleItems.some((item) => item.id === selectedItemID)) {
+      visibleItems.unshift({ id: selectedItemID, displayName: committedDisplayName });
+    }
+    if (!visibleItems.length) {
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
       empty.textContent = "No records found";
       dropdown.append(empty);
       appendCommands(query, 0, searchMoreExpanded);
+      setMany2OneDropdownActiveItem(dropdown, input, -1);
       openDropdown();
       return;
     }
-    for (const item of items) {
+    for (const item of visibleItems) {
+      const selected = selectedItemID !== undefined && item.id === selectedItemID;
       const option = document.createElement("button");
       option.type = "button";
-      option.className = "gorp-many2one-option dropdown-item";
+      option.className = `gorp-many2one-option o_m2o_dropdown_option dropdown-item${selected ? " selected o_m2o_selected" : ""}`;
       option.dataset.resId = String(item.id);
+      option.dataset.selected = selected ? "true" : "false";
       option.textContent = item.displayName;
       option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", selected ? "true" : "false");
+      setMany2OneDropdownItemID(option, node.name);
       option.addEventListener("click", () => {
         values[node.name] = [item.id, item.displayName];
         root.dataset.resId = String(item.id);
         input.value = item.displayName;
+        selectedItemID = item.id;
+        committedDisplayName = item.displayName;
         if (required) setRequiredControlInvalid(input as RequiredFormControl, false);
         emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
         closeDropdown();
       });
       dropdown.append(option);
     }
-    appendCommands(query, items.length, searchMoreExpanded);
+    appendCommands(query, visibleItems.length, searchMoreExpanded);
+    const selectedIndex = visibleItems.findIndex((item) => selectedItemID !== undefined && item.id === selectedItemID);
+    setMany2OneDropdownActiveItem(dropdown, input, selectedIndex >= 0 ? selectedIndex : 0);
     openDropdown();
   };
   const search = async (searchOptions: { allowEmpty?: boolean; clearSelection?: boolean; limit?: number; query?: string; searchMore?: boolean } = {}) => {
@@ -8968,6 +9031,8 @@ function renderMany2OneEditor(
     if (searchOptions.clearSelection !== false) {
       delete root.dataset.resId;
       values[node.name] = false;
+      selectedItemID = undefined;
+      committedDisplayName = "";
       emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
     }
     if (!query && !searchOptions.allowEmpty) {
@@ -8983,7 +9048,7 @@ function renderMany2OneEditor(
       if (searchOptions.searchMore) root.dataset.searchMoreOpened = "true";
       const result = await options.services.orm.call<unknown>(relation, "name_search", [], relationSearchKwargs(query, config, searchOptions.limit ?? config.limit));
       if (sequence !== searchSequence) return;
-      renderItems(many2OneSearchItems(result), query, Boolean(searchOptions.searchMore));
+      renderItems(relationMany2OneSearchItems(relation, result), query, Boolean(searchOptions.searchMore));
     } catch (error) {
       options.services?.notification?.add(error instanceof Error ? error.message : String(error), { type: "danger" });
       if (sequence !== searchSequence) return;
@@ -8993,22 +9058,139 @@ function renderMany2OneEditor(
     }
   };
   input.addEventListener("input", () => {
+    delete input.dataset.textSelected;
     if (required && !requiredControlEmpty(input as RequiredFormControl)) setRequiredControlInvalid(input as RequiredFormControl, false);
     void search();
   });
   input.addEventListener("focus", () => {
-    void search({ allowEmpty: true, clearSelection: false });
+    selectMany2OneInputText(input);
+    void search({ allowEmpty: true, clearSelection: false, query: many2OneOpenQuery(input, selectedItemID, committedDisplayName) });
   });
   toggle.addEventListener("click", () => {
     input.focus();
+    selectMany2OneInputText(input);
     void search({ allowEmpty: true, clearSelection: false, query: "" });
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    closeDropdown();
+    handleMany2OneDropdownKeydown(event as KeyboardEvent, dropdown, input, () => {
+      void search({ allowEmpty: true, clearSelection: false, query: many2OneOpenQuery(input, selectedItemID, committedDisplayName) });
+    }, closeDropdown);
+  });
+  dropdown.addEventListener("keydown", (event) => {
+    handleMany2OneDropdownKeydown(event as KeyboardEvent, dropdown, input, () => {
+      void search({ allowEmpty: true, clearSelection: false, query: many2OneOpenQuery(input, selectedItemID, committedDisplayName) });
+    }, closeDropdown);
   });
   root.append(input, toggle, dropdown);
   return root;
+}
+
+function many2OneDropdownButtons(dropdown: HTMLElement): HTMLButtonElement[] {
+  return Array.from(dropdown.children).filter((child): child is HTMLButtonElement => {
+    const button = child as HTMLButtonElement;
+    return button.tagName === "BUTTON" && classNameIncludes(button.className, "dropdown-item") && !button.disabled;
+  });
+}
+
+function setMany2OneDropdownItemID(button: HTMLButtonElement, fieldName: string): void {
+  if (button.id) return;
+  const safeField = fieldName.replace(/[^A-Za-z0-9_-]+/g, "-") || "field";
+  button.id = uniqueId(`m2o-${safeField}-option-`);
+}
+
+function setMany2OneDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputElement, index: number): number {
+  const buttons = many2OneDropdownButtons(dropdown);
+  if (!buttons.length || index < 0) {
+    delete dropdown.dataset.activeIndex;
+    for (const button of buttons) {
+      button.className = toggleClassToken(String(button.className ?? ""), "active", false);
+      button.dataset.active = "false";
+    }
+    input.removeAttribute("aria-activedescendant");
+    return -1;
+  }
+  const nextIndex = Math.max(0, Math.min(index, buttons.length - 1));
+  dropdown.dataset.activeIndex = String(nextIndex);
+  buttons.forEach((button, buttonIndex) => {
+    setMany2OneDropdownItemID(button, input.dataset.field || "field");
+    const active = buttonIndex === nextIndex;
+    button.className = toggleClassToken(String(button.className ?? ""), "active", active);
+    button.dataset.active = active ? "true" : "false";
+    if (active) input.setAttribute("aria-activedescendant", button.id);
+  });
+  return nextIndex;
+}
+
+function many2OneDropdownActiveIndex(dropdown: HTMLElement): number {
+  const buttons = many2OneDropdownButtons(dropdown);
+  const datasetIndex = Number.parseInt(dropdown.dataset.activeIndex ?? "", 10);
+  if (Number.isFinite(datasetIndex) && datasetIndex >= 0 && datasetIndex < buttons.length) return datasetIndex;
+  return buttons.findIndex((button) => button.dataset.active === "true" || classNameIncludes(button.className, "active"));
+}
+
+function refreshSelectedMany2OneDisplay(
+  items: readonly Many2OneSearchItem[],
+  selectedItemID: number | undefined,
+  committedDisplayName: string,
+  input: HTMLInputElement
+): Many2OneSearchItem | null {
+  if (selectedItemID === undefined) return null;
+  const refreshed = items.find((item) => item.id === selectedItemID);
+  if (!refreshed || refreshed.displayName === committedDisplayName) return null;
+  if (!input.value || input.value === committedDisplayName || input.dataset.textSelected === "true") {
+    input.value = refreshed.displayName;
+  }
+  return refreshed;
+}
+
+function selectMany2OneInputText(input: HTMLInputElement): void {
+  input.dataset.textSelected = "true";
+  if (typeof input.select === "function") input.select();
+}
+
+function many2OneOpenQuery(input: HTMLInputElement, selectedItemID: number | undefined, committedDisplayName: string): string {
+  if (selectedItemID !== undefined && (input.value === committedDisplayName || input.dataset.textSelected === "true")) return "";
+  return input.value;
+}
+
+function handleMany2OneDropdownKeydown(
+  event: KeyboardEvent,
+  dropdown: HTMLElement,
+  input: HTMLInputElement,
+  openDropdown: () => void,
+  closeDropdown: () => void
+): void {
+  if (event.key === "Escape") {
+    closeDropdown();
+    return;
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    if (dropdown.hidden) {
+      openDropdown();
+      return;
+    }
+    const buttons = many2OneDropdownButtons(dropdown);
+    if (!buttons.length) return;
+    const currentIndex = many2OneDropdownActiveIndex(dropdown);
+    let nextIndex = 0;
+    if (event.key === "End") nextIndex = buttons.length - 1;
+    else if (event.key === "Home") nextIndex = 0;
+    else {
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      nextIndex = currentIndex < 0
+        ? (direction > 0 ? 0 : buttons.length - 1)
+        : (currentIndex + direction + buttons.length) % buttons.length;
+    }
+    setMany2OneDropdownActiveItem(dropdown, input, nextIndex);
+    return;
+  }
+  if (event.key === "Enter" && !dropdown.hidden) {
+    const activeButton = many2OneDropdownButtons(dropdown)[many2OneDropdownActiveIndex(dropdown)];
+    if (!activeButton) return;
+    event.preventDefault();
+    activeButton.click();
+  }
 }
 
 function many2OneSearchItems(value: unknown): Many2OneSearchItem[] {
@@ -9019,6 +9201,44 @@ function many2OneSearchItems(value: unknown): Many2OneSearchItem[] {
     if (data.id !== undefined && data.displayName.trim()) out.push({ id: data.id, displayName: data.displayName });
   }
   return out;
+}
+
+function relationMany2OneDisplayData(relation: string, value: unknown): { id?: number; displayName: string } {
+  const data = many2OneDisplayData(value);
+  return { ...data, displayName: relationDisplayName(relation, data.displayName) };
+}
+
+function relationMany2OneSearchItems(relation: string, value: unknown): Many2OneSearchItem[] {
+  return many2OneSearchItems(value).map((item) => ({
+    id: item.id,
+    displayName: relationDisplayName(relation, item.displayName)
+  }));
+}
+
+function relationDisplayName(relation: string, displayName: string): string {
+  if (relation !== "ir.model") return displayName;
+  return humanReadableModelName(displayName);
+}
+
+function humanReadableModelName(value: string): string {
+  const trimmed = value.trim();
+  const known: Record<string, string> = {
+    "base.automation": "Automation Rule",
+    "digest.digest": "Digest",
+    "fetchmail.server": "Incoming Mail Server",
+    "ir.actions.server": "Server Action",
+    "ir.autovacuum": "Automatic Vacuum",
+    "ir.cron": "Scheduled Action",
+    "mail.mail": "Mail",
+    "mail.message": "Message",
+    "mailing.mailing": "Mailing",
+    "res.company": "Company",
+    "res.partner": "Contact",
+    "res.users": "Users"
+  };
+  if (known[trimmed]) return known[trimmed];
+  if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(trimmed)) return value;
+  return humanizeFieldName(trimmed.split(".").at(-1) ?? trimmed);
 }
 
 function relationFieldConfig(
@@ -9095,7 +9315,7 @@ function applyRelationFieldDataset(root: HTMLElement, config: RelationFieldConfi
 function relationSearchKwargs(query: string, config: RelationFieldConfig, limit = config.limit): Record<string, unknown> {
   return {
     name: query,
-    args: config.domain,
+    domain: config.domain,
     operator: "ilike",
     limit,
     context: config.context
@@ -11379,6 +11599,11 @@ const serverActionStateSelectionOptions: Array<[string, string]> = [
   ["documents_account_record_create", "Create Vendor Bill"]
 ];
 
+const serverActionUsageSelectionOptions: Array<[string, string]> = [
+  ["ir_cron", "Scheduled Action"],
+  ["ir_actions_server", "Server Action"]
+];
+
 const scheduledActionStateSelectionOptions: Array<[string, string]> = [
   ["code", "Execute Code"]
 ];
@@ -11410,6 +11635,9 @@ function selectionOptionsForField(description: unknown, model: string | undefine
   if (choices.length) return choices;
   if (model === "ir.actions.server" && fieldName === "state" && fieldTypeValue(description) === "selection") {
     return serverActionStateSelectionOptions;
+  }
+  if (model === "ir.actions.server" && fieldName === "usage" && fieldTypeValue(description) === "selection") {
+    return serverActionUsageSelectionOptions;
   }
   if (model === "ir.cron" && fieldName === "state" && fieldTypeValue(description) === "selection") {
     return scheduledActionStateSelectionOptions;

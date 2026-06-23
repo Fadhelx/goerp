@@ -4621,7 +4621,7 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}
 
 	body = getBodyWithCookie(t, handler, "/web/webclient/load_menus", sessionCookie)
-	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Users", "Groups", "Technical", "Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages", "Apps"} {
+	for _, want := range []string{"Approvals", "Delegation", "Approval Buttons", "Settings", "Users", "Groups", "Technical", "Actions", "Window Actions", "Server Actions", "Scheduled Actions", "Automation Rules", "Scheduled Action Triggers", "Views", "Menu Items", "Customized Views", "User-defined Filters", "Models", "Fields", "External Identifiers", "System Parameters", "Sequences", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages", "Alias Domains", "Activity Types", "Apps"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("menu response missing %s: %s", want, body)
 		}
@@ -4641,6 +4641,28 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	if technicalMenu["hasDirectAction"] != false || technicalMenu["directActionID"] != false {
 		t.Fatalf("technical direct action = %+v", technicalMenu)
 	}
+	for _, item := range []struct {
+		xmlid string
+		name  string
+	}{
+		{"base.menu_technical_actions", "Actions"},
+		{"base.menu_technical_automation", "Automation"},
+		{"base.menu_technical_user_interface", "User Interface"},
+		{"base.menu_technical_database_structure", "Database Structure"},
+		{"base.menu_technical_security", "Security"},
+		{"base.menu_technical_email", "Email"},
+		{"base.menu_technical_reporting", "Reporting"},
+		{"base.menu_technical_parameters", "Parameters"},
+		{"base.menu_technical_sequences", "Sequences & Identifiers"},
+	} {
+		entry := runtimeMenuByXMLID(menuPayload, item.xmlid)
+		if entry["name"] != item.name || int64Value(entry["parent_id"]) != int64Value(technicalMenu["id"]) {
+			t.Fatalf("%s container = %+v", item.xmlid, entry)
+		}
+		if entry["hasDirectAction"] != false || entry["directActionID"] != false {
+			t.Fatalf("%s container direct action = %+v", item.xmlid, entry)
+		}
+	}
 	serverActionsMenu := runtimeMenuByXMLID(menuPayload, "base.menu_ir_actions_server")
 	if serverActionsMenu["name"] != "Server Actions" || serverActionsMenu["actionModel"] != "ir.actions.act_window" || int64Value(serverActionsMenu["actionID"]) == 0 || int64Value(serverActionsMenu["parent_id"]) == 0 {
 		t.Fatalf("server actions menu = %+v", serverActionsMenu)
@@ -4658,16 +4680,59 @@ func TestBootstrapOIExposesHTTPModulesAssetsMenusAndViews(t *testing.T) {
 	}{
 		{"base.menu_users_users", "Users"},
 		{"base.menu_users_groups", "Groups"},
+		{"base.menu_translations_languages", "Languages"},
+		{"base.menu_ir_actions_actions", "Actions"},
+		{"base.menu_ir_actions_act_window", "Window Actions"},
+		{"base.menu_ir_actions_report", "Report Actions"},
+		{"base.menu_ir_actions_client", "Client Actions"},
+		{"base.menu_ir_actions_act_url", "URL Actions"},
+		{"base.menu_ir_embedded_actions", "Embedded Actions"},
+		{"base.menu_ir_default", "User-defined Defaults"},
+		{"base.menu_ir_actions_todo", "Configuration Wizards"},
+		{"base.menu_base_automation", "Automation Rules"},
+		{"base.menu_ir_cron", "Scheduled Actions"},
+		{"base.menu_ir_cron_trigger", "Scheduled Action Triggers"},
 		{"base.menu_ir_ui_view", "Views"},
 		{"base.menu_ir_ui_menu", "Menu Items"},
+		{"base.menu_ir_ui_view_custom", "Customized Views"},
+		{"base.menu_ir_filters", "User-defined Filters"},
 		{"base.menu_ir_model", "Models"},
 		{"base.menu_ir_model_fields", "Fields"},
+		{"base.menu_ir_model_fields_selection", "Selection Values"},
+		{"base.menu_ir_model_constraint", "Model Constraints"},
+		{"base.menu_ir_model_relation", "Many-to-Many Relations"},
+		{"base.menu_ir_attachment", "Attachments"},
+		{"base.menu_ir_asset", "Assets"},
+		{"base.menu_ir_logging", "Logging"},
+		{"base.menu_decimal_precision", "Decimal Accuracy"},
+		{"base.menu_ir_profile", "Profiling"},
 		{"base.menu_ir_model_access", "Access Rights"},
+		{"base.menu_res_device", "User Devices"},
 		{"base.menu_mail_template", "Email Templates"},
 		{"base.menu_ir_mail_server", "Outgoing Mail Servers"},
 		{"base.menu_fetchmail_server", "Incoming Mail Servers"},
 		{"base.menu_mail_mail", "Emails"},
 		{"base.menu_mail_message", "Messages"},
+		{"base.menu_mail_scheduled_message", "Scheduled Messages"},
+		{"base.menu_mail_message_subtype", "Subtypes"},
+		{"base.menu_mail_tracking_value", "Tracking Values"},
+		{"base.menu_mail_notification", "Notifications"},
+		{"base.menu_mail_followers", "Followers"},
+		{"base.menu_mail_alias", "Aliases"},
+		{"base.menu_mail_alias_domain", "Alias Domains"},
+		{"base.menu_mail_blacklist", "Email Blacklist"},
+		{"base.menu_mail_canned_response", "Canned Responses"},
+		{"base.menu_mail_guest", "Guests"},
+		{"base.menu_mail_message_reaction", "Message Reactions"},
+		{"base.menu_mail_activity", "Activities"},
+		{"base.menu_mail_activity_type", "Activity Types"},
+		{"base.menu_res_users_settings", "User Settings"},
+		{"base.menu_mail_gateway_allowed", "Mail Gateway Allowed"},
+		{"base.menu_report_paperformat", "Paper Formats"},
+		{"base.menu_report_actions", "Reports"},
+		{"base.menu_ir_config_parameter", "System Parameters"},
+		{"base.menu_ir_sequence", "Sequences"},
+		{"base.menu_ir_model_data", "External Identifiers"},
 		{"base.menu_ir_module_module", "Apps"},
 	} {
 		entry := runtimeMenuByXMLID(menuPayload, item.xmlid)

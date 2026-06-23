@@ -1,0 +1,356 @@
+{
+  "generated_at": "2026-06-23T00:46:49.540Z",
+  "base_url": "http://127.0.0.1:8103/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "settings-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "settings-desktop.png",
+      "sha256": "1cb3c184646fdc6f3decd73aacbf0d28dfb437b641ebe47309c87ded47d57fbc",
+      "assertions": {
+        "settings_blocks": 3,
+        "setting_boxes": 14,
+        "settings_state": {
+          "labels": [
+            "Manage Users",
+            "Manage Groups",
+            "Manage Companies",
+            "Server Actions",
+            "Automation Rules",
+            "Scheduled Actions",
+            "Views",
+            "Models",
+            "Access Rights",
+            "Record Rules",
+            "Outgoing Mail Servers",
+            "Email Templates",
+            "Apps",
+            "AI Apps"
+          ],
+          "generic_open_count": 0,
+          "grid_count": 3,
+          "has_manage_users": true,
+          "has_server_actions": true,
+          "has_apps": true
+        }
+      },
+      "duration_ms": 1236
+    },
+    {
+      "name": "default-navbar-technical-dropdown-open-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-navbar-technical-dropdown-open-desktop.png",
+      "sha256": "df5e3b8e0d17e5b940d72ce0f5e643830160ca201a950fcbb7c904b7feb92457",
+      "assertions": {
+        "button_text": "Technical",
+        "expanded": "true",
+        "menu_visible": true,
+        "menu_left": 552,
+        "menu_top": 46,
+        "hit_test_x": 576,
+        "hit_test_y": 70,
+        "dropdown_on_top": true,
+        "top_element": "SPAN.dropdown-header.o_navbar_dropdown_header",
+        "headers": [
+          "Actions",
+          "Automation",
+          "User Interface",
+          "Database Structure",
+          "Security",
+          "Email",
+          "Reporting",
+          "Parameters",
+          "Sequences & Identifiers"
+        ],
+        "items": [
+          "Actions",
+          "Window Actions",
+          "Server Actions",
+          "Report Actions",
+          "Client Actions",
+          "URL Actions",
+          "Embedded Actions",
+          "User-defined Defaults",
+          "Configuration Wizards",
+          "Automation Rules",
+          "Scheduled Actions",
+          "Scheduled Action Triggers",
+          "Views",
+          "Menu Items",
+          "Customized Views",
+          "User-defined Filters",
+          "Models",
+          "Fields",
+          "Selection Values",
+          "Model Constraints",
+          "Many-to-Many Relations",
+          "Attachments",
+          "Assets",
+          "Logging",
+          "Decimal Accuracy",
+          "Profiling",
+          "Access Rights",
+          "Record Rules",
+          "User Devices",
+          "Email Templates",
+          "Outgoing Mail Servers",
+          "Incoming Mail Servers",
+          "Emails",
+          "Messages",
+          "Scheduled Messages",
+          "Subtypes",
+          "Tracking Values",
+          "Notifications",
+          "Followers",
+          "Aliases",
+          "Alias Domains",
+          "Email Blacklist",
+          "Canned Responses",
+          "Guests",
+          "Message Reactions",
+          "Activities",
+          "Activity Types",
+          "User Settings",
+          "Mail Gateway Allowed",
+          "Paper Formats",
+          "Reports",
+          "System Parameters",
+          "Sequences",
+          "External Identifiers",
+          "Apps"
+        ],
+        "has_grouped_sections": true,
+        "has_admin_items": true
+      },
+      "duration_ms": 326
+    },
+    {
+      "name": "default-technical-search-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-search-desktop.png",
+      "sha256": "8b5d2301c5bb3de74ca356f614eca7d076f95172933d26ed7f86abf465fdc0b9",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=list&menu_id=13",
+        "action_card_count": 1,
+        "window_count": 1,
+        "row_count": 20,
+        "route_state": {
+          "action_id": "7",
+          "menu_id": "13",
+          "record_id": "65"
+        },
+        "control_panel_bg": "rgb(40, 42, 53)",
+        "control_panel_shadow": "rgba(0, 0, 0, 0.18) 0px 1px 0px 0px",
+        "control_panel_min_height_px": 62,
+        "search_width_px": 440,
+        "search_radius_px": 4,
+        "list_header_bg": "rgb(27, 29, 39)",
+        "list_headers": [
+          "",
+          "Name",
+          "Model",
+          "Type",
+          "Usage"
+        ],
+        "body_action_toolbar_count": 0,
+        "control_panel_action_toolbar_count": 1,
+        "label_state": {
+          "headers": [
+            "Name",
+            "Model",
+            "Type",
+            "Usage"
+          ],
+          "state": "Execute Code",
+          "usage_values": [
+            "Scheduled Action",
+            "Scheduled Action",
+            "Scheduled Action",
+            "Scheduled Action",
+            "Scheduled Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Server Action",
+            "Scheduled Action",
+            "Scheduled Action",
+            "Scheduled Action",
+            "Scheduled Action"
+          ]
+        }
+      },
+      "duration_ms": 433
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-technical-form-desktop.png",
+      "sha256": "288d8fc7f21a653fe4b7d47b70b83054d40ea125ac0dd679ca638aded820ee0a",
+      "assertions": {
+        "title": "Server Actions",
+        "hash": "#action=7&model=ir.actions.server&view_type=form&id=65&menu_id=13",
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 20,
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "65"
+          }
+        },
+        "form_count": 1,
+        "field_count": 6,
+        "form_control_state": {
+          "search_inputs": 0,
+          "search_toggles": 0
+        },
+        "form_toolbar_state": {
+          "action_menu_count": 1,
+          "main_button_action_menu_count": 0,
+          "action_lane_action_menu_count": 1,
+          "duplicate_actions_label_count": 1,
+          "action_labels": [
+            "Actions"
+          ],
+          "main_overlaps_breadcrumb": false,
+          "actions_overlaps_breadcrumb": false
+        },
+        "server_action_band_count": 1,
+        "server_action_notebook_count": 2,
+        "code_viewer_count": 1,
+        "selection_pill_count": 13,
+        "state_radio_count": 13,
+        "code_editor_count": 1,
+        "relation_link_count": 1,
+        "relation_state": {
+          "text": "mail.mail",
+          "res_id": "81",
+          "href": "#model=ir.model&view_type=form&id=81"
+        },
+        "relation_editor_count": 1,
+        "relation_dropdown_state": {
+          "toggle_expanded": "true",
+          "input_expanded": "true",
+          "dropdown_open": true,
+          "option_count": 9,
+          "search_more_count": 1,
+          "selected_count": 1,
+          "active_count": 1,
+          "option_labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ],
+          "search_more_label": "Search more...",
+          "current_res_id": "81"
+        },
+        "relation_option_count": 9,
+        "relation_editor_state": {
+          "relation": "ir.model",
+          "input_value": "mail",
+          "option_labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_selected_state": {
+          "res_id": "19",
+          "save_hidden": false,
+          "save_disabled": false
+        }
+      },
+      "duration_ms": 856
+    },
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "a4fffa8b936b6d06f16723176ec2cc863b2cbca4035cf1fd9d2fb71919cca7bb",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 20,
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "65"
+          }
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "input_value": "Mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-2",
+          "option_count": 9,
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Mail",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ],
+          "search_more_label": "Search more...",
+          "dropdown_width": 489,
+          "input_width": 489
+        }
+      },
+      "duration_ms": 959
+    }
+  ],
+  "duration_ms": 3971
+}
