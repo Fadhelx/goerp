@@ -491,7 +491,7 @@
         <record id="menu_technical_actions" model="ir.ui.menu">
             <field name="name">Actions</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">10</field>
+            <field name="sequence">5</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
@@ -506,7 +506,7 @@
         <record id="menu_ir_actions_act_window" model="ir.ui.menu">
             <field name="name">Window Actions</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">10</field>
+            <field name="sequence">20</field>
             <field name="action">ir.actions.act_window,action_ir_actions_act_window</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -514,15 +514,15 @@
         <record id="menu_ir_actions_server" model="ir.ui.menu">
             <field name="name">Server Actions</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">20</field>
+            <field name="sequence">40</field>
             <field name="action">ir.actions.act_window,action_ir_actions_server</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
         <record id="menu_ir_actions_report" model="ir.ui.menu">
-            <field name="name">Report Actions</field>
+            <field name="name">Reports</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">30</field>
+            <field name="sequence">10</field>
             <field name="action">ir.actions.act_window,action_ir_actions_report</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -530,7 +530,7 @@
         <record id="menu_ir_actions_client" model="ir.ui.menu">
             <field name="name">Client Actions</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">40</field>
+            <field name="sequence">30</field>
             <field name="action">ir.actions.act_window,action_ir_actions_client</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -538,7 +538,7 @@
         <record id="menu_ir_actions_act_url" model="ir.ui.menu">
             <field name="name">URL Actions</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">50</field>
+            <field name="sequence">80</field>
             <field name="action">ir.actions.act_window,action_ir_actions_act_url</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -546,7 +546,7 @@
         <record id="menu_ir_embedded_actions" model="ir.ui.menu">
             <field name="name">Embedded Actions</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">60</field>
+            <field name="sequence">50</field>
             <field name="action">ir.actions.act_window,action_ir_embedded_actions</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -562,7 +562,7 @@
         <record id="menu_ir_actions_todo" model="ir.ui.menu">
             <field name="name">Configuration Wizards</field>
             <field name="parent_id" ref="menu_technical_actions"/>
-            <field name="sequence">80</field>
+            <field name="sequence">60</field>
             <field name="action">ir.actions.act_window,action_ir_actions_todo</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -570,7 +570,7 @@
         <record id="menu_technical_automation" model="ir.ui.menu">
             <field name="name">Automation</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">15</field>
+            <field name="sequence">30</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
@@ -601,14 +601,14 @@
         <record id="menu_technical_user_interface" model="ir.ui.menu">
             <field name="name">User Interface</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">20</field>
+            <field name="sequence">10</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
         <record id="menu_ir_ui_view" model="ir.ui.menu">
             <field name="name">Views</field>
             <field name="parent_id" ref="menu_technical_user_interface"/>
-            <field name="sequence">10</field>
+            <field name="sequence">20</field>
             <field name="action">ir.actions.act_window,action_ir_ui_view</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -616,7 +616,7 @@
         <record id="menu_ir_ui_menu" model="ir.ui.menu">
             <field name="name">Menu Items</field>
             <field name="parent_id" ref="menu_technical_user_interface"/>
-            <field name="sequence">20</field>
+            <field name="sequence">10</field>
             <field name="action">ir.actions.act_window,action_ir_ui_menu</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -640,7 +640,7 @@
         <record id="menu_technical_database_structure" model="ir.ui.menu">
             <field name="name">Database Structure</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">30</field>
+            <field name="sequence">20</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
@@ -661,7 +661,7 @@
         </record>
 
         <record id="menu_ir_model_fields_selection" model="ir.ui.menu">
-            <field name="name">Selection Values</field>
+            <field name="name">Fields Selection</field>
             <field name="parent_id" ref="menu_technical_database_structure"/>
             <field name="sequence">30</field>
             <field name="action">ir.actions.act_window,action_ir_model_fields_selection</field>
@@ -677,7 +677,7 @@
         </record>
 
         <record id="menu_ir_model_relation" model="ir.ui.menu">
-            <field name="name">Many-to-Many Relations</field>
+            <field name="name">ManyToMany Relations</field>
             <field name="parent_id" ref="menu_technical_database_structure"/>
             <field name="sequence">50</field>
             <field name="action">ir.actions.act_window,action_ir_model_relation</field>
@@ -727,7 +727,7 @@
         <record id="menu_technical_security" model="ir.ui.menu">
             <field name="name">Security</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">40</field>
+            <field name="sequence">50</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
@@ -758,7 +758,7 @@
         <record id="menu_technical_email" model="ir.ui.menu">
             <field name="name">Email</field>
             <field name="parent_id" ref="menu_technical"/>
-            <field name="sequence">50</field>
+            <field name="sequence">1</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
 
@@ -773,7 +773,7 @@
         <record id="menu_ir_mail_server" model="ir.ui.menu">
             <field name="name">Outgoing Mail Servers</field>
             <field name="parent_id" ref="menu_technical_email"/>
-            <field name="sequence">20</field>
+            <field name="sequence">5</field>
             <field name="action">ir.actions.act_window,action_ir_mail_server</field>
             <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         </record>
@@ -930,7 +930,7 @@
         </record>
 
         <record id="menu_report_paperformat" model="ir.ui.menu">
-            <field name="name">Paper Formats</field>
+            <field name="name">Paper Format</field>
             <field name="parent_id" ref="menu_technical_reporting"/>
             <field name="sequence">10</field>
             <field name="action">ir.actions.act_window,action_report_paperformat</field>

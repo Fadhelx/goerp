@@ -199,9 +199,10 @@ function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {
 
 function navbarSectionApps(payload: HomeMenuPayload | undefined, app: HomeMenuApp): NavbarApp[] {
   if (!payload) return [];
-  return (app.menu.children ?? [])
+  const sections = (app.menu.children ?? [])
     .map((id) => navbarMenuEntry(payload, id))
     .filter((entry): entry is NavbarApp => Boolean(entry));
+  return normalizeSettingsNavbarSections(app, sections);
 }
 
 function navbarMenuEntry(payload: HomeMenuPayload, id: number | string): NavbarApp | null {
@@ -225,6 +226,163 @@ function appsCatalogNavbarSections(app: HomeMenuApp): NavbarApp[] {
     { id: `${app.id}:scheduled-upgrades`, name: "Apply Scheduled Upgrades" },
     { id: `${app.id}:import-module`, name: "Import Module" }
   ];
+}
+
+function normalizeSettingsNavbarSections(app: HomeMenuApp, sections: readonly NavbarApp[]): NavbarApp[] {
+  if (cleanAppName(app.name).toLowerCase() !== "settings") return [...sections];
+  return sections.map((section) => cleanAppName(section.name) === "Technical" ? normalizeTechnicalNavbarSection(section) : section);
+}
+
+const TECHNICAL_GROUP_ORDER = [
+  "Email",
+  "Actions",
+  "IAP",
+  "User Interface",
+  "Database Structure",
+  "Security",
+  "Reporting",
+  "Parameters",
+  "Sequences & Identifiers",
+  "Automation"
+];
+
+const TECHNICAL_CHILD_ORDER: Record<string, readonly string[]> = {
+  Email: ["Outgoing Mail Servers"],
+  Actions: [
+    "Actions",
+    "Reports",
+    "Window Actions",
+    "Client Actions",
+    "Server Actions",
+    "Embedded Actions",
+    "Configuration Wizards",
+    "User-defined Defaults"
+  ],
+  IAP: ["IAP Accounts"],
+  "User Interface": ["Menu Items", "Views", "Customized Views", "User-defined Filters", "Tours"],
+  "Database Structure": [
+    "Decimal Accuracy",
+    "Assets",
+    "Models",
+    "Fields",
+    "Fields Selection",
+    "Model Constraints",
+    "ManyToMany Relations",
+    "Attachments",
+    "Logging",
+    "Profiling"
+  ],
+  Reporting: ["Paper Format", "Reports"],
+  Automation: ["Automation Rules", "Scheduled Actions"]
+};
+
+const TECHNICAL_REFERENCE_PLACEHOLDERS: Record<string, Record<string, NavbarApp>> = {
+  Actions: {
+    Actions: technicalPlaceholder("Actions", "actions"),
+    Reports: technicalPlaceholder("Reports", "reports"),
+    "Window Actions": technicalPlaceholder("Window Actions", "window_actions"),
+    "Client Actions": technicalPlaceholder("Client Actions", "client_actions"),
+    "Embedded Actions": technicalPlaceholder("Embedded Actions", "embedded_actions"),
+    "Configuration Wizards": technicalPlaceholder("Configuration Wizards", "configuration_wizards"),
+    "User-defined Defaults": technicalPlaceholder("User-defined Defaults", "user_defined_defaults")
+  },
+  IAP: {
+    "IAP Accounts": technicalPlaceholder("IAP Accounts", "iap_accounts")
+  },
+  "User Interface": {
+    Tours: technicalPlaceholder("Tours", "tours")
+  },
+  "Database Structure": {
+    "Decimal Accuracy": technicalPlaceholder("Decimal Accuracy", "decimal_accuracy"),
+    Assets: technicalPlaceholder("Assets", "assets"),
+    "Fields Selection": technicalPlaceholder("Fields Selection", "fields_selection"),
+    "Model Constraints": technicalPlaceholder("Model Constraints", "model_constraints"),
+    "ManyToMany Relations": technicalPlaceholder("ManyToMany Relations", "many_to_many_relations"),
+    Attachments: technicalPlaceholder("Attachments", "attachments"),
+    Logging: technicalPlaceholder("Logging", "logging"),
+    Profiling: technicalPlaceholder("Profiling", "profiling")
+  },
+  Reporting: {
+    "Paper Format": technicalPlaceholder("Paper Format", "paper_format"),
+    Reports: technicalPlaceholder("Reports", "reporting_reports")
+  },
+  Automation: {
+    "Automation Rules": technicalPlaceholder("Automation Rules", "automation_rules"),
+    "Scheduled Actions": technicalPlaceholder("Scheduled Actions", "scheduled_actions")
+  }
+};
+
+function normalizeTechnicalNavbarSection(section: NavbarApp): NavbarApp {
+  const children = (section.children ?? []).map(normalizeTechnicalNavbarLabels);
+  const byName = new Map(children.map((child) => [child.name, child]));
+  const ordered: NavbarApp[] = [];
+  const used = new Set<string>();
+  for (const groupName of TECHNICAL_GROUP_ORDER) {
+    const existing = byName.get(groupName);
+    if (!existing && !TECHNICAL_REFERENCE_PLACEHOLDERS[groupName]) continue;
+    const group = existing ?? { id: `technical:${technicalKey(groupName)}`, name: groupName, action: false, children: [] };
+    used.add(group.name);
+    ordered.push(normalizeTechnicalNavbarGroup(group));
+  }
+  for (const child of children) {
+    if (used.has(child.name) || child.name === "Apps") continue;
+    ordered.push(normalizeTechnicalNavbarGroup(child));
+  }
+  return { ...section, children: ordered };
+}
+
+function normalizeTechnicalNavbarGroup(group: NavbarApp): NavbarApp {
+  const children = group.children ?? [];
+  const order = TECHNICAL_CHILD_ORDER[group.name];
+  if (!order) return { ...group, children };
+  const byName = new Map(children.map((child) => [child.name, child]));
+  const placeholders = TECHNICAL_REFERENCE_PLACEHOLDERS[group.name] ?? {};
+  const ordered: NavbarApp[] = [];
+  const used = new Set<string>();
+  for (const name of order) {
+    const child = byName.get(name) ?? placeholders[name];
+    if (!child) continue;
+    ordered.push(child);
+    used.add(name);
+  }
+  if (group.name !== "Email" && group.name !== "Actions") {
+    for (const child of children) {
+      if (!used.has(child.name)) ordered.push(child);
+    }
+  }
+  return { ...group, children: ordered };
+}
+
+function normalizeTechnicalNavbarLabels(entry: NavbarApp): NavbarApp {
+  const name = technicalNavbarLabel(entry.name);
+  return {
+    ...entry,
+    name,
+    children: entry.children?.map(normalizeTechnicalNavbarLabels)
+  };
+}
+
+function technicalNavbarLabel(name: string): string {
+  switch (cleanAppName(name)) {
+    case "Report Actions":
+      return "Reports";
+    case "Selection Values":
+      return "Fields Selection";
+    case "Many-to-Many Relations":
+      return "ManyToMany Relations";
+    case "Paper Formats":
+      return "Paper Format";
+    default:
+      return cleanAppName(name);
+  }
+}
+
+function technicalPlaceholder(name: string, key: string): NavbarApp {
+  return { id: `technical:${key}`, name, action: true };
+}
+
+function technicalKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
 function firstSectionAction(actions: readonly HomeMenuApp[], sectionName: string, activeRoot: HomeMenuApp | undefined): HomeMenuApp | undefined {

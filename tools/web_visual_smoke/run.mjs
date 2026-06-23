@@ -239,11 +239,36 @@ export const scenarios = [
         })()`);
       }
       if (technicalMenu.items.length < 8) throw new Error(`Technical dropdown has too few items: ${JSON.stringify(technicalMenu)}`);
-      for (const label of ["Actions", "User Interface", "Database Structure", "Security", "Email"]) {
+      const visibleLabels = technicalMenu.raw_children.map((item) => item.text).filter(Boolean);
+      const expectedStart = [
+        "Email",
+        "Outgoing Mail Servers",
+        "Actions",
+        "Actions",
+        "Reports",
+        "Window Actions",
+        "Client Actions",
+        "Server Actions",
+        "Embedded Actions",
+        "Configuration Wizards",
+        "User-defined Defaults",
+        "IAP",
+        "IAP Accounts",
+        "User Interface",
+        "Menu Items",
+        "Views"
+      ];
+      if (JSON.stringify(visibleLabels.slice(0, expectedStart.length)) !== JSON.stringify(expectedStart)) {
+        throw new Error(`Technical dropdown reference order mismatch: ${JSON.stringify({ visibleLabels, expectedStart })}`);
+      }
+      for (const label of ["Email", "Actions", "IAP", "User Interface", "Database Structure"]) {
         if (!technicalMenu.headers.includes(label)) throw new Error(`Technical dropdown missing header ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules", "Email Templates", "Outgoing Mail Servers", "Incoming Mail Servers", "Emails", "Messages"]) {
+      for (const label of ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Servers", "IAP Accounts", "Tours", "Paper Format"]) {
         if (!technicalMenu.item_labels.includes(label)) throw new Error(`Technical dropdown missing item ${label}: ${JSON.stringify(technicalMenu)}`);
+      }
+      for (const label of ["Scheduled Messages", "Apps", "Email Templates", "Incoming Mail Servers"]) {
+        if (visibleLabels.slice(0, 24).includes(label)) throw new Error(`Technical dropdown exposes non-reference label too early: ${JSON.stringify({ label, visibleLabels })}`);
       }
       await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Actions");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Server Actions ready");
@@ -279,6 +304,7 @@ export const scenarios = [
         const topNode = document.elementFromPoint(pointX, pointY);
         const headers = [...menu.querySelectorAll(".o_navbar_dropdown_header")].map((node) => node.textContent.trim()).filter(Boolean);
         const items = [...menu.querySelectorAll(".o_navbar_dropdown_item")].map((node) => node.textContent.trim()).filter(Boolean);
+        const visibleLabels = [...menu.children].map((node) => node.textContent.trim()).filter(Boolean);
         return {
           button_text: button.textContent.trim(),
           expanded: button.getAttribute("aria-expanded"),
@@ -291,11 +317,14 @@ export const scenarios = [
           top_element: topNode ? topNode.tagName + "." + String(topNode.className || "").replace(/\\s+/g, ".") : "",
           headers,
           items,
+          visibleLabels,
           has_grouped_sections: headers.length >= 5,
-          has_admin_items: ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Access Rights", "Record Rules"].every((label) => items.includes(label))
+          has_admin_items: ["Server Actions", "Scheduled Actions", "Automation Rules", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"].every((label) => items.includes(label)),
+          reference_order: JSON.stringify(visibleLabels.slice(0, 16)) === JSON.stringify(["Email", "Outgoing Mail Servers", "Actions", "Actions", "Reports", "Window Actions", "Client Actions", "Server Actions", "Embedded Actions", "Configuration Wizards", "User-defined Defaults", "IAP", "IAP Accounts", "User Interface", "Menu Items", "Views"]),
+          hidden_custom_first_page: !visibleLabels.slice(0, 24).some((label) => ["Scheduled Messages", "Apps", "Email Templates", "Incoming Mail Servers"].includes(label))
         };
       })()`, "Technical dropdown remains open");
-      if (!state.menu_visible || !state.dropdown_on_top || !state.has_grouped_sections || !state.has_admin_items) {
+      if (!state.menu_visible || !state.dropdown_on_top || !state.has_grouped_sections || !state.has_admin_items || !state.reference_order || !state.hidden_custom_first_page) {
         throw new Error(`Technical dropdown open state invalid: ${JSON.stringify(state)}`);
       }
       return state;

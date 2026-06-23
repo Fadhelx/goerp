@@ -10222,6 +10222,25 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"] .gorp-action-menu-item {
 		color: var(--text) !important;
 	}
+	main.o_web_client[data-theme="enterprise-like"] .o_menu_sections .o_navbar_dropdown_menu {
+		max-height: min(70vh, 630px);
+		padding: 6px 0;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_menu_sections .o_navbar_dropdown_header {
+		padding: 8px 18px 4px;
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1.2;
+		text-transform: none;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_menu_sections .o_navbar_dropdown_item {
+		min-height: 28px;
+		padding: 4px 32px;
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 20px;
+	}
 	main.o_web_client[data-theme="enterprise-like"] .dropdown-item:hover,
 	main.o_web_client[data-theme="enterprise-like"] .gorp-action-menu-item:hover:not(:disabled) {
 		background: var(--hover-bg) !important;

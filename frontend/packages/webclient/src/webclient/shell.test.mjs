@@ -220,3 +220,88 @@ assert.deepEqual(findAll(directContextShell, (node) => String(node.className).sp
 ]);
 assert.equal(findAll(directContextShell, (node) => node.dataset?.menuId === "24" && String(node.className).includes("active")).length, 1);
 assert.deepEqual(directContextOpened, []);
+
+const technicalOpened = [];
+const technicalShell = createWebClientShell({
+  theme: {
+    name: "enterprise-like",
+    color: {},
+    typography: {},
+    radius: {},
+    spacing: {},
+    density: "compact"
+  },
+  menus: {
+    root: { children: [100] },
+    100: { id: 100, name: "Settings", children: [101, 102] },
+    101: { id: 101, name: "General Settings", actionID: 201, children: [] },
+    102: { id: 102, name: "Technical", children: [110, 120, 130, 140, 150, 160, 170] },
+    110: { id: 110, name: "Actions", children: [111, 112, 113, 114, 115, 116, 117, 118, 119] },
+    111: { id: 111, name: "Actions", actionID: 211, children: [] },
+    112: { id: 112, name: "Window Actions", actionID: 212, children: [] },
+    113: { id: 113, name: "Server Actions", actionID: 213, children: [] },
+    114: { id: 114, name: "Report Actions", actionID: 214, children: [] },
+    115: { id: 115, name: "Client Actions", actionID: 215, children: [] },
+    116: { id: 116, name: "URL Actions", actionID: 216, children: [] },
+    117: { id: 117, name: "Embedded Actions", actionID: 217, children: [] },
+    118: { id: 118, name: "User-defined Defaults", actionID: 218, children: [] },
+    119: { id: 119, name: "Configuration Wizards", actionID: 219, children: [] },
+    120: { id: 120, name: "Automation", children: [121] },
+    121: { id: 121, name: "Scheduled Actions", actionID: 221, children: [] },
+    130: { id: 130, name: "User Interface", children: [131, 132, 133, 134] },
+    131: { id: 131, name: "Views", actionID: 231, children: [] },
+    132: { id: 132, name: "Menu Items", actionID: 232, children: [] },
+    133: { id: 133, name: "Customized Views", actionID: 233, children: [] },
+    134: { id: 134, name: "User-defined Filters", actionID: 234, children: [] },
+    140: { id: 140, name: "Database Structure", children: [141, 142, 143, 144, 145, 146] },
+    141: { id: 141, name: "Models", actionID: 241, children: [] },
+    142: { id: 142, name: "Fields", actionID: 242, children: [] },
+    143: { id: 143, name: "Selection Values", actionID: 243, children: [] },
+    144: { id: 144, name: "Many-to-Many Relations", actionID: 244, children: [] },
+    145: { id: 145, name: "Assets", actionID: 245, children: [] },
+    146: { id: 146, name: "Decimal Accuracy", actionID: 246, children: [] },
+    150: { id: 150, name: "Email", children: [151, 152] },
+    151: { id: 151, name: "Scheduled Messages", actionID: 251, children: [] },
+    152: { id: 152, name: "Outgoing Mail Servers", actionID: 252, children: [] },
+    160: { id: 160, name: "Reporting", children: [161, 162] },
+    161: { id: 161, name: "Paper Formats", actionID: 261, children: [] },
+    162: { id: 162, name: "Reports", actionID: 262, children: [] },
+    170: { id: 170, name: "Apps", actionID: 270, children: [] }
+  },
+  onOpenApp(app) {
+    technicalOpened.push(app.id);
+  }
+});
+assert.equal(technicalShell.setMenuContext(113), true);
+const technicalButton = findAll(technicalShell, (node) => node.dataset?.menuId === "102" && String(node.className).includes("o_nav_dropdown_toggle"))[0];
+technicalButton.listeners.click[0]({ stopPropagation() {} });
+const technicalDropdown = findAll(technicalShell, (node) => node.dataset?.navbarDropdown === "102")[0];
+const technicalLabels = [...technicalDropdown.children].map((node) => node.textContent).filter(Boolean);
+assert.deepEqual(technicalLabels.slice(0, 18), [
+  "Email",
+  "Outgoing Mail Servers",
+  "Actions",
+  "Actions",
+  "Reports",
+  "Window Actions",
+  "Client Actions",
+  "Server Actions",
+  "Embedded Actions",
+  "Configuration Wizards",
+  "User-defined Defaults",
+  "IAP",
+  "IAP Accounts",
+  "User Interface",
+  "Menu Items",
+  "Views",
+  "Customized Views",
+  "User-defined Filters"
+]);
+assert.equal(technicalLabels.includes("Tours"), true);
+assert.equal(technicalLabels.includes("Fields Selection"), true);
+assert.equal(technicalLabels.includes("ManyToMany Relations"), true);
+assert.equal(technicalLabels.includes("Paper Format"), true);
+assert.equal(technicalLabels.includes("Scheduled Messages"), false);
+assert.equal(technicalLabels.includes("Apps"), false);
+findAll(technicalDropdown, (node) => node.dataset?.menuId === "113")[0].listeners.click[0]();
+assert.deepEqual(technicalOpened, [113]);
