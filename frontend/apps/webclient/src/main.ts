@@ -407,6 +407,17 @@ function generalSettingsArch(): string {
       <block title="Contacts">
         <setting id="groups" string="Groups" help="Manage access groups and inherited permissions."><field name="security_group_count" readonly="1"/></setting>
       </block>
+      <block title="Technical">
+        <setting id="server_actions" string="Server Actions" help="Automate backend actions and contextual operations."><field name="server_action_count" readonly="1"/></setting>
+        <setting id="scheduled_actions" string="Scheduled Actions" help="Review automated jobs and execution schedules."><field name="scheduled_action_count" readonly="1"/></setting>
+        <setting id="automation_rules" string="Automation Rules" help="Configure automated record rules and triggers."><field name="automation_rule_count" readonly="1"/></setting>
+        <setting id="views" string="Views" help="Inspect backend views and inherited layouts."><field name="view_count" readonly="1"/></setting>
+        <setting id="access_rights" string="Access Rights" help="Manage model permissions."><field name="access_right_count" readonly="1"/></setting>
+        <setting id="record_rules" string="Record Rules" help="Manage record-level security rules."><field name="record_rule_count" readonly="1"/></setting>
+        <setting id="email_templates" string="Email Templates" help="Maintain mail templates."><field name="email_template_count" readonly="1"/></setting>
+        <setting id="apps" string="Apps" help="Install and manage apps."><field name="installed_module_count" readonly="1"/></setting>
+        <setting id="ai" string="AI Apps" help="Open AI app modules."><field name="ai_module_count" readonly="1"/></setting>
+      </block>
     </app>
   </form>`;
 }
@@ -1202,6 +1213,7 @@ interface AppsCatalogReferenceModule {
   sequence: number;
   summary: string;
   technicalName: string;
+  website?: string;
 }
 
 export interface AppsCatalogRenderOptions {
@@ -1435,27 +1447,27 @@ async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet
 }
 
 const referenceAppsCatalogDefinitions: readonly AppsCatalogReferenceModule[] = [
-  referenceApp(1, "Sales", "sale_management", "Sales", "Quotations, orders, and teams"),
-  referenceApp(2, "Restaurant", "pos_restaurant", "Sales", "Restaurant point of sale", true),
-  referenceApp(3, "Invoicing", "account", "Accounting", "Invoices and payments"),
-  referenceApp(4, "CRM", "crm", "Sales", "Leads, opportunities, and pipeline"),
-  referenceApp(5, "Website", "website", "Website", "Website builder and pages"),
-  referenceApp(6, "Inventory", "stock", "Supply Chain", "Warehouse and stock operations"),
-  referenceApp(7, "Accounting", "accountant", "Accounting", "Accounting reports and ledgers"),
-  referenceApp(8, "Equity", "equity", "Accounting", "Equity management"),
-  referenceApp(9, "Purchase", "purchase", "Supply Chain", "Vendors and purchase orders"),
-  referenceApp(10, "Point of Sale", "point_of_sale", "Sales", "Retail point of sale", true),
-  referenceApp(11, "Project", "project", "Services", "Projects and tasks"),
-  referenceApp(12, "eCommerce", "website_sale", "Website", "Online shop"),
-  referenceApp(13, "Manufacturing", "mrp", "Supply Chain", "Manufacturing orders"),
-  referenceApp(14, "Email Marketing", "mass_mailing", "Marketing", "Mailing campaigns"),
-  referenceApp(15, "Timesheets", "timesheet_grid", "Services", "Timesheet grids"),
-  referenceApp(16, "Expenses", "hr_expense", "Human Resources", "Employee expenses"),
-  referenceApp(17, "Studio", "web_studio", "Customizations", "Customize apps without code"),
-  referenceApp(18, "Documents", "documents", "Productivity", "Document workspace"),
-  referenceApp(19, "Time Off", "hr_holidays", "Human Resources", "Leave management"),
-  referenceApp(20, "Recruitment", "hr_recruitment", "Human Resources", "Jobs and applicants"),
-  referenceApp(21, "Employees", "hr", "Human Resources", "Employee directory"),
+  referenceApp(1, "Sales", "sale_management", "Sales", "From quotations to invoices"),
+  referenceApp(2, "Restaurant", "pos_restaurant", "Sales", "Restaurant extensions for the Point of Sale", true),
+  referenceApp(3, "Invoicing", "account", "Accounting", "Invoices & Payments"),
+  referenceApp(4, "CRM", "crm", "Sales", "Track leads and close opportunities"),
+  referenceApp(5, "Website", "website", "Website", "Enterprise website builder"),
+  referenceApp(6, "Inventory", "stock", "Supply Chain", "Manage your stock and logistics activities"),
+  referenceApp(7, "Accounting", "accountant", "Accounting", "Manage financial and analytic accounting"),
+  referenceApp(8, "Equity", "equity", "Accounting", "Manage securities, transactions, and cap tables.", false, ""),
+  referenceApp(9, "Purchase", "purchase", "Supply Chain", "Purchase orders, tenders and agreements"),
+  referenceApp(10, "Point of Sale", "point_of_sale", "Sales", "Handle checkouts and payments for shops and restaurants.", true),
+  referenceApp(11, "Project", "project", "Services", "Organize and plan your projects"),
+  referenceApp(12, "eCommerce", "website_sale", "Website", "Sell your products online"),
+  referenceApp(13, "Manufacturing", "mrp", "Supply Chain", "Manufacturing Orders & BOMs"),
+  referenceApp(14, "Email Marketing", "mass_mailing", "Marketing", "Design, send and track emails"),
+  referenceApp(15, "Timesheets", "timesheet_grid", "Services", "Track employee time on tasks"),
+  referenceApp(16, "Expenses", "hr_expense", "Human Resources", "Submit, validate and reinvoice employee expenses"),
+  referenceApp(17, "Studio", "web_studio", "Customizations", "Create and customize your Odoo apps"),
+  referenceApp(18, "Documents", "documents", "Productivity", "Collect, organize and share documents."),
+  referenceApp(19, "Time Off", "hr_holidays", "Human Resources", "Allocate time off and follow leave requests"),
+  referenceApp(20, "Recruitment", "hr_recruitment", "Human Resources", "Track your recruitment pipeline"),
+  referenceApp(21, "Employees", "hr", "Human Resources", "Centralize employee information"),
   referenceApp(22, "AI", "ai", "Productivity", "AI assistants and tools"),
   referenceApp(23, "Data Recycle", "data_recycle", "Technical", "Recycle duplicate records"),
   referenceApp(24, "Databases", "databases", "Administration", "Database administration"),
@@ -1520,7 +1532,8 @@ function referenceApp(
   technicalName: string,
   category: string,
   summary: string,
-  industry = false
+  industry = false,
+  website?: string
 ): AppsCatalogReferenceModule {
   return {
     category,
@@ -1529,7 +1542,8 @@ function referenceApp(
     official: true,
     sequence,
     summary,
-    technicalName
+    technicalName,
+    website
   };
 }
 
@@ -1581,7 +1595,7 @@ function referenceAppsCatalogModules(realModules: readonly AppsCatalogDisplayMod
       const state = real?.state ?? "uninstalled";
       const depends = real?.depends ?? [];
       const description = real?.description || definition.summary;
-      const website = real?.website || `https://www.odoo.com/app/${encodeURIComponent(definition.technicalName)}`;
+      const website = real?.website || (definition.website ?? `https://www.odoo.com/app/${encodeURIComponent(definition.technicalName)}`);
       return {
         category: definition.category,
         depends,
@@ -1615,17 +1629,10 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   card.dataset.category = module.category;
   card.dataset.state = module.state;
   card.dataset.virtualModule = module.virtual ? "true" : "false";
-  const icon = document.createElement("span");
-  icon.className = "app-icon o_app_icon";
-  icon.dataset.iconToken = appsCatalogIconToken(module);
-  icon.dataset.initials = appInitials(module.displayName);
-  icon.setAttribute("aria-hidden", "true");
+  const icon = appsCatalogIconElement(module);
   const title = document.createElement("strong");
   title.className = "o_app_name";
   title.textContent = module.displayName;
-  const technical = document.createElement("span");
-  technical.className = "text-muted o_app_technical_name";
-  technical.textContent = module.technicalName;
   const summary = document.createElement("p");
   summary.className = "o_app_summary";
   summary.textContent = module.summary || module.category;
@@ -1636,7 +1643,7 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
   info.type = "button";
   info.className = "btn btn-secondary o_module_info_button";
   info.dataset.moduleInfo = module.technicalName;
-  info.textContent = "Learn More";
+  info.textContent = module.website ? "Learn More" : "Module Info";
   info.addEventListener("click", async () => {
     options.onInfo?.(module);
     await options.onModuleInfo?.(module);
@@ -1659,8 +1666,11 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     button.className = action.className;
     button.dataset.moduleAction = action.method;
     button.textContent = action.label;
-    button.disabled = module.virtual || !module.installable || !actionHandler;
-    if (module.virtual) button.title = "Module not available in this build";
+    button.disabled = !module.virtual && (!module.installable || !actionHandler);
+    if (module.virtual) {
+      button.dataset.virtualAction = "true";
+      button.setAttribute("aria-disabled", "true");
+    }
     button.addEventListener("click", async () => {
       if (module.virtual) return;
       button.disabled = true;
@@ -1677,8 +1687,86 @@ function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCa
     locked.textContent = module.installable ? "Installed" : "Not installable";
     actions.append(locked);
   }
-  card.append(icon, title, technical, summary, state, menu, actions, info);
+  card.append(icon, title, summary, state, menu, actions, info);
   return card;
+}
+
+function appsCatalogIconElement(module: AppsCatalogDisplayModule): HTMLImageElement {
+  const icon = document.createElement("img");
+  icon.className = "app-icon o_app_icon o_module_icon";
+  icon.alt = "";
+  icon.src = appsCatalogCleanRoomIconSource(module);
+  icon.dataset.iconToken = appsCatalogIconToken(module);
+  icon.dataset.initials = appInitials(module.displayName);
+  icon.dataset.generatedIcon = "clean-room";
+  icon.dataset.iconKind = appsCatalogIconKind(module);
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function appsCatalogIconKind(module: AppsCatalogDisplayModule): string {
+  return module.technicalName.replace(/[^a-z0-9_]+/gi, "_").toLowerCase() || appsCatalogIconToken(module);
+}
+
+function appsCatalogCleanRoomIconSource(module: AppsCatalogDisplayModule): string {
+  const palette = appsCatalogIconPalette(module);
+  const kind = appsCatalogIconKind(module);
+  const mark = appsCatalogIconMark(kind, palette);
+  return appsCatalogSvgDataUri(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+      <rect width="56" height="56" rx="7" fill="${palette.bg}"/>
+      <rect x="1" y="1" width="54" height="54" rx="6" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
+      ${mark}
+    </svg>
+  `);
+}
+
+function appsCatalogIconPalette(module: AppsCatalogDisplayModule): { bg: string; a: string; b: string; c: string; ink: string } {
+  const palettes: Record<string, { bg: string; a: string; b: string; c: string; ink: string }> = {
+    accounting: { bg: "#2287c9", a: "#38d3dc", b: "#f5f7fb", c: "#253448", ink: "#ffffff" },
+    administration: { bg: "#c96f42", a: "#f6bf59", b: "#875a7b", c: "#273447", ink: "#ffffff" },
+    customizations: { bg: "#875a7b", a: "#38d3dc", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    esg: { bg: "#25805e", a: "#79d4a5", b: "#f1c65b", c: "#f5f7fb", ink: "#ffffff" },
+    hr: { bg: "#d79533", a: "#f6cf67", b: "#38c5be", c: "#875a7b", ink: "#ffffff" },
+    inventory: { bg: "#c36a42", a: "#f6bf59", b: "#875a7b", c: "#38c5be", ink: "#ffffff" },
+    marketing: { bg: "#1c8fa2", a: "#42d0ca", b: "#875a7b", c: "#f5f7fb", ink: "#ffffff" },
+    productivity: { bg: "#714b67", a: "#38d3dc", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    sales: { bg: "#cf7642", a: "#f6bf59", b: "#875a7b", c: "#38c5be", ink: "#ffffff" },
+    services: { bg: "#1f9d78", a: "#52d5c7", b: "#875a7b", c: "#f5f7fb", ink: "#ffffff" },
+    shipping: { bg: "#168e91", a: "#52d5c7", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    technical: { bg: "#456184", a: "#9fb4d2", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    website: { bg: "#159b93", a: "#54d4c8", b: "#2d7fbe", c: "#f5f7fb", ink: "#ffffff" }
+  };
+  return palettes[appsCatalogIconToken(module)] ?? { bg: "#875a7b", a: "#38d3dc", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" };
+}
+
+function appsCatalogIconMark(kind: string, palette: { a: string; b: string; c: string; ink: string }): string {
+  if (kind === "sale_management" || kind === "crm") {
+    return `<path d="M11 39 23 27l8 6 14-17" fill="none" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="27" r="5" fill="${palette.a}"/><circle cx="45" cy="16" r="5" fill="${palette.b}"/>`;
+  }
+  if (kind === "account" || kind === "accountant" || kind === "equity") {
+    return `<circle cx="22" cy="31" r="12" fill="${palette.a}"/><circle cx="34" cy="25" r="12" fill="${palette.b}" opacity=".92"/><path d="M15 42h27" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round"/>`;
+  }
+  if (kind === "website" || kind === "website_sale" || kind === "website_blog" || kind === "website_forum") {
+    return `<rect x="10" y="15" width="36" height="28" rx="4" fill="${palette.c}"/><path d="M10 23h36" stroke="${palette.a}" stroke-width="5"/><circle cx="18" cy="19" r="2" fill="${palette.b}"/><circle cx="25" cy="19" r="2" fill="${palette.b}"/>`;
+  }
+  if (kind === "stock" || kind === "purchase" || kind === "mrp" || kind === "barcode") {
+    return `<path d="M12 20 28 11l16 9v18l-16 9-16-9Z" fill="${palette.a}"/><path d="M12 20 28 29l16-9M28 29v18" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  if (kind === "project" || kind === "planning" || kind === "timesheet_grid") {
+    return `<rect x="12" y="14" width="32" height="28" rx="4" fill="${palette.c}"/><path d="M18 23h20M18 31h14M18 39h18" stroke="${palette.a}" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  if (kind === "mail" || kind === "mass_mailing" || kind === "sms") {
+    return `<path d="M10 18h36v25H10Z" fill="${palette.c}"/><path d="m10 19 18 15 18-15" fill="none" stroke="${palette.a}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  if (kind.startsWith("hr") || kind === "employees" || kind === "recruitment") {
+    return `<circle cx="22" cy="22" r="8" fill="${palette.b}"/><circle cx="36" cy="24" r="7" fill="${palette.a}"/><path d="M12 43c3-8 9-12 17-12s14 4 17 12Z" fill="${palette.c}"/>`;
+  }
+  return `<rect x="13" y="13" width="20" height="20" rx="5" fill="${palette.c}"/><rect x="23" y="23" width="20" height="20" rx="5" fill="${palette.a}" opacity=".9"/><path d="M17 38h22" stroke="${palette.b}" stroke-width="5" stroke-linecap="round"/>`;
+}
+
+function appsCatalogSvgDataUri(svg: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, " ").trim())}`;
 }
 
 function appsCatalogIconToken(module: AppsCatalogDisplayModule): string {
@@ -1746,7 +1834,7 @@ function renderAppsCatalogCategories(
 ): HTMLButtonElement[] {
   const counts = new Map<string, number>();
   for (const module of modules) counts.set(module.category, (counts.get(module.category) ?? 0) + 1);
-  const categories = ["all", ...[...counts.keys()].sort(appsCatalogCategorySort)];
+  const categories = ["all", ...[...counts.keys()].filter(appsCatalogCategoryVisible).sort(appsCatalogCategorySort)];
   const buttons: HTMLButtonElement[] = [];
   appendAppsCatalogSidebarHeader(sidebar, "CATEGORIES");
   for (const category of categories) {
@@ -1781,9 +1869,13 @@ const appsCatalogCategoryOrder = [
   "Shipping Connectors",
   "ESG",
   "Customizations",
-  "Technical",
-  "Administration"
+  "Administration",
+  "Technical"
 ];
+
+function appsCatalogCategoryVisible(category: string): boolean {
+  return category !== "Technical";
+}
 
 function appsCatalogCategorySort(left: string, right: string): number {
   const leftIndex = appsCatalogCategoryOrder.indexOf(left);

@@ -223,10 +223,7 @@ function navbarMenuEntry(payload: HomeMenuPayload, id: number | string): NavbarA
 
 function appsCatalogNavbarSections(app: HomeMenuApp): NavbarApp[] {
   return [
-    { id: app.id, name: "Apps", action: true },
-    { id: `${app.id}:update-apps`, name: "Update Apps List" },
-    { id: `${app.id}:scheduled-upgrades`, name: "Apply Scheduled Upgrades" },
-    { id: `${app.id}:import-module`, name: "Import Module" }
+    { id: app.id, name: "Apps", action: true }
   ];
 }
 

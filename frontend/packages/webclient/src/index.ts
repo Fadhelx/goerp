@@ -3197,6 +3197,30 @@ function actionCreateDisabled(action: Record<string, unknown>): boolean {
   return context.create === false;
 }
 
+function listShowsRecordSelectors(model?: string): boolean {
+  if (!model) return false;
+  return new Set([
+    "base.automation",
+    "ir.actions.act_window",
+    "ir.actions.client",
+    "ir.actions.report",
+    "ir.actions.server",
+    "ir.config_parameter",
+    "ir.cron",
+    "ir.cron.trigger",
+    "ir.mail_server",
+    "ir.model",
+    "ir.model.access",
+    "ir.model.fields",
+    "ir.module.module",
+    "ir.rule",
+    "ir.ui.menu",
+    "ir.ui.view",
+    "res.groups",
+    "res.users"
+  ]).has(model);
+}
+
 function formViewRef(action: Record<string, unknown>): ViewRef | null {
   for (const ref of normalizeActionViews(action)) {
     if (ref[1] === "form") return ref;
@@ -3230,6 +3254,7 @@ function renderListView(
   const showApprovalLog = Boolean(model && workflowFieldAvailable(fields, "user_can_approve") && !workflowFieldRelated(fields.user_can_approve));
   const showStaticActions = Boolean(model && activeFieldNameForView(activeFieldNames, fields));
   const showToolbar = showApproveAll || showUpdateStatus || showApprovalLog || showStaticActions || actionMenusHaveItems(viewDescription?.actionMenus);
+  const showSelectors = showToolbar || listShowsRecordSelectors(model);
   const selectedIds = new Set<number>();
   const shell = document.createElement("section");
   shell.className = "gorp-list-shell o-list-view";
@@ -3240,7 +3265,7 @@ function renderListView(
   const names = fieldNodes.map((node) => node.name);
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  if (showToolbar) {
+  if (showSelectors) {
     const selectHead = document.createElement("th");
     selectHead.className = "o_list_record_selector";
     const selectAll = document.createElement("input");
@@ -3255,7 +3280,7 @@ function renderListView(
         if (checkbox.checked && Number.isFinite(id) && id > 0) selectedIds.add(id);
         setListRowSelected(checkbox, checkbox.checked);
       }
-      updateListToolbarButtons(shell, selectedIds);
+      if (showToolbar) updateListToolbarButtons(shell, selectedIds);
     });
     selectHead.append(selectAll);
     headerRow.append(selectHead);
@@ -3270,7 +3295,7 @@ function renderListView(
     button.className = "o_list_header_button";
     button.textContent = fieldLabel(fields, node.name, model);
     button.addEventListener("click", () => {
-      sortListRows(tbody, fieldNodes, fields, node.name, th, showToolbar);
+      sortListRows(tbody, fieldNodes, fields, node.name, th, showSelectors);
     });
     th.append(button);
     headerRow.append(th);
@@ -3296,7 +3321,7 @@ function renderListView(
         await openListRecord(model, recordID, action, options, table);
       });
     }
-    if (showToolbar) {
+    if (showSelectors) {
       const selectCell = document.createElement("td");
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -3311,8 +3336,8 @@ function renderListView(
         if (checkbox.checked) selectedIds.add(recordID);
         else selectedIds.delete(recordID);
         setListRowSelected(checkbox, checkbox.checked);
-        if (showToolbar) updateSelectAllState(thead, tbody);
-        updateListToolbarButtons(shell, selectedIds);
+        updateSelectAllState(thead, tbody);
+        if (showToolbar) updateListToolbarButtons(shell, selectedIds);
       });
       selectCell.append(checkbox);
       row.append(selectCell);
@@ -6771,9 +6796,9 @@ function renderFormView(
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
   if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
-  if (scheduledActionForm) body.append(renderScheduledActionRunButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
+  if (scheduledActionForm) sheet.append(renderScheduledActionRunButton(recordValues, form));
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
     sheet.append(renderAccessSmartButtons(recordValues, "users"));
@@ -7596,12 +7621,14 @@ function renderReadonlyFieldValue(
 }
 
 function renderReadonlyBooleanValue(fieldName: string, value: unknown): HTMLElement {
-  const checkbox = document.createElement("span");
-  checkbox.className = "gorp-readonly-boolean o_field_boolean o_field_widget o_readonly_modifier";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "gorp-readonly-boolean form-check-input o_field_boolean o_field_widget o_readonly_modifier";
   checkbox.dataset.field = fieldName;
   const checked = readonlyBooleanChecked(value);
+  checkbox.checked = checked;
+  checkbox.disabled = true;
   checkbox.dataset.checked = checked ? "true" : "false";
-  checkbox.setAttribute("role", "checkbox");
   checkbox.setAttribute("aria-checked", checked ? "true" : "false");
   checkbox.setAttribute("aria-readonly", "true");
   return checkbox;
@@ -8313,6 +8340,7 @@ function renderOne2ManyMany2OneCellEditor(
     setMany2OneDropdownActiveItem(dropdown, input, -1);
   };
   const openDropdown = () => {
+    applyMany2OneDropdownGeometry(root, input, dropdown);
     dropdown.hidden = false;
     dropdown.removeAttribute("hidden");
     dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", true);
@@ -9531,6 +9559,7 @@ function renderMany2OneEditor(
     setMany2OneDropdownActiveItem(dropdown, input, -1);
   };
   const openDropdown = () => {
+    applyMany2OneDropdownGeometry(root, input, dropdown);
     dropdown.hidden = false;
     dropdown.removeAttribute("hidden");
     dropdown.className = toggleClassToken(String(dropdown.className ?? ""), "show", true);
@@ -9715,6 +9744,31 @@ function many2OneDropdownButtons(dropdown: HTMLElement): HTMLButtonElement[] {
     const button = child as HTMLButtonElement;
     return button.tagName === "BUTTON" && classNameIncludes(button.className, "dropdown-item") && !button.disabled;
   });
+}
+
+function applyMany2OneDropdownGeometry(root: HTMLElement, input: HTMLInputElement, dropdown: HTMLElement): void {
+  dropdown.dataset.placement = "bottom-start";
+  dropdown.dataset.widthSource = "field";
+  root.dataset.dropdownPlacement = "bottom-start";
+  const style = (dropdown as HTMLElement & { style?: CSSStyleDeclaration }).style;
+  const rootStyle = (root as HTMLElement & { style?: CSSStyleDeclaration }).style;
+  if (!style) return;
+  const inputWidth = input.getBoundingClientRect?.().width || 0;
+  const rootWidth = root.getBoundingClientRect?.().width || 0;
+  const width = Math.round(inputWidth || rootWidth || 0);
+  if (rootStyle) rootStyle.position = rootStyle.position || "relative";
+  style.position = "absolute";
+  style.insetInlineStart = "0";
+  style.top = "100%";
+  style.marginTop = "2px";
+  style.zIndex = "1050";
+  style.maxHeight = "320px";
+  style.overflowY = "auto";
+  if (width > 0) {
+    style.width = `${width}px`;
+    style.minWidth = `${width}px`;
+    dropdown.dataset.widthPx = String(width);
+  }
 }
 
 function setMany2OneDropdownItemID(button: HTMLButtonElement, fieldName: string): void {
@@ -10038,6 +10092,7 @@ function renderMany2ManyTagEditor(
     input.setAttribute("aria-expanded", "false");
   };
   const openDropdown = () => {
+    applyMany2OneDropdownGeometry(root, input, dropdown);
     dropdown.hidden = false;
     dropdown.removeAttribute("hidden");
     input.setAttribute("aria-expanded", "true");
@@ -10132,7 +10187,7 @@ function renderMany2ManyTagEditor(
       searchMore.type = "button";
       searchMore.className = "gorp-x2many-search-more o_m2m_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
-      searchMore.textContent = "Search More...";
+      searchMore.textContent = "Search more...";
       searchMore.addEventListener("click", () => {
         void search(config.searchMoreLimit, true);
       });

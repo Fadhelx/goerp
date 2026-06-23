@@ -374,7 +374,22 @@ export const scenarios = [
       const settingsCount = await waitForCount(page, ".o_web_client .o_action_manager .o_settings_container", 1, "TS settings renderer");
       const settingsLabelAudit = await assertSettingsLabelSnapshot(page, ".o_web_client .o_action_manager .o_settings_container", "default TS Settings labels");
       const settingsTargets = await evaluate(page, `(() => {
-        const required = ["users", "groups", "languages", "company_records", "companies"];
+        const required = [
+          "users",
+          "groups",
+          "languages",
+          "company_records",
+          "companies",
+          "server_actions",
+          "scheduled_actions",
+          "automation_rules",
+          "views",
+          "access_rights",
+          "record_rules",
+          "email_templates",
+          "apps",
+          "ai"
+        ];
         const buttons = [...document.querySelectorAll(".o_web_client .o_action_manager [data-settings-target]")];
         const ids = buttons.map((button) => button.dataset.settingsTarget).filter(Boolean);
         const models = Object.fromEntries(buttons.map((button) => [button.dataset.settingsTarget, button.dataset.settingsTargetModel || ""]));
@@ -413,8 +428,22 @@ export const scenarios = [
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
       const genericOpenLabels = Object.values(settingsTargets.labels).filter((label) => String(label).startsWith("Open "));
-      const expectedBlocks = ["Users", "Languages", "Companies", "Contacts"];
-      if (settingsTargets.gridCount !== 4 || settingsTargets.actionBoxCount !== 5 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
+      const expectedBlocks = ["Users", "Languages", "Companies", "Contacts", "Technical"];
+      const expectedTechnicalTargets = {
+        server_actions: ["Server Actions", "ir.actions.server"],
+        scheduled_actions: ["Scheduled Actions", "ir.cron"],
+        automation_rules: ["Automation Rules", "base.automation"],
+        views: ["Views", "ir.ui.view"],
+        access_rights: ["Access Rights", "ir.model.access"],
+        record_rules: ["Record Rules", "ir.rule"],
+        email_templates: ["Email Templates", "mail.template"],
+        apps: ["Apps", "ir.module.module"],
+        ai: ["AI Apps", "ir.module.module"]
+      };
+      const invalidTechnicalTargets = Object.entries(expectedTechnicalTargets)
+        .filter(([id, [label, model]]) => settingsTargets.labels[id] !== label || settingsTargets.models[id] !== model)
+        .map(([id]) => id);
+      if (settingsTargets.gridCount !== 5 || settingsTargets.actionBoxCount !== 14 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || invalidTechnicalTargets.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
         throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
       }
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
@@ -811,12 +840,13 @@ export const scenarios = [
         const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
         const options = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])];
         return {
+          placement: editor?.dataset.dropdownPlacement || "",
           selected_count: options.filter((node) => node.dataset.selected === "true").length,
           active_count: options.filter((node) => node.dataset.active === "true").length,
           labels: options.map((node) => node.textContent.trim()).filter(Boolean)
         };
       })()`);
-      if (initialState.selected_count < 1 || initialState.active_count < 1) {
+      if (initialState.placement !== "bottom-start" || initialState.selected_count < 1 || initialState.active_count < 1) {
         throw new Error(`relation dropdown selected-open state invalid: ${JSON.stringify(initialState)}`);
       }
       await setInput(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] input", "mail");
@@ -832,6 +862,9 @@ export const scenarios = [
         const options = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])];
         return {
           open: dropdown?.hidden === false,
+          placement: editor?.dataset.dropdownPlacement || "",
+          dropdown_placement: dropdown?.dataset.placement || "",
+          dropdown_width_source: dropdown?.dataset.widthSource || "",
           input_value: input?.value || "",
           expanded: input?.getAttribute("aria-expanded") || "",
           active_descendant: input?.getAttribute("aria-activedescendant") || "",
@@ -847,7 +880,7 @@ export const scenarios = [
           input_width: Math.round(input?.getBoundingClientRect().width || 0)
         };
       })()`);
-      if (!state.open || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
+      if (!state.open || state.placement !== "bottom-start" || state.dropdown_placement !== "bottom-start" || state.dropdown_width_source !== "field" || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
         throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
       }
       return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state };
@@ -2636,10 +2669,13 @@ export const scenarios = [
           first_cards: cards.slice(0, 24).map((card) => card.querySelector(".o_app_name")?.textContent?.trim() || ""),
           first_card_actions: [...(cards[0]?.querySelectorAll(".o_module_actions button, .o_module_info_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           icon_token_count: new Set(cards.map((card) => card.querySelector(".o_app_icon")?.dataset?.iconToken || "").filter(Boolean)).size,
+          generated_icon_count: cards.filter((card) => card.querySelector("img.o_module_icon[data-generated-icon='clean-room']")).length,
+          technical_name_count: document.querySelectorAll(".o_web_client .gorp-apps-catalog-card .o_app_technical_name").length,
+          first_icon_src_is_svg_data: String(cards[0]?.querySelector("img.o_module_icon")?.src || "").startsWith("data:image/svg+xml"),
           hidden_state_count: [...document.querySelectorAll(".o_web_client .gorp-apps-catalog-card .o_module_state")].filter((node) => getComputedStyle(node).display === "none").length
         };
       })()`);
-      const expectedSections = ["Apps", "Update Apps List", "Apply Scheduled Upgrades", "Import Module"];
+      const expectedSections = ["Apps"];
       const expectedFirstCards = ["Sales", "Restaurant", "Invoicing", "CRM", "Website", "Inventory", "Accounting", "Equity", "Purchase", "Point of Sale", "Project", "eCommerce", "Manufacturing", "Email Marketing", "Timesheets", "Expenses", "Studio", "Documents", "Time Off", "Recruitment", "Employees", "AI", "Data Recycle", "Databases"];
       const expectedCategoryCounts = {
         All: "77",
@@ -2654,16 +2690,13 @@ export const scenarios = [
         "Shipping Connectors": "10",
         ESG: "1",
         Customizations: "1",
-        Technical: "1",
         Administration: "1"
       };
-      for (const label of expectedSections) {
-        if (!state.navbar_sections.includes(label)) throw new Error(`Apps catalog navbar missing ${label}: ${JSON.stringify(state)}`);
-      }
+      if (JSON.stringify(state.navbar_sections) !== JSON.stringify(expectedSections)) throw new Error(`Apps catalog navbar invalid: ${JSON.stringify(state)}`);
       for (const [label, count] of Object.entries(expectedCategoryCounts)) {
         if (state.category_state[label] !== count) throw new Error(`Apps catalog category ${label} expected ${count}: ${JSON.stringify(state)}`);
       }
-      if (state.brand !== "Apps" || state.pager !== "1-77 / 77" || JSON.stringify(state.first_cards) !== JSON.stringify(expectedFirstCards) || !state.filters.includes("Official Apps") || !state.filters.includes("Industries") || !state.first_card_actions.includes("Activate") || !state.first_card_actions.includes("Learn More") || state.icon_token_count < 8 || state.hidden_state_count < 77) {
+      if (state.brand !== "Apps" || state.pager !== "1-77 / 77" || JSON.stringify(state.first_cards) !== JSON.stringify(expectedFirstCards) || !state.filters.includes("Official Apps") || !state.filters.includes("Industries") || !state.first_card_actions.includes("Activate") || !state.first_card_actions.includes("Learn More") || state.icon_token_count < 8 || state.generated_icon_count !== 77 || state.technical_name_count !== 0 || !state.first_icon_src_is_svg_data || state.hidden_state_count < 77) {
         throw new Error(`Apps catalog parity invalid: ${JSON.stringify(state)}`);
       }
       return { card_count: cardCount, ...state };
@@ -3176,16 +3209,20 @@ async function assertLegacyLauncherChromeSnapshot(page) {
 async function assertAppsCatalogIconState(page) {
   const snapshot = await evaluate(page, `(() => {
     const icons = [...document.querySelectorAll(".o_web_client .gorp-apps-catalog-card .o_app_icon")];
+    const generatedIcons = icons.filter((icon) => icon.matches("img.o_module_icon[data-generated-icon='clean-room']"));
     const first = icons[0];
     const rect = first?.getBoundingClientRect();
     return {
       count: icons.length,
+      image_count: icons.filter((icon) => icon.matches("img.o_module_icon")).length,
+      generated_count: generatedIcons.length,
       text_count: icons.filter((icon) => icon.textContent.trim()).length,
+      first_src_is_svg_data: String(first?.getAttribute("src") || "").startsWith("data:image/svg+xml"),
       first_width_px: rect ? Math.round(rect.width) : 0,
       first_height_px: rect ? Math.round(rect.height) : 0
     };
   })()`);
-  if (snapshot.count < 1 || snapshot.text_count || snapshot.first_width_px < 38 || snapshot.first_height_px < 38) {
+  if (snapshot.count < 1 || snapshot.image_count !== snapshot.count || snapshot.generated_count !== snapshot.count || snapshot.text_count || !snapshot.first_src_is_svg_data || snapshot.first_width_px < 38 || snapshot.first_height_px < 38) {
     throw new Error(`Apps catalog icons invalid: ${JSON.stringify(snapshot)}`);
   }
   return snapshot;

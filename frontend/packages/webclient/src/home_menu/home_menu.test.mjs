@@ -124,9 +124,21 @@ assert.equal(liveCatalogCard.dataset.iconKind, "apps");
 assert.equal(liveCatalogCard.dataset.menuXmlid, "base.menu_ir_module_module");
 assert.equal(liveCatalogCard.dataset.menuPath, undefined);
 assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_menu_path")).length, 0);
+assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_icon_fallback")).length, 0);
+const liveCatalogIcon = findAll(liveCatalogCard, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0];
+assert.equal(liveCatalogIcon.dataset.iconToken, "apps");
+assert.equal(liveCatalogIcon.dataset.generatedIcon, "clean-room");
+assert.match(liveCatalogIcon.src, /^data:image\/svg\+xml,/);
+assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
 const liveSettingsCard = findAll(liveMenu, (node) => node.dataset?.menuId === "4")[0];
 assert.equal(liveSettingsCard.dataset.appKey, "settings");
 assert.equal(liveSettingsCard.dataset.iconKind, "settings");
+assert.equal(findAll(liveSettingsCard, (node) => String(node.className).includes("o_app_icon_fallback")).length, 0);
+const liveSettingsIcon = findAll(liveSettingsCard, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0];
+assert.equal(liveSettingsIcon.dataset.iconToken, "settings");
+assert.equal(liveSettingsIcon.dataset.generatedIcon, "clean-room");
+assert.match(liveSettingsIcon.src, /^data:image\/svg\+xml,/);
+assert.equal(findAll(liveSettingsCard, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
 const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
 const liveSearchWrap = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_search"))[0];
 assert.equal(liveSearchWrap.dataset.searchActive, "false");
@@ -183,8 +195,8 @@ const coreIconMenu = renderHomeMenu({
   1: { id: 1, name: "Settings", children: [], webIcon: "fa-cog,#ffffff,#714b67" }
 });
 assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
-assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback")).length, 1);
-assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback"))[0].dataset.iconKind, "settings");
+assert.equal(findAll(coreIconMenu, (node) => String(node.className).includes("o_app_icon_fallback")).length, 0);
+assert.equal(findAll(coreIconMenu, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0].dataset.iconKind, "settings");
 const defaultGlyphMenu = renderHomeMenu({
   root: { children: [1] },
   1: { id: 1, name: "Approvals", children: [] }

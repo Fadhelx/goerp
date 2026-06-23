@@ -389,7 +389,9 @@ const catalog = mod.renderAppsCatalogView({
     crm: { name: "CRM", technical_name: "crm", state: "uninstalled", installable: true, category: "Sales", summary: "Pipeline and leads", depends: ["mail"] },
     calendar: { name: "Calendar", technical_name: "calendar", state: "to upgrade", installable: true, category: "Productivity", summary: "Meetings" },
     mail: { name: "Mail", technical_name: "mail", state: "installed", installable: true, category: "Productivity", description: "Discuss and messages", website: "https://example.test/mail" },
-    project: { name: "Project", technical_name: "project", state: "to remove", installable: true, category: "Services" }
+    project: { name: "Project", technical_name: "project", state: "to remove", installable: true, category: "Services" },
+    settings: { name: "Settings", technical_name: "settings", state: "uninstalled", installable: true, category: "Administration" },
+    data_recycle: { name: "Data Recycle", technical_name: "data_recycle", state: "uninstalled", installable: true, category: "Technical" }
   }
 }, {
   onModuleAction: (technicalName, method, query) => moduleActions.push({ technicalName, method, query })
@@ -397,11 +399,32 @@ const catalog = mod.renderAppsCatalogView({
 assert.equal(findAll(catalog, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
 assert.equal(findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-sidebar")).length, 1);
 assert.deepEqual(findAll(catalog, (node) => node.dataset?.catalogFilter).map((node) => node.dataset.catalogFilter), ["all", "official", "industries"]);
-assert.deepEqual(findAll(catalog, (node) => String(node.className).includes("o_search_panel_category")).map((node) => node.dataset.category), ["all", "Sales", "Services", "Productivity"]);
+assert.deepEqual(findAll(catalog, (node) => String(node.className).includes("o_search_panel_category")).map((node) => node.dataset.category), ["all", "Sales", "Services", "Productivity", "Administration"]);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
-assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_icon") && !node.textContent).length, 4);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_icon") && !node.textContent).length, 6);
+const generatedCatalogIcons = findAll(catalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon"));
+assert.equal(generatedCatalogIcons.length, 6);
+assert.equal(generatedCatalogIcons.every((node) => node.dataset?.generatedIcon === "clean-room"), true);
+assert.equal(generatedCatalogIcons.every((node) => String(node.src).startsWith("data:image/svg+xml,")), true);
 assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_summary") && node.textContent === "Pipeline and leads").length, 1);
+const referenceCatalog = mod.renderAppsCatalogView({
+  modules: Object.fromEntries(Array.from({ length: 24 }, (_item, index) => [
+    `stub_${index}`,
+    { name: `Stub ${index}`, technical_name: `stub_${index}`, category: "Hidden", state: "uninstalled", installable: true }
+  ]))
+});
+assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && allText(node).includes("Manage securities, transactions, and cap tables.")).length, 1);
+assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "mrp" && allText(node).includes("Manufacturing Orders & BOMs")).length, 1);
+assert.equal(findAll(referenceCatalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon") && node.dataset?.generatedIcon === "clean-room").length, 77);
+assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "equity" && node.textContent === "Module Info"), true);
+assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "sale_management" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "sale_management" && node.textContent === "Learn More"), true);
+const virtualSalesInstall = findAll(referenceCatalog, (node) => node.dataset?.moduleName === "sale_management" && String(node.className).includes("gorp-apps-catalog-card"))[0].children
+  .flatMap((node) => node.children ?? [])
+  .find((node) => node.dataset?.moduleAction === "button_immediate_install");
+assert.equal(virtualSalesInstall.disabled, false);
+assert.equal(virtualSalesInstall.dataset.virtualAction, "true");
+assert.equal(virtualSalesInstall.attributes["aria-disabled"], "true");
 findAll(catalog, (node) => node.dataset?.catalogFilter === "official")[0].dispatchEvent(new CustomEvent("click"));
 assert.equal(catalog.dataset.activeFilter, "official");
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
@@ -482,22 +505,34 @@ assert.equal(actionManager.dataset.tsActionStatus, "ready");
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && String(node.className).includes("o_settings_view")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_settings_container")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("app_settings_block")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("o_setting_grid")).length, 4);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_setting_box")).length, 7);
-assert.equal(findAll(actionManager, (node) => node.dataset?.hasSettingsAction === "true").length, 5);
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("o_setting_grid")).length, 5);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_setting_box")).length, 16);
+assert.equal(findAll(actionManager, (node) => node.dataset?.hasSettingsAction === "true").length, 14);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsAction === "invite-users").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users" && node.dataset?.settingsTargetModel === "res.users").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "groups" && node.dataset?.settingsTargetModel === "res.groups").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "languages" && node.dataset?.settingsTargetModel === "res.lang").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "company_records" && node.dataset?.settingsTargetModel === "res.company").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "companies" && node.dataset?.settingsTargetModel === "res.company").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "server_actions" && node.dataset?.settingsTargetModel === "ir.actions.server").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "scheduled_actions" && node.dataset?.settingsTargetModel === "ir.cron").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "automation_rules" && node.dataset?.settingsTargetModel === "base.automation").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "views" && node.dataset?.settingsTargetModel === "ir.ui.view").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "access_rights" && node.dataset?.settingsTargetModel === "ir.model.access").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "record_rules" && node.dataset?.settingsTargetModel === "ir.rule").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "email_templates" && node.dataset?.settingsTargetModel === "mail.template").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "ai" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users")[0].textContent, "Manage Users");
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "languages")[0].textContent, "Languages");
+assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "server_actions")[0].textContent, "Server Actions");
 assert.match(allText(actionManager), /General Settings/);
 assert.match(allText(actionManager), /Invite New Users/);
 assert.match(allText(actionManager), /1 Active User/);
 assert.match(allText(actionManager), /Languages/);
 assert.match(allText(actionManager), /Companies/);
+assert.match(allText(actionManager), /Technical/);
+assert.match(allText(actionManager), /Record Rules/);
 assert.equal(globalThis.location.hash.includes("model=res.config.settings"), true);
 assert.equal(globalThis.location.hash.includes("view_type=form"), true);
 

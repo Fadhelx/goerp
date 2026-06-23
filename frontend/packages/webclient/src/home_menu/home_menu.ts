@@ -193,7 +193,10 @@ const APPS_CATALOG_SEARCH_TEXT = "apps applications modules install";
 function launcherRootApps(apps: readonly HomeMenuApp[], catalogApp: HomeMenuApp | null): HomeMenuApp[] {
   const settings = apps.find((app) => app.key === "settings" || app.name.toLowerCase() === "settings");
   const appsEntry = catalogApp ?? apps.find(isAppsCatalogApp) ?? apps.find((app) => app.key === "apps" || app.name.toLowerCase() === "apps");
-  if (settings && appsEntry) return [{ ...appsEntry, key: "apps", initials: "A", iconToken: "apps", parentPath: undefined }, settings];
+  if (settings && appsEntry) return [
+    { ...appsEntry, key: "apps", initials: "A", iconToken: "apps", parentPath: undefined },
+    { ...settings, iconToken: "settings", parentPath: undefined }
+  ];
   return [...apps];
 }
 
@@ -212,6 +215,18 @@ function appHref(app: HomeMenuApp): string {
 }
 
 function appIconImage(app: HomeMenuApp): HTMLImageElement | null {
+  const generatedCoreIcon = cleanRoomLauncherIconSource(app);
+  if (generatedCoreIcon) {
+    const image = document.createElement("img");
+    image.className = "o_app_icon o_app_icon_core rounded-3";
+    image.alt = "";
+    image.src = generatedCoreIcon;
+    image.dataset.iconKind = launcherIconKind(app);
+    image.dataset.iconToken = app.iconToken;
+    image.setAttribute("aria-hidden", "true");
+    image.dataset.generatedIcon = "clean-room";
+    return image;
+  }
   const source = typeof app.menu.webIconData === "string" ? app.menu.webIconData.trim() : "";
   const iconSource = appIconSource(source, app.menu.webIconDataMimetype);
   if (!iconSource) return null;
@@ -246,6 +261,41 @@ function appIconElement(app: HomeMenuApp): HTMLElement {
     icon.append(glyph);
   }
   return icon;
+}
+
+function cleanRoomLauncherIconSource(app: HomeMenuApp): string {
+  const kind = launcherIconKind(app);
+  if (kind === "apps") {
+    return svgDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
+        <rect width="70" height="70" rx="6" fill="#263445"/>
+        <circle cx="35" cy="35" r="22" fill="#f6f7f9"/>
+        <path d="M35 13a22 22 0 0 1 22 22H35Z" fill="#22c6c2"/>
+        <path d="M57 35a22 22 0 0 1-22 22V35Z" fill="#ef7f55"/>
+        <path d="M35 57A22 22 0 0 1 13 35h22Z" fill="#7f6fa7"/>
+        <path d="M13 35a22 22 0 0 1 22-22v22Z" fill="#4d8fca"/>
+        <circle cx="35" cy="35" r="9" fill="#263445"/>
+        <circle cx="35" cy="35" r="4" fill="#f6f7f9"/>
+      </svg>
+    `);
+  }
+  if (kind === "settings") {
+    return svgDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
+        <rect width="70" height="70" rx="6" fill="#263445"/>
+        <path d="M35 9 53 19v22L35 61 17 41V19Z" fill="#ef8a48"/>
+        <path d="M35 9 53 19v22L35 61Z" fill="#f4bd5f"/>
+        <circle cx="35" cy="35" r="15" fill="#875a7b"/>
+        <circle cx="35" cy="35" r="7" fill="#263445"/>
+        <path d="M35 13v10M35 47v10M13 35h10M47 35h10" stroke="#f6f7f9" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    `);
+  }
+  return "";
+}
+
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, " ").trim())}`;
 }
 
 interface ParsedWebIcon {
@@ -301,6 +351,8 @@ function safeIconColor(value: string): string {
 
 function defaultAppIconBackground(app: HomeMenuApp): string {
   switch (app.iconToken) {
+    case "apps": return "#b05f4a";
+    case "settings": return "#5f6f94";
     case "teal": return "#017e84";
     case "purple": return "#875a7b";
     case "blue": return "#5f6f94";

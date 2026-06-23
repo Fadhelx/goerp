@@ -1795,7 +1795,11 @@ assert.deepEqual(relationAffordanceCalls.filter((call) => call.kind === "call").
   kwargs: { name: "tag", domain: [], operator: "ilike", limit: 1, context: { lang: "en_US" } }
 });
 assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-create")).map((node) => node.textContent)[0], `Create "tag"`);
-assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more")).length, 1);
+const relationAffordanceM2MDropdown = findAll(relationAffordanceM2M, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-dropdown"))[0];
+assert.equal(relationAffordanceM2M.dataset.dropdownPlacement, "bottom-start");
+assert.equal(relationAffordanceM2MDropdown.dataset.placement, "bottom-start");
+assert.equal(relationAffordanceM2MDropdown.dataset.widthSource, "field");
+assert.equal(findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more")).map((node) => node.textContent)[0], "Search more...");
 findAll(relationAffordanceM2M, (node) => String(node.className ?? "").includes("gorp-x2many-search-more"))[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(relationAffordanceCalls.filter((call) => call.kind === "call").at(-1), {
@@ -1927,6 +1931,10 @@ assert.deepEqual(genericFormLabels.slice(0, 5), ["Model", "Allowed Groups", "Typ
 assert.equal(genericFormLabels.filter((label) => label === "Model").length, 1);
 assert.equal(findAll(genericForm, (node) => node.dataset?.field === "model_name").length, 0);
 const genericActiveReadonly = findAll(genericForm, (node) => String(node.className ?? "").includes("gorp-readonly-boolean") && node.dataset?.field === "active")[0];
+assert.equal(genericActiveReadonly.tag, "input");
+assert.equal(genericActiveReadonly.type, "checkbox");
+assert.equal(genericActiveReadonly.checked, true);
+assert.equal(genericActiveReadonly.disabled, true);
 assert.equal(genericActiveReadonly.attributes["aria-checked"], "true");
 assert.equal(genericActiveReadonly.textContent, "");
 const genericContextualButton = findAll(genericForm, (node) => node.dataset?.serverActionContextual === "true")[0];
@@ -2025,7 +2033,11 @@ assert.deepEqual(genericFormSearchCalls[0], {
 assert.equal(genericRelationToggle.attributes["aria-expanded"], "true");
 assert.equal(genericRelationInput.attributes["aria-expanded"], "true");
 assert.equal(genericRelation.dataset.resId, "5");
+assert.equal(genericRelation.dataset.dropdownPlacement, "bottom-start");
 let genericRelationOptions = findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
+const genericRelationDropdown = findAll(genericRelation, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-many2one-dropdown"))[0];
+assert.equal(genericRelationDropdown.dataset.placement, "bottom-start");
+assert.equal(genericRelationDropdown.dataset.widthSource, "field");
 assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Contact", "Mail", "Mail Server", "Message"]);
 assert.equal(genericRelationOptions[0].dataset.selected, "true");
 assert.equal(genericRelationOptions[0].dataset.active, "true");
@@ -2064,6 +2076,10 @@ assert.deepEqual(genericFormSearchCalls[2], {
   kwargs: { name: "sales", domain: [["share", "=", false]], operator: "ilike", limit: 15, context: { lang: "en_US", active_test: false } }
 });
 const genericGroupOptions = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-option"));
+assert.equal(genericGroups.dataset.dropdownPlacement, "bottom-start");
+const genericGroupsDropdown = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-dropdown"))[0];
+assert.equal(genericGroupsDropdown.dataset.placement, "bottom-start");
+assert.equal(genericGroupsDropdown.dataset.widthSource, "field");
 assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
 assert.equal(findAll(genericGroups, (node) => String(node.className ?? "").includes("gorp-x2many-create")).length, 0);
 genericGroupOptions[0].dispatchEvent(new TestEvent("click"));
@@ -2081,6 +2097,10 @@ assert.deepEqual(genericFormSearchCalls[3], {
 });
 assert.equal(genericLineOwnerToggle.attributes["aria-expanded"], "true");
 assert.equal(genericLineOwnerInput.attributes["aria-expanded"], "true");
+assert.equal(genericLineOwner.dataset.dropdownPlacement, "bottom-start");
+const genericLineOwnerDropdown = findAll(genericLineOwner, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-many2one-dropdown"))[0];
+assert.equal(genericLineOwnerDropdown.dataset.placement, "bottom-start");
+assert.equal(genericLineOwnerDropdown.dataset.widthSource, "field");
 const genericLineOwnerOptions = findAll(genericLineOwner, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
 assert.deepEqual(genericLineOwnerOptions.map((node) => node.textContent), ["Administrator", "Demo User"]);
 genericLineOwnerOptions[1].dispatchEvent(new TestEvent("click"));
@@ -2327,6 +2347,8 @@ assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-state"))[0].textContent, "Execute Code");
 assert.equal(findAll(cronBand, (node) => String(node.className ?? "").includes("gorp-server-action-meta-value"))[0].textContent, "4 Hours");
 assert.equal(findAll(cronForm, (node) => node.dataset?.scheduledActionRun === "true")[0].textContent, "Run Manually");
+const cronSheet = findAll(cronForm, (node) => String(node.className ?? "").includes("gorp-form-sheet"))[0];
+assert.equal(findAll(cronSheet, (node) => node.dataset?.scheduledActionRun === "true").length, 1);
 const cronLabels = findAll(cronForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent);
 assert.deepEqual(cronLabels.slice(0, 7), [
   "Model",
@@ -5838,6 +5860,8 @@ const usersSearchRead = usersListSpecRequests.find((request) => request.route ==
 assert.deepEqual(Object.keys(usersSearchRead.params.kwargs.specification), ["name", "login", "role"]);
 const usersListWindow = renderWindowAction(usersListResult);
 const usersListTable = findAll(usersListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.equal(findAll(usersListTable, (node) => node.tag === "th" && String(node.className ?? "").includes("o_list_record_selector")).length, 1);
+assert.equal(findAll(usersListTable.children[1].children[0].children[0], (node) => node.tag === "input" && node.type === "checkbox").length, 1);
 assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Role"]);
 assert.deepEqual(findAll(usersListTable.children[1].children[0], (node) => node.tag === "output").map((node) => node.textContent), ["Administrator", "admin"]);
 assert.equal(findAll(usersListTable.children[1].children[0], (node) => String(node.className ?? "").includes("gorp-user-role-badge"))[0].textContent, "Administrator");

@@ -9130,14 +9130,13 @@ const webClientShellHTML = `<!doctype html>
 		grid-template-columns: 56px minmax(0, 1fr) auto;
 		grid-template-areas:
 			"icon title menu"
-			"icon tech tech"
 			"icon summary summary"
 			"icon actions info";
 		gap: 4px 12px;
 		align-items: start;
 		border: 1px solid var(--line);
 		background: #fff;
-		min-height: 108px;
+		min-height: 98px;
 		padding: 10px 11px;
 	}
 	.gorp-apps-catalog-card .app-icon {

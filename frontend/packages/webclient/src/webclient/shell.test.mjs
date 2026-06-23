@@ -183,6 +183,7 @@ assert.deepEqual(catalogOpened, [
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Apps");
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "12");
 assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.className).includes("o_nav_entry active")).length, 1);
+assert.deepEqual(findAll(catalogShell, (node) => String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), ["Apps"]);
 
 const directContextOpened = [];
 const directContextShell = createWebClientShell({
