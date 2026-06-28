@@ -1,0 +1,222 @@
+{
+  "generated_at": "2026-06-28T13:36:45.630Z",
+  "base_url": "https://api.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "afc122e09ebdeb4b0a575d775363627092bd3f9f881773dc1c95d37cad83194d",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 7,
+          "chips": [
+            "Top-level actions"
+          ],
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "64",
+            "scheduled_action": true
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 1,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Mail Server"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 489,
+          "input_width": 489
+        },
+        "relation_x2many_initial_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "expanded": "true",
+          "active_descendant": "x2m-group_ids-option-0",
+          "active_index": "0",
+          "active_count": 1,
+          "button_count": 11,
+          "option_count": 8,
+          "labels": [
+            "Role / User",
+            "Email Marketing / User",
+            "Default access for new users",
+            "OI Base / User",
+            "Workflow / User",
+            "Delegation / User",
+            "Workflow Advance / User",
+            "Login As / User"
+          ]
+        },
+        "relation_x2many_keyboard_state": {
+          "active_descendant": "x2m-group_ids-option-1",
+          "active_index": "1",
+          "active_count": 1,
+          "button_count": 11
+        }
+      },
+      "duration_ms": 11873
+    },
+    {
+      "name": "default-relation-dialog-actions-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dialog-actions-desktop.png",
+      "sha256": "583328e3ce7303d466037c8cb7a6a42587ee4d2c9c857f2db37d185f5cb3e8d4",
+      "assertions": {
+        "form_count": 1,
+        "rendered_state": {
+          "initial": {
+            "editor_count": 1,
+            "open_count": 1,
+            "open_hidden": true,
+            "open_disabled": true,
+            "open_class": "gorp-many2one-open o_external_button btn btn-link text-action px-1",
+            "no_open": ""
+          },
+          "after_create": {
+            "res_id": "99",
+            "input_value": "Created Record",
+            "open_hidden": false,
+            "open_disabled": false,
+            "open_res_id": "99",
+            "open_label": "Open: Partner",
+            "open_tooltip": "Internal link"
+          },
+          "calls": [
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "omega",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "new acme",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_create",
+              "args": [
+                "new acme"
+              ],
+              "kwargs": {
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "new acme"
+                },
+                "create_name_field": "name"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Create Partner",
+                "res_model": "res.partner",
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new",
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "omega"
+                }
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            },
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Open: Partner",
+                "res_model": "res.partner",
+                "res_id": 99,
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new"
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            }
+          ]
+        }
+      },
+      "duration_ms": 7473
+    }
+  ],
+  "duration_ms": 19491
+}
