@@ -1,0 +1,37 @@
+{
+  "apps": [
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "borderRadius": "6px",
+      "height": 115,
+      "imgHeight": 70,
+      "imgRadius": "6px",
+      "imgWidth": 70,
+      "left": 274,
+      "text": "Apps",
+      "top": 171,
+      "width": 136
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "borderRadius": "6px",
+      "height": 115,
+      "imgHeight": 70,
+      "imgRadius": "6px",
+      "imgWidth": 70,
+      "left": 410,
+      "text": "Settings",
+      "top": 171,
+      "width": 136
+    }
+  ],
+  "banner": {
+    "text": "×You will be able to register your database once you have installed your first app.",
+    "top": 70,
+    "width": 818
+  },
+  "viewport": {
+    "height": 900,
+    "width": 1366
+  }
+}

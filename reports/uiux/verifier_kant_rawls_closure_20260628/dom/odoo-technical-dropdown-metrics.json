@@ -1,0 +1,464 @@
+{
+  "buttonText": "Technical",
+  "compactLabels": [
+    "Email",
+    "Outgoing Mail Servers",
+    "Actions",
+    "Reports",
+    "Window Actions",
+    "Client Actions",
+    "Server Actions",
+    "Embedded Actions",
+    "Configuration Wizards",
+    "User-defined Defaults",
+    "IAP",
+    "IAP Accounts",
+    "User Interface",
+    "Menu Items",
+    "Views",
+    "Customized Views",
+    "User-defined Filters",
+    "Tours",
+    "Database Structure",
+    "Decimal Accuracy",
+    "Assets",
+    "Models",
+    "Fields",
+    "Fields Selection",
+    "Model Constraints",
+    "ManyToMany Relations",
+    "Attachments",
+    "Logging",
+    "Profiling",
+    "Automation",
+    "Scheduled Actions",
+    "Scheduled Actions Triggers",
+    "Reporting",
+    "Paper Format",
+    "Sequences & Identifiers",
+    "External Identifiers",
+    "Sequences",
+    "Parameters",
+    "System Parameters",
+    "Security",
+    "Record Rules",
+    "Access Rights",
+    "User Devices"
+  ],
+  "expanded": "true",
+  "labels": [
+    "Email",
+    "Outgoing Mail Servers",
+    "Actions",
+    "Actions",
+    "Reports",
+    "Window Actions",
+    "Client Actions",
+    "Server Actions",
+    "Embedded Actions",
+    "Configuration Wizards",
+    "User-defined Defaults",
+    "IAP",
+    "IAP Accounts",
+    "User Interface",
+    "Menu Items",
+    "Views",
+    "Customized Views",
+    "User-defined Filters",
+    "Tours",
+    "Database Structure",
+    "Decimal Accuracy",
+    "Assets",
+    "Models",
+    "Fields",
+    "Fields Selection",
+    "Model Constraints",
+    "ManyToMany Relations",
+    "Attachments",
+    "Logging",
+    "Profiling",
+    "Automation",
+    "Scheduled Actions",
+    "Scheduled Actions Triggers",
+    "Reporting",
+    "Paper Format",
+    "Reports",
+    "Sequences & Identifiers",
+    "External Identifiers",
+    "Sequences",
+    "Parameters",
+    "System Parameters",
+    "Security",
+    "Record Rules",
+    "Access Rights",
+    "User Devices"
+  ],
+  "menuClass": "o_popover popover mw-100 bs-popover-auto o-dropdown--menu dropdown-menu mx-0",
+  "menuVisible": true,
+  "rawChildren": [
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Email"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Outgoing Mail Servers"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Reports"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Window Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Client Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Server Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Embedded Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Configuration Wizards"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "User-defined Defaults"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "IAP"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "IAP Accounts"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "User Interface"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Menu Items"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Views"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Customized Views"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "User-defined Filters"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Tours"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Database Structure"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Decimal Accuracy"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Assets"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Models"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Fields"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Fields Selection"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Model Constraints"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "ManyToMany Relations"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Attachments"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Logging"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Profiling"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Automation"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Scheduled Actions"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Scheduled Actions Triggers"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Reporting"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Paper Format"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Reports"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Sequences & Identifiers"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "External Identifiers"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Sequences"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Parameters"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "System Parameters"
+    },
+    {
+      "className": "dropdown-menu_group dropdown-header",
+      "tag": "DIV",
+      "text": "Security"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Record Rules"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "Access Rights"
+    },
+    {
+      "className": "o-dropdown-item dropdown-item o-navigable o_dropdown_menu_group_entry",
+      "tag": "A",
+      "text": "User Devices"
+    }
+  ],
+  "rawText": "Email\nOutgoing Mail Servers\nActions\nActions\nReports\nWindow Actions\nClient Actions\nServer Actions\nEmbedded Actions\nConfiguration Wizards\nUser-defined Defaults\nIAP\nIAP Accounts\nUser Interface\nMenu Items\nViews\nCustomized Views\nUser-defined Filters\nTours\nDatabase Structure\nDecimal Accuracy\nAssets\nModels\nFields\nFields Selection\nModel Constraints\nManyToMany Relations\nAttachments\nLogging\nProfiling\nAutomation\nScheduled Actions\nScheduled Actions Triggers\nReporting\nPaper Format\nReports\nSequences & Identifiers\nExternal Identifiers\nSequences\nParameters\nSystem Parameters\nSecurity\nRecord Rules\nAccess Rights\nUser Devices",
+  "url": "http://127.0.0.1:8076/odoo/settings?debug=1",
+  "visibleText": [
+    "Settings",
+    "General Settings",
+    "Users & Companies",
+    "Translations",
+    "Technical",
+    "My Company",
+    "Administrator",
+    "gorp_ref_ui_verifier_kant_20260628_180701",
+    "Save",
+    "Discard",
+    "Settings",
+    "General Settings",
+    "Users",
+    "Invite New Users",
+    "Invite",
+    "1 Active User",
+    "Manage Users",
+    "Languages",
+    "1 Language",
+    "Add Languages",
+    "Manage Languages",
+    "Companies",
+    "My Company",
+    "Update Info",
+    "1 Company",
+    "Manage Companies",
+    "Document Layout",
+    "Choose the layout of your documents",
+    "Layout",
+    "Configure Document Layout",
+    "Edit Layout",
+    "Preview Document",
+    "Contacts",
+    "Send SMS",
+    "Send texts to your contacts",
+    "Partner Autocomplete",
+    "Automatically enrich your contact base with company data",
+    "Odoo IAP",
+    "View your IAP Services and recharge your credits",
+    "View My Services",
+    "Permissions",
+    "Default Access Rights",
+    "Set custom access rights for new users",
+    "Default Access Rights",
+    "API Keys",
+    "API Keys allow your users to access Odoo with external tools when multi-factor authentication is enabled.",
+    "Manage API Keys",
+    "Import & Export",
+    "Allow users to import data from CSV/XLS/XLSX/ODS files",
+    "Show Effect",
+    "Add fun feedback and motivate your employees",
+    "Progressive Web App",
+    "Web App Name",
+    "This name will be used for the application when Odoo is installed through the browser.",
+    "Integrations",
+    "Mail Plugin",
+    "Integrate with mail client plugins",
+    "OAuth Authentication",
+    "Use external accounts to log in (Google, Facebook, etc.)",
+    "LDAP Authentication",
+    "Use LDAP credentials to log in",
+    "Unsplash Image Library",
+    "Find free high-resolution images from Unsplash",
+    "Access Key",
+    "Application ID",
+    "Generate an Access Key",
+    "Geolocation",
+    "Geolocate your partners",
+    "Map Routes",
+    "Set a MapBox account to activate routes and style",
+    "Token",
+    "Sign up to MapBox to get a free token",
+    "reCAPTCHA",
+    "Protect your forms from spam and abuse.",
+    "Cloudflare Turnstile",
+    "Protect your forms with CF Turnstile.",
+    "Google Address Autocomplete",
+    "Autocomplete partner addresses with Google Places",
+    "Performance",
+    "Profiling enabled until",
+    "Enable the profiling tool. Profiling may impact performance while being active.",
+    "Developer Tools",
+    "Activate the developer mode (with assets)",
+    "Activate the developer mode (with tests assets)",
+    "Deactivate the developer mode",
+    "Load demo data",
+    "About",
+    "Odoo 19.0+e (Enterprise Edition)",
+    "Database expiration: July 28, 2026",
+    "Copyright © 2004 Odoo S.A. Odoo Enterprise Edition License V1.0",
+    "Email",
+    "Outgoing Mail Servers",
+    "Actions",
+    "Actions",
+    "Reports",
+    "Window Actions",
+    "Client Actions",
+    "Server Actions",
+    "Embedded Actions",
+    "Configuration Wizards",
+    "User-defined Defaults",
+    "IAP",
+    "IAP Accounts",
+    "User Interface",
+    "Menu Items",
+    "Views",
+    "Customized Views",
+    "User-defined Filters",
+    "Tours",
+    "Database Structure",
+    "Decimal Accuracy",
+    "Assets",
+    "Models",
+    "Fields",
+    "Fields Selection",
+    "Model Constraints",
+    "ManyToMany Relations",
+    "Attachments",
+    "Logging",
+    "Profiling",
+    "Automation",
+    "Scheduled Actions",
+    "Scheduled Actions Triggers",
+    "Reporting",
+    "Paper Format",
+    "Reports",
+    "Sequences & Identifiers",
+    "External Identifiers",
+    "Sequences",
+    "Parameters",
+    "System Parameters",
+    "Security",
+    "Record Rules",
+    "Access Rights",
+    "User Devices"
+  ]
+}

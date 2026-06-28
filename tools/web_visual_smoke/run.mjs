@@ -13,13 +13,13 @@ const DEFAULT_BASE_URL = "http://127.0.0.1:8069";
 const DEFAULT_OUT_DIR = "reports/web_visual_smoke";
 const ODOO_TECHNICAL_DROPDOWN_LABELS = [
   "Email",
-  "Outgoing Mail Server",
+  "Outgoing Mail Servers",
   "Actions",
   "Actions",
-  "Report",
-  "Window Action",
-  "Client Action",
-  "Server Action",
+  "Reports",
+  "Window Actions",
+  "Client Actions",
+  "Server Actions",
   "Embedded Actions",
   "Configuration Wizards",
   "User-defined Defaults",
@@ -47,7 +47,7 @@ const ODOO_TECHNICAL_DROPDOWN_LABELS = [
   "Scheduled Actions Triggers",
   "Reporting",
   "Paper Format",
-  "Report",
+  "Reports",
   "Sequences & Identifiers",
   "External Identifiers",
   "Sequences",
@@ -65,10 +65,12 @@ export const scenarios = [
     name: "launcher-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      await openWeb(page, config, desktopViewport());
-      const appCount = await waitForCount(page, "#appGrid .o_app", 2, "launcher app tiles");
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "launcher TS webclient ready");
+      const appCount = await waitForCount(page, ".o_web_client .o_home_menu .o_app", 2, "launcher app tiles");
       const systrayCount = await waitForCount(page, ".o_menu_systray [role='menuitem']", 3, "systray entries");
-      const launcherChrome = await assertLegacyLauncherChromeSnapshot(page);
+      const launcherChrome = await assertEnterpriseLauncherSnapshot(page);
       return { app_count: appCount, systray_count: systrayCount, launcher_chrome: launcherChrome };
     }
   },
@@ -294,13 +296,13 @@ export const scenarios = [
       for (const label of ["Email", "Actions", "IAP", "User Interface", "Database Structure"]) {
         if (!technicalMenu.headers.includes(label)) throw new Error(`Technical dropdown missing header ${label}: ${JSON.stringify(technicalMenu)}`);
       }
-      for (const label of ["Server Action", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Server", "IAP Accounts", "Tours", "Paper Format"]) {
+      for (const label of ["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "Outgoing Mail Servers", "IAP Accounts", "Tours", "Paper Format"]) {
         if (!technicalMenu.item_labels.includes(label)) throw new Error(`Technical dropdown missing item ${label}: ${JSON.stringify(technicalMenu)}`);
       }
       for (const label of ["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers", "Incoming Mail Server"]) {
         if (visibleLabels.includes(label)) throw new Error(`Technical dropdown exposes non-reference label: ${JSON.stringify({ label, visibleLabels })}`);
       }
-      await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Action");
+      await clickExactText(page, ".o_web_client .o_navbar_dropdown_menu.show .o_navbar_dropdown_item", "Server Actions");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "nested menu Server Actions ready");
       const activeTitle = await textContent(page, ".o_web_client .o_action_manager .o_breadcrumb .active");
       if (activeTitle !== "Server Actions") throw new Error(`Technical dropdown did not open Server Actions: ${activeTitle}`);
@@ -349,7 +351,7 @@ export const scenarios = [
           items,
           visibleLabels,
           has_grouped_sections: headers.length >= 5,
-          has_admin_items: ${JSON.stringify(["Server Action", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"])}.every((label) => items.includes(label)),
+          has_admin_items: ${JSON.stringify(["Server Actions", "Scheduled Actions", "Scheduled Actions Triggers", "Views", "Menu Items", "Models", "Fields", "Fields Selection", "ManyToMany Relations", "Access Rights", "Record Rules", "IAP Accounts", "Tours", "Paper Format"])}.every((label) => items.includes(label)),
           reference_order: JSON.stringify(visibleLabels) === ${JSON.stringify(JSON.stringify(ODOO_TECHNICAL_DROPDOWN_LABELS))},
           hidden_custom_first_page: !visibleLabels.some((label) => ${JSON.stringify(["Users", "Groups", "Companies", "Languages", "Automation Rules", "Apps", "Scheduled Messages", "Email Templates", "Incoming Mail Servers", "Incoming Mail Server"])}.includes(label))
         };
@@ -463,7 +465,7 @@ export const scenarios = [
           systray_count: document.querySelectorAll(".o_web_client .o_menu_systray [role='menuitem']").length
         };
       })()`);
-      const allowedTopbarBackgrounds = new Set(["rgb(40, 42, 53)"]);
+      const allowedTopbarBackgrounds = new Set(["rgb(38, 42, 54)"]);
       if (!topbarState.contract || topbarState.height < 44 || topbarState.height > 48 || !allowedTopbarBackgrounds.has(topbarState.background) || topbarState.launcher_width < 30 || !["rgb(113, 75, 103)", "rgb(135, 90, 123)"].includes(topbarState.launcher_dot) || topbarState.systray_count < 4) {
         throw new Error(`TS action topbar contract invalid: ${JSON.stringify(topbarState)}`);
       }
@@ -3254,7 +3256,7 @@ async function assertEnterprisePolishSnapshot(page) {
     };
   })()`);
   const issues = [];
-  const acceptedControlPanelBG = new Set(["rgb(40, 42, 53)"]);
+  const acceptedControlPanelBG = new Set(["rgb(38, 42, 54)"]);
   const acceptedListHeaderBG = new Set(["rgb(27, 29, 39)"]);
   if (!acceptedControlPanelBG.has(snapshot.control_panel_bg)) issues.push(`control panel bg ${snapshot.control_panel_bg}`);
   if (snapshot.control_panel_bg === "rgb(255, 255, 255)" && (!snapshot.control_panel_shadow || snapshot.control_panel_shadow === "none")) issues.push("control panel shadow missing");
@@ -3381,7 +3383,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	    const userName = document.querySelector(".o_web_client .o_user_menu_name");
 	    const databaseName = document.querySelector(".o_web_client .o_database_name");
 	    const card = document.querySelector(".o_web_client .o_home_menu .o_app");
-	    const launcherIcons = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")].map((node) => {
+	      const launcherIcons = [...document.querySelectorAll(".o_web_client .o_home_menu .o_app")].map((node) => {
 	      const icon = node.querySelector(".o_app_icon");
 	      const before = icon ? getComputedStyle(icon, "::before") : null;
 	      const after = icon ? getComputedStyle(icon, "::after") : null;
@@ -3389,6 +3391,8 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	        key: node.dataset.appKey || "",
 	        kind: icon?.dataset?.iconKind || node.dataset.iconKind || "",
 	        token: icon?.dataset?.iconToken || "",
+	        generated: icon?.dataset?.generatedIcon || "",
+	        src_prefix: icon?.getAttribute("src")?.slice(0, 32) || "",
 	        before_bg: before?.backgroundImage || before?.backgroundColor || "",
 	        after_bg: after?.backgroundImage || after?.backgroundColor || ""
 	      };
@@ -3474,7 +3478,7 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (!snapshot.app_href.startsWith("#menu_id=")) issues.push(`app href ${snapshot.app_href}`);
 	  if (snapshot.navbar_height_px < 44 || snapshot.navbar_height_px > 48) issues.push(`navbar height ${snapshot.navbar_height_px}`);
 	  if (!transparent.has(snapshot.navbar_bg)) issues.push(`navbar background ${snapshot.navbar_bg}`);
-	  if (snapshot.launcher_top_px > 1 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
+	  if (snapshot.launcher_top_px > 48 || snapshot.launcher_top_px < 0) issues.push(`launcher top ${snapshot.launcher_top_px}`);
 		  if (!isDarkLauncherBackground(snapshot.launcher_bg_color)) issues.push(`launcher background is not dark ${snapshot.launcher_bg_color}`);
 	  if (!isEnterpriseHomeBackgroundImage(snapshot.launcher_bg_image)) issues.push(`enterprise background image missing ${snapshot.launcher_bg_image}`);
 	  if (snapshot.search_height_px > 1) issues.push(`idle search height ${snapshot.search_height_px}`);
@@ -3498,10 +3502,10 @@ async function assertEnterpriseLauncherSnapshot(page) {
   if (snapshot.app_icon_text) issues.push(`synthetic app icon text ${snapshot.app_icon_text}`);
   const appIcon = snapshot.launcher_icons.find((item) => item.key === "apps");
   const settingsIcon = snapshot.launcher_icons.find((item) => item.key === "settings");
-  if (!appIcon || appIcon.kind !== "apps" || !String(appIcon.before_bg).includes("conic-gradient") || String(appIcon.after_bg).includes("svg")) {
+  if (!appIcon || appIcon.kind !== "apps" || appIcon.generated !== "clean-room" || !String(appIcon.src_prefix).startsWith("data:image/png")) {
     issues.push(`apps launcher icon invalid ${JSON.stringify(appIcon)}`);
   }
-  if (!settingsIcon || settingsIcon.kind !== "settings" || !String(settingsIcon.before_bg).includes("conic-gradient") || String(settingsIcon.after_bg).includes("svg")) {
+  if (!settingsIcon || settingsIcon.kind !== "settings" || settingsIcon.generated !== "clean-room" || !String(settingsIcon.src_prefix).startsWith("data:image/png")) {
     issues.push(`settings launcher icon invalid ${JSON.stringify(settingsIcon)}`);
   }
   if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);
@@ -3522,10 +3526,7 @@ function isDarkLauncherBackground(value) {
 
 function isEnterpriseHomeBackgroundImage(value) {
   const image = String(value || "").toLowerCase();
-  const hasSVG = image.includes("data:image/svg+xml");
-  const hasGradient = image.includes("lineargradient") || image.includes("radialgradient");
-  const hasOldOrbs = image.includes("%3ccircle") || image.includes("<circle");
-  return hasSVG && hasGradient && !hasOldOrbs;
+  return image.includes("/web_enterprise/static/img/background-dark.jpg");
 }
 
 async function main() {

@@ -301,13 +301,13 @@ const technicalDropdown = findAll(technicalShell, (node) => node.dataset?.navbar
 const technicalLabels = [...technicalDropdown.children].map((node) => node.textContent).filter(Boolean);
 assert.deepEqual(technicalLabels, [
   "Email",
-  "Outgoing Mail Server",
+  "Outgoing Mail Servers",
   "Actions",
   "Actions",
-  "Report",
-  "Window Action",
-  "Client Action",
-  "Server Action",
+  "Reports",
+  "Window Actions",
+  "Client Actions",
+  "Server Actions",
   "Embedded Actions",
   "Configuration Wizards",
   "User-defined Defaults",
@@ -335,7 +335,7 @@ assert.deepEqual(technicalLabels, [
   "Scheduled Actions Triggers",
   "Reporting",
   "Paper Format",
-  "Report",
+  "Reports",
   "Sequences & Identifiers",
   "External Identifiers",
   "Sequences",
@@ -350,6 +350,7 @@ assert.equal(technicalLabels.includes("Tours"), true);
 assert.equal(technicalLabels.includes("Fields Selection"), true);
 assert.equal(technicalLabels.includes("ManyToMany Relations"), true);
 assert.equal(technicalLabels.includes("Paper Format"), true);
+assert.equal(technicalLabels.includes("Server Actions"), true);
 assert.equal(technicalLabels.includes("Scheduled Messages"), false);
 assert.equal(technicalLabels.includes("Automation Rules"), false);
 assert.equal(technicalLabels.includes("Apps"), false);

@@ -1,0 +1,59 @@
+{
+  "comboboxes": [
+    {
+      "ariaLabel": "",
+      "className": "o_input o_field_translate",
+      "expanded": "",
+      "placeholder": "Set an explicit name",
+      "role": "",
+      "tag": "INPUT",
+      "value": ""
+    },
+    {
+      "ariaLabel": "",
+      "className": "o-autocomplete--input o_input pe-3 text-truncate",
+      "expanded": "true",
+      "placeholder": "",
+      "role": "combobox",
+      "tag": "INPUT",
+      "value": "mail"
+    },
+    {
+      "ariaLabel": "",
+      "className": "o-autocomplete--input o_input pe-3 text-truncate",
+      "expanded": "false",
+      "placeholder": "",
+      "role": "combobox",
+      "tag": "INPUT",
+      "value": ""
+    }
+  ],
+  "dropdownClass": "o-autocomplete--dropdown-menu ui-widget show dropdown-menu ui-autocomplete",
+  "dropdownVisible": true,
+  "options": [
+    "Mail Server",
+    "Mail Server",
+    "Search more...",
+    "Search more..."
+  ],
+  "rawDropdownText": "Mail Server\nSearch more...",
+  "url": "http://127.0.0.1:8076/odoo/server-actions/new?debug=1",
+  "visibleText": [
+    "Settings",
+    "General Settings",
+    "Users & Companies",
+    "Translations",
+    "Technical",
+    "My Company",
+    "Administrator",
+    "gorp_ref_ui_verifier_kant_20260628_180701",
+    "New",
+    "Server Actions",
+    "New",
+    "Create Contextual Action",
+    "Model?",
+    "Mail Server",
+    "Search more...",
+    "Allowed Groups?"
+  ]
+}

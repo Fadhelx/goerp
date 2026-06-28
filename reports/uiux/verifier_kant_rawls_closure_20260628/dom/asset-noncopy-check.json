@@ -1,0 +1,18 @@
+{
+  "goerp_background_sha256": "bc7a141149cd762ac82059a6cf8a96891fab6864ac48c5363d734db71c507cb3",
+  "odoo_reference_hashes": [
+    {
+      "sha256": "e7b01e9e324e3f2e5d67e39d3e4536f51598b17c69b2ed0e55c51e23d68dce6b",
+      "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo17/enterprise/web_enterprise/static/img/background-dark.jpg"
+    },
+    {
+      "sha256": "e7b01e9e324e3f2e5d67e39d3e4536f51598b17c69b2ed0e55c51e23d68dce6b",
+      "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo18/enterprise/web_enterprise/static/img/background-dark.jpg"
+    },
+    {
+      "sha256": "e7b01e9e324e3f2e5d67e39d3e4536f51598b17c69b2ed0e55c51e23d68dce6b",
+      "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/enterprise/web_enterprise/static/img/background-dark.jpg"
+    }
+  ],
+  "copied_byte_identical_to_any_odoo_reference": false
+}

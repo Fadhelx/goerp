@@ -17,7 +17,11 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -95,6 +99,8 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/web/session/destroy", s.sessionDestroy)
 	mux.HandleFunc("/web/session/logout", s.logout)
 	mux.HandleFunc("/web/static/frontend/", s.frontendAsset)
+	mux.HandleFunc("/web_enterprise/static/img/background-dark.jpg", s.cleanRoomEnterpriseBackground)
+	mux.HandleFunc("/web_enterprise/static/img/background-cleanroom.svg", s.cleanRoomEnterpriseBackground)
 	mux.HandleFunc("/web/login_as/", s.loginAs)
 	mux.HandleFunc("/web/login_back", s.loginBack)
 	mux.HandleFunc("/web/become/debug", s.loginAsDebug)
@@ -4991,6 +4997,70 @@ func (s Server) webClient(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, s.webClientShellHTML(r))
 }
 
+func (s Server) cleanRoomEnterpriseBackground(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/web_enterprise/static/img/background-cleanroom.svg" && r.URL.Path != "/web_enterprise/static/img/background-dark.jpg" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if r.Method == http.MethodHead {
+		if strings.HasSuffix(r.URL.Path, ".jpg") {
+			w.Header().Set("Content-Type", "image/jpeg")
+		} else {
+			w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+		}
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, ".jpg") {
+		w.Header().Set("Content-Type", "image/jpeg")
+		writeCleanRoomEnterpriseBackgroundJPEG(w)
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	_, _ = io.WriteString(w, cleanRoomEnterpriseBackgroundSVG)
+}
+
+func writeCleanRoomEnterpriseBackgroundJPEG(w io.Writer) {
+	const width = 1920
+	const height = 1080
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		ny := float64(y) / float64(height-1)
+		for x := 0; x < width; x++ {
+			nx := float64(x) / float64(width-1)
+			base := 5 + 10*ny
+			tealBand := math.Exp(-math.Pow(ny-(0.19+0.20*math.Sin(nx*math.Pi*1.15)), 2) / 0.028)
+			lowerBand := math.Exp(-math.Pow(ny-(0.88-0.16*math.Sin((nx+.08)*math.Pi*1.1)), 2) / 0.022)
+			rightVeil := math.Exp(-math.Pow(nx-.88, 2)/0.018) * math.Exp(-math.Pow(ny-.18, 2)/0.16)
+			vignette := 1 - 0.28*math.Hypot(nx-.52, ny-.45)
+			if vignette < .72 {
+				vignette = .72
+			}
+			noise := float64(((x*37 + y*17 + x*y*3) % 11) - 5)
+			red := (base + 3*tealBand + 2*lowerBand + 4*rightVeil + noise*.18) * vignette
+			green := (base + 21*tealBand + 18*lowerBand + 7*rightVeil + noise*.22) * vignette
+			blue := (17 + 31*tealBand + 29*lowerBand + 19*rightVeil + noise*.22) * vignette
+			img.SetRGBA(x, y, color.RGBA{R: byte(clampByte(red)), G: byte(clampByte(green)), B: byte(clampByte(blue)), A: 255})
+		}
+	}
+	_ = jpeg.Encode(w, img, &jpeg.Options{Quality: 86})
+}
+
+func clampByte(value float64) int {
+	if value < 0 {
+		return 0
+	}
+	if value > 255 {
+		return 255
+	}
+	return int(value + .5)
+}
+
 func (s Server) webClientShellHTML(r *http.Request) string {
 	entry := "apps/webclient/src/main.js"
 	filename, ok := s.frontendDistFile(entry)
@@ -5005,6 +5075,8 @@ func (s Server) webClientShellHTML(r *http.Request) string {
 		fmt.Sprintf(`<script type="module" src="%s"></script>`, src)
 	return strings.Replace(webClientShellHTML, "</body>", script+"\n</body>", 1)
 }
+
+const cleanRoomEnterpriseBackgroundSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="none"><rect width="1920" height="1080" fill="#070b12"/><path d="M-120 0 C320 70 640 210 940 420 C1240 630 1540 560 2040 340 L2040 -120 L-120 -120 Z" fill="#17313d" opacity=".46"/><path d="M-220 900 C260 740 670 880 1040 1010 C1390 1132 1650 980 2040 920 L2040 1200 L-220 1200 Z" fill="#0e2634" opacity=".62"/><path d="M1340 -160 C1510 130 1600 340 1920 470" fill="none" stroke="#242337" stroke-width="190" opacity=".32"/><path d="M-120 440 C340 300 760 380 1120 520 C1460 650 1720 520 2040 440" fill="none" stroke="#111827" stroke-width="180" opacity=".38"/><g fill="#334155" opacity=".42"><circle cx="225" cy="260" r="10"/><circle cx="570" cy="835" r="7"/><circle cx="1125" cy="395" r="8"/><circle cx="1720" cy="225" r="7"/><circle cx="1830" cy="790" r="12"/></g></svg>`
 
 func frontendDistAssetVersion(filename string) string {
 	data, err := os.ReadFile(filename)
@@ -8454,6 +8526,9 @@ const webClientShellHTML = `<!doctype html>
 		width: 100%;
 		padding-right: 28px;
 	}
+	.gorp-many2one-editor:not([data-no-open="true"]) .o_input {
+		padding-right: 56px;
+	}
 	.gorp-settings-many2one .o_input {
 		width: 100%;
 		padding-right: 28px;
@@ -8494,6 +8569,41 @@ const webClientShellHTML = `<!doctype html>
 	.gorp-settings-many2one-toggle.o_dropdown_button:focus {
 		color: var(--text);
 		outline: none;
+	}
+	.gorp-many2one-open.o_external_button {
+		position: absolute;
+		right: 28px;
+		top: 0;
+		bottom: 0;
+		width: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 0;
+		border-left: 1px solid var(--line);
+		border-radius: 0;
+		background: transparent;
+		color: var(--muted);
+		box-shadow: none;
+	}
+	.gorp-many2one-open.o_external_button[hidden] {
+		display: none !important;
+	}
+	.gorp-many2one-open.o_external_button:hover,
+	.gorp-many2one-open.o_external_button:focus {
+		color: var(--text);
+		outline: none;
+	}
+	.gorp-many2one-open.o_external_button .fa {
+		display: none;
+	}
+	.gorp-many2one-open.o_external_button::before {
+		content: "";
+		width: 11px;
+		height: 11px;
+		border: 1px solid currentColor;
+		border-radius: 2px;
+		box-shadow: 4px -4px 0 -2px var(--panel), 4px -4px 0 -1px currentColor;
 	}
 	.gorp-many2one-dropdown-toggle.o_dropdown_button::before,
 	.gorp-settings-many2one-toggle.o_dropdown_button::before {
@@ -11534,9 +11644,496 @@ const webClientShellHTML = `<!doctype html>
 		}
 		#recordForm { padding: 14px; }
 	}
-  </style>
+	/* Clean-room Odoo light chrome parity overrides. Keep this block late in the cascade. */
+	:root,
+	body[data-theme="enterprise"],
+	main.o_web_client[data-theme="enterprise-like"] {
+		--bg: #f5f5f5;
+		--panel: #ffffff;
+		--panel-soft: #f8f9fa;
+		--text: #1f2933;
+		--muted: #6b7280;
+		--line: #d8dadd;
+		--line-soft: #e7e9ed;
+		--hover-bg: #f1f3f5;
+		--control-bg: #262a36;
+		--control-shadow: none;
+		--dropdown-shadow: 0 6px 18px rgba(0,0,0,.12);
+		--list-head: #f7f7f7;
+		--btn-secondary-bg: #ffffff;
+		--btn-secondary-hover: #f5f5f5;
+		--accent: #875a7b;
+		--accent-2: #017e84;
+		--accent-text: #ffffff;
+		--topbar: #262a36;
+		--topbar-hover: #303442;
+		--sidebar: #f8f9fa;
+		--home-bg: #000511;
+		--home-bg-image: url("/web_enterprise/static/img/background-dark.jpg");
+		--home-panel: rgba(255,255,255,.92);
+		--home-line: rgba(31,41,51,.12);
+		--home-text: #ffffff;
+		--home-muted: rgba(255,255,255,.72);
+	}
+	body,
+	main.o_web_client,
+	main.o_web_client > .o_action_manager {
+		background: var(--bg) !important;
+		color: var(--text);
+	}
+	body.o_home_menu_background,
+	body[data-view="apps"],
+	main.o_web_client[data-view="apps"],
+	main.o_web_client[data-view="apps"] > .o_action_manager,
+	main.o_web_client[data-view="apps"] > .o_action_manager > .o-app-launcher-view,
+	.o-app-launcher-view {
+		background-color: var(--home-bg) !important;
+		background-image: var(--home-bg-image) !important;
+		color: var(--home-text) !important;
+	}
+	header,
+	header.o_navbar,
+	.o_navbar > .o_main_navbar,
+	main.o_web_client:not([data-view="apps"]) > .o_navbar > .o_main_navbar {
+		background: var(--topbar) !important;
+		color: #ffffff !important;
+		border-bottom: 1px solid rgba(255,255,255,.08) !important;
+		box-shadow: none !important;
+	}
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar {
+		background: transparent !important;
+		color: #ffffff !important;
+		border-bottom: 0 !important;
+		box-shadow: none !important;
+	}
+	main.o_web_client[data-view="apps"] > .o_navbar {
+		position: relative;
+	}
+	@media (min-width: 621px) {
+		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_action_manager {
+			margin-top: -46px !important;
+		}
+		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_action_manager > .o-app-launcher-view {
+			min-height: calc(100vh + 46px) !important;
+			padding-top: 70px !important;
+		}
+		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] .o_home_menu_registration_banner {
+			margin-bottom: 47px !important;
+		}
+		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] .o-app-launcher-view .o_app {
+			min-height: 115px !important;
+			height: 115px !important;
+			border-radius: 6px !important;
+		}
+	}
+	main.o_web_client[data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_navbar_apps_menu,
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_navbar_sections,
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-mobile-menu-toggle {
+		display: none !important;
+	}
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o_menu_systray,
+	main.o_web_client[data-view="apps"] > .o_navbar > .o_main_navbar .o-systray-item {
+		color: #ffffff !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar {
+		background: transparent !important;
+		border: 0 !important;
+		box-shadow: none !important;
+		color: #ffffff !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_menu_systray,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-systray-item,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-user-menu-button,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-company-switcher {
+		color: #ffffff !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-systray-item:hover,
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-systray-item:focus-visible {
+		background: rgba(255,255,255,.10) !important;
+		color: #ffffff !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o-systray-counter {
+		background: rgba(255,255,255,.16) !important;
+		color: #ffffff !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_navbar > .o_main_navbar .o_database_name {
+		display: none !important;
+	}
+	.o-control-panel,
+	.o_control_panel {
+		min-height: 58px;
+		padding: 8px 16px !important;
+		background: var(--control-bg) !important;
+		border-bottom: 1px solid rgba(255,255,255,.08) !important;
+		box-shadow: var(--control-shadow) !important;
+		color: #ffffff !important;
+	}
+	.o_control_panel_main {
+		gap: 6px 12px;
+	}
+	.o_control_panel_breadcrumbs .breadcrumb-item,
+	.o_control_panel_breadcrumbs .breadcrumb-item.active,
+	.o-control-panel h2,
+	.o_control_panel h2 {
+		color: #ffffff !important;
+		font-size: 18px;
+		font-weight: 500;
+	}
+	button,
+	.btn,
+	.btn-secondary,
+	.btn-outline-secondary,
+	.gorp-action-menu-toggle,
+	.gorp-form-action-menu .gorp-action-menu-toggle,
+	.o_cp_switch_buttons .o_switch_view,
+	.o_pager .btn {
+		border-color: var(--line) !important;
+		box-shadow: none !important;
+	}
+	button.secondary,
+	.btn-secondary,
+	.btn-outline-secondary,
+	.gorp-action-menu-toggle,
+	.gorp-form-action-menu .gorp-action-menu-toggle,
+	.o_cp_switch_buttons .o_switch_view,
+	.o_pager .btn {
+		background: #ffffff !important;
+		color: var(--text) !important;
+	}
+	button.secondary:hover,
+	.btn-secondary:hover,
+	.btn-outline-secondary:hover,
+	.gorp-action-menu-toggle:hover,
+	.o_cp_switch_buttons .o_switch_view:hover,
+	.o_pager .btn:hover {
+		background: var(--hover-bg) !important;
+		color: var(--accent) !important;
+	}
+	.o_searchview,
+	.o_searchview_dropdown_toggler,
+	input,
+	select,
+	textarea {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border-color: var(--line) !important;
+	}
+	.o_control_panel .o_searchview,
+	.o_control_panel .o_searchview_dropdown_toggler,
+	.o_control_panel input,
+	.o_control_panel select,
+	.o_control_panel textarea {
+		background: rgba(255,255,255,.10) !important;
+		color: #ffffff !important;
+		border-color: rgba(255,255,255,.18) !important;
+	}
+	.dropdown-menu,
+	.o-dropdown-menu,
+	.o_navbar_dropdown_menu,
+	.o_navbar_submenu_menu,
+	.gorp-action-menu-items,
+	.gorp-many2one-dropdown,
+	.gorp-x2many-dropdown,
+	.o_search_options {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border: 1px solid var(--line) !important;
+		box-shadow: var(--dropdown-shadow) !important;
+	}
+	.o_navbar_dropdown_header {
+		color: #6b7280 !important;
+		background: #ffffff !important;
+	}
+	.o_navbar_dropdown_item,
+	.dropdown-item,
+	.gorp-action-menu-item,
+	.gorp-many2one-option,
+	.gorp-x2many-option,
+	.gorp-many2one-create,
+	.gorp-many2one-create-edit,
+	.gorp-many2one-search-more,
+	.gorp-x2many-create,
+	.gorp-x2many-create-edit,
+	.gorp-x2many-search-more {
+		background: transparent !important;
+		color: var(--text) !important;
+	}
+	.o_navbar_dropdown_item:hover,
+	.o_navbar_dropdown_item:focus,
+	.o_navbar_dropdown_item.active,
+	.dropdown-item:hover,
+	.dropdown-item.active,
+	.gorp-action-menu-item:hover:not(:disabled),
+	.gorp-many2one-option:hover,
+	.gorp-many2one-option.active,
+	.gorp-x2many-option:hover,
+	.gorp-x2many-option.active {
+		background: var(--hover-bg) !important;
+		color: var(--accent) !important;
+	}
+	.o-list-content {
+		padding: 12px 16px 24px !important;
+		background: var(--bg) !important;
+	}
+	.o-list-view table,
+	.gorp-list-view {
+		border: 1px solid var(--line) !important;
+		background: #ffffff !important;
+		box-shadow: none !important;
+	}
+	.o-list-view th,
+	.o-list-view td,
+	.gorp-list-view th,
+	.gorp-list-view td {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border-color: var(--line-soft) !important;
+	}
+	.o-list-view th,
+	.gorp-list-view th {
+		background: #f7f7f7 !important;
+		color: #4b5563 !important;
+		font-weight: 600;
+	}
+	.o-list-view tr:hover td,
+	.gorp-list-view tr:hover td {
+		background: #f5f5f5 !important;
+	}
+	.o_mobile_record_card,
+	.o_kanban_record,
+	.o_kanban_group {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border-color: var(--line) !important;
+		box-shadow: none !important;
+	}
+	.gorp-form-body.o_form_sheet_bg,
+	.o_form_sheet_bg,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-body.o_form_sheet_bg,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-body.o_form_sheet_bg,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="base.automation"] .gorp-form-body.o_form_sheet_bg,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="res.groups"] .gorp-form-body.o_form_sheet_bg {
+		background: var(--bg) !important;
+	}
+	.gorp-form-sheet.o_form_sheet,
+	.o_form_sheet,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet.o_form_sheet,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.cron"] .gorp-form-sheet.o_form_sheet,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="base.automation"] .gorp-form-sheet.o_form_sheet,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="res.groups"] .gorp-form-sheet.o_form_sheet {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border: 1px solid var(--line) !important;
+		box-shadow: none !important;
+	}
+	.gorp-form-field > .o_form_label,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-field > .o_form_label {
+		color: #4b5563 !important;
+	}
+	.gorp-form-notebook-tabs.nav-tabs,
+	.gorp-server-action-notebook .gorp-form-notebook-tabs.nav-tabs,
+	.gorp-scheduled-action-notebook .gorp-form-notebook-tabs.nav-tabs {
+		border-bottom: 1px solid var(--line) !important;
+	}
+	.gorp-form-notebook-tab.nav-link,
+	.gorp-server-action-notebook .gorp-form-notebook-tab.nav-link,
+	.gorp-scheduled-action-notebook .gorp-form-notebook-tab.nav-link {
+		background: #f8f9fa !important;
+		color: var(--text) !important;
+		border-color: transparent !important;
+	}
+	.gorp-form-notebook-tab.nav-link.active,
+	.gorp-server-action-notebook .gorp-form-notebook-tab.nav-link.active,
+	.gorp-scheduled-action-notebook .gorp-form-notebook-tab.nav-link.active {
+		background: #ffffff !important;
+		border-color: var(--line) !important;
+		border-bottom-color: #ffffff !important;
+		color: var(--text) !important;
+	}
+	.gorp-form-notebook-content.tab-content,
+	.gorp-server-action-notebook .gorp-form-notebook-content.tab-content,
+	.gorp-scheduled-action-notebook .gorp-form-notebook-content.tab-content {
+		background: #ffffff !important;
+		border-color: var(--line) !important;
+	}
+	.gorp-server-action-contextual.o_server_action_contextual {
+		background: var(--accent) !important;
+		color: #ffffff !important;
+		border-color: var(--accent) !important;
+	}
+	.gorp-server-action-smart-button.o_stat_button,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-server-action-smart-button.o_stat_button {
+		background: #ffffff !important;
+		color: var(--text) !important;
+		border-color: var(--line) !important;
+	}
+	.gorp-code-viewer,
+	.gorp-code-editor,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-server-action-notebook .gorp-code-viewer,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-scheduled-action-notebook .gorp-code-viewer,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-server-action-notebook .gorp-code-editor.o_input,
+	main.o_web_client[data-theme="enterprise-like"] .gorp-scheduled-action-notebook .gorp-code-editor.o_input {
+		background: #f8f9fa !important;
+		color: #1f2933 !important;
+		border: 1px solid var(--line) !important;
+		box-shadow: inset 32px 0 0 #f1f3f5 !important;
+	}
+	.o-app-launcher-view .o_app,
+	.o-app-launcher-view .o_app:hover,
+	.o-app-launcher-view .o_app .o_caption,
+	.o-app-launcher-view .o_app .o_app_name,
+	.o-app-launcher-view .o_app strong {
+		color: var(--home-text) !important;
+		text-shadow: none !important;
+	}
+	.o-app-launcher-view .o_app:hover,
+	.o-app-launcher-view .o_app:focus-visible,
+	main.o_web_client[data-view="apps"] .o-app-launcher-view .o_app:hover,
+	main.o_web_client[data-view="apps"] .o-app-launcher-view .o_app:focus-visible {
+		background: rgba(255,255,255,.08) !important;
+	}
+	.o-app-launcher-view .o_app_icon {
+		background: transparent !important;
+		border-color: rgba(255,255,255,.18) !important;
+		box-shadow: 0 8px 18px rgba(0,0,0,.18) !important;
+	}
+	.o-app-launcher-view .o_app_icon_fallback::before {
+		background: rgba(1,126,132,.92) !important;
+		border-color: transparent !important;
+	}
+	.o-app-launcher-view .o_app_icon_fallback::after {
+		background: rgba(38,52,69,.55) !important;
+		border-color: transparent !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::before {
+		background: conic-gradient(#875a7b 0 25%, #4fc3c8 0 50%, #ef6c56 0 75%, #6ca6d9 0) !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="apps"] .o_app_icon_fallback::after,
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::after {
+		background: #263445 !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="settings"] .o_app_icon_fallback::before {
+		background: conic-gradient(from 315deg, #f7c462 0 50%, #ee8543 50% 100%) !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="approvals"] .o_app_icon_fallback::before {
+		background: transparent !important;
+		border-color: #ffffff !important;
+		box-shadow: 0 0 0 12px #6e7da4 !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="approvals"] .o_app_icon_fallback::after {
+		background: transparent !important;
+		border-left-color: #ffffff !important;
+		border-bottom-color: #ffffff !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="delegation"] .o_app_icon_fallback::before {
+		background: #dfeff0 !important;
+		box-shadow: 12px 0 0 #8fc9c2 !important;
+	}
+	.o-app-launcher-view .o_app[data-app-key="delegation"] .o_app_icon_fallback::after {
+		background: rgba(25,160,160,.58) !important;
+	}
+	#appGrid .o_app .o_app_icon::before,
+	#appGrid .o_app .o_app_icon::after {
+		content: "";
+		position: absolute;
+		pointer-events: none;
+	}
+	#appGrid .o_app[data-app-key="apps"] .o_app_icon::before {
+		left: 13px;
+		top: 13px;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background: conic-gradient(#875a7b 0 25%, #4fc3c8 0 50%, #ef6c56 0 75%, #6ca6d9 0) !important;
+	}
+	#appGrid .o_app[data-app-key="apps"] .o_app_icon::after {
+		left: 29px;
+		top: 29px;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: #263445 !important;
+		box-shadow:
+			-15px 0 0 -12px #263445,
+			15px 0 0 -12px #263445,
+			0 -15px 0 -12px #263445,
+			0 15px 0 -12px #263445;
+	}
+	#appGrid .o_app[data-app-key="settings"] .o_app_icon::before {
+		left: 16px;
+		top: 12px;
+		width: 38px;
+		height: 46px;
+		clip-path: polygon(50% 0, 88% 21%, 88% 72%, 50% 100%, 12% 72%, 12% 21%);
+		background: conic-gradient(from 315deg, #f7c462 0 50%, #ee8543 50% 100%) !important;
+	}
+	#appGrid .o_app[data-app-key="settings"] .o_app_icon::after {
+		left: 28px;
+		top: 26px;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: #263445 !important;
+		box-shadow: 0 0 0 7px rgba(135,90,123,.86);
+	}
+	#appGrid .o_app[data-app-key="approvals"] .o_app_icon::before {
+		inset: 17px;
+		border-radius: 50%;
+		border: 7px solid #ffffff;
+		background: #6e7da4 !important;
+		box-shadow: 0 0 0 12px #6e7da4;
+	}
+	#appGrid .o_app[data-app-key="approvals"] .o_app_icon::after {
+		left: 36px;
+		top: 31px;
+		width: 18px;
+		height: 9px;
+		border-left: 4px solid #ffffff;
+		border-bottom: 4px solid #ffffff;
+		border-radius: 1px;
+		background: transparent !important;
+		transform: rotate(-45deg);
+	}
+	#appGrid .o_app[data-app-key="delegation"] .o_app_icon::before {
+		inset: 16px 22px 14px 13px;
+		border-radius: 10px;
+		background: #dfeff0 !important;
+		box-shadow: 12px 0 0 #8fc9c2;
+	}
+	#appGrid .o_app[data-app-key="delegation"] .o_app_icon::after {
+		right: 12px;
+		bottom: 15px;
+		width: 28px;
+		height: 14px;
+		border-radius: 7px;
+		background: rgba(25,160,160,.58) !important;
+	}
+	@media (max-width: 900px) {
+		body.o-mobile-menu-open .o-nav {
+			background: var(--topbar) !important;
+			border-top: 1px solid rgba(255,255,255,.18) !important;
+		}
+		.o-control-panel,
+		.o_control_panel {
+			padding: 8px 10px !important;
+		}
+	}
+	@media (max-width: 620px) {
+		.o-app-launcher-view {
+			padding-top: 56px !important;
+		}
+		.gorp-form-sheet.o_form_sheet,
+		main.o_web_client[data-theme="enterprise-like"] .gorp-form-view[data-model="ir.actions.server"] .gorp-form-sheet.o_form_sheet {
+			width: 100% !important;
+			border-left: 0 !important;
+			border-right: 0 !important;
+			border-radius: 0 !important;
+		}
+	}
+	</style>
 </head>
-<body class="o_web_client o_home_menu_background" data-theme="enterprise" data-view="apps" data-mobile-safe="true">
+<body class="o_home_menu_background" data-theme="enterprise" data-view="apps" data-mobile-safe="true">
   <header class="o_navbar">
   <nav class="o_main_navbar d-print-none">
     <div class="o_navbar_apps_menu o-brand">
@@ -12410,7 +13007,7 @@ const webClientShellHTML = `<!doctype html>
       appPanel.id = "appsView";
       appPanel.className = "panel view-panel active o-app-launcher-view o_app_launcher o_home_menu_background";
       appPanel.dataset.view = "apps";
-      appPanel.innerHTML = '<div class="o-app-shell o_home_menu h-100 overflow-auto"><div class="container o_home_menu_container"><div class="o-app-search o_home_menu_search" data-search-active="false"><label><span class="sr-only">Search apps</span><input id="appSearch" type="text" class="o_app_search_input o_search_hidden visually-hidden" data-allow-hotkeys="true" aria-label="Search apps and menus" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false"></label></div><div id="appGrid" class="o_apps row user-select-none mt-5 mx-0" role="listbox"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div></div>';
+      appPanel.innerHTML = '<div class="o-app-shell o_home_menu h-100 overflow-auto"><div class="container o_home_menu_container"><div class="o-app-search o_home_menu_search" data-search-active="false"><label><span class="sr-only">Search apps</span><input id="appSearch" type="text" class="o_app_search_stub o_search_hidden visually-hidden" data-allow-hotkeys="true" aria-label="Search apps and menus" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false"></label></div><div id="appGrid" class="o_apps row user-select-none mt-5 mx-0" role="listbox"></div><div id="menuStatus" class="o-app-message muted">Loading menus...</div><div id="menuList" class="menu-list o-app-message"></div></div></div>';
       main.insertBefore(appPanel, modelPanel);
 
       const settingsPanel = document.createElement("section");
@@ -12516,13 +13113,13 @@ const webClientShellHTML = `<!doctype html>
     function menuDisplayName(menu) {
       const name = (menu && typeof menu.name === "string" && menu.name.trim()) ? menu.name.trim() : "Menu";
       const technicalNames = {
-        "Outgoing Mail Servers": "Outgoing Mail Server",
+        "Outgoing Mail Servers": "Outgoing Mail Servers",
         "Incoming Mail Servers": "Incoming Mail Server",
-        "Window Actions": "Window Action",
-        "Client Actions": "Client Action",
-        "Server Actions": "Server Action",
-        "Report Actions": "Report Action",
-        "Reports": "Report"
+        "Window Actions": "Window Actions",
+        "Client Actions": "Client Actions",
+        "Server Actions": "Server Actions",
+        "Report Actions": "Reports",
+        "Reports": "Reports"
       };
       return technicalNames[name] || name;
     }
@@ -12780,7 +13377,7 @@ const webClientShellHTML = `<!doctype html>
       if (!wrap || !input) return;
       wrap.classList.toggle("is-active", active);
       wrap.dataset.searchActive = active ? "true" : "false";
-      input.className = active ? "o_app_search_input" : "o_app_search_input o_search_hidden visually-hidden";
+      input.className = active ? "o_app_search_input" : "o_app_search_stub o_search_hidden visually-hidden";
       input.setAttribute("aria-expanded", active && grid && grid.querySelector(".o_app") ? "true" : "false");
     }
 

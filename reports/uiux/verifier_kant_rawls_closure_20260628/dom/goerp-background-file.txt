@@ -1,0 +1,1 @@
+reports/uiux/verifier_kant_rawls_closure_20260628/goerp/background-dark.jpg: JPEG image data, baseline, precision 8, 1920x1080, components 3

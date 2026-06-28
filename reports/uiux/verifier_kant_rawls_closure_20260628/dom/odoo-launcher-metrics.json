@@ -1,0 +1,62 @@
+{
+  "appCount": 2,
+  "apps": [
+    {
+      "className": "o_app o_menuitem d-flex flex-column rounded-3 justify-content-start align-items-center w-100 p-1 p-md-2",
+      "height": 115,
+      "href": "/odoo/apps",
+      "imgHeight": 70,
+      "imgRadius": "6px",
+      "imgSrcPrefix": "data:image/png;base64,iVBORw0KGg",
+      "imgWidth": 70,
+      "left": 274,
+      "text": "Apps",
+      "top": 171,
+      "width": 136
+    },
+    {
+      "className": "o_app o_menuitem d-flex flex-column rounded-3 justify-content-start align-items-center w-100 p-1 p-md-2",
+      "height": 115,
+      "href": "/odoo/settings",
+      "imgHeight": 70,
+      "imgRadius": "6px",
+      "imgSrcPrefix": "data:image/png;base64,iVBORw0KGg",
+      "imgWidth": 70,
+      "left": 410,
+      "text": "Settings",
+      "top": 171,
+      "width": 136
+    }
+  ],
+  "banner": {
+    "height": 53,
+    "left": 274,
+    "text": "×You will be able to register your database once you have installed your first app.",
+    "top": 70,
+    "width": 818
+  },
+  "bodyBg": "rgb(0, 5, 17)",
+  "bodyBgImage": "url(\"http://127.0.0.1:8076/web_enterprise/static/img/background-dark.jpg\")",
+  "mainBg": "rgb(0, 5, 17)",
+  "mainBgImage": "url(\"http://127.0.0.1:8076/web_enterprise/static/img/background-dark.jpg\")",
+  "navbar": {
+    "height": 46,
+    "left": 0,
+    "top": 0,
+    "width": 1366
+  },
+  "navbarBg": "rgba(0, 0, 0, 0)",
+  "title": "Home",
+  "url": "http://127.0.0.1:8076/odoo",
+  "viewport": {
+    "height": 900,
+    "width": 1366
+  },
+  "visibleText": [
+    "My Company",
+    "×",
+    "You will be able to register your database once you have installed your first app.",
+    "Apps",
+    "Settings"
+  ]
+}

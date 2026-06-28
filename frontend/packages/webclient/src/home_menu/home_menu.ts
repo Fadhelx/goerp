@@ -263,55 +263,35 @@ function appIconElement(app: HomeMenuApp): HTMLElement {
   return icon;
 }
 
+const CLEAN_ROOM_APPS_ICON_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAADsElEQVR42u3dP0gcQRQG8LfjQLAROWzkmuARLFVCuMr2roh9imhvE7AUQsqAaVOlSpUQbKy0uGtFJASCgUsh4ezERtRCRCFgKs0x7u7tejNv3sx+r5LzPG/nd9/M2z+6CWXU1PRMi1DO6vTkqJv2uM6CqNUbncMf3WcYuoc1+6L1x8LLtNNgEhOjVm90MOR8dXbcbw+ijAHDb41P1FaSW9q/ujzv34MAQw6KwnDIqgTpkLWeICHCCiAAQQEEICiAAAQFkAqUDvFNH+xuF37u/OISQHwNftGfl4ykY4Uo8toSYXRVEIb9Pik4OkSID+tbDx5bm9xKfe6T9S9BpUaHgJEGULRuNpZLAR3sbntF0VIhRkEoCpSF4zMtWhqGK4g8nDwYbhQtBYMTogwMN4qqOkbeeuOj+1PAkIWifWFIgygyhXFMXwoY5dLiOikKGLJQFDBkoShgyELBCSphpZAOWSlRwJCF4nTKig1j2M6jKBDuk0vSytb2K6RDVkrQZcXYZZlxjT0dWSmxMW0hIcJK204HZ33b+/z/a+N7319OelvcRzkibP3wO8d0NQiRVc2dCxaYm43lwle2RDllFcFIg6nUoi4VI0QUFTtGaCgjgXC1u6NiuEax2f6i7Y2t7ZUwVZW5aLq5c+GtJa5EQszpIfSDnComjBhQsIbEvIb8fNqw/w737L/k8/Yb66/ZQ0KyF/DQ/tAzqinLHPyQMYJoe2dfv6fDr28flZS0+vvxHRKCYgIxP5mbq3POUmKjXKWjt9C0Nm0Gk5BRUaRPVUFOWY9FCQUjyDWkLEpIGE66rM3VOXr16RcLSl73xQVhrh/eQeYXl7wdOzLT8rt5LXZnFW1vlffUudpfaWWz3UVCqtZlxZ4S24u5dZDQD+pJ2X6nU1asKXGVDusgaZ+S2FDSMGzODoojurGguMZAl1WVLivGlHCkw2lCYkLhwnA+ZcWAwonBsoaEjMKNwbaoZ6FIhektNL1gsHZZWRsjDSVrp4/rSARr2ysdxTeGl/2QPBRfMFlTFDeGtx3DvI3khMmD8IFB5PHKxbuNzTr9O4hi8xx9kQODlfzf74MbP+ycvJmYMkBlj8xW/u4IRdLC0QTg/iFDBoXjShbcYcdhakKHEA+SN3i4S1sASLEUTlABBAUQgKAAAhAUQCpQY1eX5/3klvbHJ2orGA5/dXbcb5+eHHWREGkJISJCSmSk4x4EKDIwiIgS8wlT0zMtIqJavdHBcLmFICIaxEgFMWFQbsqEuKt/iiDDztMjD1UAAAAASUVORK5CYII=";
+const CLEAN_ROOM_SETTINGS_ICON_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAADy0lEQVR42u3dv2sUQRQH8LebEf+BQAhaBbwmjRAU4h+QKy5od11ACYoSwh1XWVlYWR2REBQkaH2d4hWXPyABRbAMSlIEjzSBNCFgIzbeua67e7u38+O92e+rLndL4OaTN7NvZjIbUErMzi+sEMJYnJ0e7yW9H6RBNJqdwbutjRtouv/jfnvne9nf0e9160kwQRyj0ewM0OT2ot/r1qMoM8BwG7XF5bXhyeHB5cX50RgEGHxQQjQHrwiQHbzGE2QIswAIQBAAAQii8iA7dz978T2U9C+wde3jn1dzY5SND7eQIW4x/MkW5RNEEoq0bFG+QUiHUb5CSIVRPmBc3Xz/z8+/9h9lwnBGUT5nhcRsUVWCkACjqgjBGSasOga3+kUBgle2KEDwglGA4AUTAoPX+KKkQrz+ujR+3Yp9tr17nYiINtd/iMsWMXNZUYC8MYIZhW6gSoJMAzEJiDOMqgKEJJiwahhZXRpAHGJwRVE+QLxcf+5NFxZWMSs4Zwv2ZWEM4ZkdXLIkBAYvlBAYvFAwhqBS15cdb799Sv3sQe22liyxfSsscudiFkT8Gh0wXndZZbMjD0aZ612PJaFvmWECBSAGGlUKSlgFDEkoVkG41x4cxpGwKtkhJUtQGPpaGL568TDlk7/vt1KuKLueoTNau88mf9c7ye8/efoGGeJbAAQgCCtjSFr/Gd25KOG2N208i04ymty5yD5DdE8Ocp9stAry+OYXkd2IzSl4EWOIrr9qCVPxYgb1so0pZV1E1F3WtI0qaZHKOkjZcaRo45bFwBJugUY2vaYuug4pmiU6ahLTje5iry8qdQzqMmoSVzvhjYO0h6viULIwTP97tJUMkYTiEsNql5WFIiG8OzggC4VLlqRlh83jNazf9raHq4mHCYxQprkdji+7Fl0Sdt1NOb/L4jSmcMJwetvLAYUbhrNKfVL3VbYLK1tjuDxZzvlcVhaKbpg8xZ7rY/5YTC5OQknqxvIAFa22OZy5yGa2Nw9K3nFmmmkPLieTsppcdFU84pjYHCg2TqDjeJAy2+l309nC9bhx1ushplA4n/3OfoFKNwr3pyOIWDHUhSLhGSJilnDLokh5oIuoNfVpUSQ99kjcNqCkAvLn9j26sjQnHkNchhTNFImPzxO7DWgSitRnGYrel5WGggdLMkKRjOEFSBRFOoY3IL5geAXiSwAEIAiACIqZy4vzo+HJ4UFtcXkNzeEu+r1u/ez0eA8Zwi1DiIiQJTyyYwwCFB4YRERB/ILZ+YUVIqJGszNAc5mFICKKYiSCxGEQZiIOMYrfrLWnSynskZ4AAAAASUVORK5CYII=";
+
 function cleanRoomLauncherIconSource(app: HomeMenuApp): string {
   const kind = launcherIconKind(app);
   if (kind === "apps") {
-    return svgDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
-        <path d="M35 13a22 22 0 0 1 22 22H35Z" fill="#22c6c2"/>
-        <path d="M57 35a22 22 0 0 1-22 22V35Z" fill="#ef7f55"/>
-        <path d="M35 57A22 22 0 0 1 13 35h22Z" fill="#7f6fa7"/>
-        <path d="M13 35a22 22 0 0 1 22-22v22Z" fill="#4d8fca"/>
-        <circle cx="35" cy="35" r="9" fill="#263445"/>
-        <circle cx="35" cy="35" r="4" fill="#f6f7f9"/>
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
-      </svg>
-    `);
+    return CLEAN_ROOM_APPS_ICON_PNG;
   }
   if (kind === "settings") {
-    return svgDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
-        <path d="M35 9 53 19v22L35 61 17 41V19Z" fill="#ef8a48"/>
-        <path d="M35 9 53 19v22L35 61Z" fill="#f4bd5f"/>
-        <circle cx="35" cy="35" r="15" fill="#875a7b"/>
-        <circle cx="35" cy="35" r="7" fill="#263445"/>
-        <path d="M35 13v10M35 47v10M13 35h10M47 35h10" stroke="#f6f7f9" stroke-width="4" stroke-linecap="round"/>
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
-      </svg>
-    `);
+    return CLEAN_ROOM_SETTINGS_ICON_PNG;
   }
   if (kind === "approvals") {
     return svgDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
+        <rect width="70" height="70" rx="7" fill="#6e7da4"/>
         <circle cx="35" cy="35" r="23" fill="#6e7da4"/>
         <path d="M24 35h22" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
         <path d="M35 24v22" stroke="#263445" stroke-width="6" stroke-linecap="round"/>
         <circle cx="35" cy="35" r="12" fill="none" stroke="#ffffff" stroke-width="5"/>
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
       </svg>
     `);
   }
   if (kind === "delegation") {
     return svgDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
+        <rect width="70" height="70" rx="7" fill="#017e84"/>
         <rect x="14" y="14" width="34" height="34" rx="10" fill="#19a0a0"/>
         <rect x="24" y="22" width="30" height="30" rx="9" fill="#dfeff0"/>
         <rect x="43" y="20" width="8" height="32" rx="4" fill="#8fc9c2"/>
-        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
       </svg>
     `);
   }

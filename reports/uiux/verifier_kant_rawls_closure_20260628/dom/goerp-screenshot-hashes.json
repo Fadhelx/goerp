@@ -1,0 +1,50 @@
+[
+  {
+    "name": "launcher-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/launcher-desktop.png",
+    "manifest_sha256": "21cfe1f11b753b95dda12fe88189fcdb22afa33178d029c600e60b349a889aae",
+    "actual_sha256": "21cfe1f11b753b95dda12fe88189fcdb22afa33178d029c600e60b349a889aae"
+  },
+  {
+    "name": "default-navbar-nested-menus-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-navbar-nested-menus-desktop.png",
+    "manifest_sha256": "0ce83a845db51b78bae4cc1908cd7355f3efd4333f544dc0282ee8ed6ba30323",
+    "actual_sha256": "0ce83a845db51b78bae4cc1908cd7355f3efd4333f544dc0282ee8ed6ba30323"
+  },
+  {
+    "name": "default-navbar-technical-dropdown-open-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-navbar-technical-dropdown-open-desktop.png",
+    "manifest_sha256": "5cbf7eff3480e7d39e255b9cf5154c769c5cb5fc494aa542ba3e10e069faea7a",
+    "actual_sha256": "5cbf7eff3480e7d39e255b9cf5154c769c5cb5fc494aa542ba3e10e069faea7a"
+  },
+  {
+    "name": "default-webclient-action-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-webclient-action-desktop.png",
+    "manifest_sha256": "dee17d55ee38f473f386f534d99392bed7f973ad1ce47dbc71981e34d10abe3b",
+    "actual_sha256": "dee17d55ee38f473f386f534d99392bed7f973ad1ce47dbc71981e34d10abe3b"
+  },
+  {
+    "name": "default-relation-dropdown-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-relation-dropdown-desktop.png",
+    "manifest_sha256": "ac0890d36577b02e84982d5ec6f2481440d24df8270264b17293388f1511e721",
+    "actual_sha256": "ac0890d36577b02e84982d5ec6f2481440d24df8270264b17293388f1511e721"
+  },
+  {
+    "name": "default-mobile-launcher-parity",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-mobile-launcher-parity.png",
+    "manifest_sha256": "020f9558ac11df40f2ff57f1be8bcb71ccc15a9c2874b8f4c62dcf69389aaa96",
+    "actual_sha256": "020f9558ac11df40f2ff57f1be8bcb71ccc15a9c2874b8f4c62dcf69389aaa96"
+  },
+  {
+    "name": "default-apps-catalog-parity-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-apps-catalog-parity-desktop.png",
+    "manifest_sha256": "bab1aba5029407d2a490c9251e48aca3132bcfc4b504d3215ec8dbc20ea60baa",
+    "actual_sha256": "bab1aba5029407d2a490c9251e48aca3132bcfc4b504d3215ec8dbc20ea60baa"
+  },
+  {
+    "name": "default-apps-catalog-detail-desktop",
+    "screenshot": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-apps-catalog-detail-desktop.png",
+    "manifest_sha256": "59819e30e6c54fc4dacf23717a11d22ff4e332d37bfc06560b6ea41987a0dcb7",
+    "actual_sha256": "59819e30e6c54fc4dacf23717a11d22ff4e332d37bfc06560b6ea41987a0dcb7"
+  }
+]

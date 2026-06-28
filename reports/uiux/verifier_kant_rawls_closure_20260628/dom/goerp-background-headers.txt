@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Cache-Control: public, max-age=86400
+Content-Type: image/jpeg
+Date: Sun, 28 Jun 2026 15:51:21 GMT
+Transfer-Encoding: chunked

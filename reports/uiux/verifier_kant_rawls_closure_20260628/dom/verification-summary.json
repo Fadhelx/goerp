@@ -1,0 +1,272 @@
+{
+  "exact_failures": {
+    "launcher_spacing": {
+      "status": "PASS",
+      "odoo": {
+        "banner_top": 70,
+        "app_row_top": 171
+      },
+      "goerp": {
+        "banner_top": 70,
+        "app_row_top": 171
+      }
+    },
+    "cleanroom_assets": {
+      "status": "PASS",
+      "goerp_background": {
+        "sha256": "bc7a141149cd762ac82059a6cf8a96891fab6864ac48c5363d734db71c507cb3",
+        "dimensions": "1920x1080 JPEG"
+      },
+      "odoo_background": {
+        "sha256": "e7b01e9e324e3f2e5d67e39d3e4536f51598b17c69b2ed0e55c51e23d68dce6b",
+        "dimensions": "1920x1080 JPEG"
+      },
+      "byte_identical_to_odoo_background": false,
+      "goerp_icons_source_png_dimensions": [
+        {
+          "name": "CLEAN_ROOM_APPS_ICON_PNG",
+          "bytes": 1001,
+          "sha256": "c0d91c0dcf800f85fcd656a0a46552c79d74350202de4f30b458fdc04d6bdd7e",
+          "width": 100,
+          "height": 100
+        },
+        {
+          "name": "CLEAN_ROOM_SETTINGS_ICON_PNG",
+          "bytes": 1028,
+          "sha256": "09a43a6ff8bc476fcb72e3b2ba03e5a322d043c005439d5477a98b81d7a6c892",
+          "width": 100,
+          "height": 100
+        }
+      ],
+      "runtime_icon_dimensions": {
+        "width": 70,
+        "height": 70
+      }
+    },
+    "action_navbar_control_color": {
+      "status": "PASS",
+      "odoo": {
+        "navbar_bg": "rgb(38, 42, 54)",
+        "control_bg": "rgb(38, 42, 54)",
+        "navbar_height": 46,
+        "control_height": 58
+      },
+      "goerp": {
+        "navbar_bg": "rgb(38, 42, 54)",
+        "control_height": 58,
+        "topbar_height": 46,
+        "control_bg": "rgb(38, 42, 54)"
+      }
+    },
+    "technical_plural_labels": {
+      "status": "PASS",
+      "required_plural_present": {
+        "Outgoing Mail Servers": true,
+        "Reports": true,
+        "Window Actions": true,
+        "Client Actions": true,
+        "Server Actions": true
+      },
+      "singular_bad_present": {
+        "Outgoing Mail Server": false,
+        "Report": false,
+        "Window Action": false,
+        "Client Action": false,
+        "Server Action": false
+      },
+      "odoo_labels_count": 45,
+      "goerp_visible_labels_count": 45,
+      "goerp_item_count": 35,
+      "goerp_reference_order": true
+    }
+  },
+  "non_regression": {
+    "settings_technical_nested_dropdown": {
+      "status": "PASS",
+      "button_expanded": "true",
+      "clicked_active_title": "Server Actions"
+    },
+    "technical_leaves_reachable": {
+      "status": "PASS",
+      "item_count": 35,
+      "visible_label_count": 45,
+      "has_admin_items": true,
+      "reference_order": true
+    },
+    "relation_controls": {
+      "status": "PASS",
+      "many2one": {
+        "open": true,
+        "placement": "bottom-start",
+        "dropdown_placement": "bottom-start",
+        "dropdown_width_source": "field",
+        "input_value": "mail",
+        "expanded": "true",
+        "active_descendant": "m2o-model_id-option-12",
+        "option_count": 1,
+        "selected_count": 0,
+        "active_count": 1,
+        "labels": [
+          "Mail Server"
+        ],
+        "raw_label_count": 0,
+        "create_count": 0,
+        "create_edit_count": 0,
+        "search_more_label": "Search more...",
+        "dropdown_width": 489,
+        "input_width": 489
+      },
+      "x2many": {
+        "open": true,
+        "placement": "bottom-start",
+        "dropdown_placement": "bottom-start",
+        "dropdown_width_source": "field",
+        "expanded": "true",
+        "active_descendant": "x2m-group_ids-option-0",
+        "active_index": "0",
+        "active_count": 1,
+        "button_count": 11,
+        "option_count": 8,
+        "labels": [
+          "Role / User",
+          "Email Marketing / User",
+          "Default access for new users",
+          "OI Base / User",
+          "Workflow / User",
+          "Delegation / User",
+          "Workflow Advance / User",
+          "Login As / User"
+        ]
+      },
+      "odoo_reference": {
+        "dropdownVisible": true,
+        "options": [
+          "Mail Server",
+          "Mail Server",
+          "Search more...",
+          "Search more..."
+        ]
+      }
+    },
+    "apps_catalog_flow": {
+      "status": "PASS",
+      "goerp_parity": {
+        "card_count": 26,
+        "window_count": 1,
+        "renderer_count": 1,
+        "brand": "Apps",
+        "navbar_sections": [
+          "Apps"
+        ],
+        "pager": "1-26 / 26<>",
+        "first_cards": [
+          "base",
+          "mail",
+          "ai",
+          "automation",
+          "base_automation",
+          "web",
+          "portal",
+          "base_setup",
+          "onboarding",
+          "uom",
+          "product",
+          "analytic",
+          "digest",
+          "phone_validation",
+          "resource",
+          "resource_mail",
+          "hr",
+          "oi_base",
+          "oi_base_cache",
+          "oi_web_selection_field_dynamic",
+          "oi_web_selection_tags",
+          "oi_web_flowchart",
+          "oi_workflow",
+          "oi_workflow_advance"
+        ],
+        "first_card_actions": [
+          "Upgrade",
+          "Uninstall",
+          "Module Info"
+        ],
+        "module_card_count": 26,
+        "module_state_count": 26,
+        "install_button_count": 26,
+        "info_button_count": 26
+      },
+      "goerp_detail": {
+        "module": "ai",
+        "card_count": 1,
+        "modal_count": 1
+      },
+      "odoo_reference": {
+        "kanbanCount": 1,
+        "cardCount": 83
+      }
+    },
+    "mobile_launcher": {
+      "status": "PASS",
+      "goerp": {
+        "app_count": 2,
+        "launcher_state": {
+          "launcher_bg": "rgb(0, 5, 17)",
+          "launcher_bg_image": "url(\"http://127.0.0.1:8077/web_enterprise/static/img/background-dark.jpg\")",
+          "draggable_count": 2,
+          "first_row_count": 2,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
+          "hidden_search_count": 1,
+          "banner_count": 1,
+          "search_hidden": true,
+          "user_avatar_visible": true,
+          "systray_visible_count": 3,
+          "horizontal_overflow_px": 0
+        },
+        "settings_content_count": 1,
+        "settings_control_panel_count": 1,
+        "settings_open_state": {
+          "shell_view": "action",
+          "body_view": "action",
+          "shell_home_mode": "",
+          "body_home_mode": "",
+          "home_count": 0,
+          "banner_count": 0,
+          "settings_count": 1,
+          "control_panel_count": 1,
+          "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1"
+        }
+      }
+    }
+  },
+  "screenshots": {
+    "goerp": {
+      "launcher": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/launcher-desktop.png",
+      "action_shell": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-webclient-action-desktop.png",
+      "technical_dropdown": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-navbar-technical-dropdown-open-desktop.png",
+      "relation_dropdown": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-relation-dropdown-desktop.png",
+      "apps_catalog": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-apps-catalog-parity-desktop.png",
+      "apps_detail": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-apps-catalog-detail-desktop.png",
+      "mobile_launcher": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/default-mobile-launcher-parity.png",
+      "action_shell_agent": "reports/uiux/verifier_kant_rawls_closure_20260628/goerp/action-shell-agent.png"
+    },
+    "odoo_reference": {
+      "launcher": "reports/uiux/verifier_kant_rawls_closure_20260628/odoo_reference/launcher-desktop.png",
+      "action_shell": "reports/uiux/verifier_kant_rawls_closure_20260628/odoo_reference/action-shell.png",
+      "technical_dropdown": "reports/uiux/verifier_kant_rawls_closure_20260628/odoo_reference/technical-dropdown.png",
+      "relation_dropdown": "reports/uiux/verifier_kant_rawls_closure_20260628/odoo_reference/relation-dropdown.png",
+      "apps_catalog": "reports/uiux/verifier_kant_rawls_closure_20260628/odoo_reference/apps-catalog.png"
+    }
+  },
+  "dom_evidence": {
+    "goerp_smoke_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/goerp-smoke-metrics.json",
+    "odoo_launcher_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/odoo-launcher-metrics.json",
+    "odoo_action_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/odoo-action-shell-metrics.json",
+    "odoo_technical_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/odoo-technical-dropdown-metrics.json",
+    "odoo_relation_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/odoo-relation-dropdown-metrics.json",
+    "odoo_apps_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/odoo-apps-catalog-metrics.json",
+    "asset_noncopy": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/asset-noncopy-check.json",
+    "icon_metadata": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/goerp-cleanroom-icon-metadata.json",
+    "goerp_action_metrics": "reports/uiux/verifier_kant_rawls_closure_20260628/dom/goerp-action-shell-metrics.json"
+  }
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "name": "CLEAN_ROOM_APPS_ICON_PNG",
+    "bytes": 1001,
+    "sha256": "c0d91c0dcf800f85fcd656a0a46552c79d74350202de4f30b458fdc04d6bdd7e",
+    "width": 100,
+    "height": 100
+  },
+  {
+    "name": "CLEAN_ROOM_SETTINGS_ICON_PNG",
+    "bytes": 1028,
+    "sha256": "09a43a6ff8bc476fcb72e3b2ba03e5a322d043c005439d5477a98b81d7a6c892",
+    "width": 100,
+    "height": 100
+  }
+]
