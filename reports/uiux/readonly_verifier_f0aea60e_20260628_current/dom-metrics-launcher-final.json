@@ -1,0 +1,41 @@
+{
+  "app_count": 2,
+  "app_labels": [
+    "Apps",
+    "Settings"
+  ],
+  "body_background_color": "rgb(7, 11, 18)",
+  "icon_backgrounds": [
+    {
+      "color": "rgb(255, 255, 255)",
+      "image_kind": "none"
+    },
+    {
+      "color": "rgb(255, 255, 255)",
+      "image_kind": "none"
+    }
+  ],
+  "icon_rects": [
+    {
+      "height": 70,
+      "width": 70,
+      "x": 256,
+      "y": 232
+    },
+    {
+      "height": 70,
+      "width": 70,
+      "x": 392,
+      "y": 232
+    }
+  ],
+  "navbar_background": "rgba(0, 0, 0, 0)",
+  "navbar_height": 46,
+  "search_active": "false",
+  "search_count": 1,
+  "title": "Odoo",
+  "url": "http://127.0.0.1:8073/web?verifier=final-launcher",
+  "view": "apps",
+  "webclient_background_color": "rgb(7, 11, 18)",
+  "webclient_background_image_kind": "inline-svg-redacted"
+}

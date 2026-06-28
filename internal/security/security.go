@@ -856,13 +856,23 @@ func ParseDomainForce(text string) (domain.Node, error) {
 		"True", "true",
 		"None", "null",
 	).Replace(text)
-	normalized = strings.ReplaceAll(normalized, "company_ids + [false]", "\"company_ids_plus_false\"")
-	normalized = strings.ReplaceAll(normalized, "company_ids+[false]", "\"company_ids_plus_false\"")
+	normalized = normalizeCompanyIDsPlusFalse(normalized)
 	normalized = quoteBareDomainIdentifiers(normalized)
 	if err := json.Unmarshal([]byte(normalized), &value); err == nil {
 		return domain.Parse(value)
 	}
 	return domain.Node{}, fmt.Errorf("unsupported domain_force %q", text)
+}
+
+func normalizeCompanyIDsPlusFalse(text string) string {
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`company_ids\s*\+\s*\[\s*false\s*\]`),
+		regexp.MustCompile(`\[\s*false\s*\]\s*\+\s*company_ids`),
+	}
+	for _, pattern := range patterns {
+		text = pattern.ReplaceAllString(text, `"company_ids_plus_false"`)
+	}
+	return text
 }
 
 func quoteBareDomainIdentifiers(text string) string {

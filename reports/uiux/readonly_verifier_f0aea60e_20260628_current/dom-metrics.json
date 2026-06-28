@@ -1,0 +1,90 @@
+{
+  "action": {
+    "action_status": "ready",
+    "control_panel_count": 1,
+    "control_panel_parts": {
+      "actions": 1,
+      "breadcrumbs": 1,
+      "main": 1,
+      "navigation": 1
+    },
+    "form_count": 0,
+    "kanban_count": 1,
+    "list_count": 0,
+    "navbar_background": "rgb(113, 75, 103)",
+    "navbar_height": 46,
+    "systray_items": 17,
+    "visible_buttons": [
+      "Apps",
+      "0",
+      "Inbox0",
+      "Starred0",
+      "New Message",
+      "0",
+      "No activities0",
+      "My Company",
+      "Log into",
+      "Confirm",
+      "Reset",
+      "AAdministratorgorp",
+      "Help",
+      "Shortcuts",
+      "My Preferences",
+      "My Profile",
+      "My Odoo.com Account",
+      "Log out",
+      "New",
+      "Apps",
+      "State",
+      "Custom Filter...",
+      "State",
+      "Add Custom Group",
+      "Save current search",
+      "<"
+    ],
+    "webclient_view": "action"
+  },
+  "launcher": {
+    "app_count": 2,
+    "app_icon_backgrounds": [
+      "none",
+      "none"
+    ],
+    "app_icon_rects": [
+      {
+        "height": 70,
+        "width": 70,
+        "x": 256,
+        "y": 232
+      },
+      {
+        "height": 70,
+        "width": 70,
+        "x": 392,
+        "y": 232
+      }
+    ],
+    "app_labels": [
+      "Apps",
+      "Settings"
+    ],
+    "body_view": "apps",
+    "launcher_background_color": "rgba(0, 0, 0, 0)",
+    "launcher_background_image_kind": "none",
+    "navbar_background": "rgba(0, 0, 0, 0)",
+    "navbar_height": 46,
+    "search_active": "false",
+    "search_count": 1,
+    "systray_items": 17
+  },
+  "technical": {
+    "first_items": [],
+    "header_count": 0,
+    "headers": [],
+    "item_count": 0,
+    "technical_expanded": "",
+    "visible": false
+  },
+  "title": "Odoo",
+  "url": "http://127.0.0.1:8073/web?verifier=dom#action=16&model=ir.module.module&view_type=kanban&menu_id=73"
+}

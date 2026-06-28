@@ -1,0 +1,147 @@
+{
+  "launcher": {
+    "app_count": 2,
+    "app_labels": [
+      "Apps",
+      "Settings"
+    ],
+    "body_background": {
+      "color": "rgb(231, 233, 237)",
+      "image": "url([redacted-inline-svg]"
+    },
+    "home_background": {
+      "color": "rgba(0, 0, 0, 0)",
+      "image": "none"
+    },
+    "icon_backgrounds": [
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none"
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "image": "none"
+      }
+    ],
+    "icon_rects": [
+      {
+        "height": 70,
+        "width": 70,
+        "x": 256,
+        "y": 232
+      },
+      {
+        "height": 70,
+        "width": 70,
+        "x": 392,
+        "y": 232
+      }
+    ],
+    "navbar_background": "rgba(0, 0, 0, 0)",
+    "navbar_height": 46,
+    "search_active": "false",
+    "search_count": 1,
+    "webclient_background": {
+      "color": "rgb(231, 233, 237)",
+      "image": "url([redacted-inline-svg]"
+    }
+  },
+  "settings": {
+    "action_status": "ready",
+    "control_panel_parts": {
+      "actions": 1,
+      "breadcrumbs": 1,
+      "count": 1,
+      "main": 1,
+      "navigation": 1
+    },
+    "navbar_background": "rgb(113, 75, 103)",
+    "navbar_height": 46,
+    "navbar_sections": [
+      {
+        "dropdown": false,
+        "expanded": "",
+        "text": "General Settings"
+      },
+      {
+        "dropdown": true,
+        "expanded": "false",
+        "text": "Users & Companies"
+      },
+      {
+        "dropdown": true,
+        "expanded": "false",
+        "text": "Translations"
+      },
+      {
+        "dropdown": true,
+        "expanded": "true",
+        "text": "Technical"
+      }
+    ],
+    "renderers": {
+      "form": 1,
+      "kanban": 0,
+      "list": 0
+    },
+    "systray_items": 17,
+    "technical": {
+      "expanded": "true",
+      "header_count": 10,
+      "headers": [
+        "Email",
+        "Actions",
+        "IAP",
+        "User Interface",
+        "Database Structure",
+        "Automation",
+        "Reporting",
+        "Sequences & Identifiers",
+        "Parameters",
+        "Security"
+      ],
+      "item_count": 35,
+      "items": [
+        "Outgoing Mail Server",
+        "Actions",
+        "Report",
+        "Window Action",
+        "Client Action",
+        "Server Action",
+        "Embedded Actions",
+        "Configuration Wizards",
+        "User-defined Defaults",
+        "IAP Accounts",
+        "Menu Items",
+        "Views",
+        "Customized Views",
+        "User-defined Filters",
+        "Tours",
+        "Decimal Accuracy",
+        "Assets",
+        "Models",
+        "Fields",
+        "Fields Selection",
+        "Model Constraints",
+        "ManyToMany Relations",
+        "Attachments",
+        "Logging",
+        "Profiling",
+        "Scheduled Actions",
+        "Scheduled Actions Triggers",
+        "Paper Format",
+        "Report",
+        "External Identifiers",
+        "Sequences",
+        "System Parameters",
+        "Record Rules",
+        "Access Rights",
+        "User Devices"
+      ],
+      "visible": true
+    },
+    "url": "http://127.0.0.1:8073/web?verifier=dom2#action=3&model=res.config.settings&view_type=form&menu_id=1",
+    "webclient_view": "action"
+  },
+  "title": "Odoo"
+}

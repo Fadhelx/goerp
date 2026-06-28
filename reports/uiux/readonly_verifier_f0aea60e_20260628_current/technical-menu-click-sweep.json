@@ -1,0 +1,287 @@
+{
+  "failed": [],
+  "ok_count": 35,
+  "results": [
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Outgoing Mail Server",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Actions",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Report",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Window Action",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Client Action",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Server Action",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Embedded Actions",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Configuration Wizards",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "User-defined Defaults",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": false,
+      "hash_has_action": true,
+      "label": "IAP Accounts",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Menu Items",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Views",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Customized Views",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "User-defined Filters",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": false,
+      "hash_has_action": true,
+      "label": "Tours",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Decimal Accuracy",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Assets",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Models",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Fields",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Fields Selection",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Model Constraints",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "ManyToMany Relations",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Attachments",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Logging",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Profiling",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Scheduled Actions",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Scheduled Actions Triggers",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Paper Format",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Report",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "External Identifiers",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Sequences",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "System Parameters",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Record Rules",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "Access Rights",
+      "webclient_view": "action"
+    },
+    {
+      "action_status": "ready",
+      "clicked": true,
+      "hash_changed": true,
+      "hash_has_action": true,
+      "label": "User Devices",
+      "webclient_view": "action"
+    }
+  ],
+  "total": 35
+}
