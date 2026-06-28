@@ -1729,6 +1729,10 @@ findAll(relationAffordanceWindow, (node) => node.dataset?.formAction === "edit")
 const relationAffordanceForm = relationAffordanceWindow.children[1];
 const relationAffordanceM2O = findAll(relationAffordanceForm, (node) => String(node.className ?? "").includes("gorp-many2one-editor") && node.dataset?.field === "partner_id")[0];
 const relationAffordanceM2OInput = findAll(relationAffordanceM2O, (node) => node.tag === "input" && node.dataset?.field === "partner_id")[0];
+const relationAffordanceM2OOpen = findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-open"))[0];
+assert.equal(String(relationAffordanceM2OOpen.className).includes("o_external_button"), true);
+assert.equal(relationAffordanceM2OOpen.hidden, true);
+assert.equal(relationAffordanceM2OOpen.disabled, true);
 relationAffordanceM2OInput.value = "acme";
 relationAffordanceM2OInput.dispatchEvent(new TestEvent("input"));
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1761,7 +1765,7 @@ await new Promise((resolve) => setTimeout(resolve, 0));
 findAll(relationAffordanceM2O, (node) => String(node.className ?? "").includes("gorp-many2one-create-edit"))[0].dispatchEvent(new TestEvent("click"));
 assert.deepEqual(relationAffordanceActions[0].action, {
   type: "ir.actions.act_window",
-  name: "Create omega",
+  name: "Create Partner",
   res_model: "res.partner",
   views: [[false, "form"]],
   view_mode: "form",
@@ -1782,6 +1786,20 @@ assert.deepEqual(relationAffordanceCalls.filter((call) => call.method === "name_
 });
 assert.equal(relationAffordanceM2O.dataset.resId, "99");
 assert.equal(relationAffordanceM2OInput.value, "Created Record");
+assert.equal(relationAffordanceM2OOpen.hidden, false);
+assert.equal(relationAffordanceM2OOpen.disabled, false);
+assert.equal(relationAffordanceM2OOpen.dataset.resId, "99");
+assert.equal(relationAffordanceM2OOpen.attributes["aria-label"], "Open: Partner");
+relationAffordanceM2OOpen.dispatchEvent(new TestEvent("click"));
+assert.deepEqual(relationAffordanceActions[1].action, {
+  type: "ir.actions.act_window",
+  name: "Open: Partner",
+  res_model: "res.partner",
+  res_id: 99,
+  views: [[false, "form"]],
+  view_mode: "form",
+  target: "new"
+});
 const relationAffordanceM2M = findAll(relationAffordanceForm, (node) => String(node.className ?? "").includes("gorp-x2many-editor") && node.dataset?.field === "tag_ids")[0];
 const relationAffordanceM2MInput = findAll(relationAffordanceM2M, (node) => node.tag === "input" && node.dataset?.field === "tag_ids")[0];
 relationAffordanceM2MInput.value = "tag";
@@ -1990,6 +2008,7 @@ assert.equal(genericRelation.dataset.noCreate, "true");
 assert.equal(genericRelation.dataset.noQuickCreate, "true");
 assert.equal(genericRelation.dataset.noCreateEdit, "true");
 assert.equal(genericRelation.dataset.noOpen, "true");
+assert.equal(findAll(genericRelation, (node) => String(node.className ?? "").includes("gorp-many2one-open")).length, 0);
 assert.equal(genericRelationInput.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-haspopup"], "listbox");
 assert.equal(genericRelationToggle.attributes["aria-expanded"], "false");

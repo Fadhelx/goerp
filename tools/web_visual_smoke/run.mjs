@@ -928,6 +928,125 @@ export const scenarios = [
     }
   },
   {
+    name: "default-relation-dialog-actions-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&relation_dialog_actions=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Relation dialog actions TS webclient ready");
+      const renderedState = await evaluate(page, `(async () => {
+        const module = await import("/web/static/frontend/packages/webclient/src/index.js");
+        const outlet = document.querySelector(".o_web_client .o_action_manager") || document.body;
+        const calls = [];
+        const actions = [];
+        const root = module.renderWindowAction({
+          type: "ir.actions.act_window",
+          action: {
+            name: "Relation Dialog Actions",
+            res_model: "x.relation.test",
+            view_mode: "form",
+            views: [[false, "form"]]
+          },
+          activeView: "form",
+          resModel: "x.relation.test",
+          viewDescriptions: {
+            fields: {
+              name: { type: "char", string: "Name" },
+              partner_id: { type: "many2one", relation: "res.partner", string: "Partner" }
+            },
+            relatedModels: {},
+            views: {
+              form: {
+                arch: "<form><sheet><field name='name'/><field name='partner_id' limit='1'/></sheet></form>",
+                id: 790
+              }
+            }
+          },
+          records: [],
+          length: 0,
+          offset: 0,
+          countLimited: false
+        }, {
+          values: { id: 26, name: "Relation Test", partner_id: false },
+          context: { lang: "en_US" },
+          services: {
+            orm: {
+              call(model, method, args, kwargs) {
+                calls.push({ model, method, args, kwargs });
+                if (method === "name_create") return Promise.resolve([99, "Created Record"]);
+                if (method === "name_search" && kwargs.limit === 1) return Promise.resolve([[1, "Alpha"]]);
+                return Promise.resolve([[1, "Alpha"], [2, "Beta"], [3, "Gamma"]]);
+              }
+            },
+            action: {
+              doAction(action, options) {
+                actions.push({ action, additionalContext: options?.additionalContext || {} });
+                return Promise.resolve({});
+              }
+            }
+          }
+        });
+        outlet.replaceChildren(root);
+        root.dataset.smokeRendered = "relation-dialog-actions";
+        root.querySelector("[data-form-action='edit']")?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const editor = root.querySelector(".gorp-many2one-editor[data-field='partner_id']");
+        const input = editor?.querySelector("input[data-field='partner_id']");
+        const open = editor?.querySelector(".gorp-many2one-open");
+        const initial = {
+          editor_count: editor ? 1 : 0,
+          open_count: open ? 1 : 0,
+          open_hidden: open?.hidden ?? null,
+          open_disabled: open?.disabled ?? null,
+          open_class: open?.className || "",
+          no_open: editor?.dataset.noOpen || ""
+        };
+        input.value = "omega";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        editor?.querySelector(".gorp-many2one-create-edit")?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        input.value = "new acme";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        editor?.querySelector(".gorp-many2one-create")?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const afterCreate = {
+          res_id: editor?.dataset.resId || "",
+          input_value: input?.value || "",
+          open_hidden: open?.hidden ?? null,
+          open_disabled: open?.disabled ?? null,
+          open_res_id: open?.dataset.resId || "",
+          open_label: open?.getAttribute("aria-label") || "",
+          open_tooltip: open?.getAttribute("data-tooltip") || ""
+        };
+        open?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { initial, after_create: afterCreate, calls, actions };
+      })()`);
+      const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-smoke-rendered='relation-dialog-actions'] .gorp-form-view", 1, "relation dialog form");
+      if (renderedState.initial.editor_count !== 1 || renderedState.initial.open_count !== 1 || renderedState.initial.open_hidden !== true || renderedState.initial.open_disabled !== true || !renderedState.initial.open_class.includes("o_external_button") || renderedState.initial.no_open) {
+        throw new Error(`relation dialog initial state invalid: ${JSON.stringify(renderedState)}`);
+      }
+      const createEditAction = renderedState.actions?.[0]?.action;
+      if (!createEditAction || createEditAction.name !== "Create Partner" || createEditAction.res_model !== "res.partner" || createEditAction.target !== "new" || createEditAction.context?.default_name !== "omega") {
+        throw new Error(`relation create/edit action invalid: ${JSON.stringify(renderedState)}`);
+      }
+      const nameCreateCall = renderedState.calls?.filter((call) => call.method === "name_create").at(-1);
+      if (!nameCreateCall || nameCreateCall.model !== "res.partner" || nameCreateCall.args?.[0] !== "new acme" || nameCreateCall.kwargs?.context?.default_name !== "new acme") {
+        throw new Error(`relation quick-create call invalid: ${JSON.stringify(renderedState)}`);
+      }
+      if (renderedState.after_create.res_id !== "99" || renderedState.after_create.input_value !== "Created Record" || renderedState.after_create.open_hidden !== false || renderedState.after_create.open_disabled !== false || renderedState.after_create.open_res_id !== "99" || renderedState.after_create.open_label !== "Open: Partner") {
+        throw new Error(`relation open button after create invalid: ${JSON.stringify(renderedState)}`);
+      }
+      const openAction = renderedState.actions?.[1]?.action;
+      if (!openAction || openAction.name !== "Open: Partner" || openAction.res_model !== "res.partner" || openAction.res_id !== 99 || openAction.target !== "new") {
+        throw new Error(`relation open action invalid: ${JSON.stringify(renderedState)}`);
+      }
+      return { form_count: formCount, rendered_state: renderedState };
+    }
+  },
+  {
     name: "default-scheduled-action-form-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

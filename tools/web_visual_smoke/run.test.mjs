@@ -59,6 +59,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-technical-form-desktop",
     "default-server-action-new-form-desktop",
     "default-relation-dropdown-desktop",
+    "default-relation-dialog-actions-desktop",
     "default-scheduled-action-form-desktop",
     "default-scheduled-actions-list-parity-desktop",
     "default-automation-form-desktop",

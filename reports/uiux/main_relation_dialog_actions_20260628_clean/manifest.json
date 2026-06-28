@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-06-28T13:30:51.274Z",
+  "base_url": "http://127.0.0.1:8076/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-relation-dialog-actions-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dialog-actions-desktop.png",
+      "sha256": "22fc2a6bcfaa199a3507cb16bb0c5afa4b6d31c165628d58957cedabd353c9e7",
+      "assertions": {
+        "form_count": 1,
+        "rendered_state": {
+          "initial": {
+            "editor_count": 1,
+            "open_count": 1,
+            "open_hidden": true,
+            "open_disabled": true,
+            "open_class": "gorp-many2one-open o_external_button btn btn-link text-action px-1",
+            "no_open": ""
+          },
+          "after_create": {
+            "res_id": "99",
+            "input_value": "Created Record",
+            "open_hidden": false,
+            "open_disabled": false,
+            "open_res_id": "99",
+            "open_label": "Open: Partner",
+            "open_tooltip": "Internal link"
+          },
+          "calls": [
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "omega",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "new acme",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_create",
+              "args": [
+                "new acme"
+              ],
+              "kwargs": {
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "new acme"
+                },
+                "create_name_field": "name"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Create Partner",
+                "res_model": "res.partner",
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new",
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "omega"
+                }
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            },
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Open: Partner",
+                "res_model": "res.partner",
+                "res_id": 99,
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new"
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            }
+          ]
+        }
+      },
+      "duration_ms": 6546
+    }
+  ],
+  "duration_ms": 6657
+}

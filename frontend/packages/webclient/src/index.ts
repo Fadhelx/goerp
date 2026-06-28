@@ -8298,6 +8298,7 @@ function renderOne2ManyMany2OneCellEditor(
   const relation = fieldRelationValue(description);
   const current = relationMany2OneDisplayData(relation, row.values[column.name]);
   const config = relationFieldConfig(column, row.values, options, relation);
+  const fieldDisplayName = fieldLabel({ [column.name]: description }, column.name);
   const root = document.createElement("span");
   root.className = "gorp-one2many-many2one-editor gorp-many2one-editor o_field_widget o_field_many2one";
   root.dataset.field = column.name;
@@ -8320,7 +8321,7 @@ function renderOne2ManyMany2OneCellEditor(
   toggle.type = "button";
   toggle.className = "gorp-many2one-dropdown-toggle o_dropdown_button";
   toggle.dataset.field = column.name;
-  toggle.setAttribute("aria-label", `Open ${fieldLabel({ [column.name]: description }, column.name)}`);
+  toggle.setAttribute("aria-label", `Open ${fieldDisplayName}`);
   toggle.setAttribute("aria-haspopup", "listbox");
   toggle.setAttribute("aria-expanded", "false");
   const dropdown = document.createElement("div");
@@ -8373,7 +8374,7 @@ function renderOne2ManyMany2OneCellEditor(
   };
   const createEdit = (query: string) => {
     if (!relation || !options.services?.action) return;
-    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config, fieldDisplayName), replaceActionOptions(options));
     closeDropdown();
   };
   const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
@@ -9517,6 +9518,7 @@ function renderMany2OneEditor(
   root.dataset.field = node.name;
   if (relation) root.dataset.relation = relation;
   if (current.id !== undefined) root.dataset.resId = String(current.id);
+  root.setAttribute("style", mergeInlineStyle(root.getAttribute("style"), "position: relative;"));
   applyRelationFieldDataset(root, config);
   let selectedItemID = current.id;
   let committedDisplayName = current.displayName;
@@ -9542,6 +9544,42 @@ function renderMany2OneEditor(
   toggle.setAttribute("aria-label", `Open ${fieldDisplayName}`);
   toggle.setAttribute("aria-haspopup", "listbox");
   toggle.setAttribute("aria-expanded", "false");
+  const open = config.noOpen ? null : document.createElement("button");
+  if (open) {
+    open.type = "button";
+    open.className = "gorp-many2one-open o_external_button btn btn-link text-action px-1";
+    open.dataset.field = node.name;
+    if (relation) open.dataset.relation = relation;
+    open.setAttribute("aria-label", "Internal link");
+    open.setAttribute("data-tooltip", "Internal link");
+    open.tabIndex = -1;
+    input.setAttribute("style", mergeInlineStyle(input.getAttribute("style"), "padding-right: 56px;"));
+    open.setAttribute(
+      "style",
+      "position: absolute; right: 28px; top: 0; bottom: 0; width: 28px; display: flex; align-items: center; justify-content: center; border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--muted); box-shadow: none;"
+    );
+    const icon = createSvgRuntimeElement("svg");
+    icon.setAttribute("viewBox", "0 0 16 16");
+    icon.setAttribute("width", "12");
+    icon.setAttribute("height", "12");
+    icon.setAttribute("aria-hidden", "true");
+    const box = createSvgRuntimeElement("path");
+    box.setAttribute("d", "M3.5 6.5v6h6");
+    box.setAttribute("fill", "none");
+    box.setAttribute("stroke", "currentColor");
+    box.setAttribute("stroke-width", "1.5");
+    box.setAttribute("stroke-linecap", "round");
+    box.setAttribute("stroke-linejoin", "round");
+    const arrow = createSvgRuntimeElement("path");
+    arrow.setAttribute("d", "M7 3.5h5.5V9M12.2 3.8 6.5 9.5");
+    arrow.setAttribute("fill", "none");
+    arrow.setAttribute("stroke", "currentColor");
+    arrow.setAttribute("stroke-width", "1.5");
+    arrow.setAttribute("stroke-linecap", "round");
+    arrow.setAttribute("stroke-linejoin", "round");
+    icon.append(box, arrow);
+    open.append(icon);
+  }
   const dropdown = document.createElement("div");
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
   dropdown.id = uniqueId("m2o-dropdown-");
@@ -9550,6 +9588,19 @@ function renderMany2OneEditor(
   input.setAttribute("aria-controls", dropdown.id);
   toggle.setAttribute("aria-controls", dropdown.id);
   let searchSequence = 0;
+  const syncOpenButton = () => {
+    if (!open) return;
+    const canOpen = selectedItemID !== undefined;
+    open.hidden = !canOpen;
+    open.disabled = !canOpen;
+    if (selectedItemID !== undefined) {
+      open.dataset.resId = String(selectedItemID);
+      open.setAttribute("aria-label", `Open: ${fieldDisplayName}`);
+    } else {
+      delete open.dataset.resId;
+      open.setAttribute("aria-label", "Internal link");
+    }
+  };
   const closeDropdown = () => {
     dropdown.hidden = true;
     dropdown.setAttribute("hidden", "hidden");
@@ -9582,6 +9633,7 @@ function renderMany2OneEditor(
       input.value = item.displayName;
       selectedItemID = item.id;
       committedDisplayName = item.displayName;
+      syncOpenButton();
       if (required) setRequiredControlInvalid(input as RequiredFormControl, false);
       emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
       closeDropdown();
@@ -9593,9 +9645,17 @@ function renderMany2OneEditor(
   };
   const createEdit = (query: string) => {
     if (!relation || !options.services?.action) return;
-    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config, fieldDisplayName), replaceActionOptions(options));
     closeDropdown();
   };
+  open?.addEventListener("click", () => {
+    if (!relation || selectedItemID === undefined || !options.services?.action) return;
+    void options.services.action.doAction(
+      relationOpenDialogAction(relation, selectedItemID, committedDisplayName, fieldDisplayName),
+      replaceActionOptions(options)
+    );
+    closeDropdown();
+  });
   const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
     const normalizedQuery = query.trim();
     if (normalizedQuery && !config.noQuickCreate && options.services?.orm) {
@@ -9668,6 +9728,7 @@ function renderMany2OneEditor(
         input.value = item.displayName;
         selectedItemID = item.id;
         committedDisplayName = item.displayName;
+        syncOpenButton();
         if (required) setRequiredControlInvalid(input as RequiredFormControl, false);
         emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
         closeDropdown();
@@ -9687,6 +9748,7 @@ function renderMany2OneEditor(
       values[node.name] = false;
       selectedItemID = undefined;
       committedDisplayName = "";
+      syncOpenButton();
       emitFieldUpdate(form, options.onUpdate, node.name, values[node.name]);
     }
     if (!query && !searchOptions.allowEmpty) {
@@ -9735,7 +9797,8 @@ function renderMany2OneEditor(
       void search({ allowEmpty: true, clearSelection: false, query: many2OneOpenQuery(input, selectedItemID, committedDisplayName) });
     }, closeDropdown);
   });
-  root.append(input, toggle, dropdown);
+  syncOpenButton();
+  root.append(input, toggle, ...(open ? [open] : []), dropdown);
   return root;
 }
 
@@ -9924,6 +9987,18 @@ function relationDisplayName(relation: string, displayName: string): string {
   return humanReadableModelName(displayName);
 }
 
+function mergeInlineStyle(current: string | null, declaration: string): string {
+  const base = String(current ?? "").trim().replace(/;$/, "");
+  const addition = declaration.trim();
+  return base ? `${base}; ${addition}` : addition;
+}
+
+function createSvgRuntimeElement(tagName: string): SVGElement {
+  const createElementNS = (document as Document & { createElementNS?: Document["createElementNS"] }).createElementNS;
+  if (createElementNS) return createElementNS.call(document, "http://www.w3.org/2000/svg", tagName) as SVGElement;
+  return document.createElement(tagName) as unknown as SVGElement;
+}
+
 function humanReadableModelName(value: string): string {
   const trimmed = value.trim();
   const known: Record<string, string> = {
@@ -10036,16 +10111,35 @@ function relationCreateContext(query: string, config: RelationFieldConfig): Reco
   return { ...config.context, [`default_${config.createNameField}`]: query };
 }
 
-function relationCreateEditAction(relation: string, query: string, config: RelationFieldConfig): Record<string, unknown> {
+function relationCreateEditAction(relation: string, query: string, config: RelationFieldConfig, fieldString?: string): Record<string, unknown> {
+  const label = relationDialogFieldString(relation, fieldString);
   return {
     type: "ir.actions.act_window",
-    name: query ? `Create ${query}` : "Create",
+    name: `Create ${label}`,
     res_model: relation,
     views: [[false, "form"]],
     view_mode: "form",
     target: "new",
     context: relationCreateContext(query, config)
   };
+}
+
+function relationOpenDialogAction(relation: string, id: number, displayName: string, fieldString?: string): Record<string, unknown> {
+  const label = relationDialogFieldString(relation, fieldString || displayName);
+  return {
+    type: "ir.actions.act_window",
+    name: `Open: ${label}`,
+    res_model: relation,
+    res_id: id,
+    views: [[false, "form"]],
+    view_mode: "form",
+    target: "new"
+  };
+}
+
+function relationDialogFieldString(relation: string, fieldString?: string): string {
+  const value = String(fieldString ?? "").trim();
+  return value || humanReadableModelName(relation);
 }
 
 function renderMany2ManyTagEditor(
@@ -10158,7 +10252,7 @@ function renderMany2ManyTagEditor(
   };
   const createEdit = (query: string) => {
     if (!relation || !options.services?.action) return;
-    void options.services.action.doAction(relationCreateEditAction(relation, query, config), replaceActionOptions(options));
+    void options.services.action.doAction(relationCreateEditAction(relation, query, config, fieldDisplayName), replaceActionOptions(options));
     closeDropdown();
   };
   const appendCommands = (query: string, itemCount: number, searchMoreExpanded: boolean) => {
