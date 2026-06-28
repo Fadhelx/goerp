@@ -48,7 +48,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   searchWrap.className = "o-app-search o_home_menu_search";
   const search = document.createElement("input");
   search.type = "text";
-  search.className = "o_app_search_input o_search_hidden visually-hidden";
+  search.className = "o_app_search_stub o_search_hidden visually-hidden";
   search.setAttribute("data-allow-hotkeys", "true");
   search.setAttribute("aria-label", "Search apps and menus");
   search.setAttribute("role", "combobox");
@@ -63,7 +63,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
 
   const setSearchActive = (active: boolean) => {
     searchWrap.className = active ? "o-app-search o_home_menu_search is-active" : "o-app-search o_home_menu_search";
-    search.className = active ? "o_app_search_input" : "o_app_search_input o_search_hidden visually-hidden";
+    search.className = active ? "o_app_search_input" : "o_app_search_stub o_search_hidden visually-hidden";
     searchWrap.dataset.searchActive = active ? "true" : "false";
     search.setAttribute("aria-expanded", active && grid.children.length ? "true" : "false");
   };
@@ -268,26 +268,50 @@ function cleanRoomLauncherIconSource(app: HomeMenuApp): string {
   if (kind === "apps") {
     return svgDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect width="70" height="70" rx="6" fill="#263445"/>
-        <circle cx="35" cy="35" r="22" fill="#f6f7f9"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
         <path d="M35 13a22 22 0 0 1 22 22H35Z" fill="#22c6c2"/>
         <path d="M57 35a22 22 0 0 1-22 22V35Z" fill="#ef7f55"/>
         <path d="M35 57A22 22 0 0 1 13 35h22Z" fill="#7f6fa7"/>
         <path d="M13 35a22 22 0 0 1 22-22v22Z" fill="#4d8fca"/>
         <circle cx="35" cy="35" r="9" fill="#263445"/>
         <circle cx="35" cy="35" r="4" fill="#f6f7f9"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
       </svg>
     `);
   }
   if (kind === "settings") {
     return svgDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-        <rect width="70" height="70" rx="6" fill="#263445"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
         <path d="M35 9 53 19v22L35 61 17 41V19Z" fill="#ef8a48"/>
         <path d="M35 9 53 19v22L35 61Z" fill="#f4bd5f"/>
         <circle cx="35" cy="35" r="15" fill="#875a7b"/>
         <circle cx="35" cy="35" r="7" fill="#263445"/>
         <path d="M35 13v10M35 47v10M13 35h10M47 35h10" stroke="#f6f7f9" stroke-width="4" stroke-linecap="round"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
+      </svg>
+    `);
+  }
+  if (kind === "approvals") {
+    return svgDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
+        <circle cx="35" cy="35" r="23" fill="#6e7da4"/>
+        <path d="M24 35h22" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+        <path d="M35 24v22" stroke="#263445" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="35" cy="35" r="12" fill="none" stroke="#ffffff" stroke-width="5"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
+      </svg>
+    `);
+  }
+  if (kind === "delegation") {
+    return svgDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="#ffffff"/>
+        <rect x="14" y="14" width="34" height="34" rx="10" fill="#19a0a0"/>
+        <rect x="24" y="22" width="30" height="30" rx="9" fill="#dfeff0"/>
+        <rect x="43" y="20" width="8" height="32" rx="4" fill="#8fc9c2"/>
+        <rect x="1" y="1" width="68" height="68" rx="6" fill="none" stroke="#d8dadd"/>
       </svg>
     `);
   }

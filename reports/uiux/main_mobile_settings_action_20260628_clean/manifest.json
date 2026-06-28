@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-28T14:12:48.025Z",
+  "base_url": "http://127.0.0.1:8077/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-webclient-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-webclient-mobile.png",
+      "sha256": "4e085ced099700b285d35ad4805b601a32fc60781e611279f7bf8eb62ae9be4a",
+      "assertions": {
+        "app_count": 2,
+        "mobile_toggle_count": 1,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 36562
+    }
+  ],
+  "duration_ms": 36679
+}

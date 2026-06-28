@@ -5,6 +5,7 @@ const bodyClasses = new Set();
 
 globalThis.document = {
   body: {
+    dataset: {},
     classList: {
       toggle(name, force) {
         if (force) bodyClasses.add(name);
@@ -92,6 +93,8 @@ assert.match(shell.className, /o_web_client/);
 assert.match(shell.className, /o_home_menu_background/);
 assert.equal(shell.dataset.theme, "enterprise-like");
 assert.equal(shell.dataset.view, "apps");
+assert.equal(document.body.dataset.view, "apps");
+assert.equal(document.body.dataset.homeMenuMode, "root");
 assert.equal(shell.dataset.mobileSafe, "true");
 assert.equal(String(shell.children[0].className).split(/\s+/).includes("o_navbar"), true);
 assert.match(String(shell.children[0].children[0].className), /o_main_navbar/);
@@ -110,6 +113,8 @@ assert.equal(findAll(shell, (node) => String(node.textContent).includes("Gorp"))
 
 findAll(shell, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_app"))[0].listeners.click[0]();
 assert.equal(shell.dataset.view, "action");
+assert.equal(document.body.dataset.view, "action");
+assert.equal(document.body.dataset.homeMenuMode, undefined);
 assert.equal(String(shell.className).includes("o_home_menu_background"), false);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 0);
@@ -119,6 +124,8 @@ assert.equal(String(launcherButton.className).includes("o_menu_toggle_back"), fa
 launcherButton.listeners.click[0]();
 assert.equal(shell.dataset.view, "apps");
 assert.equal(shell.dataset.homeMenuMode, "overlay");
+assert.equal(document.body.dataset.view, "apps");
+assert.equal(document.body.dataset.homeMenuMode, "overlay");
 assert.match(shell.className, /o_home_menu_background/);
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker")).length, 0);
@@ -128,6 +135,8 @@ assert.equal(String(launcherButton.className).includes("o_menu_toggle_back"), tr
 launcherButton.listeners.click[0]();
 assert.equal(shell.dataset.view, "action");
 assert.equal(shell.dataset.homeMenuMode, undefined);
+assert.equal(document.body.dataset.view, "action");
+assert.equal(document.body.dataset.homeMenuMode, undefined);
 assert.equal(String(shell.className).includes("o_home_menu_background"), false);
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 0);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker") && node.dataset?.openedApp === "1").length, 1);

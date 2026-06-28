@@ -3648,7 +3648,7 @@ function renderKanbanView(
   const fieldNodes = kanbanViewFieldNodes(arch, fields, records[0] ?? {});
   const progressBar = parseKanbanProgressBarNode(arch);
   const template = parseKanbanTemplates(arch);
-  const titleField = kanbanTitleField(fieldNodes, fields);
+  const titleField = model === "ir.module.module" && fields.shortdesc ? "shortdesc" : kanbanTitleField(fieldNodes, fields);
   const groupDescriptor = groupBy[0] ?? "";
   const [groupField] = splitGroupByDescriptorValue(groupDescriptor);
   const grouped = Boolean(groupField && fields[groupField]);
@@ -4033,6 +4033,7 @@ function renderKanbanRecordCard(
   const colorValue = kanbanRecordColorValue(record);
   if (colorValue !== undefined) card.dataset.kanbanColor = String(colorValue);
   card.dataset.model = model;
+  if (model === "ir.module.module") applyModuleKanbanCardMetadata(card, record);
   if (recordID !== undefined && dragContext) {
     configureKanbanRecordDrag(card, recordID, model, renderer, dragContext);
   }
@@ -4074,7 +4075,7 @@ function renderKanbanRecordCard(
     }
   }
   if (model === "ir.module.module" && recordID !== undefined) {
-    main.append(renderModuleInfoButton(record, recordID, action, options, renderer));
+    main.append(renderModuleKanbanActions(record, recordID, action, options, renderer));
   }
   if (recordID !== undefined) {
     card.append(renderKanbanRecordMenu(model, recordID, action, options, renderer, actionMenus));
@@ -4890,6 +4891,93 @@ async function openKanbanRecord(
   root: HTMLElement
 ): Promise<void> {
   await openRecordAction(model, id, action, options, root);
+}
+
+function applyModuleKanbanCardMetadata(card: HTMLElement, record: Record<string, unknown>): void {
+  card.className = `${card.className} gorp-apps-catalog-card module-card o_app`;
+  const technicalName = String(firstText(record.name, record.technical_name, record.display_name, record.id) || "");
+  const displayName = String(firstText(record.shortdesc, record.display_name, record.name, record.id) || "");
+  const state = String(firstText(record.state, "uninstalled") || "uninstalled");
+  if (technicalName) card.dataset.moduleName = technicalName;
+  if (displayName) card.dataset.appName = displayName;
+  card.dataset.state = state;
+}
+
+function renderModuleKanbanActions(
+  record: Record<string, unknown>,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "o_module_actions";
+  const state = String(firstText(record.state, "uninstalled") || "uninstalled");
+  const stateBadge = document.createElement("span");
+  stateBadge.className = "badge o_module_state";
+  stateBadge.textContent = state;
+  wrapper.append(stateBadge);
+  for (const item of moduleKanbanActionItems(state)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = item.className;
+    button.dataset.moduleAction = item.method;
+    button.textContent = item.label;
+    button.addEventListener("click", async (event) => {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      button.disabled = true;
+      button.textContent = item.runningLabel;
+      await runModuleKanbanAction(id, item.method, action, options, root);
+    });
+    wrapper.append(button);
+  }
+  wrapper.append(renderModuleInfoButton(record, id, action, options, root));
+  return wrapper;
+}
+
+type ModuleKanbanActionMethod =
+  | "button_immediate_install"
+  | "button_immediate_upgrade"
+  | "button_immediate_uninstall"
+  | "button_cancel_install"
+  | "button_cancel_upgrade"
+  | "button_cancel_uninstall";
+
+function moduleKanbanActionItems(state: string): Array<{ className: string; label: string; method: ModuleKanbanActionMethod; runningLabel: string }> {
+  switch (state) {
+    case "installed":
+      return [
+        { className: "btn btn-secondary btn-sm o_module_upgrade_button", label: "Upgrade", method: "button_immediate_upgrade", runningLabel: "Upgrading..." },
+        { className: "btn btn-outline-secondary btn-sm o_module_uninstall_button", label: "Uninstall", method: "button_immediate_uninstall", runningLabel: "Uninstalling..." }
+      ];
+    case "to install":
+      return [{ className: "btn btn-outline-secondary btn-sm o_module_cancel_button", label: "Cancel Install", method: "button_cancel_install", runningLabel: "Cancelling..." }];
+    case "to upgrade":
+      return [{ className: "btn btn-outline-secondary btn-sm o_module_cancel_button", label: "Cancel Upgrade", method: "button_cancel_upgrade", runningLabel: "Cancelling..." }];
+    case "to remove":
+      return [{ className: "btn btn-outline-secondary btn-sm o_module_cancel_button", label: "Cancel Uninstall", method: "button_cancel_uninstall", runningLabel: "Cancelling..." }];
+    default:
+      return [{ className: "btn btn-primary btn-sm o_module_install_button", label: "Activate", method: "button_immediate_install", runningLabel: "Activating..." }];
+  }
+}
+
+async function runModuleKanbanAction(
+  id: number,
+  method: ModuleKanbanActionMethod,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): Promise<void> {
+  if (options.services?.orm && options.services?.action) {
+    await options.services.orm.call("ir.module.module", method, [[id]], {});
+    await options.services.action.doAction(action, replaceActionOptions(options));
+    return;
+  }
+  root.dispatchEvent(new CustomEvent("action:module-action", {
+    bubbles: true,
+    detail: { model: "ir.module.module", id, method }
+  }));
 }
 
 function renderModuleInfoButton(

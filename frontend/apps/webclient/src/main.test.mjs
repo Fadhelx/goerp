@@ -398,10 +398,12 @@ const catalog = mod.renderAppsCatalogView({
 });
 assert.equal(findAll(catalog, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
 assert.equal(findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-sidebar")).length, 1);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-grid") && String(node.className).includes("o_kanban_renderer")).length, 1);
 assert.deepEqual(findAll(catalog, (node) => node.dataset?.catalogFilter).map((node) => node.dataset.catalogFilter), ["all", "official", "industries"]);
 assert.deepEqual(findAll(catalog, (node) => String(node.className).includes("o_search_panel_category")).map((node) => node.dataset.category), ["all", "Sales", "Services", "Productivity", "Administration"]);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "crm").length, 1);
 assert.equal(findAll(catalog, (node) => node.dataset?.moduleName === "mail").length, 1);
+assert.equal(findAll(catalog, (node) => String(node.className).includes("gorp-apps-catalog-card") && String(node.className).includes("o_kanban_record")).length, 6);
 assert.equal(findAll(catalog, (node) => String(node.className).includes("o_app_icon") && !node.textContent).length, 6);
 const generatedCatalogIcons = findAll(catalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon"));
 assert.equal(generatedCatalogIcons.length, 6);
@@ -416,6 +418,7 @@ const referenceCatalog = mod.renderAppsCatalogView({
 });
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && allText(node).includes("Manage securities, transactions, and cap tables.")).length, 1);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "mrp" && allText(node).includes("Manufacturing Orders & BOMs")).length, 1);
+assert.equal(findAll(referenceCatalog, (node) => String(node.className).includes("gorp-apps-catalog-card") && String(node.className).includes("o_kanban_record")).length, 77);
 assert.equal(findAll(referenceCatalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon") && node.dataset?.generatedIcon === "clean-room").length, 77);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "equity" && node.textContent === "Module Info"), true);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "sale_management" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "sale_management" && node.textContent === "Learn More"), true);
@@ -488,9 +491,10 @@ findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).
 await flushAsync();
 let actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
 assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_apps_view")).length, 1);
-assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 0);
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 0);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_kanban_renderer")).length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_kanban_record") && node.dataset?.moduleName === "base").length, 1);
 assert.equal(globalThis.location.hash.includes("action=91"), true);
 assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);
 assert.equal(globalThis.location.hash.includes("view_type=kanban"), true);

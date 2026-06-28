@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-06-28T14:13:06.132Z",
+  "base_url": "http://127.0.0.1:8077/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-apps-catalog-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-parity-desktop.png",
+      "sha256": "aa303371d1f3a33a88c88a2eeaafa193527ba77ebd291faeccf1d37003fe0063",
+      "assertions": {
+        "card_count": 26,
+        "window_count": 1,
+        "renderer_count": 1,
+        "brand": "Apps",
+        "navbar_sections": [
+          "Apps"
+        ],
+        "pager": "1-26 / 26<>",
+        "first_cards": [
+          "base",
+          "mail",
+          "ai",
+          "automation",
+          "base_automation",
+          "web",
+          "portal",
+          "base_setup",
+          "onboarding",
+          "uom",
+          "product",
+          "analytic",
+          "digest",
+          "phone_validation",
+          "resource",
+          "resource_mail",
+          "hr",
+          "oi_base",
+          "oi_base_cache",
+          "oi_web_selection_field_dynamic",
+          "oi_web_selection_tags",
+          "oi_web_flowchart",
+          "oi_workflow",
+          "oi_workflow_advance"
+        ],
+        "first_card_actions": [
+          "Upgrade",
+          "Uninstall",
+          "Module Info"
+        ],
+        "module_card_count": 26,
+        "module_state_count": 26,
+        "install_button_count": 26,
+        "info_button_count": 26
+      },
+      "duration_ms": 518
+    },
+    {
+      "name": "default-apps-install-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-install-desktop.png",
+      "sha256": "aa303371d1f3a33a88c88a2eeaafa193527ba77ebd291faeccf1d37003fe0063",
+      "assertions": {
+        "module": "ai",
+        "catalog_count": 1,
+        "before_state": "uninstalled",
+        "after_install_state": "installed",
+        "after_upgrade_state": "installed",
+        "after_uninstall_state": "uninstalled",
+        "restored_state": "installed"
+      },
+      "duration_ms": 2124
+    },
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "d813e1d11fe2f68b66a69215ef263259f816ba23de048759da0e8d6e0e9a3e82",
+      "assertions": {
+        "module": "ai",
+        "card_count": 1,
+        "modal_count": 1
+      },
+      "duration_ms": 724
+    },
+    {
+      "name": "default-apps-lifecycle-cancel-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-lifecycle-cancel-desktop.png",
+      "sha256": "d813e1d11fe2f68b66a69215ef263259f816ba23de048759da0e8d6e0e9a3e82",
+      "assertions": {
+        "module": "ai",
+        "to_install_state": "to install",
+        "after_cancel_install_state": "uninstalled",
+        "to_upgrade_state": "to upgrade",
+        "after_cancel_upgrade_state": "installed",
+        "to_remove_state": "to remove",
+        "after_cancel_uninstall_state": "installed"
+      },
+      "duration_ms": 1971
+    }
+  ],
+  "duration_ms": 5471
+}

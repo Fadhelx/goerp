@@ -139,21 +139,34 @@ assert.equal(liveSettingsIcon.dataset.iconToken, "settings");
 assert.equal(liveSettingsIcon.dataset.generatedIcon, "clean-room");
 assert.match(liveSettingsIcon.src, /^data:image\/svg\+xml,/);
 assert.equal(findAll(liveSettingsCard, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
-const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
+assert.equal(findAll(liveMenu, (node) => String(node.className).split(/\s+/).includes("o_app_search_input")).length, 0);
+
+const discussRootMenu = renderHomeMenu({
+  menu_roots: [1, 2, 3],
+  1: { id: 1, name: "Discuss", actionID: 11, children: [] },
+  2: { id: 2, name: "Settings", children: [20] },
+  20: { id: 20, name: "Apps", actionID: 22, actionPath: "apps", xmlid: "base.menu_ir_module_module", children: [] },
+  3: { id: 3, name: "Approvals", actionID: 33, children: [] }
+});
+assert.deepEqual(findAll(discussRootMenu, (node) => String(node.className).split(/\s+/).includes("o_app_name")).map((node) => node.textContent), ["Apps", "Settings"]);
+
+const searchInput = findAll(liveMenu, (node) => String(node.className).includes("o_app_search_stub"))[0];
 const liveSearchWrap = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_search"))[0];
 assert.equal(liveSearchWrap.dataset.searchActive, "false");
 searchInput.value = "server";
 searchInput.listeners.input[0]();
 assert.equal(liveSearchWrap.dataset.searchActive, "true");
+assert.equal(String(searchInput.className).split(/\s+/).includes("o_app_search_input"), true);
 assert.equal(findAll(liveMenu, (node) => node.dataset?.menuId === "41" && node.dataset?.menuAction === "true").length, 1);
 
 const keyboardMenu = renderHomeMenu(payload);
 const keyboardSection = keyboardMenu;
-const keyboardSearch = findAll(keyboardMenu, (node) => String(node.className).includes("o_app_search_input"))[0];
+const keyboardSearch = findAll(keyboardMenu, (node) => String(node.className).includes("o_app_search_stub"))[0];
 let prevented = false;
 keyboardSection.listeners.keydown[0]({ key: "s", preventDefault() { prevented = true; } });
 assert.equal(prevented, true);
 assert.equal(keyboardSearch.value, "s");
+assert.equal(String(keyboardSearch.className).split(/\s+/).includes("o_app_search_input"), true);
 assert.equal(findAll(keyboardMenu, (node) => String(node.className).includes("o_home_menu_search") && node.dataset?.searchActive === "true").length, 1);
 
 const normalUserMenu = renderHomeMenu({
@@ -201,7 +214,8 @@ const defaultGlyphMenu = renderHomeMenu({
   root: { children: [1] },
   1: { id: 1, name: "Approvals", children: [] }
 });
-assert.equal(findAll(defaultGlyphMenu, (node) => String(node.className).includes("fa-check-square-o")).length, 1);
+assert.equal(findAll(defaultGlyphMenu, (node) => String(node.className).includes("fa-check-square-o")).length, 0);
+assert.equal(findAll(defaultGlyphMenu, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0].dataset.iconKind, "approvals");
 const fallbackMenu = renderHomeMenu({
   root: { children: [1] },
   1: { id: 1, name: "Broken Icon", children: [], webIconData: "abc123", webIconDataMimetype: "image/png" }

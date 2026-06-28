@@ -112,13 +112,21 @@ async function restoreActionFromHash(
   const routeMenuID = routeID(route.menu_id);
   if (routeMenuID !== undefined) shell.setMenuContext(routeMenuID);
   const app = routeMenuApp(menus, route.menu_id);
+  if (route.model === "ir.module.module") {
+    await renderAppsCatalog(env, outlet, cleanAppName(app?.name ?? "Apps") || "Apps");
+    return true;
+  }
   const context = routeActionContext(route);
   const actionHost = createActionHost(env, outlet, app);
   outlet.dataset.tsActionStatus = "loading";
   outlet.replaceChildren(renderActionLoading(app?.name ?? "Action"));
   try {
     const action = await actionHost.loadAction(actionID, context);
-    await actionHost.doAction(actionWithRouteState(action, route), {
+    const routeAction = actionWithRouteState(action, route);
+    const nextAction = routeAction.res_model === "ir.module.module"
+      ? normalizeAppsWindowAction(routeAction, routeAppsCatalogApp(app, route))
+      : routeAction;
+    await actionHost.doAction(nextAction, {
       additionalContext: context,
       stackPosition: "clear"
     });
@@ -127,6 +135,21 @@ async function restoreActionFromHash(
     renderActionError(outlet, error);
     return false;
   }
+}
+
+function routeAppsCatalogApp(app: HomeMenuApp | undefined, route: WebClientRouteState): HomeMenuApp {
+  if (app) return app;
+  const id = routeID(route.menu_id) ?? "apps";
+  return {
+    id,
+    key: "apps",
+    name: "Apps",
+    initials: "A",
+    iconToken: "apps",
+    sequence: 0,
+    searchText: "apps",
+    menu: { id, name: "Apps" } as HomeMenuEntry
+  };
 }
 
 function routeActionID(route: WebClientRouteState): number | string | undefined {
@@ -260,13 +283,7 @@ async function openMenuApp(
 ): Promise<void> {
   const actionID = menuActionID(app);
   if (isAppsCatalogLikeApp(app)) {
-    updateBrowserRoute({
-      ...(actionID !== undefined ? { action: actionID } : {}),
-      model: "ir.module.module",
-      view_type: "kanban",
-      menu_id: app.id
-    });
-    await renderAppsCatalog(env, outlet, cleanAppName(app.name) || "Apps");
+    await openAppsCatalogWindowAction(env, outlet, app, actionID);
     return;
   }
   if (isSettingsLikeApp(app)) {
@@ -292,13 +309,56 @@ async function openMenuApp(
   });
 }
 
+async function openAppsCatalogWindowAction(
+  env: ReturnType<typeof makeEnv>,
+  outlet: HTMLElement,
+  app: HomeMenuApp,
+  actionID?: number | string,
+  query = ""
+): Promise<void> {
+  updateBrowserRoute({
+    ...(actionID !== undefined ? { action: actionID } : {}),
+    model: "ir.module.module",
+    view_type: "kanban",
+    menu_id: app.id
+  });
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading(cleanAppName(app.name) || "Apps"));
+  const actionHost = createActionHost(env, outlet, app);
+  const context = appsCatalogActionContext(app, query);
+  const fallbackAction = {
+    type: "ir.actions.act_window",
+    name: "Apps",
+    res_model: "ir.module.module",
+    view_mode: "kanban,list,form",
+    views: [[false, "kanban"], [false, "list"], [false, "form"]]
+  };
+  const loadedAction = actionID !== undefined
+    ? await actionHost.loadAction(actionID, context)
+    : fallbackAction;
+  await actionHost.doAction(normalizeAppsWindowAction(loadedAction, app, query), {
+    additionalContext: context,
+    stackPosition: "clear"
+  });
+}
+
+function appsCatalogActionContext(app: HomeMenuApp, query = ""): Record<string, unknown> {
+  const context: Record<string, unknown> = {
+    menu_id: app.id,
+    search_default_app: 1
+  };
+  const normalizedQuery = query.trim();
+  if (normalizedQuery) context.search_default_name = normalizedQuery;
+  return context;
+}
+
 function isAppsCatalogLikeApp(app: HomeMenuApp): boolean {
   if (isAppsCatalogApp(app)) return true;
   const name = cleanAppName(app.name).toLowerCase();
   return name === "apps";
 }
 
-function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMenuApp): Record<string, unknown> {
+function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMenuApp, query = ""): Record<string, unknown> {
   if (action.type !== "ir.actions.act_window" || action.res_model !== "ir.module.module") {
     return { ...action, menu_id: app.id };
   }
@@ -310,7 +370,7 @@ function normalizeAppsWindowAction(action: Record<string, unknown>, app: HomeMen
     view_type: "kanban",
     context: {
       ...(isRecord(action.context) ? action.context : {}),
-      search_default_app: 1
+      ...appsCatalogActionContext(app, query)
     }
   };
 }
@@ -567,13 +627,7 @@ async function openSettingsNavigationTarget(
   if (target.model === "ir.module.module") {
     const appsMenu = findSettingsTargetMenuApp(menus, settingsApp, target);
     const actionID = menuActionID(appsMenu ?? settingsApp);
-    updateBrowserRoute({
-      ...(actionID !== undefined ? { action: actionID } : {}),
-      menu_id: appsMenu?.id ?? settingsApp.id,
-      model: "ir.module.module",
-      view_type: "kanban"
-    });
-    await renderAppsCatalog(env, outlet, "Apps", target.query ?? "");
+    await openAppsCatalogWindowAction(env, outlet, appsMenu ?? settingsApp, actionID, target.query ?? "");
     return;
   }
   const targetApp = findSettingsTargetMenuApp(menus, settingsApp, target);
@@ -1300,7 +1354,7 @@ export function renderAppsCatalogView(payload: AppsCatalogPayload, options: Apps
   sidebar.className = "gorp-apps-catalog-sidebar o_search_panel";
   sidebar.setAttribute("aria-label", "App categories");
   const grid = document.createElement("div");
-  grid.className = "gorp-apps-catalog-grid o_apps";
+  grid.className = "gorp-apps-catalog-grid o_apps o_kanban_renderer o_renderer o_kanban_ungrouped";
   const detail = document.createElement("aside");
   detail.className = "gorp-apps-catalog-detail o_module_info_panel";
   detail.hidden = true;
@@ -1623,7 +1677,7 @@ function appsCatalogModuleSort(left: AppsCatalogDisplayModule, right: AppsCatalo
 
 function renderAppsCatalogCard(module: AppsCatalogDisplayModule, options: AppsCatalogCardOptions): HTMLElement {
   const card = document.createElement("article");
-  card.className = "gorp-apps-catalog-card module-card o_app";
+  card.className = "gorp-apps-catalog-card module-card o_app o_kanban_record";
   card.dataset.moduleName = module.technicalName;
   card.dataset.appName = module.displayName;
   card.dataset.category = module.category;

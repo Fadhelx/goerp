@@ -46,6 +46,15 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     toggleClassName(root, "o_home_menu_background", active);
     toggleClassName(document.body as HTMLElement | undefined, "o_home_menu_background", active);
   };
+  const setShellView = (view: "apps" | "action" | "ready", homeMenuMode?: "root" | "overlay") => {
+    root.dataset.view = view;
+    syncBodyShellView(view, homeMenuMode);
+    if (homeMenuMode) {
+      root.dataset.homeMenuMode = homeMenuMode;
+      return;
+    }
+    delete root.dataset.homeMenuMode;
+  };
   const setMobileMenuOpen = (open: boolean) => {
     document.body?.classList?.toggle("o-mobile-menu-open", open);
   };
@@ -56,8 +65,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   let previousActionChildren: HTMLElement[] = [];
   const applyMenuContext = (app: HomeMenuApp) => {
     previousActionChildren = [];
-    root.dataset.view = "action";
-    delete root.dataset.homeMenuMode;
+    setShellView("action");
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(false);
     setMobileMenuOpen(false);
@@ -80,8 +88,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   };
   const renderRootApps = () => {
     previousActionChildren = [];
-    root.dataset.view = "apps";
-    root.dataset.homeMenuMode = "root";
+    setShellView("apps", "root");
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(true);
     setMobileMenuOpen(false);
@@ -97,8 +104,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     if (root.dataset.view !== "apps") {
       previousActionChildren = Array.from(action.children) as HTMLElement[];
     }
-    root.dataset.view = "apps";
-    root.dataset.homeMenuMode = "overlay";
+    setShellView("apps", "overlay");
     setNavbarHomeMenuBackMode(true);
     setHomeMenuBackground(true);
     setMobileMenuOpen(false);
@@ -109,8 +115,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
     }));
   };
   const restoreActionFromOverlayApps = () => {
-    root.dataset.view = "action";
-    delete root.dataset.homeMenuMode;
+    setShellView("action");
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(false);
     setMobileMenuOpen(false);
@@ -166,6 +171,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   if (options.menus) {
     renderRootApps();
   } else {
+    setShellView("ready");
     setHomeMenuBackground(false);
     const ready = document.createElement("section");
     ready.className = "o-control-panel o_control_panel";
@@ -190,6 +196,17 @@ function toggleClassName(node: HTMLElement | undefined, className: string, activ
     classes.delete(className);
   }
   node.className = [...classes].join(" ");
+}
+
+function syncBodyShellView(view: "apps" | "action" | "ready", homeMenuMode?: "root" | "overlay"): void {
+  const body = document.body as HTMLElement | undefined;
+  if (!body?.dataset) return;
+  body.dataset.view = view;
+  if (homeMenuMode) {
+    body.dataset.homeMenuMode = homeMenuMode;
+  } else {
+    delete body.dataset.homeMenuMode;
+  }
 }
 
 function navbarApps(apps: readonly HomeMenuApp[]): NavbarApp[] {
