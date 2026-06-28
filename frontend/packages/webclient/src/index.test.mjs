@@ -3783,6 +3783,65 @@ assert.deepEqual(moduleInfoCalls[0].options, {
   }
 });
 
+const referenceAppsCatalogWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: {
+    id: 93,
+    name: "Apps",
+    path: "apps",
+    res_model: "ir.module.module",
+    view_mode: "kanban,list,form",
+    views: [[false, "kanban"], [false, "list"], [false, "form"]]
+  },
+  activeView: "kanban",
+  resModel: "ir.module.module",
+  viewDescriptions: {
+    fields: {
+      shortdesc: { type: "char", string: "Name" },
+      name: { type: "char", string: "Technical Name" },
+      state: { type: "selection", string: "Status" }
+    },
+    relatedModels: {},
+    views: {
+      kanban: {
+        arch: `<kanban create="false" can_open="0" class="o_modules_kanban"><field name="shortdesc"/><field name="name"/><field name="state"/></kanban>`,
+        id: 93
+      },
+      form: {
+        arch: `<form><sheet><field name="shortdesc"/><field name="name"/><field name="state"/></sheet></form>`,
+        id: 94
+      }
+    }
+  },
+  records: Array.from({ length: 26 }, (_item, index) => ({
+    id: 100 + index,
+    shortdesc: index === 0 ? "AI" : `Raw ${index}`,
+    name: index === 0 ? "ai" : `raw_${index}`,
+    display_name: index === 0 ? "AI" : `Raw ${index}`,
+    state: index === 0 ? "uninstalled" : "installed"
+  })),
+  length: 26
+}, { context: { search_default_app: 1 } });
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => node.dataset?.createAction === "true").length, 0);
+const referenceAppsCatalog = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog"))[0];
+assert.equal(referenceAppsCatalog.dataset.catalogTotal, "77");
+assert.equal(referenceAppsCatalog.dataset.visibleCount, "77");
+const referenceAppsCards = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog-card"));
+assert.equal(referenceAppsCards.length, 77);
+assert.equal(referenceAppsCards[0].dataset.moduleName, "sale_management");
+assert.equal(referenceAppsCards[0].dataset.appName, "Sales");
+assert.equal(referenceAppsCards[0].dataset.virtualModule, "true");
+assert.equal(findAll(referenceAppsCards[0], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record_field")).length, 0);
+assert.deepEqual(
+  findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_install_button") || String(node.className ?? "").includes("o_module_info_button")).map((node) => node.textContent),
+  ["Activate", "Learn More"]
+);
+assert.equal(findAll(referenceAppsCards[0], (node) => node.dataset?.generatedIcon === "clean-room").length, 1);
+assert.deepEqual(
+  findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_search_panel_label")).map((node) => node.textContent).slice(0, 7),
+  ["All", "Official Apps", "Industries", "All", "Sales", "Website", "Services"]
+);
+
 const delegationWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Delegation" },

@@ -12,6 +12,7 @@ import (
 	serveractions "gorp/internal/actions"
 	"gorp/internal/ai/agents"
 	aicontrollers "gorp/internal/ai/controllers"
+	"gorp/internal/ai/embeddings"
 	aiproviders "gorp/internal/ai/providers"
 	"gorp/internal/ai/rag"
 	aitools "gorp/internal/ai/tools"
@@ -371,7 +372,23 @@ func (r runtimeAIRetriever) Retrieve(ctx context.Context, req rag.Request) ([]ra
 	if err != nil {
 		return nil, err
 	}
-	return rag.PersistedRetriever{Env: r.env, Provider: provider, EmbeddingModel: model}.Retrieve(ctx, req)
+	return rag.PersistedRetriever{Env: r.env, Provider: provider, Authorizer: runtimeRAGAuthorizer{env: r.env}, EmbeddingModel: model}.Retrieve(ctx, req)
+}
+
+type runtimeRAGAuthorizer struct {
+	env *record.Env
+}
+
+func (a runtimeRAGAuthorizer) CanRead(_ context.Context, ref embeddings.RecordRef) bool {
+	modelName := strings.TrimSpace(ref.Model)
+	if a.env == nil || modelName == "" || ref.ID == 0 {
+		return false
+	}
+	rows, err := a.env.Model(modelName).Browse(ref.ID).Read("id")
+	if err != nil || len(rows) == 0 {
+		return false
+	}
+	return int64Value(rows[0]["id"]) == ref.ID
 }
 
 type envAIChannelStore struct {

@@ -491,10 +491,11 @@ findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).
 await flushAsync();
 let actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
 assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
-assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 0);
+assert.equal(findAll(actionManager, (node) => String(node.className).split(/\s+/).includes("gorp-apps-catalog")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.module.module" && node.dataset?.view === "kanban").length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_kanban_renderer")).length, 1);
 assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_kanban_record") && node.dataset?.moduleName === "base").length, 1);
+assert.equal(findAll(actionManager, (node) => String(node.className).includes("o_kanban_record_field")).length, 0);
 assert.equal(globalThis.location.hash.includes("action=91"), true);
 assert.equal(globalThis.location.hash.includes("model=ir.module.module"), true);
 assert.equal(globalThis.location.hash.includes("view_type=kanban"), true);

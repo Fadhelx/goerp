@@ -1,0 +1,101 @@
+{
+  "catalog": {
+    "action_count": 1,
+    "action_model": "ir.module.module",
+    "action_view": "kanban",
+    "activate_button_count": 74,
+    "card_count": 77,
+    "catalog_count": 1,
+    "catalog_total": "77",
+    "clean_room_icon_count": 77,
+    "first_card_actions": [
+      "Activate",
+      "Learn More"
+    ],
+    "first_card_height": 109,
+    "first_card_text": "SalesFrom quotations to invoicesuninstalledActivateLearn More⋮",
+    "first_card_title": "Sales",
+    "first_card_width": 322,
+    "generic_field_count_first_24": 0,
+    "installed_cards": [
+      "hr",
+      "ai",
+      "mail"
+    ],
+    "learn_more_button_count": 76,
+    "module_info_button_count": 1,
+    "module_state_count": 77,
+    "renderer_class": "gorp-apps-catalog-grid o_apps o_kanban_renderer o_renderer o_kanban_ungrouped",
+    "renderer_count": 1,
+    "second_card_top_delta": 0,
+    "visible_card_count": 12,
+    "visible_count": "77"
+  },
+  "controls": {
+    "create_button_count": 0,
+    "hidden_catalog_pager_text": "1-77 / 77",
+    "pager_text": "1-77 / 77<>",
+    "view_switches": [
+      "<",
+      ">",
+      "K",
+      "L",
+      "F"
+    ]
+  },
+  "shell": {
+    "action_manager_status": "ready",
+    "action_window_count": 1,
+    "brand": "Apps",
+    "home_menu_count": 0,
+    "nav_entries": [
+      "Apps"
+    ],
+    "webclient_count": 1
+  },
+  "sidebar": {
+    "active_labels": [
+      "All",
+      "All"
+    ],
+    "count": 1,
+    "counters": [
+      "11",
+      "5",
+      "6",
+      "3",
+      "8",
+      "9",
+      "7",
+      "14",
+      "10",
+      "1",
+      "1",
+      "1"
+    ],
+    "headers": [
+      "APPS",
+      "CATEGORIES"
+    ],
+    "labels": [
+      "All",
+      "Official Apps",
+      "Industries",
+      "All",
+      "Sales",
+      "Website",
+      "Services",
+      "Accounting",
+      "Supply Chain",
+      "Productivity",
+      "Marketing",
+      "Human Resources",
+      "Shipping Connectors",
+      "ESG",
+      "Customizations",
+      "Administration"
+    ]
+  },
+  "title": "Odoo",
+  "url": "http://127.0.0.1:8073/web?independent_apps_catalog=1#action=16&model=ir.module.module&view_type=kanban&menu_id=73"
+}

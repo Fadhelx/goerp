@@ -2835,28 +2835,80 @@ export const scenarios = [
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
       await openDefaultAppsCatalog(page, config, desktopViewport());
-      const cardCount = await waitForCount(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='kanban'] .o_kanban_record", 1, "Apps catalog kanban cards");
+      const cardCount = await waitForCount(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='kanban'] .gorp-apps-catalog-card.o_kanban_record", 30, "Apps catalog kanban cards");
       const state = await evaluate(page, `(() => {
         const action = document.querySelector(".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='kanban']");
+        const catalog = action?.querySelector(".gorp-apps-catalog");
+        const sidebar = action?.querySelector(".gorp-apps-catalog-sidebar.o_search_panel");
         const renderer = action?.querySelector(".o_kanban_renderer");
         const cards = [...(renderer?.querySelectorAll(".o_kanban_record") || [])];
+        const firstRect = cards[0]?.getBoundingClientRect();
+        const firstStyle = cards[0] ? getComputedStyle(cards[0]) : null;
+        const secondRect = cards[1]?.getBoundingClientRect();
+        const firstText = cards[0]?.textContent || "";
+        const visible = (node) => {
+          const rect = node.getBoundingClientRect();
+          return rect.bottom > 104 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
+        };
         return {
           window_count: action ? 1 : 0,
+          catalog_total: catalog?.dataset.catalogTotal || "",
+          catalog_visible_count: catalog?.dataset.visibleCount || "",
           renderer_count: renderer ? 1 : 0,
           brand: document.querySelector(".o_web_client .o_menu_brand")?.textContent?.trim() || "",
           navbar_sections: [...document.querySelectorAll(".o_web_client .o_navbar_sections .o_nav_entry")].map((node) => node.textContent.trim()).filter(Boolean),
           pager: action?.querySelector(".o_pager")?.textContent?.trim() || "",
+          create_button_count: action?.querySelectorAll("[data-create-action='true']").length || 0,
+          sidebar_count: sidebar ? 1 : 0,
+          sidebar_labels: [...(sidebar?.querySelectorAll(".o_search_panel_label") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           first_cards: cards.slice(0, 24).map((card) => card.querySelector(".o_kanban_record_title, .o_app_name")?.textContent?.trim() || ""),
           first_card_actions: [...(cards[0]?.querySelectorAll(".o_module_actions button, .o_module_info_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          first_card_text: firstText.replace(/\\s+/g, " ").trim(),
+          first_card_width: Math.round(firstRect?.width || 0),
+          first_card_height: Math.round(firstRect?.height || 0),
+          first_card_display: firstStyle?.display || "",
+          second_card_top_delta: secondRect && firstRect ? Math.round(secondRect.top - firstRect.top) : 0,
+          visible_card_count: cards.filter(visible).length,
+          generic_field_count: cards.slice(0, 24).reduce((sum, card) => sum + card.querySelectorAll(".o_kanban_record_field").length, 0),
           module_card_count: cards.filter((card) => card.classList.contains("gorp-apps-catalog-card") && card.dataset.moduleName).length,
           module_state_count: cards.filter((card) => card.querySelector(".o_module_state")).length,
           install_button_count: cards.filter((card) => card.querySelector(".o_module_install_button, .o_module_upgrade_button, .o_module_uninstall_button, .o_module_cancel_button")).length,
-          info_button_count: cards.filter((card) => card.querySelector(".o_module_info_button")).length
+          activate_button_count: cards.filter((card) => card.querySelector(".o_module_install_button")).length,
+          learn_more_count: cards.filter((card) => [...card.querySelectorAll(".o_module_info_button")].some((node) => node.textContent.trim() === "Learn More")).length,
+          info_button_count: cards.filter((card) => card.querySelector(".o_module_info_button")).length,
+          generated_icon_count: cards.filter((card) => card.querySelector("img.o_module_icon[data-generated-icon='clean-room']")).length
         };
       })()`);
       const expectedSections = ["Apps"];
       if (JSON.stringify(state.navbar_sections) !== JSON.stringify(expectedSections)) throw new Error(`Apps catalog navbar invalid: ${JSON.stringify(state)}`);
-      if (state.window_count !== 1 || state.renderer_count !== 1 || state.brand !== "Apps" || state.module_card_count < 1 || state.module_state_count < 1 || state.install_button_count < 1 || state.info_button_count < 1 || !state.first_cards.some(Boolean)) throw new Error(`Apps catalog parity invalid: ${JSON.stringify(state)}`);
+      const expectedSidebar = ["All", "Official Apps", "Industries", "All", "Sales", "Website", "Services"];
+      if (
+        state.window_count !== 1 ||
+        state.renderer_count !== 1 ||
+        state.brand !== "Apps" ||
+        state.catalog_total !== "77" ||
+        state.catalog_visible_count !== "77" ||
+        !state.pager.includes("1-77") ||
+        state.create_button_count !== 0 ||
+        state.sidebar_count !== 1 ||
+        JSON.stringify(state.sidebar_labels.slice(0, expectedSidebar.length)) !== JSON.stringify(expectedSidebar) ||
+        state.module_card_count < 77 ||
+        state.module_state_count < 77 ||
+        state.install_button_count < 60 ||
+        state.activate_button_count < 60 ||
+        state.learn_more_count < 60 ||
+        state.info_button_count < 77 ||
+        state.generated_icon_count < 77 ||
+        state.generic_field_count !== 0 ||
+        state.first_cards[0] !== "Sales" ||
+        JSON.stringify(state.first_card_actions) !== JSON.stringify(["Activate", "Learn More"]) ||
+        state.first_card_text.includes("Technical Name") ||
+        state.first_card_text.includes("State") ||
+        state.first_card_width < 250 ||
+        state.first_card_height < 90 ||
+        state.second_card_top_delta !== 0 ||
+        state.visible_card_count < 12
+      ) throw new Error(`Apps catalog parity invalid: ${JSON.stringify(state)}`);
       return { card_count: cardCount, ...state };
     }
   },

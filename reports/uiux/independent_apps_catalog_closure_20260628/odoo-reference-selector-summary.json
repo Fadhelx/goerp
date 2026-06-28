@@ -1,0 +1,86 @@
+{
+  "reference_root": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo",
+  "source_only": true,
+  "screenshots_found": false,
+  "ir_module_views": {
+    "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo/addons/base/views/ir_module_views.xml",
+    "lines": {
+      "apps_search_filter": [
+        28
+      ],
+      "form_activate_button": [
+        66,
+        134,
+        180
+      ],
+      "list_create_false": [
+        132
+      ],
+      "list_activate_button": [
+        66,
+        134,
+        180
+      ],
+      "apps_kanban_record": [
+        150
+      ],
+      "kanban_create_false_can_open_false": [
+        153
+      ],
+      "kanban_activate_button": [
+        66,
+        134,
+        180
+      ],
+      "kanban_module_info": [
+        183
+      ],
+      "kanban_learn_more": [
+        164,
+        182
+      ],
+      "open_module_tree_action": [
+        196
+      ],
+      "open_module_tree_model": [
+        198
+      ],
+      "main_apps_menu": [
+        215
+      ]
+    }
+  },
+  "base_menus": {
+    "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo/addons/base/views/base_menus.xml",
+    "lines": {
+      "apps_menu": [
+        30
+      ],
+      "apps_web_icon": [
+        30
+      ]
+    }
+  },
+  "module_py": {
+    "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/odoo/modules/module.py",
+    "lines": {
+      "get_module_icon": [
+        379
+      ]
+    }
+  },
+  "navbar_xml": {
+    "path": "/Users/fadhelalqaidoom/Desktop/odoo/odoo19/odoo/addons/web/static/src/webclient/navbar/navbar.xml",
+    "lines": {
+      "apps_menu_template": [
+        75
+      ],
+      "menu_toggle": [
+        77
+      ],
+      "all_apps_button": [
+        111
+      ]
+    }
+  }
+}

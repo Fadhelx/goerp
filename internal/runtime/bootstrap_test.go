@@ -5021,7 +5021,7 @@ func TestBootstrapOIAIGenerateResponseUsesEnvStoreAndPersistedRAG(t *testing.T) 
 	req.AddCookie(sessionCookie)
 	app.Server().Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("generate response %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("generate response %d %s audit=%+v", rec.Code, rec.Body.String(), app.Security.Audit)
 	}
 	if len(provider.chatRequests) != 1 {
 		t.Fatalf("chat requests = %+v", provider.chatRequests)
@@ -5049,6 +5049,129 @@ func TestBootstrapOIAIGenerateResponseUsesEnvStoreAndPersistedRAG(t *testing.T) 
 	}
 	if !strings.Contains(posted, `href="https://gorp.test/policy"`) || !strings.Contains(posted, "[1]") {
 		t.Fatalf("posted assistant message = %q", posted)
+	}
+}
+
+func TestBootstrapOIAIGenerateResponseFiltersRAGByRecordRules(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &runtimeCaptureAIProvider{chatText: " "}
+	app.AIProvider = provider
+	app.AIEmbeddingModel = "mock-embedding"
+
+	agentPartnerID, err := app.Env.Model("res.partner").Create(map[string]any{"name": "Restricted AI Assistant"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentID, err := app.Env.Model(aiaddon.ModelAgent).Create(map[string]any{
+		"name":                "Restricted Assistant",
+		"system_prompt":       "Answer from authorized ERP sources.",
+		"llm_model":           "mock-chat",
+		"active":              true,
+		"restrict_to_sources": true,
+		"partner_id":          agentPartnerID,
+		"company_id":          int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceID, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":            "Restricted Policy",
+		"agent_id":        agentID,
+		"type":            "text",
+		"source_type":     "text",
+		"status":          "indexed",
+		"is_active":       true,
+		"state":           "ready",
+		"attachment_id":   int64(101),
+		"url":             "https://gorp.test/restricted-policy",
+		"embedding_model": "mock-embedding",
+		"company_id":      int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Env.Model(aiaddon.ModelAgent).Browse(agentID).Write(map[string]any{"source_ids": []int64{sourceID}, "sources_ids": []int64{sourceID}}); err != nil {
+		t.Fatal(err)
+	}
+	restrictedPartnerID, err := app.Env.Model("res.partner").Create(map[string]any{"name": "Restricted Policy Owner", "active": true, "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rag.StoreChunks(app.Env, []embeddings.Chunk{{
+		SourceID:       sourceID,
+		Ref:            embeddings.RecordRef{Model: "res.partner", ID: restrictedPartnerID, CompanyID: 1},
+		Content:        "The restricted needle is in vault Z.",
+		Vector:         []float64{1, 0, 0},
+		EmbeddingModel: "mock-embedding",
+		Metadata: map[string]any{
+			sources.MetadataAgentID:        agentID,
+			sources.MetadataSourceID:       sourceID,
+			sources.MetadataSourceName:     "Restricted Policy",
+			sources.MetadataAttachmentID:   int64(101),
+			sources.MetadataSourceURL:      "https://gorp.test/restricted-policy",
+			sources.MetadataCompanyID:      int64(1),
+			sources.MetadataEmbeddingModel: "mock-embedding",
+			"is_active":                    true,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Security.Rules = append(app.Security.Rules, security.Rule{
+		Name:     "deny normal partner rag read",
+		Model:    "res.partner",
+		Domain:   domain.Cond("id", domain.Equal, int64(0)),
+		Global:   true,
+		Active:   true,
+		PermRead: true,
+	})
+	baseUserGroupID := app.ExternalIDs["base.group_user"].ResID
+	for _, modelName := range []string{"discuss.channel", "discuss.channel.member", "mail.message"} {
+		app.Security.ACLs = append(app.Security.ACLs, security.ACL{Model: modelName, GroupID: baseUserGroupID, Active: true, PermRead: true, PermCreate: true})
+	}
+
+	channelID, err := app.Env.Model("discuss.channel").Create(map[string]any{
+		"name":           "Restricted AI Chat",
+		"channel_type":   "ai_chat",
+		"active":         true,
+		"ai_agent_id":    agentID,
+		"ai_env_context": "record context",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionCookie, normalUserID := runtimeBaseUserSessionCookie(t, app)
+	if _, err := app.Env.Model("discuss.channel.member").Create(map[string]any{"channel_id": channelID, "user_id": normalUserID}); err != nil {
+		t.Fatal(err)
+	}
+	messageID, err := app.Env.Model("mail.message").Create(map[string]any{
+		"body":         "<p>Where is the restricted needle?</p>",
+		"message_type": "comment",
+		"model":        "discuss.channel",
+		"res_id":       channelID,
+		"date":         time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":12,"params":{"mail_message_id":` + strconv.FormatInt(messageID, 10) + `,"channel_id":` + strconv.FormatInt(channelID, 10) + `}}`)
+	req := httptest.NewRequest(http.MethodPost, "/ai/generate_response", body)
+	req.AddCookie(sessionCookie)
+	app.Server().Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("generate response %d %s", rec.Code, rec.Body.String())
+	}
+	if len(provider.embedRequests) != 1 || len(provider.chatRequests) != 1 {
+		t.Fatalf("ai requests embed=%+v chat=%+v", provider.embedRequests, provider.chatRequests)
+	}
+	prompts := strings.Join(provider.chatRequests[0].SystemPrompts, "\n")
+	if strings.Contains(prompts, "restricted needle is in vault Z") || strings.Contains(prompts, "##RAG context information") {
+		t.Fatalf("unauthorized rag context leaked: %s", prompts)
 	}
 }
 

@@ -136,6 +136,39 @@ func TestPersistedRetrieverLoadsAndFiltersEmbeddingRows(t *testing.T) {
 	}
 }
 
+func TestPersistedRetrieverHonorsAuthorizer(t *testing.T) {
+	env := newRAGEnv(t)
+	createEmbeddingRow(t, env, map[string]any{
+		"agent_source_id":                 int64(10),
+		"attachment_id":                   int64(100),
+		"res_model":                       "res.partner",
+		"res_id":                          int64(42),
+		"content":                         "private policy",
+		"embedding_model":                 "embed-a",
+		"embedding_vector":                `[1,0]`,
+		"company_id":                      int64(1),
+		"has_embedding_generation_failed": false,
+		"metadata":                        mustJSON(t, map[string]any{"source_name": "Private", "agent_id": int64(2), "is_active": true}),
+	})
+
+	chunks, err := (PersistedRetriever{
+		Env:            env,
+		Provider:       &recordingProvider{vector: []float64{1, 0}},
+		Authorizer:     companyAuthorizer{companyID: 2},
+		EmbeddingModel: "embed-a",
+	}).Retrieve(context.Background(), Request{
+		Agent:     agents.Agent{ID: 2, SourceIDs: []int64{10}},
+		CompanyID: 1,
+		Prompt:    "private policy",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 0 {
+		t.Fatalf("unauthorized chunks = %+v", chunks)
+	}
+}
+
 func TestPersistedRetrieverErrorsOnMalformedVector(t *testing.T) {
 	env := newRAGEnv(t)
 	createEmbeddingRow(t, env, map[string]any{

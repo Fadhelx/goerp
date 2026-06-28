@@ -127,7 +127,7 @@ func BootstrapOI(root string) (*App, error) {
 		return nil, err
 	}
 	securityEngine.SetDepartmentResolvers(recordDepartmentResolver(env), departmentDescendantResolver(env))
-	aiaddon.ApplySecurity(securityEngine)
+	aiaddon.ApplySecurityWithGroups(securityEngine, externalIDs["base.group_user"].ResID, externalIDs["base.group_system"].ResID)
 	delegationService := oi_delegation.NewRuntimeService(securityEngine, nil, nil, oi_delegation.SecurityMailRecipientResolver(securityEngine), nil)
 	if err := oi_delegation.ConfigureServiceFromEnv(delegationService, env); err != nil {
 		return nil, err

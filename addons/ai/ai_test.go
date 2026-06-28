@@ -206,6 +206,27 @@ func TestAISecurity(t *testing.T) {
 	}
 }
 
+func TestAISecurityWithResolvedBaseGroups(t *testing.T) {
+	engine := security.NewEngine()
+	ApplySecurityWithGroups(engine, 42, 43)
+	engine.Companies[1] = security.Company{ID: 1, Name: "Main", Active: true}
+	engine.Users[10] = security.User{ID: 10, Login: "runtime-ai-user", Active: true, CompanyID: 1, CompanyIDs: []int64{1}, GroupIDs: []int64{42}}
+	engine.Users[20] = security.User{ID: 20, Login: "runtime-ai-admin", Active: true, CompanyID: 1, CompanyIDs: []int64{1}, GroupIDs: []int64{43}}
+
+	if !engine.EffectiveGroupIDs(20)[42] {
+		t.Fatalf("runtime admin groups = %+v", engine.EffectiveGroupIDs(20))
+	}
+	if err := engine.Check(record.Context{UserID: 10}, ModelEmbedding, record.OpRead, nil); err != nil {
+		t.Fatalf("runtime AI user read: %v", err)
+	}
+	if err := engine.Check(record.Context{UserID: 10}, ModelEmbedding, record.OpWrite, nil); !errors.Is(err, security.ErrAccessDenied) {
+		t.Fatalf("expected runtime AI user write denied, got %v", err)
+	}
+	if err := engine.Check(record.Context{UserID: 20}, ModelEmbedding, record.OpWrite, nil); err != nil {
+		t.Fatalf("runtime AI admin write: %v", err)
+	}
+}
+
 func assertAIRule(t *testing.T, engine *security.Engine, userID int64, modelName string, row map[string]any, want bool) {
 	t.Helper()
 	ok, err := engine.AllowedByRecordRules(userID, modelName, record.OpRead, row)

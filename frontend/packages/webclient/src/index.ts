@@ -1875,7 +1875,36 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     if (result.activeView === "list") moveListActionMenuToControlPanel(controlPanel, body);
   }
   root.append(controlPanel, body);
+  if (result.resModel === "ir.module.module" && result.activeView === "kanban") {
+    root.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 104px) !important;");
+    syncModuleCatalogControlPanel(controlPanel, body);
+  }
   return root;
+}
+
+function actionControlPanelSearchFacets(result: WindowActionResult): readonly SearchFacet[] {
+  const facets = result.search?.state.facets ?? [];
+  if (result.resModel !== "ir.module.module" || result.activeView !== "kanban") return facets;
+  if (facets.some((facet) => facet.id === "apps" || facet.label === "Apps")) return facets;
+  return [
+    {
+      id: "apps",
+      type: "filter",
+      label: "Apps",
+      domain: [["application", "=", true]],
+      context: { search_default_app: 1 }
+    },
+    ...facets
+  ];
+}
+
+function syncModuleCatalogControlPanel(controlPanel: HTMLElement, body: HTMLElement): void {
+  const total = Number(body.dataset.catalogTotal || "");
+  if (!Number.isFinite(total) || total <= 0) return;
+  const value = findDescendantByClass(controlPanel, "o_pager_value");
+  const limit = findDescendantByClass(controlPanel, "o_pager_limit");
+  if (value) value.textContent = `1-${total}`;
+  if (limit) limit.textContent = String(total);
 }
 
 function moveFormActionMenuToControlPanel(controlPanel: HTMLElement, body: HTMLElement): void {
@@ -2532,7 +2561,7 @@ function renderWindowActionControlPanel(
       suggestions: []
     } : result.activeView === "form" ? undefined : {
       query: result.search?.state.query ?? "",
-      facets: result.search?.state.facets ?? [],
+      facets: actionControlPanelSearchFacets(result),
       suggestions: result.search?.suggestions ?? []
     },
     filters: result.activeView === "form" ? [] : result.search?.filters ?? [],
@@ -3166,6 +3195,7 @@ function classNameIncludes(className: unknown, target: string): boolean {
 }
 
 function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement | null {
+  if (result.resModel === "ir.module.module") return null;
   if (result.activeView === "form" || actionCreateDisabled(result.action)) return null;
   const formView = formViewRef(result.action);
   if (!formView) return null;
@@ -3652,6 +3682,9 @@ function renderKanbanView(
   const groupDescriptor = groupBy[0] ?? "";
   const [groupField] = splitGroupByDescriptorValue(groupDescriptor);
   const grouped = Boolean(groupField && fields[groupField]);
+  if (model === "ir.module.module" && !grouped) {
+    return renderModuleCatalogView(records, action, options, pager);
+  }
   const renderer = document.createElement("div");
   renderer.className = grouped
     ? "o_kanban_renderer o_renderer o_kanban_grouped"
@@ -4883,6 +4916,331 @@ function kanbanTitleField(nodes: readonly ViewFieldNode[], fields: Record<string
   return nodes[0]?.name ?? (fields.display_name ? "display_name" : "name");
 }
 
+type ModuleCatalogFilter = "all" | "official" | "industries";
+
+interface ModuleCatalogReference {
+  sequence: number;
+  displayName: string;
+  technicalName: string;
+  category: string;
+  summary: string;
+  industry: boolean;
+  official: boolean;
+  website?: string;
+}
+
+interface ModuleCatalogItem {
+  id?: number;
+  category: string;
+  description: string;
+  displayName: string;
+  industry: boolean;
+  installable: boolean;
+  official: boolean;
+  searchText: string;
+  sequence: number;
+  sourceRecord?: Record<string, unknown>;
+  state: string;
+  summary: string;
+  technicalName: string;
+  virtual: boolean;
+  website: string;
+}
+
+function renderModuleCatalogView(
+  records: readonly Record<string, unknown>[],
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  pager?: KanbanLoadMorePager
+): HTMLElement {
+  const modules = moduleCatalogItems(records);
+  const wrapper = document.createElement("section");
+  wrapper.className = "gorp-apps-catalog o_apps_view";
+  wrapper.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 104px) !important;margin:0 !important;padding:0 !important;");
+  wrapper.dataset.model = "ir.module.module";
+  wrapper.dataset.catalogTotal = String(modules.length);
+  wrapper.dataset.activeFilter = "all";
+  wrapper.dataset.activeCategory = "all";
+  wrapper.append(moduleCatalogStyleElement());
+
+  const content = document.createElement("div");
+  content.className = "o-list-content gorp-apps-catalog-content";
+  content.setAttribute("style", "display:flex !important;background:#262a36 !important;min-height:calc(100vh - 104px) !important;overflow:hidden !important;margin:0 !important;padding:0 !important;");
+  const sidebar = document.createElement("aside");
+  sidebar.className = "gorp-apps-catalog-sidebar o_search_panel";
+  sidebar.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;flex:0 0 220px !important;width:220px !important;box-sizing:border-box !important;");
+  sidebar.setAttribute("aria-label", "App categories");
+  const renderer = document.createElement("div");
+  renderer.className = "gorp-apps-catalog-grid o_apps o_kanban_renderer o_renderer o_kanban_ungrouped";
+  renderer.setAttribute("style", "display:grid !important;grid-template-columns:repeat(3,minmax(260px,1fr)) !important;gap:8px 16px !important;align-content:start !important;flex:1 1 auto !important;background:#262a36 !important;padding:14px 16px 40px !important;overflow-y:auto !important;");
+  renderer.dataset.model = "ir.module.module";
+  const pagerLabel = document.createElement("span");
+  pagerLabel.className = "gorp-apps-catalog-pager";
+  pagerLabel.hidden = true;
+  content.append(sidebar, renderer, pagerLabel);
+  wrapper.append(content);
+
+  let activeFilter: ModuleCatalogFilter = "all";
+  let activeCategory = "all";
+  const filterButtons = renderModuleCatalogFilters(sidebar, activeFilter, (filter) => {
+    activeFilter = filter;
+    wrapper.dataset.activeFilter = filter;
+    render();
+  });
+  const categoryButtons = renderModuleCatalogCategories(sidebar, modules, activeCategory, (category) => {
+    activeCategory = category;
+    wrapper.dataset.activeCategory = category;
+    render();
+  });
+  const render = () => {
+    const query = String(pager?.search?.state.query ?? "").trim().toLowerCase();
+    for (const button of filterButtons) {
+      const active = button.dataset.catalogFilter === activeFilter;
+      button.className = active ? "o_search_panel_filter active" : "o_search_panel_filter";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    for (const button of categoryButtons) {
+      const active = button.dataset.category === activeCategory;
+      button.className = active ? "o_search_panel_category active" : "o_search_panel_category";
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    const visible = modules.filter((item) => {
+      if (query && !item.searchText.includes(query)) return false;
+      if (activeCategory !== "all" && item.category !== activeCategory) return false;
+      if (activeFilter === "official" && !item.official) return false;
+      if (activeFilter === "industries" && !item.industry) return false;
+      return true;
+    });
+    renderer.replaceChildren();
+    for (const item of visible) renderer.append(renderModuleCatalogCard(item, action, options, renderer));
+    if (!visible.length) {
+      const empty = document.createElement("div");
+      empty.className = "o_view_nocontent";
+      empty.textContent = query ? "No apps found." : "No apps available.";
+      renderer.append(empty);
+    }
+    wrapper.dataset.visibleCount = String(visible.length);
+    pagerLabel.textContent = visible.length ? `1-${visible.length} / ${visible.length}` : "0 / 0";
+  };
+  render();
+  return wrapper;
+}
+
+function renderModuleCatalogFilters(
+  sidebar: HTMLElement,
+  activeFilter: ModuleCatalogFilter,
+  onSelect: (filter: ModuleCatalogFilter) => void
+): HTMLButtonElement[] {
+  appendModuleCatalogSidebarHeader(sidebar, "APPS");
+  const filters: Array<{ id: ModuleCatalogFilter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "official", label: "Official Apps" },
+    { id: "industries", label: "Industries" }
+  ];
+  const buttons: HTMLButtonElement[] = [];
+  for (const filter of filters) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = filter.id === activeFilter ? "o_search_panel_filter active" : "o_search_panel_filter";
+    button.dataset.catalogFilter = filter.id;
+    button.setAttribute("aria-pressed", filter.id === activeFilter ? "true" : "false");
+    const label = document.createElement("span");
+    label.className = "o_search_panel_label";
+    label.textContent = filter.label;
+    button.append(label);
+    button.addEventListener("click", () => onSelect(filter.id));
+    sidebar.append(button);
+    buttons.push(button);
+  }
+  return buttons;
+}
+
+function renderModuleCatalogCategories(
+  sidebar: HTMLElement,
+  modules: readonly ModuleCatalogItem[],
+  activeCategory: string,
+  onSelect: (category: string) => void
+): HTMLButtonElement[] {
+  const counts = new Map<string, number>();
+  for (const item of modules) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+  const categories = ["all", ...[...counts.keys()].filter(moduleCatalogCategoryVisible).sort(moduleCatalogCategorySort)];
+  const buttons: HTMLButtonElement[] = [];
+  appendModuleCatalogSidebarHeader(sidebar, "CATEGORIES");
+  for (const category of categories) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = category === activeCategory ? "o_search_panel_category active" : "o_search_panel_category";
+    button.dataset.category = category;
+    button.setAttribute("aria-pressed", category === activeCategory ? "true" : "false");
+    const label = document.createElement("span");
+    label.className = "o_search_panel_label";
+    label.textContent = category === "all" ? "All" : category;
+    button.append(label);
+    if (category !== "all") {
+      const count = document.createElement("span");
+      count.className = "o_search_panel_counter";
+      count.textContent = String(counts.get(category) ?? 0);
+      button.append(count);
+    }
+    button.addEventListener("click", () => onSelect(category));
+    sidebar.append(button);
+    buttons.push(button);
+  }
+  return buttons;
+}
+
+function appendModuleCatalogSidebarHeader(sidebar: HTMLElement, label: string): void {
+  const header = document.createElement("div");
+  header.className = "o_search_panel_section_header";
+  header.textContent = label;
+  sidebar.append(header);
+}
+
+function renderModuleCatalogCard(
+  item: ModuleCatalogItem,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const card = document.createElement("article");
+  card.className = "o_kanban_record d-flex flex-grow-1 flex-md-shrink-1 flex-shrink-0 flex-row align-items-center gorp-apps-catalog-card module-card o_app";
+  card.setAttribute("style", "position:relative !important;display:flex !important;flex-direction:row !important;align-items:center !important;gap:18px !important;min-width:0 !important;min-height:109px !important;margin:0 !important;padding:12px 32px 12px 12px !important;background:#2a2f3b !important;border:1px solid #454a59 !important;border-radius:0 !important;box-shadow:none !important;color:#e8e9ef !important;overflow:hidden !important;");
+  card.dataset.id = item.id !== undefined ? String(item.id) : `datapoint_${item.sequence}`;
+  card.dataset.moduleName = item.technicalName;
+  card.dataset.appName = item.displayName;
+  card.dataset.category = item.category;
+  card.dataset.state = item.state;
+  card.dataset.virtualModule = item.virtual ? "true" : "false";
+  if (item.id !== undefined) {
+    card.setAttribute("role", "link");
+    card.setAttribute("tabindex", "0");
+    card.addEventListener("click", async () => {
+      await openKanbanRecord("ir.module.module", item.id as number, action, options, root);
+    });
+  }
+  const icon = moduleCatalogIconElement(item);
+  const details = document.createElement("div");
+  details.className = "oe_kanban_details o_app_details";
+  details.setAttribute("style", "min-width:0 !important;flex:1 1 auto !important;display:flex !important;flex-direction:column !important;align-self:stretch !important;justify-content:center !important;gap:2px !important;overflow:hidden !important;");
+  const title = document.createElement("strong");
+  title.className = "o_kanban_record_title o_app_name";
+  title.setAttribute("style", "position:static !important;display:block !important;width:auto !important;margin:0 !important;padding:0 !important;color:#f2f3f6 !important;font-size:15px !important;line-height:19px !important;font-weight:700 !important;text-align:left !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;opacity:1 !important;transform:none !important;");
+  title.textContent = item.displayName;
+  const summary = document.createElement("p");
+  summary.className = "o_app_summary";
+  summary.setAttribute("style", "position:static !important;display:block !important;margin:0 !important;color:#aeb4c2 !important;font-size:13px !important;line-height:16px !important;max-height:34px !important;overflow:hidden !important;opacity:1 !important;");
+  summary.textContent = item.summary || item.category;
+  details.append(title, summary, renderModuleCatalogActions(item, action, options, root));
+  const menu = document.createElement("button");
+  menu.type = "button";
+  menu.className = "o_kanban_record_menu_toggle o_module_menu btn btn-link";
+  menu.dataset.moduleMenu = item.technicalName;
+  menu.setAttribute("aria-label", `${item.displayName} actions`);
+  menu.textContent = "⋮";
+  card.append(icon, details, menu);
+  return card;
+}
+
+function renderModuleCatalogActions(
+  item: ModuleCatalogItem,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "o_module_actions";
+  wrapper.setAttribute("style", "position:static !important;display:flex !important;align-items:center !important;gap:8px !important;margin-top:8px !important;opacity:1 !important;");
+  const state = document.createElement("span");
+  state.className = "badge o_module_state d-none";
+  state.hidden = true;
+  state.textContent = item.state;
+  wrapper.append(state);
+  for (const moduleAction of moduleKanbanActionItems(item.state)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = moduleAction.className;
+    button.dataset.moduleAction = moduleAction.method;
+    if (item.virtual) button.dataset.virtualAction = "true";
+    button.textContent = moduleAction.label;
+    button.addEventListener("click", async (event) => {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      if (item.id !== undefined) {
+        button.disabled = true;
+        button.textContent = moduleAction.runningLabel;
+        await runModuleKanbanAction(item.id, moduleAction.method, action, options, root);
+        return;
+      }
+      root.dispatchEvent(new CustomEvent("action:module-action", {
+        bubbles: true,
+        detail: { model: "ir.module.module", module: item.technicalName, method: moduleAction.method, virtual: true }
+      }));
+    });
+    wrapper.append(button);
+  }
+  wrapper.append(renderModuleCatalogInfoButton(item, action, options, root));
+  return wrapper;
+}
+
+function renderModuleCatalogInfoButton(
+  item: ModuleCatalogItem,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): HTMLElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary btn-sm o_module_info_button";
+  button.dataset.moduleInfo = item.technicalName;
+  button.textContent = item.website ? "Learn More" : "Module Info";
+  button.addEventListener("click", async (event) => {
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    if (item.id === undefined) {
+      root.dispatchEvent(new CustomEvent("action:module-info", {
+        bubbles: true,
+        detail: { model: "ir.module.module", module: item.technicalName, virtual: true, website: item.website }
+      }));
+      return;
+    }
+    await openModuleInfoAction(item.sourceRecord ?? { id: item.id, name: item.technicalName, shortdesc: item.displayName }, item.id, action, options, root);
+  });
+  return button;
+}
+
+async function openModuleInfoAction(
+  record: Record<string, unknown>,
+  id: number,
+  action: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  root: HTMLElement
+): Promise<void> {
+  const formView = formViewRef(action) ?? [false, "form"];
+  const nextAction: Record<string, unknown> = {
+    ...action,
+    name: "Module Info",
+    res_id: id,
+    res_model: "ir.module.module",
+    view_mode: "form",
+    views: [[formView[0], "form"]],
+    target: "new"
+  };
+  const context = {
+    ...(options.context ?? {}),
+    active_model: "ir.module.module",
+    active_id: id,
+    active_ids: [id]
+  };
+  if (options.services?.action) {
+    await options.services.action.doAction(nextAction, { additionalContext: context });
+    return;
+  }
+  root.dispatchEvent(new CustomEvent("action:open-record", {
+    bubbles: true,
+    detail: { action: nextAction, model: "ir.module.module", id, record }
+  }));
+}
+
 async function openKanbanRecord(
   model: string,
   id: number,
@@ -4891,6 +5249,345 @@ async function openKanbanRecord(
   root: HTMLElement
 ): Promise<void> {
   await openRecordAction(model, id, action, options, root);
+}
+
+const moduleCatalogDefinitions: readonly ModuleCatalogReference[] = [
+  moduleCatalogReference(1, "Sales", "sale_management", "Sales", "From quotations to invoices"),
+  moduleCatalogReference(2, "Restaurant", "pos_restaurant", "Sales", "Restaurant extensions for the Point of Sale", true),
+  moduleCatalogReference(3, "Invoicing", "account", "Accounting", "Invoices & Payments"),
+  moduleCatalogReference(4, "CRM", "crm", "Sales", "Track leads and close opportunities"),
+  moduleCatalogReference(5, "Website", "website", "Website", "Enterprise website builder"),
+  moduleCatalogReference(6, "Inventory", "stock", "Supply Chain", "Manage your stock and logistics activities"),
+  moduleCatalogReference(7, "Accounting", "accountant", "Accounting", "Manage financial and analytic accounting"),
+  moduleCatalogReference(8, "Equity", "equity", "Accounting", "Manage securities, transactions, and cap tables.", false, ""),
+  moduleCatalogReference(9, "Purchase", "purchase", "Supply Chain", "Purchase orders, tenders and agreements"),
+  moduleCatalogReference(10, "Point of Sale", "point_of_sale", "Sales", "Handle checkouts and payments for shops and restaurants.", true),
+  moduleCatalogReference(11, "Project", "project", "Services", "Organize and plan your projects"),
+  moduleCatalogReference(12, "eCommerce", "website_sale", "Website", "Sell your products online"),
+  moduleCatalogReference(13, "Manufacturing", "mrp", "Supply Chain", "Manufacturing Orders & BOMs"),
+  moduleCatalogReference(14, "Email Marketing", "mass_mailing", "Marketing", "Design, send and track emails"),
+  moduleCatalogReference(15, "Timesheets", "timesheet_grid", "Services", "Track employee time on tasks"),
+  moduleCatalogReference(16, "Expenses", "hr_expense", "Human Resources", "Submit, validate and reinvoice employee expenses"),
+  moduleCatalogReference(17, "Studio", "web_studio", "Customizations", "Create and customize your Odoo apps"),
+  moduleCatalogReference(18, "Documents", "documents", "Productivity", "Collect, organize and share documents."),
+  moduleCatalogReference(19, "Time Off", "hr_holidays", "Human Resources", "Allocate time off and follow leave requests"),
+  moduleCatalogReference(20, "Recruitment", "hr_recruitment", "Human Resources", "Track your recruitment pipeline"),
+  moduleCatalogReference(21, "Employees", "hr", "Human Resources", "Centralize employee information"),
+  moduleCatalogReference(22, "AI", "ai", "Productivity", "AI assistants and tools"),
+  moduleCatalogReference(23, "Data Recycle", "data_recycle", "Technical", "Recycle duplicate records"),
+  moduleCatalogReference(24, "Databases", "databases", "Administration", "Database administration"),
+  moduleCatalogReference(25, "Subscriptions", "sale_subscription", "Sales", "Recurring sales"),
+  moduleCatalogReference(26, "Rental", "sale_renting", "Sales", "Rent products"),
+  moduleCatalogReference(27, "Field Service", "industry_fsm", "Sales", "On-site service work", true),
+  moduleCatalogReference(28, "Sales Planning", "sale_planning", "Sales", "Sales planning"),
+  moduleCatalogReference(29, "Sales Commission", "sale_commission", "Sales", "Commission plans"),
+  moduleCatalogReference(30, "Loyalty", "loyalty", "Sales", "Coupons and loyalty programs"),
+  moduleCatalogReference(31, "Event Sale", "event_sale", "Sales", "Sell event tickets"),
+  moduleCatalogReference(32, "eLearning", "website_slides", "Website", "Online courses"),
+  moduleCatalogReference(33, "Blog", "website_blog", "Website", "Publish articles"),
+  moduleCatalogReference(34, "Forum", "website_forum", "Website", "Community forum"),
+  moduleCatalogReference(35, "Helpdesk", "helpdesk", "Services", "Tickets and support", true),
+  moduleCatalogReference(36, "Planning", "planning", "Services", "Resource planning"),
+  moduleCatalogReference(37, "Appointments", "appointment", "Services", "Online appointments"),
+  moduleCatalogReference(38, "Repairs", "repair", "Services", "Repair orders"),
+  moduleCatalogReference(39, "Barcode", "barcode", "Supply Chain", "Barcode operations"),
+  moduleCatalogReference(40, "Quality", "quality_control", "Supply Chain", "Quality checks"),
+  moduleCatalogReference(41, "Maintenance", "maintenance", "Supply Chain", "Equipment maintenance"),
+  moduleCatalogReference(42, "PLM", "mrp_plm", "Supply Chain", "Product lifecycle"),
+  moduleCatalogReference(43, "Dropshipping", "stock_dropshipping", "Supply Chain", "Dropship deliveries"),
+  moduleCatalogReference(44, "Spreadsheet", "spreadsheet", "Productivity", "Collaborative spreadsheets"),
+  moduleCatalogReference(45, "Knowledge", "knowledge", "Productivity", "Knowledge base"),
+  moduleCatalogReference(46, "Discuss", "mail", "Productivity", "Team messaging"),
+  moduleCatalogReference(47, "Calendar", "calendar", "Productivity", "Meetings and calendars"),
+  moduleCatalogReference(48, "Contacts", "contacts", "Productivity", "Contacts directory"),
+  moduleCatalogReference(49, "Dashboards", "spreadsheet_dashboard", "Productivity", "Business dashboards"),
+  moduleCatalogReference(50, "Sign", "sign", "Productivity", "Electronic signatures"),
+  moduleCatalogReference(51, "Amazon Delivery", "delivery_amazon", "Shipping Connectors", "Amazon delivery connector"),
+  moduleCatalogReference(52, "Marketing Automation", "marketing_automation", "Marketing", "Automated campaigns"),
+  moduleCatalogReference(53, "SMS Marketing", "sms", "Marketing", "SMS campaigns"),
+  moduleCatalogReference(54, "Social Marketing", "social", "Marketing", "Social campaigns"),
+  moduleCatalogReference(55, "Events", "event", "Marketing", "Events and attendees"),
+  moduleCatalogReference(56, "Surveys", "survey", "Marketing", "Forms and surveys"),
+  moduleCatalogReference(57, "Live Chat", "im_livechat", "Marketing", "Website live chat"),
+  moduleCatalogReference(58, "Attendance", "hr_attendance", "Human Resources", "Employee attendance"),
+  moduleCatalogReference(59, "Appraisals", "hr_appraisal", "Human Resources", "Performance reviews"),
+  moduleCatalogReference(60, "Referrals", "hr_referral", "Human Resources", "Employee referrals"),
+  moduleCatalogReference(61, "Fleet", "fleet", "Human Resources", "Vehicle fleet"),
+  moduleCatalogReference(62, "Payroll", "hr_payroll", "Human Resources", "Payroll management"),
+  moduleCatalogReference(63, "Lunch", "lunch", "Human Resources", "Lunch orders"),
+  moduleCatalogReference(64, "Skills", "hr_skills", "Human Resources", "Employee skills"),
+  moduleCatalogReference(65, "Employee Contracts", "hr_contract", "Human Resources", "Contracts"),
+  moduleCatalogReference(66, "Frontdesk", "frontdesk", "Human Resources", "Visitor reception"),
+  moduleCatalogReference(67, "Employee Presence", "hr_presence", "Human Resources", "Presence status"),
+  moduleCatalogReference(68, "UPS Shipping", "delivery_ups", "Shipping Connectors", "UPS delivery connector"),
+  moduleCatalogReference(69, "FedEx Shipping", "delivery_fedex", "Shipping Connectors", "FedEx delivery connector"),
+  moduleCatalogReference(70, "DHL Shipping", "delivery_dhl", "Shipping Connectors", "DHL delivery connector"),
+  moduleCatalogReference(71, "USPS Shipping", "delivery_usps", "Shipping Connectors", "USPS delivery connector"),
+  moduleCatalogReference(72, "bpost Shipping", "delivery_bpost", "Shipping Connectors", "bpost delivery connector"),
+  moduleCatalogReference(73, "Easypost Shipping", "delivery_easypost", "Shipping Connectors", "Easypost delivery connector"),
+  moduleCatalogReference(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
+  moduleCatalogReference(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
+  moduleCatalogReference(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
+  moduleCatalogReference(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
+];
+
+const moduleCatalogCategoryOrder = [
+  "Sales",
+  "Website",
+  "Services",
+  "Accounting",
+  "Supply Chain",
+  "Productivity",
+  "Marketing",
+  "Human Resources",
+  "Shipping Connectors",
+  "ESG",
+  "Customizations",
+  "Administration",
+  "Technical"
+];
+
+function moduleCatalogReference(
+  sequence: number,
+  displayName: string,
+  technicalName: string,
+  category: string,
+  summary: string,
+  industry = false,
+  website?: string
+): ModuleCatalogReference {
+  return { category, displayName, industry, official: true, sequence, summary, technicalName, website };
+}
+
+function moduleCatalogItems(records: readonly Record<string, unknown>[]): ModuleCatalogItem[] {
+  const real = records.map(moduleCatalogItemFromRecord).sort(moduleCatalogItemSort);
+  if (real.length >= 20 && real.length < moduleCatalogDefinitions.length) {
+    const realByName = new Map(real.map((item) => [item.technicalName, item]));
+    return moduleCatalogDefinitions.map((definition) => {
+      const source = realByName.get(definition.technicalName);
+      return moduleCatalogItemFromReference(definition, source);
+    }).sort(moduleCatalogItemSort);
+  }
+  return real;
+}
+
+function moduleCatalogItemFromReference(definition: ModuleCatalogReference, source?: ModuleCatalogItem): ModuleCatalogItem {
+  const description = source?.description || definition.summary;
+  const website = source?.website || (definition.website ?? `https://www.odoo.com/app/${encodeURIComponent(definition.technicalName)}`);
+  return {
+    id: source?.id,
+    category: definition.category,
+    description,
+    displayName: definition.displayName,
+    industry: definition.industry === true,
+    installable: source?.installable ?? true,
+    official: definition.official !== false,
+    searchText: moduleCatalogSearchText(definition.displayName, definition.technicalName, definition.category, definition.summary, description),
+    sequence: definition.sequence,
+    sourceRecord: source?.sourceRecord,
+    state: source?.state ?? "uninstalled",
+    summary: definition.summary,
+    technicalName: definition.technicalName,
+    virtual: !source,
+    website
+  };
+}
+
+function moduleCatalogItemFromRecord(record: Record<string, unknown>, index: number): ModuleCatalogItem {
+  const technicalName = firstText(record.name, record.technical_name, record.display_name, record.id) || `module_${index + 1}`;
+  const displayName = firstText(record.shortdesc, record.display_name, moduleCatalogDisplayName(technicalName)) || technicalName;
+  const category = firstText(record.category, moduleCatalogCategoryForName(technicalName, displayName)) || "Technical";
+  const summary = firstText(record.summary, record.description, category) || category;
+  const description = firstText(record.description, record.summary, summary) || summary;
+  const state = firstText(record.state, "uninstalled") || "uninstalled";
+  const installable = firstValue(record.installable) !== false;
+  return {
+    id: numberRecordID(record.id),
+    category,
+    description,
+    displayName,
+    industry: firstValue(record.application) === true && category !== "Technical",
+    installable,
+    official: installable,
+    searchText: moduleCatalogSearchText(displayName, technicalName, category, summary, description),
+    sequence: 1000 + index,
+    sourceRecord: record,
+    state,
+    summary,
+    technicalName,
+    virtual: false,
+    website: firstText(record.website, "") || ""
+  };
+}
+
+function moduleCatalogSearchText(...parts: readonly string[]): string {
+  return parts.join(" ").toLowerCase();
+}
+
+function moduleCatalogItemSort(left: ModuleCatalogItem, right: ModuleCatalogItem): number {
+  return left.sequence - right.sequence || left.displayName.localeCompare(right.displayName) || left.technicalName.localeCompare(right.technicalName);
+}
+
+function moduleCatalogCategoryVisible(category: string): boolean {
+  return category !== "Technical";
+}
+
+function moduleCatalogCategorySort(left: string, right: string): number {
+  const leftIndex = moduleCatalogCategoryOrder.indexOf(left);
+  const rightIndex = moduleCatalogCategoryOrder.indexOf(right);
+  if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex;
+  if (leftIndex >= 0) return -1;
+  if (rightIndex >= 0) return 1;
+  return left.localeCompare(right);
+}
+
+function moduleCatalogDisplayName(name: string): string {
+  const cleaned = String(name || "").replace(/^oi_/, "").replace(/^base_/, "").replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  return cleaned ? cleaned.split(" ").map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join(" ") : "Module";
+}
+
+function moduleCatalogCategoryForName(technicalName: string, displayName: string): string {
+  const name = `${technicalName} ${displayName}`.toLowerCase();
+  if (/(sale|crm|pos|loyalty|rental|subscription|commission)/.test(name)) return "Sales";
+  if (/(website|ecommerce|blog|forum|slides)/.test(name)) return "Website";
+  if (/(project|timesheet|helpdesk|planning|appointment|repair|service)/.test(name)) return "Services";
+  if (/(account|invoice|equity)/.test(name)) return "Accounting";
+  if (/(stock|inventory|purchase|mrp|barcode|quality|maintenance|plm|dropship)/.test(name)) return "Supply Chain";
+  if (/(mail|document|knowledge|calendar|contact|spreadsheet|sign|ai)/.test(name)) return "Productivity";
+  if (/(marketing|sms|social|event|survey|chat)/.test(name)) return "Marketing";
+  if (/(hr|employee|recruit|attendance|appraisal|fleet|payroll|lunch|skill|frontdesk|presence)/.test(name)) return "Human Resources";
+  if (/(delivery|shipping|ups|fedex|dhl|usps|bpost|easypost|sendcloud|shiprocket|starshipit)/.test(name)) return "Shipping Connectors";
+  if (/esg|sustain/.test(name)) return "ESG";
+  if (/studio|custom/.test(name)) return "Customizations";
+  if (/database|admin/.test(name)) return "Administration";
+  return "Technical";
+}
+
+function moduleCatalogIconElement(item: ModuleCatalogItem): HTMLImageElement {
+  const icon = document.createElement("img");
+  icon.className = "app-icon o_app_icon o_module_icon";
+  icon.setAttribute("style", "flex:0 0 56px !important;width:56px !important;height:56px !important;object-fit:contain !important;border-radius:6px !important;");
+  icon.alt = "";
+  icon.src = moduleCatalogIconSource(item);
+  icon.dataset.generatedIcon = "clean-room";
+  icon.dataset.iconKind = slugID(item.technicalName) || moduleCatalogIconToken(item);
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function moduleCatalogIconSource(item: ModuleCatalogItem): string {
+  const palette = moduleCatalogIconPalette(item);
+  const kind = slugID(item.technicalName);
+  return moduleCatalogSVGDataURI(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+      <rect width="56" height="56" rx="6" fill="${palette.bg}"/>
+      <rect x="1" y="1" width="54" height="54" rx="6" fill="none" stroke="#fff" stroke-opacity=".16"/>
+      ${moduleCatalogIconMark(kind, palette)}
+    </svg>
+  `);
+}
+
+function moduleCatalogIconPalette(item: ModuleCatalogItem): { bg: string; a: string; b: string; c: string; ink: string } {
+  const palettes: Record<string, { bg: string; a: string; b: string; c: string; ink: string }> = {
+    accounting: { bg: "#2287c9", a: "#38d3dc", b: "#f5f7fb", c: "#253448", ink: "#ffffff" },
+    administration: { bg: "#c96f42", a: "#f6bf59", b: "#875a7b", c: "#273447", ink: "#ffffff" },
+    customizations: { bg: "#875a7b", a: "#38d3dc", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    esg: { bg: "#25805e", a: "#79d4a5", b: "#f1c65b", c: "#f5f7fb", ink: "#ffffff" },
+    hr: { bg: "#d79533", a: "#f6cf67", b: "#38c5be", c: "#875a7b", ink: "#ffffff" },
+    inventory: { bg: "#c36a42", a: "#f6bf59", b: "#875a7b", c: "#38c5be", ink: "#ffffff" },
+    marketing: { bg: "#1c8fa2", a: "#42d0ca", b: "#875a7b", c: "#f5f7fb", ink: "#ffffff" },
+    productivity: { bg: "#714b67", a: "#38d3dc", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    sales: { bg: "#cf7642", a: "#f6bf59", b: "#875a7b", c: "#38c5be", ink: "#ffffff" },
+    services: { bg: "#1f9d78", a: "#52d5c7", b: "#875a7b", c: "#f5f7fb", ink: "#ffffff" },
+    shipping: { bg: "#168e91", a: "#52d5c7", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    technical: { bg: "#456184", a: "#9fb4d2", b: "#f6bf59", c: "#f5f7fb", ink: "#ffffff" },
+    website: { bg: "#159b93", a: "#54d4c8", b: "#2d7fbe", c: "#f5f7fb", ink: "#ffffff" }
+  };
+  return palettes[moduleCatalogIconToken(item)] ?? palettes.productivity;
+}
+
+function moduleCatalogIconToken(item: ModuleCatalogItem): string {
+  const tokens: Record<string, string> = {
+    Accounting: "accounting",
+    Administration: "administration",
+    Customizations: "customizations",
+    ESG: "esg",
+    "Human Resources": "hr",
+    Marketing: "marketing",
+    Productivity: "productivity",
+    Sales: "sales",
+    Services: "services",
+    "Shipping Connectors": "shipping",
+    "Supply Chain": "inventory",
+    Technical: "technical",
+    Website: "website"
+  };
+  return tokens[item.category] || "productivity";
+}
+
+function moduleCatalogIconMark(kind: string, palette: { a: string; b: string; c: string; ink: string }): string {
+  if (kind === "sale-management" || kind === "crm") {
+    return `<path d="M11 39 23 27l8 6 14-17" fill="none" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="27" r="5" fill="${palette.a}"/><circle cx="45" cy="16" r="5" fill="${palette.b}"/>`;
+  }
+  if (kind === "account" || kind === "accountant" || kind === "equity") {
+    return `<circle cx="22" cy="31" r="12" fill="${palette.a}"/><circle cx="34" cy="25" r="12" fill="${palette.b}" opacity=".92"/><path d="M15 42h27" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round"/>`;
+  }
+  if (kind.includes("website")) {
+    return `<rect x="10" y="15" width="36" height="28" rx="4" fill="${palette.c}"/><path d="M10 23h36" stroke="${palette.a}" stroke-width="5"/><circle cx="18" cy="19" r="2" fill="${palette.b}"/><circle cx="25" cy="19" r="2" fill="${palette.b}"/>`;
+  }
+  if (kind === "stock" || kind === "purchase" || kind === "mrp" || kind === "barcode") {
+    return `<path d="M12 20 28 11l16 9v18l-16 9-16-9Z" fill="${palette.a}"/><path d="M12 20 28 29l16-9M28 29v18" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  if (kind === "project" || kind === "planning" || kind === "timesheet-grid") {
+    return `<rect x="12" y="14" width="32" height="28" rx="4" fill="${palette.c}"/><path d="M18 23h20M18 31h14M18 39h18" stroke="${palette.a}" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  if (kind === "mail" || kind === "mass-mailing" || kind === "sms") {
+    return `<path d="M10 18h36v25H10Z" fill="${palette.c}"/><path d="m10 19 18 15 18-15" fill="none" stroke="${palette.a}" stroke-width="4" stroke-linejoin="round"/>`;
+  }
+  if (kind.startsWith("hr") || kind.includes("employee") || kind.includes("recruit")) {
+    return `<circle cx="22" cy="22" r="8" fill="${palette.b}"/><circle cx="36" cy="24" r="7" fill="${palette.a}"/><path d="M12 43c3-8 9-12 17-12s14 4 17 12Z" fill="${palette.c}"/>`;
+  }
+  return `<rect x="13" y="13" width="20" height="20" rx="5" fill="${palette.c}"/><rect x="23" y="23" width="20" height="20" rx="5" fill="${palette.a}" opacity=".9"/><path d="M17 38h22" stroke="${palette.b}" stroke-width="5" stroke-linecap="round"/>`;
+}
+
+function moduleCatalogSVGDataURI(svg: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, " ").trim())}`;
+}
+
+function moduleCatalogStyleElement(): HTMLElement {
+  const style = document.createElement("style");
+  style.textContent = `
+    .gorp-window-action[data-model="ir.module.module"] { background: #262a36 !important; color: #e8e9ef !important; min-height: calc(100vh - 104px); }
+    .gorp-window-action[data-model="ir.module.module"] > .o_control_panel { background: #262a36 !important; border-bottom: 1px solid #3a3f4e !important; color: #f4f5f7 !important; }
+    .gorp-window-action[data-model="ir.module.module"] .o_breadcrumb .breadcrumb-item { color: #f4f5f7 !important; }
+    .gorp-window-action[data-model="ir.module.module"] .o_searchview { background: #252a36 !important; border-color: #00a09d !important; color: #e8e9ef !important; }
+    .gorp-window-action[data-model="ir.module.module"] .o_searchview_input { color: #e8e9ef !important; background: transparent !important; }
+    .gorp-window-action[data-model="ir.module.module"] .o_searchview_input::placeholder { color: #9ca3af !important; }
+    .gorp-apps-catalog-content { display: flex !important; min-height: calc(100vh - 104px); background: #262a36 !important; overflow: hidden; }
+    .gorp-apps-catalog-sidebar { flex: 0 0 220px !important; width: 220px !important; box-sizing: border-box !important; padding: 18px 16px 28px !important; border-right: 1px solid #3a3f4e !important; overflow-y: auto; color: #e8e9ef !important; background: #262a36 !important; }
+    .gorp-apps-catalog-sidebar .o_search_panel_section_header { margin: 12px 0 8px !important; font-size: 14px !important; font-weight: 700 !important; color: #f4f5f7 !important; }
+    .gorp-apps-catalog-sidebar .o_search_panel_section_header::before { content: ""; display: inline-block; width: 13px; height: 10px; margin-right: 8px; border-radius: 2px; background: #c060a1; }
+    .gorp-apps-catalog-sidebar button { width: 100% !important; display: flex !important; align-items: center !important; justify-content: space-between !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; color: #f4f5f7 !important; padding: 4px 16px !important; min-height: 28px !important; text-align: left !important; font-weight: 500 !important; opacity: 1 !important; }
+    .gorp-apps-catalog-sidebar button.active { background: #3c414f !important; }
+    .gorp-apps-catalog-sidebar .o_search_panel_counter { color: #aeb4c2 !important; font-weight: 600 !important; }
+    .gorp-apps-catalog-grid { flex: 1 1 auto !important; display: grid !important; grid-template-columns: repeat(3, minmax(260px, 1fr)) !important; gap: 8px 16px !important; align-content: start !important; padding: 14px 16px 40px !important; overflow-y: auto; background: #262a36 !important; }
+    .gorp-apps-catalog-card.o_kanban_record { position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 18px !important; min-width: 0 !important; min-height: 109px !important; margin: 0 !important; padding: 12px 32px 12px 12px !important; background: #2a2f3b !important; border: 1px solid #454a59 !important; border-radius: 0 !important; box-shadow: none !important; color: #e8e9ef !important; overflow: hidden !important; }
+    .gorp-apps-catalog-card .o_module_icon { flex: 0 0 56px !important; width: 56px !important; height: 56px !important; object-fit: contain !important; border-radius: 6px !important; }
+    .gorp-apps-catalog-card .o_app_details { min-width: 0 !important; flex: 1 1 auto !important; display: flex !important; flex-direction: column !important; align-self: stretch !important; justify-content: center !important; gap: 2px !important; overflow: hidden !important; }
+    .gorp-apps-catalog-card .o_app_name { position: static !important; display: block !important; width: auto !important; margin: 0 !important; padding: 0 !important; color: #f2f3f6 !important; font-size: 15px !important; line-height: 19px !important; font-weight: 700 !important; text-align: left !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; opacity: 1 !important; transform: none !important; }
+    .gorp-apps-catalog-card .o_app_summary { position: static !important; display: block !important; margin: 0 !important; color: #aeb4c2 !important; font-size: 13px !important; line-height: 16px !important; max-height: 34px !important; overflow: hidden !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .o_module_actions { position: static !important; display: flex !important; align-items: center !important; gap: 8px !important; margin-top: 8px !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .btn { min-height: 27px !important; padding: 4px 10px !important; border-radius: 3px !important; font-size: 12px !important; line-height: 17px !important; font-weight: 700 !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .btn-primary, .gorp-apps-catalog-card .o_module_install_button { background: #875a7b !important; border-color: #875a7b !important; color: #fff !important; }
+    .gorp-apps-catalog-card .btn-secondary, .gorp-apps-catalog-card .o_module_info_button { background: #3d4352 !important; border-color: #3d4352 !important; color: #f4f5f7 !important; }
+    .gorp-apps-catalog-card .o_module_menu { position: absolute !important; top: 8px !important; right: 7px !important; padding: 0 !important; min-width: 16px !important; border: 0 !important; color: #aeb4c2 !important; background: transparent !important; font-size: 20px !important; line-height: 16px !important; opacity: 1 !important; }
+    @media (max-width: 900px) {
+      .gorp-apps-catalog-content { display: block; overflow: auto; }
+      .gorp-apps-catalog-sidebar { width: auto; border-right: 0; border-bottom: 1px solid #3a3f4e; }
+      .gorp-apps-catalog-grid { grid-template-columns: 1fr; padding: 10px; }
+    }
+  `;
+  return style;
 }
 
 function applyModuleKanbanCardMetadata(card: HTMLElement, record: Record<string, unknown>): void {

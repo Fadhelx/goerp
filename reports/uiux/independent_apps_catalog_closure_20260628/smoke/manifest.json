@@ -1,0 +1,348 @@
+{
+  "generated_at": "2026-06-28T17:20:41.622Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "launcher-desktop.png",
+      "sha256": "21cfe1f11b753b95dda12fe88189fcdb22afa33178d029c600e60b349a889aae",
+      "assertions": {
+        "app_count": 2,
+        "systray_count": 17,
+        "launcher_chrome": {
+          "navbar_height_px": 46,
+          "navbar_contract": true,
+          "home_background_class": true,
+          "legacy_card_count": 0,
+          "draggable_count": 2,
+          "hidden_search_count": 1,
+          "menu_sections_contract": true,
+          "mobile_toggle_contract": true,
+          "app_tag": "A",
+          "app_href": "#menu_id=73&action=16",
+          "hidden_search_role": "combobox",
+          "navbar_bg": "rgba(0, 0, 0, 0)",
+          "launcher_top_px": 0,
+          "launcher_bg_color": "rgb(0, 5, 17)",
+          "launcher_bg_image": "url(\"http://127.0.0.1:8073/web_enterprise/static/img/background-dark.jpg\")",
+          "launcher_box_shadow": "none",
+          "search_height_px": 0,
+          "search_margin_bottom_px": 0,
+          "banner_visible": true,
+          "banner_count": 1,
+          "banner_text": "You will be able to register your database once you have installed your first app.×",
+          "banner_close_text": "×",
+          "banner_close_visible": true,
+          "banner_top_px": 70,
+          "banner_width_px": 820,
+          "launcher_mail_activity_visible_count": 2,
+          "user_name_display": "block",
+          "database_badge_text": "gorp",
+          "database_badge_count": 1,
+          "app_card_left_px": 266,
+          "app_card_top_px": 171,
+          "app_card_width_px": 137,
+          "app_card_height_px": 115,
+          "app_card_bg": "rgba(0, 0, 0, 0)",
+          "app_card_border_color": "rgba(0, 0, 0, 0)",
+          "app_card_border_radius_px": 6,
+          "app_icon_width_px": 70,
+          "app_icon_height_px": 70,
+          "app_icon_radius_px": 4,
+          "app_icon_text": "",
+          "launcher_icons": [
+            {
+              "key": "apps",
+              "kind": "apps",
+              "token": "apps",
+              "generated": "clean-room",
+              "src_prefix": "data:image/png;base64,iVBORw0KGg",
+              "before_bg": "none",
+              "after_bg": "none"
+            },
+            {
+              "key": "settings",
+              "kind": "settings",
+              "token": "settings",
+              "generated": "clean-room",
+              "src_prefix": "data:image/png;base64,iVBORw0KGg",
+              "before_bg": "none",
+              "after_bg": "none"
+            }
+          ]
+        }
+      },
+      "duration_ms": 271
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "dee17d55ee38f473f386f534d99392bed7f973ad1ce47dbc71981e34d10abe3b",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "settings_targets": {
+          "count": 14,
+          "ids": [
+            "users",
+            "languages",
+            "company_records",
+            "companies",
+            "groups",
+            "server_actions",
+            "scheduled_actions",
+            "automation_rules",
+            "views",
+            "access_rights",
+            "record_rules",
+            "email_templates",
+            "apps",
+            "ai"
+          ],
+          "models": {
+            "users": "res.users",
+            "languages": "res.lang",
+            "company_records": "res.company",
+            "companies": "res.company",
+            "groups": "res.groups",
+            "server_actions": "ir.actions.server",
+            "scheduled_actions": "ir.cron",
+            "automation_rules": "base.automation",
+            "views": "ir.ui.view",
+            "access_rights": "ir.model.access",
+            "record_rules": "ir.rule",
+            "email_templates": "mail.template",
+            "apps": "ir.module.module",
+            "ai": "ir.module.module"
+          },
+          "labels": {
+            "users": "Manage Users",
+            "languages": "Languages",
+            "company_records": "Manage Companies",
+            "companies": "Manage Companies",
+            "groups": "Manage Groups",
+            "server_actions": "Server Actions",
+            "scheduled_actions": "Scheduled Actions",
+            "automation_rules": "Automation Rules",
+            "views": "Views",
+            "access_rights": "Access Rights",
+            "record_rules": "Record Rules",
+            "email_templates": "Email Templates",
+            "apps": "Apps",
+            "ai": "AI Apps"
+          },
+          "gridCount": 5,
+          "actionBoxCount": 14,
+          "inviteCount": 1,
+          "appTabs": [
+            "General Settings"
+          ],
+          "blockTitles": [
+            "Users",
+            "Languages",
+            "Companies",
+            "Contacts",
+            "Technical"
+          ],
+          "missing": []
+        },
+        "settings_chrome": {
+          "cp_search_count": 1,
+          "internal_search_count": 0,
+          "view_switcher_count": 0,
+          "control_height": 58,
+          "search_top": 58,
+          "settings_top": 104
+        },
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(38, 42, 54)",
+          "launcher_width": 36,
+          "launcher_dot": "rgb(135, 90, 123)",
+          "systray_count": 17
+        },
+        "visible_setting_count": 16,
+        "visible_label_count": 25,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 350
+    },
+    {
+      "name": "default-launcher-back-mode-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-launcher-back-mode-desktop.png",
+      "sha256": "34c4c405001956dead5a319a9f031a6c50986dcd486b01819b6944f46af92941",
+      "assertions": {
+        "before": {
+          "view": "action",
+          "mode": "",
+          "home_count": 0,
+          "settings_count": 1,
+          "back_class": false
+        },
+        "overlay": {
+          "view": "apps",
+          "mode": "overlay",
+          "body_home_background": true,
+          "shell_home_background": true,
+          "back_class": true,
+          "launcher_visible": true,
+          "navbar_apps_display": "flex",
+          "navbar_background": "rgba(0, 0, 0, 0)",
+          "title": "Settings",
+          "home_count": 1,
+          "settings_count": 0
+        },
+        "restored": {
+          "view": "action",
+          "mode": "",
+          "body_home_background": false,
+          "shell_home_background": false,
+          "back_class": false,
+          "home_count": 0,
+          "settings_count": 1,
+          "action_status": "ready"
+        },
+        "final_overlay": {
+          "view": "apps",
+          "mode": "overlay",
+          "back_class": true,
+          "home_count": 1,
+          "settings_count": 0
+        }
+      },
+      "duration_ms": 382
+    },
+    {
+      "name": "default-apps-catalog-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-parity-desktop.png",
+      "sha256": "8cc18b11cbb1f1376cafb6aa2f9f30c7d9ca8204382c28409bb4cb111578da6d",
+      "assertions": {
+        "card_count": 77,
+        "window_count": 1,
+        "catalog_total": "77",
+        "catalog_visible_count": "77",
+        "renderer_count": 1,
+        "brand": "Apps",
+        "navbar_sections": [
+          "Apps"
+        ],
+        "pager": "1-77 / 77<>",
+        "create_button_count": 0,
+        "sidebar_count": 1,
+        "sidebar_labels": [
+          "All",
+          "Official Apps",
+          "Industries",
+          "All",
+          "Sales",
+          "Website",
+          "Services",
+          "Accounting",
+          "Supply Chain",
+          "Productivity",
+          "Marketing",
+          "Human Resources",
+          "Shipping Connectors",
+          "ESG",
+          "Customizations",
+          "Administration"
+        ],
+        "first_cards": [
+          "Sales",
+          "Restaurant",
+          "Invoicing",
+          "CRM",
+          "Website",
+          "Inventory",
+          "Accounting",
+          "Equity",
+          "Purchase",
+          "Point of Sale",
+          "Project",
+          "eCommerce",
+          "Manufacturing",
+          "Email Marketing",
+          "Timesheets",
+          "Expenses",
+          "Studio",
+          "Documents",
+          "Time Off",
+          "Recruitment",
+          "Employees",
+          "AI",
+          "Data Recycle",
+          "Databases"
+        ],
+        "first_card_actions": [
+          "Activate",
+          "Learn More"
+        ],
+        "first_card_text": "SalesFrom quotations to invoicesuninstalledActivateLearn More⋮",
+        "first_card_width": 350,
+        "first_card_height": 109,
+        "first_card_display": "flex",
+        "second_card_top_delta": 0,
+        "visible_card_count": 21,
+        "generic_field_count": 0,
+        "module_card_count": 77,
+        "module_state_count": 77,
+        "install_button_count": 77,
+        "activate_button_count": 74,
+        "learn_more_count": 76,
+        "info_button_count": 77,
+        "generated_icon_count": 77
+      },
+      "duration_ms": 551
+    },
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "34b332cfb9a151731955d63a3c32dbc32660302915959d27999811bdb18b0ffc",
+      "assertions": {
+        "module": "ai",
+        "card_count": 1,
+        "modal_count": 1
+      },
+      "duration_ms": 760
+    }
+  ],
+  "duration_ms": 2455
+}

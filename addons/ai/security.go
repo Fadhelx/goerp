@@ -18,31 +18,76 @@ type RuleDefinition struct {
 }
 
 func ApplySecurity(engine *security.Engine) {
-	for _, group := range SecurityGroups() {
-		engine.Groups[group.ID] = group
+	ApplySecurityWithGroups(engine, GroupAIUser, GroupAIAdmin)
+}
+
+func ApplySecurityWithGroups(engine *security.Engine, userGroupID int64, adminGroupID int64) {
+	if engine == nil {
+		return
 	}
-	engine.ACLs = append(engine.ACLs, SecurityACLs()...)
+	if userGroupID == 0 {
+		userGroupID = GroupAIUser
+	}
+	if adminGroupID == 0 {
+		adminGroupID = GroupAIAdmin
+	}
+	for _, group := range securityGroups(userGroupID, adminGroupID) {
+		engine.Groups[group.ID] = mergeAIGroup(engine.Groups[group.ID], group)
+	}
+	engine.ACLs = append(engine.ACLs, securityACLs(userGroupID, adminGroupID)...)
 	for _, rule := range SecurityRuleDefinitions() {
 		engine.Rules = append(engine.Rules, rule.Rule)
 	}
 }
 
+func mergeAIGroup(existing security.Group, fallback security.Group) security.Group {
+	if existing.ID == 0 {
+		return fallback
+	}
+	if existing.Name == "" {
+		existing.Name = fallback.Name
+	}
+	for _, impliedID := range fallback.ImpliedIDs {
+		if !hasAIGroupID(existing.ImpliedIDs, impliedID) {
+			existing.ImpliedIDs = append(existing.ImpliedIDs, impliedID)
+		}
+	}
+	return existing
+}
+
+func hasAIGroupID(ids []int64, target int64) bool {
+	for _, id := range ids {
+		if id == target {
+			return true
+		}
+	}
+	return false
+}
+
 func SecurityGroups() []security.Group {
+	return securityGroups(GroupAIUser, GroupAIAdmin)
+}
+
+func securityGroups(userGroupID int64, adminGroupID int64) []security.Group {
 	return []security.Group{
-		{ID: GroupAIUser, Name: "base.group_user"},
-		{ID: GroupAIAdmin, Name: "base.group_system", ImpliedIDs: []int64{GroupAIUser}},
+		{ID: userGroupID, Name: "base.group_user"},
+		{ID: adminGroupID, Name: "base.group_system", ImpliedIDs: []int64{userGroupID}},
 	}
 }
 
 func SecurityACLs() []security.ACL {
+	return securityACLs(GroupAIUser, GroupAIAdmin)
+}
+
+func securityACLs(userGroupID int64, adminGroupID int64) []security.ACL {
 	acls := make([]security.ACL, 0, len(AISecuredModelNames())*2+1)
 	for _, modelName := range AISecuredModelNames() {
 		acls = append(acls,
-			readACL(modelName, GroupAIUser),
-			crudACL(modelName, GroupAIAdmin),
+			readACL(modelName, userGroupID),
+			crudACL(modelName, adminGroupID),
 		)
 	}
-	acls = append(acls, crudACL(ModelSettings, GroupAIAdmin))
+	acls = append(acls, crudACL(ModelSettings, adminGroupID))
 	return acls
 }
 
