@@ -257,9 +257,13 @@ func (p *CompatibleProvider) geminiChat(ctx context.Context, request ChatRequest
 	if err != nil {
 		return ChatResponse{}, err
 	}
+	generationConfig := map[string]any{"temperature": 0.2}
+	if request.MaxOutputToken > 0 {
+		generationConfig["maxOutputTokens"] = request.MaxOutputToken
+	}
 	body := map[string]any{
 		"contents":         geminiContents(request.Messages, request.UserPrompts),
-		"generationConfig": map[string]any{"temperature": 0.2},
+		"generationConfig": generationConfig,
 	}
 	if tools := geminiTools(request.Tools); len(tools) > 0 {
 		body["tools"] = []map[string]any{{"functionDeclarations": tools}}

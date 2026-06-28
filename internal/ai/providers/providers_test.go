@@ -188,6 +188,10 @@ func TestGeminiCompatibleChatHTTP(t *testing.T) {
 		if body["systemInstruction"] == nil || body["contents"] == nil {
 			t.Fatalf("gemini body = %#v", body)
 		}
+		generation, _ := body["generationConfig"].(map[string]any)
+		if generation["maxOutputTokens"] != float64(128) {
+			t.Fatalf("gemini generation config = %#v", generation)
+		}
 		tools, _ := body["tools"].([]any)
 		if len(tools) != 1 {
 			t.Fatalf("gemini tools = %#v", body["tools"])
@@ -210,10 +214,11 @@ func TestGeminiCompatibleChatHTTP(t *testing.T) {
 
 	provider := NewGeminiCompatible(SecretRef{Raw: "gemini-key"}, WithGenerateBaseURL(server.URL))
 	chat, err := provider.Chat(context.Background(), ChatRequest{
-		Model:         "gemini-2.5-flash",
-		SystemPrompts: []string{"system"},
-		Messages:      []Message{{Role: "assistant", Content: "history"}},
-		UserPrompts:   []string{"question"},
+		Model:          "gemini-2.5-flash",
+		SystemPrompts:  []string{"system"},
+		Messages:       []Message{{Role: "assistant", Content: "history"}},
+		UserPrompts:    []string{"question"},
+		MaxOutputToken: 128,
 		Tools: []ToolCall{{
 			Name:        "lookup_policy",
 			Description: "Look up a policy.",
