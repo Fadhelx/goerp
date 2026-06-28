@@ -13125,6 +13125,62 @@ func TestCallKWReadMethodsApplyBinSizeContext(t *testing.T) {
 	}
 }
 
+func TestCallKWResUsersActionGetPreferencesDialog(t *testing.T) {
+	reg := record.NewRegistry()
+	registerBaseModelForHTTPTest(t, reg, "res.users")
+	env := record.NewEnv(reg, record.Context{UserID: 7, CompanyID: 1, CompanyIDs: []int64{1}})
+	viewReg := view.NewRegistry()
+	if err := viewReg.AddWithID(view.View{
+		ID:       94,
+		Name:     "res.users.preferences.form",
+		Model:    "res.users",
+		Type:     view.Form,
+		Priority: 99,
+		Arch:     `<form string="Change My Preferences"><sheet><group><field name="name"/><field name="login"/><field name="lang"/><field name="tz"/></group></sheet><footer><button name="preference_save" type="object" string="Update Preferences" class="btn-primary"/><button name="preference_cancel" string="Discard" special="cancel" class="btn-secondary"/></footer></form>`,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	server := Server{
+		Env:   env,
+		Views: viewReg,
+		ExternalIDs: map[string]data.ExternalID{
+			"base.view_users_preferences_form": {Module: "base", Name: "view_users_preferences_form", Model: "ir.ui.view", ResID: 94},
+		},
+	}
+	handler := server.Handler()
+
+	actionBody := bytes.NewBufferString(`{"jsonrpc":"2.0","id":31,"params":{"model":"res.users","method":"action_get","args":[],"kwargs":{}}}`)
+	actionRec := httptest.NewRecorder()
+	handler.ServeHTTP(actionRec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/res.users/action_get", actionBody))
+	if actionRec.Code != http.StatusOK {
+		t.Fatalf("action_get response %d %s", actionRec.Code, actionRec.Body.String())
+	}
+	actionResult := decodeJSON(t, actionRec.Body.Bytes())["result"].(map[string]any)
+	if actionResult["type"] != "ir.actions.act_window" || actionResult["name"] != "Change My Preferences" || actionResult["res_model"] != "res.users" || actionResult["target"] != "new" || int64Value(actionResult["res_id"]) != 7 || int64Value(actionResult["view_id"]) != 94 {
+		t.Fatalf("preferences action = %#v", actionResult)
+	}
+	actionViews := actionResult["views"].([]any)
+	if len(actionViews) != 1 || int64Value(actionViews[0].([]any)[0]) != 94 || actionViews[0].([]any)[1] != "form" {
+		t.Fatalf("preferences views = %#v", actionViews)
+	}
+	actionContext := actionResult["context"].(map[string]any)
+	if actionContext["active_model"] != "res.users" || actionContext["gorp_preferences_dialog"] != true || int64Value(actionContext["active_id"]) != 7 {
+		t.Fatalf("preferences context = %#v", actionContext)
+	}
+
+	viewsBody := bytes.NewBufferString(`{"jsonrpc":"2.0","id":32,"params":{"model":"res.users","method":"get_views","kwargs":{"views":[[94,"form"]],"options":{}}}}`)
+	viewsRec := httptest.NewRecorder()
+	handler.ServeHTTP(viewsRec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/res.users/get_views", viewsBody))
+	if viewsRec.Code != http.StatusOK {
+		t.Fatalf("get_views response %d %s", viewsRec.Code, viewsRec.Body.String())
+	}
+	formView := decodeJSON(t, viewsRec.Body.Bytes())["result"].(map[string]any)["views"].(map[string]any)["form"].(map[string]any)
+	arch := stringValue(formView["arch"])
+	if int64Value(formView["id"]) != 94 || !strings.Contains(arch, `field name="name"`) || !strings.Contains(arch, `field name="login"`) || !strings.Contains(arch, "Update Preferences") || !strings.Contains(arch, "Discard") {
+		t.Fatalf("preferences form view = %#v", formView)
+	}
+}
+
 func TestCallKWGetViewsToolbarBindings(t *testing.T) {
 	server := testToolbarBindingServer(t)
 	handler := server.Handler()

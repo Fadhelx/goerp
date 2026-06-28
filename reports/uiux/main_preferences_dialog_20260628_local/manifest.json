@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-06-28T18:48:30.335Z",
+  "base_url": "http://127.0.0.1:8073/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-user-preferences-dialog-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-user-preferences-dialog-desktop.png",
+      "sha256": "78c687fca33c023bd1157d2645897f634c2b168e9e3d5054db3d49d88e6ad75e",
+      "assertions": {
+        "dialog_count": 1,
+        "state": {
+          "title": "Change My Preferences",
+          "preferences_dialog": "true",
+          "has_preferences_form": true,
+          "has_sheet": true,
+          "has_reference_labels": true,
+          "has_preferences_group": true,
+          "tab_labels": [
+            "Preferences",
+            "Calendar",
+            "Security"
+          ],
+          "admin_tab_count": 0,
+          "footer_save_count": 1,
+          "footer_discard_count": 1,
+          "footer_buttons": [
+            "Update Preferences",
+            "Discard"
+          ],
+          "label_count": 3,
+          "body_modal_open": true,
+          "width": 960
+        }
+      },
+      "duration_ms": 461
+    }
+  ],
+  "duration_ms": 513
+}

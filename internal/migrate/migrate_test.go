@@ -48,6 +48,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"res_users",
 		"res_users_active_partner",
 		"res_users_source_seed_fields",
+		"res_users_preferences_fields",
 		"res_groups",
 		"res_groups_delegation_metadata",
 		"res_groups_source_seed_fields",
@@ -381,7 +382,7 @@ func TestUserSeedMigrationsExposeOdooFields(t *testing.T) {
 	for _, migration := range BaseMigrations {
 		sqlByName[migration.Name] = migration.SQL
 	}
-	for _, column := range []string{"active_partner", "login_date", "group_ids", "signature", "image_1920"} {
+	for _, column := range []string{"active_partner", "login_date", "group_ids", "signature", "image_1920", "lang", "tz"} {
 		if !strings.Contains(sqlByName["res_users"], column) || !strings.Contains(sqlByName["res_users_source_seed_fields"], column) {
 			if column == "active_partner" && strings.Contains(sqlByName["res_users_active_partner"], column) {
 				continue
@@ -389,7 +390,10 @@ func TestUserSeedMigrationsExposeOdooFields(t *testing.T) {
 			if column == "login_date" && strings.Contains(sqlByName["digest_res_users_login_date"], column) {
 				continue
 			}
-			t.Fatalf("res_users source seed column %s missing: create=%s alter=%s active_partner=%s", column, sqlByName["res_users"], sqlByName["res_users_source_seed_fields"], sqlByName["res_users_active_partner"])
+			if (column == "lang" || column == "tz") && strings.Contains(sqlByName["res_users_preferences_fields"], column) {
+				continue
+			}
+			t.Fatalf("res_users source seed column %s missing: create=%s alter=%s active_partner=%s preferences=%s", column, sqlByName["res_users"], sqlByName["res_users_source_seed_fields"], sqlByName["res_users_active_partner"], sqlByName["res_users_preferences_fields"])
 		}
 	}
 }

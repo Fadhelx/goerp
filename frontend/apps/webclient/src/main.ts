@@ -758,11 +758,16 @@ async function openUserPreferencesAction(env: ReturnType<typeof makeEnv>, outlet
     view_mode: "form",
     views: [[false, "form"]],
     ...action,
+    context: {
+      ...(isRecord(action.context) ? action.context : {}),
+      gorp_preferences_dialog: true
+    },
     target: "new",
     ...(uid > 0 ? { res_id: uid } : {})
   }, {
     additionalContext: {
       active_model: "res.users",
+      gorp_preferences_dialog: true,
       ...(uid > 0 ? { active_id: uid, active_ids: [uid] } : {})
     }
   });

@@ -18019,6 +18019,9 @@ func persistDelegationCacheEventHTTP(env *record.Env, reason string, at time.Tim
 }
 
 func (s Server) executeCallKW(env *record.Env, req callKWRequest) (any, error) {
+	if result, handled, err := s.dispatchResUsersMethod(env, req); handled {
+		return result, err
+	}
 	if result, handled, err := s.dispatchResPartnerMethod(env, req); handled {
 		return result, err
 	}
@@ -19803,6 +19806,59 @@ func (s Server) dispatchResPartnerMethod(env *record.Env, req callKWRequest) (an
 	default:
 		return nil, false, nil
 	}
+}
+
+func (s Server) dispatchResUsersMethod(env *record.Env, req callKWRequest) (any, bool, error) {
+	if req.Model != "res.users" {
+		return nil, false, nil
+	}
+	switch req.Method {
+	case "action_get":
+		return s.resUsersPreferencesAction(env), true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
+func (s Server) resUsersPreferencesAction(env *record.Env) map[string]any {
+	uid := int64(0)
+	if env != nil {
+		uid = env.Context().UserID
+	}
+	viewID := s.externalIDRecordID("base.view_users_preferences_form", "ir.ui.view")
+	context := map[string]any{
+		"active_model":            "res.users",
+		"gorp_preferences_dialog": true,
+	}
+	if uid > 0 {
+		context["active_id"] = uid
+		context["active_ids"] = []int64{uid}
+	}
+	return map[string]any{
+		"type":      "ir.actions.act_window",
+		"name":      "Change My Preferences",
+		"res_model": "res.users",
+		"res_id":    falseIfZero(uid),
+		"view_mode": "form",
+		"views":     []any{[]any{falseIfZero(viewID), "form"}},
+		"view_id":   falseIfZero(viewID),
+		"target":    "new",
+		"context":   context,
+	}
+}
+
+func (s Server) externalIDRecordID(xmlID string, modelName string) int64 {
+	if len(s.ExternalIDs) == 0 {
+		return 0
+	}
+	external, ok := s.ExternalIDs[xmlID]
+	if !ok || external.ResID <= 0 {
+		return 0
+	}
+	if modelName != "" && external.Model != modelName {
+		return 0
+	}
+	return external.ResID
 }
 
 func (s Server) dispatchResGroupsMethod(env *record.Env, req callKWRequest) (any, bool, error) {

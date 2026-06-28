@@ -205,6 +205,8 @@ func Models() []model.Model {
 			field.New("password", field.Char),
 			field.New("email", field.Char),
 			field.New("name", field.Char),
+			field.New("lang", field.Selection),
+			field.New("tz", field.Selection),
 			field.New("active", field.Bool),
 			field.New("active_partner", field.Bool),
 			field.New("login_date", field.DateTime),

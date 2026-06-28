@@ -1954,11 +1954,13 @@ function removeDescendantFromTestTree(root: HTMLElement, target: HTMLElement): b
 }
 
 export function renderWindowActionDialog(result: WindowActionResult, options: RenderWindowActionDialogOptions = {}): HTMLElement {
+  const userPreferencesDialog = isUserPreferencesDialogResult(result);
   const overlay = document.createElement("section");
   overlay.className = "o_dialog gorp-action-dialog modal-open";
   overlay.dataset.target = "new";
   overlay.dataset.model = result.resModel;
   overlay.dataset.dialogOpen = "true";
+  if (userPreferencesDialog) overlay.dataset.preferencesDialog = "true";
   overlay.setAttribute("tabindex", "-1");
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop o_dialog_backdrop gorp-action-dialog-backdrop show";
@@ -1970,19 +1972,26 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   const titleID = uniqueId("dialog-title-");
   modal.setAttribute("aria-labelledby", titleID);
   const dialog = document.createElement("div");
-  dialog.className = "modal-dialog modal-lg";
+  dialog.className = userPreferencesDialog
+    ? "modal-dialog modal-lg gorp-preferences-modal-dialog"
+    : "modal-dialog modal-lg";
+  if (userPreferencesDialog) dialog.setAttribute("style", "max-width:980px;margin:70px auto 0;");
   const content = document.createElement("div");
-  content.className = "modal-content";
+  content.className = userPreferencesDialog ? "modal-content gorp-preferences-dialog-content" : "modal-content";
+  if (userPreferencesDialog) content.setAttribute("style", "background:#282c36;color:#e8e9ef;border:1px solid #3a4050;border-radius:4px;box-shadow:0 16px 40px rgba(0,0,0,.35);overflow:hidden;max-height:calc(100vh - 120px);");
   const header = document.createElement("header");
   header.className = "modal-header";
+  if (userPreferencesDialog) header.setAttribute("style", "min-height:60px;padding:0 16px;border-bottom:1px solid #3a4050;background:#282c36;color:#e8e9ef;");
   const title = document.createElement("h1");
   title.className = "modal-title";
   title.id = titleID;
   title.textContent = options.title || (typeof result.action.name === "string" && result.action.name.trim()) || result.resModel;
+  if (userPreferencesDialog) title.setAttribute("style", "font-size:16px;line-height:60px;font-weight:600;color:#f4f5f7;");
   const close = document.createElement("button");
   close.type = "button";
   close.className = "btn-close";
   close.setAttribute("aria-label", "Close");
+  if (userPreferencesDialog) close.setAttribute("style", "color:#aeb4c2;");
   close.addEventListener("click", () => {
     overlay.dataset.dialogOpen = "false";
     overlay.dispatchEvent(new CustomEvent("dialog:close", {
@@ -1998,6 +2007,7 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   header.append(title, close);
   const body = document.createElement("div");
   body.className = "modal-body o_act_window";
+  if (userPreferencesDialog) body.setAttribute("style", "flex:0 1 auto;min-height:0;max-height:calc(100vh - 230px);overflow:auto;padding:0;background:#282c36;color:#e8e9ef;");
   const dialogContent = renderWindowActionDialogContent(result, options);
   body.append(dialogContent.body);
   content.append(header, body);
@@ -2022,7 +2032,25 @@ function renderWindowActionDialogContent(result: WindowActionResult, options: Re
   const footer = document.createElement("footer");
   footer.className = "modal-footer gorp-action-dialog-footer";
   let body: HTMLElement;
-  if (settingsState) {
+  if (isUserPreferencesDialogResult(result) && formState) {
+    footer.setAttribute("style", "min-height:66px;padding:16px;border-top:1px solid #3a4050;background:#282c36;color:#e8e9ef;");
+    appendFormActionButtonsToContainer(footer, root, result, formState, options, {
+      includeEdit: false,
+      saveLabel: "Update Preferences"
+    });
+    const renderBody = () => renderUserPreferencesDialogView(
+      fields,
+      result.viewDescriptions.relatedModels,
+      formState.currentValues,
+      dialogFormRenderOptions(options, formState),
+      formState.editing
+    );
+    body = renderBody();
+    formState.renderBody = () => {
+      body = renderBody();
+      root.replaceChildren(body);
+    };
+  } else if (settingsState) {
     appendSettingsActionButtonsToContainer(footer, root, result, settingsState, options);
     body = renderSettingsActionView(result, viewDescription, fields, settingsState, root);
   } else if (result.activeView === "form" && formState) {
@@ -2059,6 +2087,247 @@ function renderWindowActionDialogContent(result: WindowActionResult, options: Re
     body: root,
     ...(footer.children.length ? { footer } : {})
   };
+}
+
+function isUserPreferencesDialogResult(result: WindowActionResult): boolean {
+  const context = isRecord(result.action.context) ? result.action.context : {};
+  const actionName = firstText(result.action.name);
+  return result.resModel === "res.users"
+    && result.activeView === "form"
+    && (context.gorp_preferences_dialog === true || actionName === "Change My Preferences")
+    && result.action.target === "new";
+}
+
+function renderUserPreferencesDialogView(
+  fields: Record<string, unknown>,
+  relatedModels: Record<string, unknown>,
+  values: Record<string, unknown>,
+  options: RenderWindowActionOptions,
+  editMode: boolean
+): HTMLElement {
+  const form = document.createElement("form");
+  form.className = "gorp-form-view o_form_view gorp-user-preferences-form";
+  form.dataset.model = "res.users";
+  form.dataset.preferencesDialog = "true";
+  const effectiveFields = userPreferencesFields(fields, values);
+  const effectiveValues = {
+    ...values,
+    lang: values.lang ?? "en_US",
+    color_scheme: values.color_scheme ?? "system"
+  };
+  const body = document.createElement("div");
+  body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg gorp-user-preferences-body";
+  body.setAttribute("style", "background:#282c36 !important;color:#e8e9ef !important;padding:16px;");
+  const sheet = document.createElement("section");
+  sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet gorp-user-preferences-sheet";
+  sheet.append(renderUserPreferencesIdentity(effectiveValues));
+  sheet.append(renderUserPreferencesTabs());
+  const groups = document.createElement("div");
+  groups.className = "gorp-user-preferences-groups o_group";
+  appendUserPreferencesGroup(groups, "", ["lang", "color_scheme", "signature"], effectiveFields, relatedModels, effectiveValues, form, options, editMode);
+  if (groups.children.length) sheet.append(groups);
+  body.append(sheet);
+  form.append(body);
+  applyUserPreferencesChrome(form);
+  return form;
+}
+
+function renderUserPreferencesIdentity(values: Record<string, unknown>): HTMLElement {
+  const root = document.createElement("section");
+  root.className = "gorp-user-preferences-identity oe_title";
+  root.setAttribute("style", "display:flex;align-items:center;gap:16px;margin:0;padding:0 0 16px;");
+  const avatar = document.createElement("span");
+  avatar.className = "gorp-user-preferences-avatar o_avatar";
+  avatar.dataset.userId = String(values.id ?? "");
+  avatar.textContent = userInitial(values);
+  avatar.setAttribute("style", "width:130px;height:130px;display:flex;align-items:center;justify-content:center;border-radius:0;background:#86a844;color:#fff;font-size:70px;line-height:1;font-weight:400;");
+  const text = document.createElement("div");
+  text.className = "gorp-user-preferences-title";
+  const title = document.createElement("h1");
+  title.textContent = String(values.name ?? values.display_name ?? values.login ?? "User");
+  title.setAttribute("style", "margin:0 0 12px;font-size:32px;line-height:1.15;font-weight:500;color:#f4f5f7;");
+  const email = document.createElement("span");
+  email.className = "text-muted";
+  email.setAttribute("style", "display:block;color:#aeb4c2;");
+  email.textContent = String(values.email || "Email");
+  const phone = document.createElement("span");
+  phone.className = "text-muted";
+  phone.setAttribute("style", "display:block;margin-top:6px;color:#aeb4c2;");
+  phone.textContent = String(values.phone || values.mobile_phone || "Phone");
+  const login = document.createElement("span");
+  login.className = "text-muted";
+  login.hidden = true;
+  login.textContent = String(values.login ?? values.email ?? "");
+  text.append(title, email, phone, login);
+  root.append(avatar, text);
+  return root;
+}
+
+function renderUserPreferencesTabs(): HTMLElement {
+  const tabs = document.createElement("div");
+  tabs.className = "gorp-user-preferences-tabs nav nav-tabs";
+  tabs.setAttribute("style", "display:flex;align-items:flex-end;margin:0 -16px 16px;border-bottom:1px solid #3a4050;");
+  for (const label of ["Preferences", "Calendar", "Security"]) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = label === "Preferences" ? "nav-link active" : "nav-link";
+    tab.textContent = label;
+    tab.dataset.preferencesTab = label.toLowerCase();
+    tab.setAttribute("style", label === "Preferences"
+      ? "min-height:38px;padding:8px 18px;border:0;border-top:3px solid #c060a1;background:#303440;color:#f4f5f7;font-weight:500;"
+      : "min-height:38px;padding:8px 18px;border:0;background:#303440;color:#f4f5f7;font-weight:500;");
+    tabs.append(tab);
+  }
+  return tabs;
+}
+
+function appendUserPreferencesGroup(
+  parent: HTMLElement,
+  title: string,
+  fieldNames: readonly string[],
+  fields: Record<string, unknown>,
+  relatedModels: Record<string, unknown>,
+  values: Record<string, unknown>,
+  form: HTMLElement,
+  options: RenderWindowActionOptions,
+  editMode: boolean
+): void {
+  const group = document.createElement("section");
+  group.className = "gorp-user-preferences-group o_inner_group";
+  group.dataset.preferenceGroup = title ? title.toLowerCase().replace(/\s+/g, "-") : "preferences";
+  const heading = document.createElement("h2");
+  heading.className = "gorp-user-preferences-group-title";
+  heading.textContent = title;
+  heading.setAttribute("style", "margin:0 0 10px;font-size:16px;line-height:1.2;font-weight:500;color:#f4f5f7;");
+  const grid = document.createElement("div");
+  grid.className = "gorp-form-fields record-grid o_group";
+  grid.setAttribute("style", "display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 32px;align-items:start;");
+  for (const name of fieldNames) {
+    if (fields[name] === undefined) continue;
+    if (!userPreferenceFieldVisible(name, values, fields)) continue;
+    const fieldNode = renderFormFieldNode(
+      { name, attrs: {}, children: [], childViewAttrs: {} },
+      fields,
+      relatedModels,
+      values,
+      form,
+      options,
+      editMode
+    );
+    if (userPreferenceRenderedFieldEmpty(fieldNode)) continue;
+    grid.append(fieldNode);
+  }
+  if (!grid.children.length) return;
+  if (title) group.append(heading);
+  group.append(grid);
+  parent.append(group);
+}
+
+function userPreferenceRenderedFieldEmpty(node: HTMLElement): boolean {
+  if (typeof node.querySelector === "function") {
+    if (node.querySelector("input, textarea, select, button, .gorp-many2one-editor, .gorp-x2many-tags")) return false;
+  }
+  const testChildren = (node as unknown as { children?: unknown }).children;
+  if (typeof node.querySelector !== "function" && Array.isArray(testChildren) && testChildren.length > 0) return false;
+  const label = node.querySelector?.(".o_form_label")?.textContent?.trim() || "";
+  const text = String(node.textContent ?? "").replace(label, "").trim();
+  return !text;
+}
+
+function applyUserPreferencesChrome(form: HTMLElement): void {
+  const sheet = form.querySelector?.(".gorp-user-preferences-sheet") as HTMLElement | null;
+  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "max-width:100%;min-height:0;margin:0;padding:0;background:#282c36 !important;color:#e8e9ef !important;border:0 !important;box-shadow:none !important;"));
+  for (const field of Array.from(form.querySelectorAll?.(".gorp-form-field.o_wrap_field") ?? [])) {
+    (field as HTMLElement).setAttribute("style", mergeInlineStyle((field as HTMLElement).getAttribute("style"), "display:grid;grid-template-columns:130px minmax(0,1fr);align-items:start;gap:8px;min-height:32px;margin:0;"));
+  }
+  for (const label of Array.from(form.querySelectorAll?.(".o_form_label") ?? [])) {
+    (label as HTMLElement).setAttribute("style", mergeInlineStyle((label as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;font-size:14px;font-weight:600;"));
+  }
+  for (const control of Array.from(form.querySelectorAll?.("input.o_input, textarea.o_input, select.o_input, .gorp-form-control.o_input") ?? [])) {
+    const element = control as HTMLElement & { type?: string };
+    if (["checkbox", "radio"].includes(String(element.type || "").toLowerCase())) continue;
+    element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "min-height:30px;background:#282c36 !important;color:#f4f5f7 !important;border:1px solid #3f4656 !important;border-radius:0 !important;box-shadow:none !important;"));
+  }
+  for (const toggle of Array.from(form.querySelectorAll?.(".gorp-many2one-dropdown-toggle") ?? [])) {
+    (toggle as HTMLElement).setAttribute("style", mergeInlineStyle((toggle as HTMLElement).getAttribute("style"), "background:#282c36 !important;color:#aeb4c2 !important;border-color:#3f4656 !important;box-shadow:none !important;"));
+  }
+  for (const output of Array.from(form.querySelectorAll?.(".gorp-field-value, .gorp-many2one-value, .gorp-many2one-link") ?? [])) {
+    (output as HTMLElement).setAttribute("style", mergeInlineStyle((output as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;background:transparent !important;"));
+  }
+  for (const group of Array.from(form.querySelectorAll?.(".gorp-selection-radio-group") ?? [])) {
+    (group as HTMLElement).setAttribute("style", mergeInlineStyle((group as HTMLElement).getAttribute("style"), "display:inline-flex;align-items:center;gap:12px;min-height:28px;color:#f4f5f7 !important;"));
+  }
+  for (const pill of Array.from(form.querySelectorAll?.(".gorp-selection-radio-pill") ?? [])) {
+    (pill as HTMLElement).setAttribute("style", mergeInlineStyle((pill as HTMLElement).getAttribute("style"), "display:inline-flex;align-items:center;gap:6px;margin:0;padding:0;background:transparent !important;border:0 !important;color:#f4f5f7 !important;font-weight:500;box-shadow:none !important;"));
+  }
+  for (const input of Array.from(form.querySelectorAll?.(".gorp-selection-radio-pill input") ?? [])) {
+    (input as HTMLElement).setAttribute("style", mergeInlineStyle((input as HTMLElement).getAttribute("style"), "accent-color:#00dac5;margin:0;"));
+  }
+  for (const input of Array.from(form.querySelectorAll?.(".gorp-selection-radio-group[data-field='lang'] input") ?? [])) {
+    (input as HTMLElement).setAttribute("style", mergeInlineStyle((input as HTMLElement).getAttribute("style"), "display:none;"));
+  }
+  for (const marker of Array.from(form.querySelectorAll?.(".gorp-selection-radio-group[data-field='lang'] .gorp-selection-radio-marker") ?? [])) {
+    (marker as HTMLElement).setAttribute("style", mergeInlineStyle((marker as HTMLElement).getAttribute("style"), "display:none;"));
+  }
+}
+
+function userPreferencesFields(fields: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...fields };
+  for (const name of ["name", "login", "email", "company_id", "partner_id", "lang", "color_scheme", "notification_type", "signature"]) {
+    if (out[name] === undefined && (values[name] !== undefined || userPreferencesFallbackField(name))) {
+      out[name] = userPreferencesFallbackField(name);
+    }
+  }
+  out.lang = normalizeUserPreferenceSelectionField(out.lang, userPreferencesFallbackField("lang"));
+  out.color_scheme = normalizeUserPreferenceSelectionField(out.color_scheme, userPreferencesFallbackField("color_scheme"));
+  if (out.signature !== undefined) out.signature = { ...(isRecord(out.signature) ? out.signature : {}), type: fieldTypeValue(out.signature) || "text", string: "Email Signature" };
+  return out;
+}
+
+function normalizeUserPreferenceSelectionField(description: unknown, fallback: unknown): unknown {
+  if (!isRecord(fallback)) return description;
+  const choices = selectionOptions(description);
+  return {
+    ...(isRecord(description) ? description : {}),
+    type: "selection",
+    string: firstText(isRecord(fallback) ? fallback.string : "") || fieldLabel({ field: fallback }, "field"),
+    selection: choices.length ? choices : fallback.selection
+  };
+}
+
+function userPreferenceFieldVisible(name: string, values: Record<string, unknown>, fields: Record<string, unknown>): boolean {
+  if (fields[name] === undefined) return false;
+  if (["lang", "tz", "color_scheme"].includes(name)) return values[name] !== undefined || fieldTypeValue(fields[name]) === "selection";
+  return true;
+}
+
+function userPreferencesFallbackField(name: string): unknown {
+  switch (name) {
+    case "name":
+      return { type: "char", string: "Name", required: true };
+    case "login":
+      return { type: "char", string: "Login" };
+    case "email":
+      return { type: "char", string: "Email" };
+    case "company_id":
+      return { type: "many2one", relation: "res.company", string: "Company" };
+    case "partner_id":
+      return { type: "many2one", relation: "res.partner", string: "Related Partner" };
+    case "lang":
+      return { type: "selection", string: "Language", selection: [["en_US", "English (US)"]] };
+    case "color_scheme":
+      return { type: "selection", string: "Theme", selection: [["system", "System"], ["light", "Light"], ["dark", "Dark"]] };
+    case "notification_type":
+      return {
+        type: "selection",
+        string: "Notification",
+        selection: [["email", "Handle by Emails"], ["inbox", "Handle in Odoo"]]
+      };
+    case "signature":
+      return { type: "text", string: "Signature" };
+    default:
+      return undefined;
+  }
 }
 
 function dialogFormRenderOptions(options: RenderWindowActionOptions, state: FormActionState | null): RenderWindowActionOptions {
@@ -2235,7 +2504,7 @@ function appendFormActionButtonsToContainer(
   result: WindowActionResult,
   state: FormActionState,
   options: RenderWindowActionOptions,
-  buttonOptions: { includeEdit?: boolean } = {}
+  buttonOptions: { includeEdit?: boolean; saveLabel?: string; discardLabel?: string } = {}
 ): void {
   const includeEdit = buttonOptions.includeEdit !== false;
   const edit = document.createElement("button");
@@ -2247,12 +2516,12 @@ function appendFormActionButtonsToContainer(
   save.type = "button";
   save.className = "btn btn-primary o_form_button_save";
   save.dataset.formAction = "save";
-  save.textContent = "Save";
+  save.textContent = buttonOptions.saveLabel || "Save";
   const discard = document.createElement("button");
   discard.type = "button";
   discard.className = "btn btn-secondary o_form_button_cancel";
   discard.dataset.formAction = "discard";
-  discard.textContent = "Discard";
+  discard.textContent = buttonOptions.discardLabel || "Discard";
   const status = document.createElement("span");
   status.className = "o_form_dirty_status text-muted";
   state.editButton = edit;
@@ -8477,14 +8746,18 @@ function renderSelectionRadioEditor(
   root.dataset.value = String(values[node.name] ?? "");
   root.setAttribute("role", "radiogroup");
   root.setAttribute("aria-required", required ? "true" : "false");
-  const controls: Array<{ label: HTMLLabelElement; input: HTMLInputElement }> = [];
+  const controls: Array<{ label: HTMLLabelElement; input: HTMLInputElement; marker: HTMLSpanElement }> = [];
   const refresh = (nextValue: string) => {
     root.dataset.value = nextValue;
-    for (const { label, input } of controls) {
+    for (const { label, input, marker } of controls) {
       const selected = input.value === nextValue;
       label.className = toggleClassToken(String(label.className ?? ""), "selected", selected);
       label.dataset.selected = selected ? "true" : "false";
       input.checked = selected;
+      marker.dataset.selected = selected ? "true" : "false";
+      marker.setAttribute("style", selected
+        ? "width:13px;height:13px;border-radius:50%;border:1px solid #00dac5;background:#00dac5;box-shadow:inset 0 0 0 3px #282c36;display:inline-block;"
+        : "width:13px;height:13px;border-radius:50%;border:1px solid #6d7382;background:transparent;display:inline-block;");
     }
   };
   for (const [value, labelText] of choices) {
@@ -8497,6 +8770,9 @@ function renderSelectionRadioEditor(
     input.value = value;
     input.dataset.field = node.name;
     input.checked = value === String(values[node.name] ?? "");
+    const marker = document.createElement("span");
+    marker.className = "gorp-selection-radio-marker";
+    marker.setAttribute("aria-hidden", "true");
     const caption = document.createElement("span");
     caption.textContent = labelText;
     input.addEventListener("change", () => {
@@ -8505,8 +8781,8 @@ function renderSelectionRadioEditor(
       refresh(input.value);
       emitFieldUpdate(form, options.onUpdate, node.name, input.value);
     });
-    label.append(input, caption);
-    controls.push({ label, input });
+    label.append(input, marker, caption);
+    controls.push({ label, input, marker });
     root.append(label);
   }
   refresh(String(values[node.name] ?? ""));
@@ -12569,7 +12845,11 @@ function readSpecification(
     ));
   }
   if (model === "res.users" && viewType === "form") {
-    for (const name of ["name", "login", "email", "partner_id"]) {
+    const preferenceContext = evalContext.gorp_preferences_dialog === true;
+    const names = preferenceContext
+      ? ["name", "login", "email", "company_id", "partner_id", "lang", "tz", "notification_type", "color_scheme", "signature"]
+      : ["name", "login", "email", "partner_id"];
+    for (const name of names) {
       if (viewDescriptions.fields[name] === undefined || specification[name] !== undefined) continue;
       Object.assign(specification, fieldNodesToSpecification(
         [{ name, attrs: {}, children: [], childViewAttrs: {} }],
@@ -13522,6 +13802,8 @@ function knownFieldLabel(model: string | undefined, name: string): string {
         return "Email";
       case "company_id":
         return "Company";
+      case "partner_id":
+        return "Related Partner";
       case "groups_count":
         return "Groups";
       case "group_ids":
@@ -13530,10 +13812,16 @@ function knownFieldLabel(model: string | undefined, name: string): string {
         return "Role";
       case "active":
         return "Active";
+      case "lang":
+        return "Language";
+      case "tz":
+        return "Timezone";
       case "notification_type":
         return "Notification";
+      case "color_scheme":
+        return "Theme";
       case "signature":
-        return "Signature";
+        return "Email Signature";
       default:
         return "";
     }

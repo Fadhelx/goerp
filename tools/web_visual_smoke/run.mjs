@@ -190,17 +190,30 @@ export const scenarios = [
       const state = await evaluate(page, `(() => {
         const dialog = document.querySelector(".o_web_client .gorp-action-dialog[data-model='res.users']");
         const title = dialog?.querySelector(".modal-title")?.textContent?.trim() || "";
-        const sheet = dialog?.querySelector(".gorp-form-sheet.o_form_sheet");
+        const form = dialog?.querySelector(".gorp-user-preferences-form[data-preferences-dialog='true']");
+        const sheet = dialog?.querySelector(".gorp-user-preferences-sheet.o_form_sheet");
         const labels = [...(dialog?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const footer = dialog?.querySelector(".gorp-action-dialog-footer");
+        const footerButtons = [...(footer?.querySelectorAll("button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const rect = dialog?.querySelector(".modal-dialog")?.getBoundingClientRect();
         return {
           title,
+          preferences_dialog: dialog?.dataset.preferencesDialog || "",
+          has_preferences_form: Boolean(form),
           has_sheet: Boolean(sheet),
-          has_name_or_login: labels.includes("Name") || labels.includes("Login"),
+          has_reference_labels: ["Language", "Email Signature", "Theme"].every((label) => labels.includes(label)),
+          has_preferences_group: Boolean(dialog?.querySelector("[data-preference-group='preferences']")),
+          tab_labels: [...(dialog?.querySelectorAll("[data-preferences-tab]") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          admin_tab_count: dialog?.querySelectorAll(".gorp-form-notebook-tab, .gorp-access-smart-button, .o_res_users_access_rights").length || 0,
+          footer_save_count: footer?.querySelectorAll("[data-form-action='save']").length || 0,
+          footer_discard_count: footer?.querySelectorAll("[data-form-action='discard']").length || 0,
+          footer_buttons: footerButtons,
           label_count: labels.length,
-          body_modal_open: document.body.classList.contains("modal-open")
+          body_modal_open: document.body.classList.contains("modal-open"),
+          width: Math.round(rect?.width || 0)
         };
       })()`);
-      if (!state.body_modal_open || !state.has_sheet || !state.has_name_or_login) {
+      if (!state.body_modal_open || state.title !== "Change My Preferences" || state.preferences_dialog !== "true" || !state.has_preferences_form || !state.has_sheet || !state.has_reference_labels || !state.has_preferences_group || JSON.stringify(state.tab_labels) !== JSON.stringify(["Preferences", "Calendar", "Security"]) || state.admin_tab_count !== 0 || state.footer_save_count !== 1 || state.footer_discard_count !== 1 || JSON.stringify(state.footer_buttons) !== JSON.stringify(["Update Preferences", "Discard"]) || state.width < 760 || state.width > 1000) {
         throw new Error(`preferences dialog invalid: ${JSON.stringify(state)}`);
       }
       return { dialog_count: dialogCount, state };

@@ -2900,6 +2900,63 @@ requiredDialogName.dispatchEvent(new TestEvent("input"));
 requiredDialogConfirm.dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(requiredDialogCalls, [{ model: "res.partner", method: "action_confirm", args: [[43]], kwargs: {} }]);
+
+const preferencesDialog = renderWindowActionDialog({
+  ...windowResult,
+  activeView: "form",
+  resModel: "res.users",
+  action: {
+    type: "ir.actions.act_window",
+    name: "Change My Preferences",
+    target: "new",
+    context: { gorp_preferences_dialog: true }
+  },
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name", required: true },
+      login: { type: "char", string: "Login" },
+      email: { type: "char", string: "Email" },
+      company_id: { type: "many2one", relation: "res.company", string: "Company" },
+      partner_id: { type: "many2one", relation: "res.partner", string: "Related Partner" },
+      notification_type: { type: "selection", string: "Notification", selection: [["email", "Handle by Emails"], ["inbox", "Handle in Odoo"]] },
+      signature: { type: "text", string: "Signature" },
+      group_ids: { type: "many2many", relation: "res.groups", string: "Groups" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><field name="name"/><field name="login"/><field name="email"/><field name="company_id"/><field name="partner_id"/><field name="notification_type"/><field name="signature"/><field name="group_ids" widget="res_user_group_ids"/></sheet></form>`,
+        id: 94
+      }
+    }
+  },
+  records: [{
+    id: 7,
+    name: "Administrator",
+    login: "admin",
+    email: "admin@example.test",
+    company_id: [1, "My Company"],
+    partner_id: [3, "Administrator"],
+    notification_type: "email",
+    signature: "Administrator"
+  }]
+});
+assert.equal(preferencesDialog.dataset.preferencesDialog, "true");
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("gorp-user-preferences-form") && node.dataset?.preferencesDialog === "true").length, 1);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("gorp-user-preferences-sheet")).length, 1);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Change My Preferences");
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("gorp-form-notebook-tab")).length, 0);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("gorp-access-smart-button")).length, 0);
+assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("o_res_users_access_rights")).length, 0);
+assert.equal(findAll(preferencesDialog, (node) => node.dataset?.preferenceGroup === "preferences").length, 1);
+assert.deepEqual(findAll(preferencesDialog, (node) => node.dataset?.preferencesTab).map((node) => node.textContent), ["Preferences", "Calendar", "Security"]);
+const preferencesLabels = findAll(preferencesDialog, (node) => String(node.className).includes("o_form_label")).map((node) => node.textContent);
+assert.ok(preferencesLabels.includes("Language"));
+assert.ok(preferencesLabels.includes("Email Signature"));
+assert.ok(preferencesLabels.includes("Theme"));
+assert.equal(findAll(preferencesDialog, (node) => node.dataset?.formAction === "save").length, 1);
+assert.equal(findAll(preferencesDialog, (node) => node.dataset?.formAction === "discard").length, 1);
+assert.deepEqual(findAll(preferencesDialog, (node) => node.dataset?.formAction).map((node) => node.textContent), ["Update Preferences", "Discard"]);
 const createActionCalls = [];
 const createActionWindow = renderWindowAction(windowResult, {
   context: { active_id: 42 },

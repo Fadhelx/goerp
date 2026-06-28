@@ -270,24 +270,27 @@ globalThis.fetch = async (route, options = {}) => {
   if (route === "/web/dataset/call_kw/res.users/action_get") {
     return { ok: true, status: 200, async json() { return {
       name: "Change My Preferences",
+      res_id: 7,
       res_model: "res.users",
       target: "new",
       type: "ir.actions.act_window",
+      view_id: 94,
       view_mode: "form",
-      views: [[false, "form"]]
+      views: [[94, "form"]]
     }; } };
   }
   if (route === "/web/dataset/call_kw/res.users/get_views") {
     return { ok: true, status: 200, async json() { return {
       fields: {
         name: { type: "char", string: "Name" },
+        login: { type: "char", string: "Login" },
         lang: { type: "char", string: "Language" },
         tz: { type: "char", string: "Timezone" }
       },
       related_models: {},
       views: {
         form: {
-          arch: `<form><sheet><field name="name"/><field name="lang"/><field name="tz"/></sheet><footer><button name="preference_save" type="object" string="Update Preferences" class="btn-primary"/><button name="preference_cancel" string="Discard" special="cancel" class="btn-secondary"/></footer></form>`,
+          arch: `<form string="Change My Preferences"><sheet><group><field name="name"/><field name="login"/><field name="lang"/><field name="tz"/></group></sheet><footer><button name="preference_save" type="object" string="Update Preferences" class="btn-primary"/><button name="preference_cancel" string="Discard" special="cancel" class="btn-secondary"/></footer></form>`,
           id: 94
         }
       }
@@ -295,7 +298,7 @@ globalThis.fetch = async (route, options = {}) => {
   }
   if (route === "/web/dataset/call_kw/res.users/web_read") {
     return { ok: true, status: 200, async json() { return [
-      { id: 7, name: "Admin", display_name: "Admin", lang: "en_US", tz: "Asia/Bahrain" }
+      { id: 7, name: "Admin", display_name: "Admin", login: "admin", lang: "en_US", tz: "Asia/Bahrain" }
     ]; } };
   }
   if (route === "/web/dataset/call_kw") {
@@ -551,6 +554,12 @@ assert.ok(preferencesDialog);
 assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal o_dialog_container")).length, 1);
 assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal-title"))[0].textContent, "Change My Preferences");
 assert.equal(findAll(preferencesDialog, (node) => String(node.className).includes("modal-footer")).length, 1);
+assert.equal(findAll(preferencesDialog, (node) => node.dataset?.preferencesTab).map((node) => node.textContent).join("|"), "Preferences|Calendar|Security");
+assert.match(allText(preferencesDialog), /Language/);
+assert.match(allText(preferencesDialog), /Email Signature/);
+assert.match(allText(preferencesDialog), /Theme/);
+assert.match(allText(preferencesDialog), /Update Preferences/);
+assert.match(allText(preferencesDialog), /Discard/);
 findAll(preferencesDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new CustomEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.equal(actionManager.dataset.tsDialogStatus, "closed");
