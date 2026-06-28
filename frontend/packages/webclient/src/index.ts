@@ -5373,7 +5373,7 @@ function renderModuleCatalogCard(
 ): HTMLElement {
   const card = document.createElement("article");
   card.className = "o_kanban_record d-flex flex-grow-1 flex-md-shrink-1 flex-shrink-0 flex-row align-items-center gorp-apps-catalog-card module-card o_app";
-  card.setAttribute("style", "position:relative !important;display:flex !important;flex-direction:row !important;align-items:center !important;gap:18px !important;min-width:0 !important;min-height:109px !important;margin:0 !important;padding:12px 32px 12px 12px !important;background:#2a2f3b !important;border:1px solid #454a59 !important;border-radius:0 !important;box-shadow:none !important;color:#e8e9ef !important;overflow:hidden !important;");
+  card.setAttribute("style", "position:relative !important;display:flex !important;flex-direction:row !important;align-items:center !important;gap:14px !important;min-width:0 !important;min-height:94px !important;height:94px !important;margin:0 !important;padding:10px 30px 10px 12px !important;background:#2a2f3b !important;border:1px solid #454a59 !important;border-radius:0 !important;box-shadow:none !important;color:#e8e9ef !important;overflow:hidden !important;");
   card.dataset.id = item.id !== undefined ? String(item.id) : `datapoint_${item.sequence}`;
   card.dataset.moduleName = item.technicalName;
   card.dataset.appName = item.displayName;
@@ -5390,7 +5390,7 @@ function renderModuleCatalogCard(
   const icon = moduleCatalogIconElement(item);
   const details = document.createElement("div");
   details.className = "oe_kanban_details o_app_details";
-  details.setAttribute("style", "min-width:0 !important;flex:1 1 auto !important;display:flex !important;flex-direction:column !important;align-self:stretch !important;justify-content:center !important;gap:2px !important;overflow:hidden !important;");
+  details.setAttribute("style", "min-width:0 !important;flex:1 1 auto !important;display:flex !important;flex-direction:column !important;align-self:stretch !important;justify-content:center !important;gap:1px !important;overflow:hidden !important;");
   const title = document.createElement("strong");
   title.className = "o_kanban_record_title o_app_name";
   title.setAttribute("style", "position:static !important;display:block !important;width:auto !important;margin:0 !important;padding:0 !important;color:#f2f3f6 !important;font-size:15px !important;line-height:19px !important;font-weight:700 !important;text-align:left !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;opacity:1 !important;transform:none !important;");
@@ -5418,7 +5418,7 @@ function renderModuleCatalogActions(
 ): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "o_module_actions";
-  wrapper.setAttribute("style", "position:static !important;display:flex !important;align-items:center !important;gap:8px !important;margin-top:8px !important;opacity:1 !important;");
+  wrapper.setAttribute("style", "position:static !important;display:flex !important;align-items:center !important;gap:7px !important;margin-top:5px !important;opacity:1 !important;");
   const state = document.createElement("span");
   state.className = "badge o_module_state d-none";
   state.hidden = true;
@@ -5466,10 +5466,7 @@ function renderModuleCatalogInfoButton(
     event.preventDefault?.();
     event.stopPropagation?.();
     if (item.id === undefined) {
-      root.dispatchEvent(new CustomEvent("action:module-info", {
-        bubbles: true,
-        detail: { model: "ir.module.module", module: item.technicalName, virtual: true, website: item.website }
-      }));
+      openVirtualModuleInfoAction(item, action, root);
       return;
     }
     await openModuleInfoAction(item.sourceRecord ?? { id: item.id, name: item.technicalName, shortdesc: item.displayName }, item.id, action, options, root);
@@ -5508,6 +5505,56 @@ async function openModuleInfoAction(
     bubbles: true,
     detail: { action: nextAction, model: "ir.module.module", id, record }
   }));
+}
+
+function openVirtualModuleInfoAction(item: ModuleCatalogItem, action: Record<string, unknown>, root: HTMLElement): void {
+  const record: Record<string, unknown> = {
+    id: `virtual_${item.technicalName}`,
+    shortdesc: item.displayName,
+    name: item.technicalName,
+    state: item.state,
+    summary: item.summary,
+    website: item.website,
+    description: item.description || item.summary,
+    category: item.category
+  };
+  const result: WindowActionResult = {
+    type: "ir.actions.act_window",
+    action: {
+      ...action,
+      name: "Module Info",
+      res_model: "ir.module.module",
+      target: "new",
+      view_mode: "form",
+      views: [[false, "form"]]
+    },
+    activeView: "form",
+    resModel: "ir.module.module",
+    viewDescriptions: {
+      fields: {
+        shortdesc: { string: "Application", type: "char" },
+        name: { string: "Technical Name", type: "char" },
+        state: { string: "Status", type: "char" },
+        summary: { string: "Summary", type: "char" },
+        category: { string: "Category", type: "char" },
+        website: { string: "Website", type: "char" },
+        description: { string: "Description", type: "text" }
+      },
+      relatedModels: {},
+      views: {
+        form: {
+          id: false,
+          arch: `<form><sheet><group><field name="shortdesc"/><field name="name"/><field name="state"/><field name="category"/><field name="summary"/><field name="website"/><field name="description"/></group></sheet></form>`
+        }
+      }
+    },
+    records: [record],
+    length: 1,
+    offset: 0,
+    countLimited: false
+  };
+  const container = root.closest(".o_web_client") ?? document.body ?? root;
+  container.append(renderWindowActionDialog(result, { title: "Module Info" }));
 }
 
 async function openKanbanRecord(
@@ -5597,7 +5644,13 @@ const moduleCatalogDefinitions: readonly ModuleCatalogReference[] = [
   moduleCatalogReference(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
   moduleCatalogReference(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
   moduleCatalogReference(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
-  moduleCatalogReference(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
+  moduleCatalogReference(77, "ESG", "sustainability", "ESG", "Sustainability reporting"),
+  moduleCatalogReference(78, "Approvals", "approvals", "Productivity", "Request approvals and track decisions"),
+  moduleCatalogReference(79, "VoIP", "voip", "Productivity", "Make calls from the browser"),
+  moduleCatalogReference(80, "Data Cleaning", "data_cleaning", "Technical", "Detect duplicates and clean records"),
+  moduleCatalogReference(81, "Product Configurator", "product_configurator", "Sales", "Configure product variants during sales"),
+  moduleCatalogReference(82, "WhatsApp", "whatsapp", "Marketing", "Send WhatsApp business messages"),
+  moduleCatalogReference(83, "Google Calendar", "google_calendar", "Productivity", "Synchronize meetings with Google Calendar")
 ];
 
 const moduleCatalogCategoryOrder = [
@@ -5735,7 +5788,7 @@ function moduleCatalogCategoryForName(technicalName: string, displayName: string
 function moduleCatalogIconElement(item: ModuleCatalogItem): HTMLImageElement {
   const icon = document.createElement("img");
   icon.className = "app-icon o_app_icon o_module_icon";
-  icon.setAttribute("style", "flex:0 0 56px !important;width:56px !important;height:56px !important;object-fit:contain !important;border-radius:6px !important;");
+  icon.setAttribute("style", "flex:0 0 50px !important;width:50px !important;height:50px !important;object-fit:contain !important;border-radius:6px !important;");
   icon.alt = "";
   icon.src = moduleCatalogIconSource(item);
   icon.dataset.generatedIcon = "clean-room";
@@ -5840,13 +5893,13 @@ function moduleCatalogStyleElement(): HTMLElement {
     .gorp-apps-catalog-sidebar button.active { background: #3c414f !important; }
     .gorp-apps-catalog-sidebar .o_search_panel_counter { color: #aeb4c2 !important; font-weight: 600 !important; }
     .gorp-apps-catalog-grid { flex: 1 1 auto !important; display: grid !important; grid-template-columns: repeat(3, minmax(260px, 1fr)) !important; gap: 8px 16px !important; align-content: start !important; padding: 14px 16px 40px !important; overflow-y: auto; background: #262a36 !important; }
-    .gorp-apps-catalog-card.o_kanban_record { position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 18px !important; min-width: 0 !important; min-height: 109px !important; margin: 0 !important; padding: 12px 32px 12px 12px !important; background: #2a2f3b !important; border: 1px solid #454a59 !important; border-radius: 0 !important; box-shadow: none !important; color: #e8e9ef !important; overflow: hidden !important; }
-    .gorp-apps-catalog-card .o_module_icon { flex: 0 0 56px !important; width: 56px !important; height: 56px !important; object-fit: contain !important; border-radius: 6px !important; }
-    .gorp-apps-catalog-card .o_app_details { min-width: 0 !important; flex: 1 1 auto !important; display: flex !important; flex-direction: column !important; align-self: stretch !important; justify-content: center !important; gap: 2px !important; overflow: hidden !important; }
+    .gorp-apps-catalog-card.o_kanban_record { position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 14px !important; min-width: 0 !important; min-height: 94px !important; height: 94px !important; margin: 0 !important; padding: 10px 30px 10px 12px !important; background: #2a2f3b !important; border: 1px solid #454a59 !important; border-radius: 0 !important; box-shadow: none !important; color: #e8e9ef !important; overflow: hidden !important; }
+    .gorp-apps-catalog-card .o_module_icon { flex: 0 0 50px !important; width: 50px !important; height: 50px !important; object-fit: contain !important; border-radius: 6px !important; }
+    .gorp-apps-catalog-card .o_app_details { min-width: 0 !important; flex: 1 1 auto !important; display: flex !important; flex-direction: column !important; align-self: stretch !important; justify-content: center !important; gap: 1px !important; overflow: hidden !important; }
     .gorp-apps-catalog-card .o_app_name { position: static !important; display: block !important; width: auto !important; margin: 0 !important; padding: 0 !important; color: #f2f3f6 !important; font-size: 15px !important; line-height: 19px !important; font-weight: 700 !important; text-align: left !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; opacity: 1 !important; transform: none !important; }
     .gorp-apps-catalog-card .o_app_summary { position: static !important; display: block !important; margin: 0 !important; color: #aeb4c2 !important; font-size: 13px !important; line-height: 16px !important; max-height: 34px !important; overflow: hidden !important; opacity: 1 !important; }
-    .gorp-apps-catalog-card .o_module_actions { position: static !important; display: flex !important; align-items: center !important; gap: 8px !important; margin-top: 8px !important; opacity: 1 !important; }
-    .gorp-apps-catalog-card .btn { min-height: 27px !important; padding: 4px 10px !important; border-radius: 3px !important; font-size: 12px !important; line-height: 17px !important; font-weight: 700 !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .o_module_actions { position: static !important; display: flex !important; align-items: center !important; gap: 7px !important; margin-top: 5px !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .btn { min-height: 24px !important; padding: 3px 10px !important; border-radius: 3px !important; font-size: 12px !important; line-height: 16px !important; font-weight: 700 !important; opacity: 1 !important; }
     .gorp-apps-catalog-card .btn-primary, .gorp-apps-catalog-card .o_module_install_button { background: #875a7b !important; border-color: #875a7b !important; color: #fff !important; }
     .gorp-apps-catalog-card .btn-secondary, .gorp-apps-catalog-card .o_module_info_button { background: #3d4352 !important; border-color: #3d4352 !important; color: #f4f5f7 !important; }
     .gorp-apps-catalog-card .o_module_menu { position: absolute !important; top: 8px !important; right: 7px !important; padding: 0 !important; min-width: 16px !important; border: 0 !important; color: #aeb4c2 !important; background: transparent !important; font-size: 20px !important; line-height: 16px !important; opacity: 1 !important; }

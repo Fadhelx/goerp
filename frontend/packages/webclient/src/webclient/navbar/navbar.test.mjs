@@ -23,11 +23,37 @@ globalThis.document = {
       hidden: false,
       children: [],
       listeners: {},
+      parentNode: null,
+      get nextSibling() {
+        if (!this.parentNode?.children) return null;
+        const index = this.parentNode.children.indexOf(this);
+        return index >= 0 ? this.parentNode.children[index + 1] ?? null : null;
+      },
       contains() {
         return false;
       },
       append(...nodes) {
-        this.children.push(...nodes);
+        for (const node of nodes) {
+          if (node && typeof node === "object") node.parentNode = this;
+          this.children.push(node);
+        }
+      },
+      insertBefore(node, before) {
+        if (node && typeof node === "object") node.parentNode = this;
+        const index = before ? this.children.indexOf(before) : -1;
+        if (index >= 0) {
+          this.children.splice(index, 0, node);
+        } else {
+          this.children.push(node);
+        }
+      },
+      removeChild(node) {
+        const index = this.children.indexOf(node);
+        if (index >= 0) this.children.splice(index, 1);
+        if (node && typeof node === "object") node.parentNode = null;
+      },
+      remove() {
+        this.parentNode?.removeChild?.(this);
       },
       setAttribute(name, value) {
         this.attributes[name] = String(value);
@@ -86,23 +112,22 @@ assert.equal(findAll(navbar, (node) => String(node.className).includes("o_user_a
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_name")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_icon")).length, 1);
 assert.equal(findAll(navbar, (node) => String(node.className).includes("o_database_label") && node.textContent === "gorp_ref_ui_20260623_0100").length, 1);
-assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 6);
-assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu") && node.hidden === true).length, 6);
+assert.equal(findAll(navbar, (node) => String(node.className).includes("dropdown-menu")).length, 0);
 assert.equal(findAll(navbar, (node) => String(node.textContent).includes("Gorp")).length, 0);
 const systray = findAll(navbar, (node) => String(node.className).includes("o_menu_systray"))[0];
 assert.match(String(systray.children[0].className), /o_debug_manager/);
-assert.match(String(systray.children[2].className), /o_debug_tools/);
-assert.match(String(systray.children[4].className), /o_mail_systray_item/);
+assert.match(String(systray.children[1].className), /o_debug_tools/);
+assert.match(String(systray.children[2].className), /o_mail_systray_item/);
 const messageSystray = findAll(navbar, (node) => String(node.className).includes("o_mail_systray_item"))[0];
-const messageMenu = findAll(navbar, (node) => node.dataset?.systrayDropdown === "messages")[0];
 messageSystray.listeners.click[0]({ stopPropagation() {} });
+const messageMenu = findAll(navbar, (node) => node.dataset?.systrayDropdown === "messages")[0];
 assert.equal(messageSystray.attributes["aria-expanded"], "true");
 assert.equal(messageMenu.hidden, false);
 assert.match(messageMenu.className, /show/);
 const activitySystray = findAll(navbar, (node) => String(node.className).includes("o_activity_menu"))[0];
 activitySystray.listeners.click[0]({ stopPropagation() {} });
 assert.equal(messageSystray.attributes["aria-expanded"], "false");
-assert.equal(messageMenu.hidden, true);
+assert.equal(findAll(navbar, (node) => node.dataset?.systrayDropdown === "messages").length, 0);
 assert.equal(activitySystray.attributes["aria-expanded"], "true");
 documentEvents.keydown[0]({ key: "Escape" });
 assert.equal(activitySystray.attributes["aria-expanded"], "false");
@@ -162,10 +187,10 @@ const nestedNavbar = renderNavbar({
   onOpenApp: (app) => nestedOpened.push(app.id)
 });
 const settingsToggle = findAll(nestedNavbar, (node) => node.dataset?.menuId === "1" && String(node.className).includes("o_nav_dropdown_toggle"))[0];
-const settingsDropdown = findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1")[0];
 assert.equal(settingsToggle.attributes["aria-haspopup"], "menu");
-assert.equal(settingsDropdown.hidden, true);
+assert.equal(findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1").length, 0);
 settingsToggle.listeners.click[0]({ stopPropagation() {} });
+const settingsDropdown = findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1")[0];
 assert.equal(settingsToggle.attributes["aria-expanded"], "true");
 assert.equal(settingsDropdown.hidden, false);
 assert.match(settingsDropdown.className, /show/);
@@ -179,9 +204,10 @@ assert.deepEqual(nestedOpened, [21]);
 assert.equal(settingsToggle.attributes["aria-expanded"], "false");
 assert.equal(nestedNavbar.dataset.activeMenuId, "21");
 assert.equal(findAll(nestedNavbar, (node) => node.dataset?.menuId === "1" && String(node.className).includes("active")).length, 1);
-assert.equal(findAll(nestedNavbar, (node) => node.dataset?.menuId === "21" && String(node.className).includes("active") && String(node.className).includes("o_navbar_dropdown_item")).length, 1);
+assert.equal(findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1").length, 0);
 settingsToggle.listeners.click[0]({ stopPropagation() {} });
-assert.equal(findAll(settingsDropdown, (node) => node.dataset?.menuId === "21" && String(node.className).includes("active")).length, 1);
+const reopenedSettingsDropdown = findAll(nestedNavbar, (node) => node.dataset?.navbarDropdown === "1")[0];
+assert.equal(findAll(reopenedSettingsDropdown, (node) => node.dataset?.menuId === "21" && String(node.className).includes("active")).length, 1);
 
 const systrayActions = [];
 const liveNavbar = renderNavbar({
@@ -213,7 +239,9 @@ assert.deepEqual(defaultSystrayItems({
 }).map((item) => item.count), [2, 3]);
 assert.equal(findAll(liveNavbar, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "2").length, 1);
 assert.equal(findAll(liveNavbar, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "3").length, 1);
+findAll(liveNavbar, (node) => String(node.className).includes("o_activity_menu"))[0].listeners.click[0]({ stopPropagation() {} });
 assert.equal(findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Partners").length, 1);
+findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_menu"))[0].listeners.click[0]({ stopPropagation() {} });
 assert.equal(findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Beta" && String(node.className).includes("active")).length, 1);
 const companyMenu = findAll(liveNavbar, (node) => String(node.className).includes("o_switch_company_menu_dropdown"))[0];
 assert.equal(companyMenu.dataset.systrayDropdown, "company");
@@ -244,9 +272,11 @@ assert.deepEqual(systrayActions.at(-1), { type: "switch-company", companyId: 2, 
 const logIntoAlpha = findAll(alphaCompany, (node) => String(node.className).includes("log_into"))[0];
 logIntoAlpha.listeners.click[0]({ stopPropagation() {} });
 assert.deepEqual(systrayActions.at(-1), { type: "switch-company", companyId: 1, companyIds: [1, 2] });
+findAll(liveNavbar, (node) => String(node.className).includes("o_mail_systray_item"))[0].listeners.click[0]({ stopPropagation() {} });
 const starredItem = findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Starred")[0];
 starredItem.listeners.click[0]();
 assert.deepEqual(systrayActions.at(-1), { type: "open-mailbox", mailbox: "starred" });
+findAll(liveNavbar, (node) => String(node.className).includes("o_activity_menu"))[0].listeners.click[0]({ stopPropagation() {} });
 const activityItem = findAll(liveNavbar, (node) => node.dataset?.systrayItem === "Partners")[0];
 activityItem.listeners.click[0]();
 assert.equal(systrayActions.at(-1).type, "open-activities");
@@ -263,6 +293,7 @@ const searchableNavbar = renderNavbar({
     displaySwitchCompanyMenu: true
   }
 });
+findAll(searchableNavbar, (node) => String(node.className).includes("o_switch_company_menu"))[0].listeners.click[0]({ stopPropagation() {} });
 const companySearch = findAll(searchableNavbar, (node) => node.tag === "input" && node.attributes?.role === "searchbox")[0];
 assert.ok(companySearch);
 companySearch.value = "company10";

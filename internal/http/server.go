@@ -5033,18 +5033,22 @@ func writeCleanRoomEnterpriseBackgroundJPEG(w io.Writer) {
 		ny := float64(y) / float64(height-1)
 		for x := 0; x < width; x++ {
 			nx := float64(x) / float64(width-1)
-			base := 5 + 10*ny
-			tealBand := math.Exp(-math.Pow(ny-(0.19+0.20*math.Sin(nx*math.Pi*1.15)), 2) / 0.028)
-			lowerBand := math.Exp(-math.Pow(ny-(0.88-0.16*math.Sin((nx+.08)*math.Pi*1.1)), 2) / 0.022)
-			rightVeil := math.Exp(-math.Pow(nx-.88, 2)/0.018) * math.Exp(-math.Pow(ny-.18, 2)/0.16)
-			vignette := 1 - 0.28*math.Hypot(nx-.52, ny-.45)
-			if vignette < .72 {
-				vignette = .72
+			base := 4 + 8*ny
+			leftField := math.Exp(-math.Pow(nx-.26, 2)/0.20 - math.Pow(ny-.20, 2)/0.30)
+			tealBand := math.Exp(-math.Pow(ny-(0.16+0.12*math.Sin(nx*math.Pi*1.05)), 2) / 0.052)
+			rightVeil := math.Exp(-math.Pow(nx-.80, 2)/0.14 - math.Pow(ny-.42, 2)/0.34)
+			lowerBand := math.Exp(-math.Pow(ny-(0.86-0.10*math.Sin((nx+.12)*math.Pi*1.1)), 2) / 0.032)
+			vignette := 1 - 0.22*math.Hypot(nx-.52, ny-.44)
+			if vignette < .78 {
+				vignette = .78
+			}
+			if nx < .14+.18*ny {
+				vignette *= .72
 			}
 			noise := float64(((x*37 + y*17 + x*y*3) % 11) - 5)
-			red := (base + 3*tealBand + 2*lowerBand + 4*rightVeil + noise*.18) * vignette
-			green := (base + 21*tealBand + 18*lowerBand + 7*rightVeil + noise*.22) * vignette
-			blue := (17 + 31*tealBand + 29*lowerBand + 19*rightVeil + noise*.22) * vignette
+			red := (base + 3*leftField + 2*tealBand + 3*lowerBand + 14*rightVeil + noise*.18) * vignette
+			green := (base + 22*leftField + 24*tealBand + 12*lowerBand + 6*rightVeil + noise*.22) * vignette
+			blue := (17 + 34*leftField + 32*tealBand + 20*lowerBand + 31*rightVeil + noise*.22) * vignette
 			img.SetRGBA(x, y, color.RGBA{R: byte(clampByte(red)), G: byte(clampByte(green)), B: byte(clampByte(blue)), A: 255})
 		}
 	}
@@ -6770,7 +6774,7 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--text);
 	}
 	.o-app-shell {
-		max-width: 820px;
+		max-width: 818px;
 		margin: 0 auto;
 	}
 	.o-app-search {
@@ -6817,7 +6821,7 @@ const webClientShellHTML = `<!doctype html>
 		justify-content: flex-start;
 		gap: 0;
 		margin: 44px auto 18px;
-		max-width: 820px;
+		max-width: 818px;
 		padding: 0;
 	}
 	.o-app-launcher-view .o_draggable {
@@ -9237,22 +9241,23 @@ const webClientShellHTML = `<!doctype html>
 	}
 	.gorp-apps-catalog-card {
 		display: grid;
-		grid-template-columns: 56px minmax(0, 1fr) auto;
+		grid-template-columns: 50px minmax(0, 1fr) auto;
 		grid-template-areas:
 			"icon title menu"
 			"icon summary summary"
 			"icon actions info";
-		gap: 4px 12px;
+		gap: 2px 12px;
 		align-items: start;
 		border: 1px solid var(--line);
 		background: #fff;
-		min-height: 98px;
-		padding: 10px 11px;
+		min-height: 94px;
+		height: 94px;
+		padding: 9px 10px;
 	}
 	.gorp-apps-catalog-card .app-icon {
 		grid-area: icon;
-		width: 48px;
-		height: 48px;
+		width: 50px;
+		height: 50px;
 		border-radius: 6px;
 		font-size: 0;
 		position: relative;
@@ -9775,7 +9780,7 @@ const webClientShellHTML = `<!doctype html>
 		margin: 0;
 		color: var(--muted);
 		font-size: 12px;
-		line-height: 1.25;
+		line-height: 1.2;
 	}
 	.gorp-apps-catalog-card .o_module_state {
 		display: none;
@@ -9801,24 +9806,24 @@ const webClientShellHTML = `<!doctype html>
 		grid-area: actions;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px 8px;
+		gap: 4px 7px;
 		align-items: center;
-		margin-top: 8px;
+		margin-top: 4px;
 	}
 	.gorp-apps-catalog-card .o_module_actions .btn {
-		min-height: 28px;
-		padding: 4px 11px;
+		min-height: 24px;
+		padding: 3px 10px;
 		border-radius: 2px;
 		font-size: 12px;
 		font-weight: 700;
-		line-height: 18px;
+		line-height: 16px;
 	}
 	.gorp-apps-catalog-card .o_module_info_button {
 		grid-area: info;
 		justify-self: end;
 		align-self: end;
-		min-height: 28px;
-		padding: 4px 11px;
+		min-height: 24px;
+		padding: 3px 10px;
 		border-radius: 2px;
 		background: #f0f1f4;
 		color: var(--text);
@@ -10774,6 +10779,13 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-view="apps"] > .o_action_manager > .o-app-launcher-view {
 		padding-top: 70px;
 	}
+	main.o_web_client[data-view="apps"][data-home-menu-mode="root"],
+	main.o_web_client[data-view="apps"][data-home-menu-mode="root"] > .o_action_manager,
+	main.o_web_client[data-view="apps"][data-home-menu-mode="root"] > .o_action_manager > .o-app-launcher-view {
+		height: 100vh;
+		max-height: 100vh;
+		overflow: hidden;
+	}
 	.o_home_menu_registration_banner,
 	main.o_web_client[data-theme="enterprise-like"] .o_home_menu_registration_banner,
 	body[data-theme="enterprise"] .o_home_menu_registration_banner {
@@ -10781,7 +10793,7 @@ const webClientShellHTML = `<!doctype html>
 		display: flex !important;
 		align-items: center;
 		justify-content: center;
-		width: min(820px, calc(100vw - 48px));
+		width: min(818px, calc(100vw - 48px));
 		min-height: 54px;
 		margin: 0 auto 54px;
 		padding: 12px 48px 12px 18px;
@@ -11669,7 +11681,12 @@ const webClientShellHTML = `<!doctype html>
 		--topbar-hover: #303442;
 		--sidebar: #f8f9fa;
 		--home-bg: #000511;
-		--home-bg-image: url("/web_enterprise/static/img/background-dark.jpg");
+		--home-bg-image:
+			radial-gradient(ellipse at 50% 120%, rgba(0,5,17,.88) 0%, rgba(0,5,17,.60) 36%, rgba(0,5,17,.14) 66%, rgba(0,5,17,0) 100%),
+			radial-gradient(ellipse at 18% 20%, rgba(10,38,52,.98) 0%, rgba(8,34,48,.86) 32%, rgba(4,12,25,.68) 68%, rgba(4,12,25,0) 100%),
+			radial-gradient(circle at 31% 18%, rgba(46,78,96,.72) 0%, rgba(23,47,66,.36) 30%, rgba(0,5,17,0) 58%),
+			radial-gradient(circle at 83% 52%, rgba(40,32,75,.58) 0%, rgba(14,10,35,.32) 34%, rgba(0,5,17,0) 62%),
+			url("/web_enterprise/static/img/background-dark.jpg?v=cleanroom-20260628b");
 		--home-panel: rgba(255,255,255,.92);
 		--home-line: rgba(31,41,51,.12);
 		--home-text: #ffffff;
@@ -11714,7 +11731,8 @@ const webClientShellHTML = `<!doctype html>
 			margin-top: -46px !important;
 		}
 		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] > .o_action_manager > .o-app-launcher-view {
-			min-height: calc(100vh + 46px) !important;
+			min-height: 100vh !important;
+			height: 100vh !important;
 			padding-top: 70px !important;
 		}
 		main.o_web_client[data-theme="enterprise-like"][data-view="apps"][data-home-menu-mode="root"] .o_home_menu_registration_banner {

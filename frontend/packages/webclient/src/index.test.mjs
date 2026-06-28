@@ -3881,10 +3881,10 @@ const referenceAppsCatalogWindow = renderWindowAction({
 }, { context: { search_default_app: 1 } });
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => node.dataset?.createAction === "true").length, 0);
 const referenceAppsCatalog = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog"))[0];
-assert.equal(referenceAppsCatalog.dataset.catalogTotal, "77");
-assert.equal(referenceAppsCatalog.dataset.visibleCount, "77");
+assert.equal(referenceAppsCatalog.dataset.catalogTotal, "83");
+assert.equal(referenceAppsCatalog.dataset.visibleCount, "83");
 const referenceAppsCards = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog-card"));
-assert.equal(referenceAppsCards.length, 77);
+assert.equal(referenceAppsCards.length, 83);
 assert.equal(referenceAppsCards[0].dataset.moduleName, "sale_management");
 assert.equal(referenceAppsCards[0].dataset.appName, "Sales");
 assert.equal(referenceAppsCards[0].dataset.virtualModule, "true");

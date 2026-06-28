@@ -105,7 +105,7 @@ assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includ
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-menu-toggle")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "4").length, 1);
-assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Tasks").length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_activity_menu")).length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_user_avatar") && node.textContent === "A").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.appKey === "apps").length, 0);
 assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
@@ -147,6 +147,8 @@ assert.deepEqual(opened, [
   { id: 1, actionID: 9, outletClass: "o_action_manager" },
   { id: 1, actionID: 9, outletClass: "o_action_manager" }
 ]);
+findAll(shell, (node) => String(node.className).includes("o_activity_menu"))[0].listeners.click[0]({ stopPropagation() {} });
+assert.equal(findAll(shell, (node) => node.dataset?.systrayItem === "Tasks").length, 1);
 findAll(shell, (node) => node.dataset?.systrayItem === "Tasks")[0].listeners.click[0]();
 assert.equal(systrayActions.at(-1).action.type, "open-activities");
 assert.equal(systrayActions.at(-1).outletClass, "o_action_manager");

@@ -336,10 +336,12 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       event.stopPropagation?.();
       const open = button.getAttribute("aria-expanded") !== "true";
       closeDropdowns(menu);
+      if (open) mountDropdownMenu(parent, button, menu);
       setDropdownOpen(button, menu, open);
       if (open) openActiveSubmenus(mainNavbar.dataset.activeMenuId ?? "");
+      if (!open) unmountDropdownMenu(menu);
     });
-    parent.append(button, menu);
+    parent.append(button);
   }
 
   function closeDropdowns(except?: HTMLElement): void {
@@ -347,6 +349,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
     for (const menu of dropdowns) {
       if (menu === except) continue;
       setDropdownOpen(dropdownButtons.get(menu) ?? null, menu, false);
+      unmountDropdownMenu(menu);
     }
   }
 
@@ -428,7 +431,7 @@ function renderSystrayMenu(key: string, items: readonly SystrayMenuEntry[], onAc
     const button = document.createElement("button");
     button.type = "button";
     button.className = entry.active ? "dropdown-item active" : "dropdown-item";
-    button.setAttribute("role", "menuitem");
+    button.setAttribute("role", "none");
     button.dataset.systrayItem = entry.label;
     if (entry.action) {
       button.dataset.systrayAction = entry.action.type;
@@ -483,6 +486,26 @@ function setDropdownOpen(button: HTMLElement | null, menu: HTMLElement, open: bo
       : "dropdown-menu o-dropdown-menu";
   menu.className = open ? `${base} show` : base;
   positionNavbarDropdown(button, menu, open);
+}
+
+function mountDropdownMenu(parent: HTMLElement, button: HTMLElement, menu: HTMLElement): void {
+  if (menu.parentNode) return;
+  const buttonParent = button.parentNode;
+  if (buttonParent && typeof buttonParent.insertBefore === "function") {
+    buttonParent.insertBefore(menu, button.nextSibling);
+    return;
+  }
+  parent.append(menu);
+}
+
+function unmountDropdownMenu(menu: HTMLElement): void {
+  if (!menu.parentNode) return;
+  if (typeof menu.remove === "function") {
+    menu.remove();
+    return;
+  }
+  const parent = menu.parentNode;
+  if (typeof parent.removeChild === "function") parent.removeChild(menu);
 }
 
 function positionNavbarDropdown(button: HTMLElement | null, menu: HTMLElement, open: boolean): void {
@@ -649,7 +672,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
     logInto.className = "log_into";
     logInto.dataset.companyId = String(company.id);
     logInto.dataset.systrayAction = "switch-company";
-    logInto.setAttribute("role", "menuitem");
+    logInto.setAttribute("role", "none");
     logInto.textContent = "Log into";
     logInto.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -668,7 +691,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
   confirm.type = "button";
   confirm.className = "btn btn-primary o_switch_company_confirm";
   confirm.dataset.systrayAction = "switch-company";
-  confirm.setAttribute("role", "menuitem");
+  confirm.setAttribute("role", "none");
   confirm.textContent = "Confirm";
   confirm.addEventListener("click", () => {
     const action = confirmAction();
@@ -676,7 +699,7 @@ function renderCompanySwitcherMenu(systray: NavbarSystrayState | undefined, fall
   });
   reset.type = "button";
   reset.className = "btn btn-secondary o_switch_company_reset";
-  reset.setAttribute("role", "menuitem");
+  reset.setAttribute("role", "none");
   reset.textContent = "Reset";
   reset.addEventListener("click", () => {
     primaryKey = initialPrimaryKey;
@@ -722,7 +745,7 @@ function renderFallbackCompanyMenu(fallbackName: string, onAction?: (action: Nav
   confirm.type = "button";
   confirm.className = "btn btn-primary o_switch_company_confirm";
   confirm.dataset.systrayAction = "switch-company";
-  confirm.setAttribute("role", "menuitem");
+  confirm.setAttribute("role", "none");
   confirm.textContent = "Confirm";
   confirm.addEventListener("click", () => onAction?.({ type: "switch-company" }));
   buttons.append(confirm);
@@ -786,7 +809,7 @@ function renderDebugItem(): HTMLElement {
   button.type = "button";
   button.className = "o-systray-item o_debug_manager dropdown-toggle";
   button.setAttribute("aria-label", "Debug");
-  button.setAttribute("role", "menuitem");
+  button.setAttribute("role", "none");
   const icon = document.createElement("i");
   icon.className = "o-systray-icon o_debug_icon";
   icon.setAttribute("aria-hidden", "true");
@@ -824,6 +847,7 @@ function renderUserMenu(userName: string, databaseName?: string): HTMLElement {
   if (databaseName?.trim()) {
     const database = document.createElement("span");
     database.className = "o_database_name";
+    database.setAttribute("role", "menuitem");
     const databaseIcon = document.createElement("i");
     databaseIcon.className = "o_database_icon";
     databaseIcon.setAttribute("aria-hidden", "true");

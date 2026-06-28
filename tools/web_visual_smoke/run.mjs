@@ -78,25 +78,83 @@ export const scenarios = [
     name: "settings-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      await openWeb(page, config, desktopViewport());
-      await clickText(page, "#appGrid .o_app", "Settings");
-      await waitFor(page, `document.body.dataset.view === "settings"`, "settings view");
-      const blockCount = await waitForCount(page, "#settingsBlocks .app_settings_block", 1, "settings blocks");
-      const boxCount = await waitForCount(page, "#settingsBlocks .o_setting_box", 1, "settings boxes");
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&settings_desktop=1`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "settings TS webclient ready");
+      await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Settings", ".o_app_name");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "settings action ready");
+      const blockCount = await waitForCount(page, ".o_web_client .o_action_manager .app_settings_block", 1, "settings blocks");
+      const boxCount = await waitForCount(page, ".o_web_client .o_action_manager .o_setting_box", 1, "settings boxes");
       const settingsState = await evaluate(page, `(() => {
-        const buttons = [...document.querySelectorAll("#settingsBlocks .o_setting_action")];
+        const root = document.querySelector(".o_web_client");
+        const action = root?.querySelector(".o_action_manager");
+        const buttons = [...(action?.querySelectorAll(".o_setting_action") || [])];
         const labels = buttons.map((button) => button.textContent.trim()).filter(Boolean);
+        const targetModels = [...(action?.querySelectorAll("[data-settings-target-model]") || [])].map((node) => [node.textContent.trim(), node.dataset.settingsTargetModel]);
         return {
+          brand: root?.querySelector(".o_menu_brand")?.textContent?.trim() || "",
+          nav_sections: [...(root?.querySelectorAll(".o_navbar_sections .o_nav_entry") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           labels,
           generic_open_count: labels.filter((label) => label === "Open" || label.startsWith("Open ")).length,
-          grid_count: document.querySelectorAll("#settingsBlocks .o_setting_grid").length,
+          grid_count: action?.querySelectorAll(".o_setting_grid").length || 0,
+          block_titles: [...(action?.querySelectorAll(".app_settings_block h2, .app_settings_block .o_setting_block_title") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          target_models: targetModels,
           has_manage_users: labels.includes("Manage Users"),
+          has_manage_groups: labels.includes("Manage Groups"),
           has_server_actions: labels.includes("Server Actions"),
-          has_apps: labels.includes("Apps")
+          has_scheduled_actions: labels.includes("Scheduled Actions"),
+          has_automation: labels.includes("Automation Rules"),
+          has_views: labels.includes("Views"),
+          has_models: labels.includes("Models"),
+          has_fields: labels.includes("Fields"),
+          has_access_rights: labels.includes("Access Rights"),
+          has_record_rules: labels.includes("Record Rules"),
+          has_mail: labels.includes("Outgoing Mail Servers") && labels.includes("Incoming Mail Servers") && labels.includes("Email Templates"),
+          has_apps: labels.includes("Apps"),
+          has_ai: labels.includes("AI Apps")
         };
       })()`);
-      if (settingsState.generic_open_count || !settingsState.labels.includes("Automation Rules") || !settingsState.has_manage_users || !settingsState.has_server_actions || !settingsState.has_apps || settingsState.grid_count < 3) {
-        throw new Error(`legacy settings layout invalid: ${JSON.stringify(settingsState)}`);
+      const expectedNav = ["General Settings", "Users & Companies", "Translations", "Technical"];
+      const expectedModels = {
+        "Manage Users": "res.users",
+        "Manage Groups": "res.groups",
+        "Server Actions": "ir.actions.server",
+        "Scheduled Actions": "ir.cron",
+        "Automation Rules": "base.automation",
+        "Views": "ir.ui.view",
+        "Models": "ir.model",
+        "Fields": "ir.model.fields",
+        "Access Rights": "ir.model.access",
+        "Record Rules": "ir.rule",
+        "Outgoing Mail Servers": "ir.mail_server",
+        "Incoming Mail Servers": "fetchmail.server",
+        "Email Templates": "mail.template",
+        "Apps": "ir.module.module",
+        "AI Apps": "ir.module.module"
+      };
+      const modelMap = Object.fromEntries(settingsState.target_models);
+      const missingModels = Object.entries(expectedModels).filter(([label, model]) => modelMap[label] !== model);
+      if (
+        settingsState.brand !== "Settings" ||
+        JSON.stringify(settingsState.nav_sections) !== JSON.stringify(expectedNav) ||
+        settingsState.generic_open_count ||
+        !settingsState.has_manage_users ||
+        !settingsState.has_manage_groups ||
+        !settingsState.has_server_actions ||
+        !settingsState.has_scheduled_actions ||
+        !settingsState.has_automation ||
+        !settingsState.has_views ||
+        !settingsState.has_models ||
+        !settingsState.has_fields ||
+        !settingsState.has_access_rights ||
+        !settingsState.has_record_rules ||
+        !settingsState.has_mail ||
+        !settingsState.has_apps ||
+        !settingsState.has_ai ||
+        settingsState.grid_count < 3 ||
+        missingModels.length
+      ) {
+        throw new Error(`settings layout invalid: ${JSON.stringify({ ...settingsState, missing_models: missingModels })}`);
       }
       return { settings_blocks: blockCount, setting_boxes: boxCount, settings_state: settingsState };
     }
@@ -399,8 +457,12 @@ export const scenarios = [
           "scheduled_actions",
           "automation_rules",
           "views",
+          "models",
+          "fields",
           "access_rights",
           "record_rules",
+          "mail_servers",
+          "fetchmail_servers",
           "email_templates",
           "apps",
           "ai"
@@ -449,8 +511,12 @@ export const scenarios = [
         scheduled_actions: ["Scheduled Actions", "ir.cron"],
         automation_rules: ["Automation Rules", "base.automation"],
         views: ["Views", "ir.ui.view"],
+        models: ["Models", "ir.model"],
+        fields: ["Fields", "ir.model.fields"],
         access_rights: ["Access Rights", "ir.model.access"],
         record_rules: ["Record Rules", "ir.rule"],
+        mail_servers: ["Outgoing Mail Servers", "ir.mail_server"],
+        fetchmail_servers: ["Incoming Mail Servers", "fetchmail.server"],
         email_templates: ["Email Templates", "mail.template"],
         apps: ["Apps", "ir.module.module"],
         ai: ["AI Apps", "ir.module.module"]
@@ -458,7 +524,7 @@ export const scenarios = [
       const invalidTechnicalTargets = Object.entries(expectedTechnicalTargets)
         .filter(([id, [label, model]]) => settingsTargets.labels[id] !== label || settingsTargets.models[id] !== model)
         .map(([id]) => id);
-      if (settingsTargets.gridCount !== 5 || settingsTargets.actionBoxCount !== 14 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || invalidTechnicalTargets.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
+      if (settingsTargets.gridCount !== 5 || settingsTargets.actionBoxCount !== 18 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || invalidTechnicalTargets.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
         throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
       }
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
@@ -2442,6 +2508,39 @@ export const scenarios = [
     }
   },
   {
+    name: "default-direct-model-route-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#model=res.users&view_type=list`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "direct model route document ready");
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "direct model route TS webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "direct model route action ready");
+      const state = await evaluate(page, `(() => ({
+        url: location.href,
+        root_view: document.querySelector(".o_web_client")?.dataset.view || "",
+        model: document.querySelector(".o_web_client .gorp-window-action")?.dataset.model || "",
+        view: document.querySelector(".o_web_client .gorp-window-action")?.dataset.view || "",
+        list_count: document.querySelectorAll(".o_web_client .o_list_renderer").length,
+        row_count: document.querySelectorAll(".o_web_client .o_data_row, .o_web_client tbody tr").length,
+        home_count: document.querySelectorAll(".o_web_client .o_home_menu .o_app").length
+      }))()`);
+      if (
+        state.root_view !== "action" ||
+        state.model !== "res.users" ||
+        state.view !== "list" ||
+        state.list_count !== 1 ||
+        state.row_count < 1 ||
+        state.home_count !== 0 ||
+        !state.url.includes("#model=res.users&view_type=list") ||
+        state.url.includes("menu_id=model")
+      ) {
+        throw new Error(`direct model route invalid: ${JSON.stringify(state)}`);
+      }
+      return state;
+    }
+  },
+  {
     name: "default-mobile-launcher-parity",
     viewport: { width: 390, height: 844, mobile: true },
     run: async (page, config) => {
@@ -2881,6 +2980,8 @@ export const scenarios = [
           first_card_height: Math.round(firstRect?.height || 0),
           first_card_display: firstStyle?.display || "",
           second_card_top_delta: secondRect && firstRect ? Math.round(secondRect.top - firstRect.top) : 0,
+          first_icon_width: Math.round(cards[0]?.querySelector(".o_module_icon")?.getBoundingClientRect()?.width || 0),
+          first_icon_height: Math.round(cards[0]?.querySelector(".o_module_icon")?.getBoundingClientRect()?.height || 0),
           visible_card_count: cards.filter(visible).length,
           generic_field_count: cards.slice(0, 24).reduce((sum, card) => sum + card.querySelectorAll(".o_kanban_record_field").length, 0),
           module_card_count: cards.filter((card) => card.classList.contains("gorp-apps-catalog-card") && card.dataset.moduleName).length,
@@ -2899,26 +3000,29 @@ export const scenarios = [
         state.window_count !== 1 ||
         state.renderer_count !== 1 ||
         state.brand !== "Apps" ||
-        state.catalog_total !== "77" ||
-        state.catalog_visible_count !== "77" ||
-        !state.pager.includes("1-77") ||
+        state.catalog_total !== "83" ||
+        state.catalog_visible_count !== "83" ||
+        !state.pager.includes("1-83") ||
         state.create_button_count !== 0 ||
         state.sidebar_count !== 1 ||
         JSON.stringify(state.sidebar_labels.slice(0, expectedSidebar.length)) !== JSON.stringify(expectedSidebar) ||
-        state.module_card_count < 77 ||
-        state.module_state_count < 77 ||
+        state.module_card_count !== 83 ||
+        state.module_state_count !== 83 ||
         state.install_button_count < 60 ||
         state.activate_button_count < 60 ||
         state.learn_more_count < 60 ||
-        state.info_button_count < 77 ||
-        state.generated_icon_count < 77 ||
+        state.info_button_count !== 83 ||
+        state.generated_icon_count !== 83 ||
         state.generic_field_count !== 0 ||
         state.first_cards[0] !== "Sales" ||
         JSON.stringify(state.first_card_actions) !== JSON.stringify(["Activate", "Learn More"]) ||
         state.first_card_text.includes("Technical Name") ||
         state.first_card_text.includes("State") ||
         state.first_card_width < 250 ||
-        state.first_card_height < 90 ||
+        state.first_card_height < 92 ||
+        state.first_card_height > 96 ||
+        state.first_icon_width !== 50 ||
+        state.first_icon_height !== 50 ||
         state.second_card_top_delta !== 0 ||
         state.visible_card_count < 12
       ) throw new Error(`Apps catalog parity invalid: ${JSON.stringify(state)}`);
@@ -3430,7 +3534,7 @@ async function assertAppsCatalogIconState(page) {
       first_height_px: rect ? Math.round(rect.height) : 0
     };
   })()`);
-  if (snapshot.count < 1 || snapshot.image_count !== snapshot.count || snapshot.generated_count !== snapshot.count || snapshot.text_count || !snapshot.first_src_is_svg_data || snapshot.first_width_px < 38 || snapshot.first_height_px < 38) {
+  if (snapshot.count < 1 || snapshot.image_count !== snapshot.count || snapshot.generated_count !== snapshot.count || snapshot.text_count || !snapshot.first_src_is_svg_data || snapshot.first_width_px !== 50 || snapshot.first_height_px !== 50) {
     throw new Error(`Apps catalog icons invalid: ${JSON.stringify(snapshot)}`);
   }
   return snapshot;
@@ -3567,10 +3671,10 @@ async function assertEnterpriseLauncherSnapshot(page) {
   if (snapshot.app_icon_text) issues.push(`synthetic app icon text ${snapshot.app_icon_text}`);
   const appIcon = snapshot.launcher_icons.find((item) => item.key === "apps");
   const settingsIcon = snapshot.launcher_icons.find((item) => item.key === "settings");
-  if (!appIcon || appIcon.kind !== "apps" || appIcon.generated !== "clean-room" || !String(appIcon.src_prefix).startsWith("data:image/png")) {
+  if (!appIcon || appIcon.kind !== "apps" || appIcon.generated !== "clean-room" || !String(appIcon.src_prefix).startsWith("data:image/svg+xml")) {
     issues.push(`apps launcher icon invalid ${JSON.stringify(appIcon)}`);
   }
-  if (!settingsIcon || settingsIcon.kind !== "settings" || settingsIcon.generated !== "clean-room" || !String(settingsIcon.src_prefix).startsWith("data:image/png")) {
+  if (!settingsIcon || settingsIcon.kind !== "settings" || settingsIcon.generated !== "clean-room" || !String(settingsIcon.src_prefix).startsWith("data:image/svg+xml")) {
     issues.push(`settings launcher icon invalid ${JSON.stringify(settingsIcon)}`);
   }
   if (issues.length) throw new Error(`enterprise launcher style audit failed: ${issues.join("; ")}`);

@@ -128,7 +128,7 @@ assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes(
 const liveCatalogIcon = findAll(liveCatalogCard, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0];
 assert.equal(liveCatalogIcon.dataset.iconToken, "apps");
 assert.equal(liveCatalogIcon.dataset.generatedIcon, "clean-room");
-assert.match(liveCatalogIcon.src, /^data:image\/png;base64,/);
+assert.match(liveCatalogIcon.src, /^data:image\/svg\+xml,/);
 assert.equal(findAll(liveCatalogCard, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
 const liveSettingsCard = findAll(liveMenu, (node) => node.dataset?.menuId === "4")[0];
 assert.equal(liveSettingsCard.dataset.appKey, "settings");
@@ -137,7 +137,7 @@ assert.equal(findAll(liveSettingsCard, (node) => String(node.className).includes
 const liveSettingsIcon = findAll(liveSettingsCard, (node) => node.tag === "img" && String(node.className).includes("o_app_icon_core"))[0];
 assert.equal(liveSettingsIcon.dataset.iconToken, "settings");
 assert.equal(liveSettingsIcon.dataset.generatedIcon, "clean-room");
-assert.match(liveSettingsIcon.src, /^data:image\/png;base64,/);
+assert.match(liveSettingsIcon.src, /^data:image\/svg\+xml,/);
 assert.equal(findAll(liveSettingsCard, (node) => String(node.className).includes("o_app_icon_with_glyph")).length, 0);
 assert.equal(findAll(liveMenu, (node) => String(node.className).split(/\s+/).includes("o_app_search_input")).length, 0);
 

@@ -101,6 +101,7 @@ async function restoreActionFromHash(
   const route = parseRouteState(globalThis.location?.hash ?? "");
   const actionID = routeActionID(route);
   if (actionID === undefined) {
+    if (routeModel(route)) return restoreModelRouteFromHash(env, route, shell);
     const menuID = routeID(route.menu_id);
     if (menuID === undefined) return false;
     await shell.openMenuApp(menuID);
@@ -137,6 +138,42 @@ async function restoreActionFromHash(
   }
 }
 
+async function restoreModelRouteFromHash(
+  env: ReturnType<typeof makeEnv>,
+  route: WebClientRouteState,
+  shell: RenderedWebClientShell
+): Promise<boolean> {
+  const model = routeModel(route);
+  if (!model) return false;
+  const outlet = findDescendantByClass(shell, "o_action_manager");
+  if (!outlet) return false;
+  setShellActionView(shell);
+  const routeMenuID = routeID(route.menu_id);
+  if (routeMenuID !== undefined) shell.setMenuContext(routeMenuID);
+  if (model === "ir.module.module") {
+    await renderAppsCatalog(env, outlet, routeModelTitle(model));
+    return true;
+  }
+  const context = {
+    ...routeActionContext(route),
+    active_model: model
+  };
+  const title = routeModelTitle(model);
+  const actionHost = createActionHost(env, outlet);
+  outlet.dataset.tsActionStatus = "loading";
+  outlet.replaceChildren(renderActionLoading(title));
+  try {
+    await actionHost.doAction(actionWithRouteState(routeModelWindowAction(model, route), route), {
+      additionalContext: context,
+      stackPosition: "clear"
+    });
+    return true;
+  } catch (error) {
+    renderActionError(outlet, error);
+    return false;
+  }
+}
+
 function routeAppsCatalogApp(app: HomeMenuApp | undefined, route: WebClientRouteState): HomeMenuApp {
   if (app) return app;
   const id = routeID(route.menu_id) ?? "apps";
@@ -154,6 +191,55 @@ function routeAppsCatalogApp(app: HomeMenuApp | undefined, route: WebClientRoute
 
 function routeActionID(route: WebClientRouteState): number | string | undefined {
   return routeID(route.action);
+}
+
+function routeModel(route: WebClientRouteState): string {
+  return typeof route.model === "string" && route.model.trim() ? route.model.trim() : "";
+}
+
+function routeModelWindowAction(model: string, route: WebClientRouteState): Record<string, unknown> {
+  const firstView = typeof route.view_type === "string" && route.view_type.trim() ? route.view_type.trim() : "list";
+  const viewMode = firstView === "form" ? "form,list" : `${firstView},form`;
+  const action: Record<string, unknown> = {
+    type: "ir.actions.act_window",
+    name: routeModelTitle(model),
+    res_model: model,
+    view_mode: viewMode,
+    views: actionViewsWithFirstType({ view_mode: viewMode }, firstView)
+  };
+  return action;
+}
+
+function routeModelTitle(model: string): string {
+  const labels: Record<string, string> = {
+    "res.users": "Users",
+    "res.groups": "Groups",
+    "res.company": "Companies",
+    "ir.model": "Models",
+    "ir.model.fields": "Fields",
+    "ir.model.access": "Access Rights",
+    "ir.rule": "Record Rules",
+    "ir.ui.view": "Views",
+    "ir.actions.actions": "Actions",
+    "ir.actions.act_window": "Window Actions",
+    "ir.actions.client": "Client Actions",
+    "ir.actions.server": "Server Actions",
+    "ir.cron": "Scheduled Actions",
+    "base.automation": "Automation Rules",
+    "mail.template": "Email Templates",
+    "ir.mail_server": "Outgoing Mail Servers",
+    "fetchmail.server": "Incoming Mail Servers",
+    "ai.agent": "AI Agents",
+    "ai.audit.log": "AI Audit Logs",
+    "ir.module.module": "Apps"
+  };
+  if (labels[model]) return labels[model];
+  return model
+    .split(".")
+    .filter(Boolean)
+    .map((part) => part.replace(/_/g, " "))
+    .join(" ")
+    .replace(/\b\w/g, (char) => char.toUpperCase()) || "Records";
 }
 
 function routeActionContext(route: WebClientRouteState): Record<string, unknown> {
@@ -472,8 +558,12 @@ function generalSettingsArch(): string {
         <setting id="scheduled_actions" string="Scheduled Actions" help="Review automated jobs and execution schedules."><field name="scheduled_action_count" readonly="1"/></setting>
         <setting id="automation_rules" string="Automation Rules" help="Configure automated record rules and triggers."><field name="automation_rule_count" readonly="1"/></setting>
         <setting id="views" string="Views" help="Inspect backend views and inherited layouts."><field name="view_count" readonly="1"/></setting>
+        <setting id="models" string="Models" help="Inspect model metadata and technical models."><field name="model_count" readonly="1"/></setting>
+        <setting id="fields" string="Fields" help="Inspect model fields and technical field definitions."><field name="field_count" readonly="1"/></setting>
         <setting id="access_rights" string="Access Rights" help="Manage model permissions."><field name="access_right_count" readonly="1"/></setting>
         <setting id="record_rules" string="Record Rules" help="Manage record-level security rules."><field name="record_rule_count" readonly="1"/></setting>
+        <setting id="mail_servers" string="Outgoing Mail Servers" help="Configure outgoing email delivery servers."><field name="mail_server_count" readonly="1"/></setting>
+        <setting id="fetchmail_servers" string="Incoming Mail Servers" help="Configure incoming email fetch servers."><field name="fetchmail_server_count" readonly="1"/></setting>
         <setting id="email_templates" string="Email Templates" help="Maintain mail templates."><field name="email_template_count" readonly="1"/></setting>
         <setting id="apps" string="Apps" help="Install and manage apps."><field name="installed_module_count" readonly="1"/></setting>
         <setting id="ai" string="AI Apps" help="Open AI app modules."><field name="ai_module_count" readonly="1"/></setting>
@@ -494,8 +584,12 @@ function generalSettingsFields(): Record<string, unknown> {
     scheduled_action_count: readonlyIntegerField("Scheduled Actions"),
     automation_rule_count: readonlyIntegerField("Automated Actions"),
     view_count: readonlyIntegerField("Views"),
+    model_count: readonlyIntegerField("Models"),
+    field_count: readonlyIntegerField("Fields"),
     access_right_count: readonlyIntegerField("Access Rights"),
     record_rule_count: readonlyIntegerField("Record Rules"),
+    mail_server_count: readonlyIntegerField("Outgoing Mail Servers"),
+    fetchmail_server_count: readonlyIntegerField("Incoming Mail Servers"),
     email_template_count: readonlyIntegerField("Email Templates"),
     installed_module_count: readonlyIntegerField("Installed Apps"),
     ai_module_count: readonlyIntegerField("AI Modules")
@@ -519,8 +613,12 @@ function generalSettingsValues(): Record<string, unknown> {
     scheduled_action_count: 0,
     automation_rule_count: 0,
     view_count: 0,
+    model_count: 0,
+    field_count: 0,
     access_right_count: 0,
     record_rule_count: 0,
+    mail_server_count: 0,
+    fetchmail_server_count: 0,
     email_template_count: 0,
     installed_module_count: 0,
     ai_module_count: 0
@@ -588,8 +686,12 @@ function settingsNavigationTargets(): SettingsNavigationTarget[] {
     { id: "scheduled_actions", names: ["Scheduled Actions"], model: "ir.cron" },
     { id: "automation_rules", names: ["Automation Rules", "Automated Actions"], model: "base.automation" },
     { id: "views", names: ["Views"], model: "ir.ui.view" },
+    { id: "models", names: ["Models"], model: "ir.model" },
+    { id: "fields", names: ["Fields"], model: "ir.model.fields" },
     { id: "access_rights", names: ["Access Rights"], model: "ir.model.access" },
     { id: "record_rules", names: ["Record Rules"], model: "ir.rule" },
+    { id: "mail_servers", names: ["Outgoing Mail Servers", "Mail Servers"], model: "ir.mail_server" },
+    { id: "fetchmail_servers", names: ["Incoming Mail Servers"], model: "fetchmail.server" },
     { id: "email_templates", names: ["Email Templates"], model: "mail.template" },
     { id: "apps", names: ["Apps"], model: "ir.module.module" },
     { id: "ai", names: ["Apps"], model: "ir.module.module", query: "ai" }
@@ -608,8 +710,12 @@ function settingsTargetButtonLabel(target: SettingsNavigationTarget): string {
     scheduled_actions: "Scheduled Actions",
     automation_rules: "Automation Rules",
     views: "Views",
+    models: "Models",
+    fields: "Fields",
     access_rights: "Access Rights",
     record_rules: "Record Rules",
+    mail_servers: "Outgoing Mail Servers",
+    fetchmail_servers: "Incoming Mail Servers",
     email_templates: "Email Templates",
     apps: "Apps",
     ai: "AI Apps"
@@ -1478,7 +1584,10 @@ async function runAppsCatalogModuleAction(technicalName: string, method: AppsCat
 }
 
 async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet: HTMLElement, module: AppsCatalogDisplayModule): Promise<void> {
-  if (module.virtual) return;
+  if (module.virtual) {
+    openVirtualAppsCatalogModuleInfo(outlet, module);
+    return;
+  }
   const rows = await fetchJSON<Array<Record<string, unknown>>>("/web/dataset/call_kw", {
     model: "ir.module.module",
     method: "search_read",
@@ -1503,6 +1612,56 @@ async function openAppsCatalogModuleInfo(env: ReturnType<typeof makeEnv>, outlet
       active_ids: [id]
     }
   });
+}
+
+function openVirtualAppsCatalogModuleInfo(outlet: HTMLElement, module: AppsCatalogDisplayModule): void {
+  const record: Record<string, unknown> = {
+    id: `virtual_${module.technicalName}`,
+    shortdesc: module.displayName,
+    name: module.technicalName,
+    state: module.state,
+    category: module.category,
+    summary: module.summary,
+    website: module.website,
+    description: module.description || module.summary
+  };
+  const result: WindowActionResult = {
+    type: "ir.actions.act_window",
+    action: {
+      type: "ir.actions.act_window",
+      name: "Module Info",
+      res_model: "ir.module.module",
+      target: "new",
+      view_mode: "form",
+      views: [[false, "form"]]
+    },
+    activeView: "form",
+    resModel: "ir.module.module",
+    viewDescriptions: {
+      fields: {
+        shortdesc: { string: "Application", type: "char" },
+        name: { string: "Technical Name", type: "char" },
+        state: { string: "Status", type: "char" },
+        category: { string: "Category", type: "char" },
+        summary: { string: "Summary", type: "char" },
+        website: { string: "Website", type: "char" },
+        description: { string: "Description", type: "text" }
+      },
+      relatedModels: {},
+      views: {
+        form: {
+          id: false,
+          arch: `<form><sheet><group><field name="shortdesc"/><field name="name"/><field name="state"/><field name="category"/><field name="summary"/><field name="website"/><field name="description"/></group></sheet></form>`
+        }
+      }
+    },
+    records: [record],
+    length: 1,
+    offset: 0,
+    countLimited: false
+  };
+  const host = outlet.closest(".o_web_client") ?? outlet;
+  host.append(renderWindowActionDialog(result, { title: "Module Info" }));
 }
 
 const referenceAppsCatalogDefinitions: readonly AppsCatalogReferenceModule[] = [
@@ -1582,7 +1741,13 @@ const referenceAppsCatalogDefinitions: readonly AppsCatalogReferenceModule[] = [
   referenceApp(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
   referenceApp(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
   referenceApp(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
-  referenceApp(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
+  referenceApp(77, "ESG", "sustainability", "ESG", "Sustainability reporting"),
+  referenceApp(78, "Approvals", "approvals", "Productivity", "Request approvals and track decisions"),
+  referenceApp(79, "VoIP", "voip", "Productivity", "Make calls from the browser"),
+  referenceApp(80, "Data Cleaning", "data_cleaning", "Technical", "Detect duplicates and clean records"),
+  referenceApp(81, "Product Configurator", "product_configurator", "Sales", "Configure product variants during sales"),
+  referenceApp(82, "WhatsApp", "whatsapp", "Marketing", "Send WhatsApp business messages"),
+  referenceApp(83, "Google Calendar", "google_calendar", "Productivity", "Synchronize meetings with Google Calendar")
 ];
 
 function referenceApp(
