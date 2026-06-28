@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-28T14:21:31.700Z",
+  "base_url": "https://api.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "d813e1d11fe2f68b66a69215ef263259f816ba23de048759da0e8d6e0e9a3e82",
+      "assertions": {
+        "module": "ai",
+        "card_count": 1,
+        "modal_count": 1
+      },
+      "duration_ms": 7279
+    }
+  ],
+  "duration_ms": 7390
+}
