@@ -265,6 +265,92 @@ export interface AiAgentChatThread {
   post?(message: string): unknown | Promise<unknown>;
 }
 
+export interface AiMailRecipient {
+  email?: string;
+  partner_id?: number | false | null;
+  partnerId?: number | false | null;
+  [key: string]: unknown;
+}
+
+export interface AiMailThread extends AiAgentChatThread {
+  id?: number;
+  model?: string;
+  suggestedRecipients?: AiMailRecipient[];
+  additionalRecipients?: AiMailRecipient[];
+  ai_prompt_buttons?: string[];
+  aiPromptButtons?: string[];
+  aiSpecialActions?: Record<string, (content: string) => unknown | Promise<unknown>>;
+  aiChatSource?: string | number | false | null;
+  fetchNewMessages?(): unknown | Promise<unknown>;
+}
+
+export interface AiMailStore {
+  aiInsertButtonTarget?: string | number | false | null;
+  insert?(data: unknown): unknown;
+  Thread: {
+    getOrFetch(ref: AiAgentChatThreadLookup): AiMailThread | Promise<AiMailThread>;
+  };
+  "res.partner"?: {
+    insert(data: unknown): { id?: number } | null | undefined;
+  };
+}
+
+export interface AiLauncherORMService {
+  call<T = unknown>(
+    model: string,
+    method: string,
+    args?: readonly unknown[],
+    kwargs?: Record<string, unknown>
+  ): Promise<T>;
+}
+
+export interface AiLauncherActionService {
+  doAction(action: Record<string, unknown>, options?: Record<string, unknown>): unknown | Promise<unknown>;
+}
+
+export interface AiLauncherRPCService {
+  call<T = unknown>(route: string, params?: Record<string, unknown>): Promise<T>;
+}
+
+export interface AiPartnerFromEmailRequest {
+  threadModel: string;
+  threadId: number;
+  emails: readonly string[];
+}
+
+export interface AiChatLauncherServices {
+  orm: AiLauncherORMService;
+  mailStore: AiMailStore;
+  action?: AiLauncherActionService;
+  rpc?: AiLauncherRPCService;
+  storage?: Pick<Storage, "setItem" | "removeItem" | "getItem">;
+  partnerFromEmail?(request: AiPartnerFromEmailRequest): Promise<readonly unknown[]>;
+}
+
+export interface AiLaunchChatInput {
+  callerComponentName: string;
+  recordModel?: string | null;
+  recordId?: number | null;
+  channelTitle?: string | null;
+  aiSpecialActions?: Record<string, (content: string) => unknown | Promise<unknown>>;
+  aiChatSourceId?: string | number | false | null;
+  originalRecordData?: Record<string, unknown> | null;
+  originalRecordFields?: AiRecordFieldsInfo | null;
+  textSelection?: string | null;
+}
+
+export interface AiLaunchChatResult {
+  channelId: number;
+  prompts: string[];
+  modelHasThread: boolean;
+  thread: AiMailThread;
+}
+
+export interface AiChatLauncher {
+  launchAIChat(input: AiLaunchChatInput): Promise<AiLaunchChatResult>;
+  recordDataToContextJSON(recordData: Record<string, unknown>, fieldsInfo?: AiRecordFieldsInfo): Record<string, unknown>;
+}
+
 export interface AiAgentChatThreadLookup {
   model: "discuss.channel";
   id: number;
@@ -348,7 +434,7 @@ export interface AiAdjustSearchPayload {
 }
 
 export interface AiBusApplicationEvent {
-  name: "APPLY_AI_ADJUST_SEARCH";
+  name: "APPLY_AI_ADJUST_SEARCH" | "APPLY_AI_ADJUST_MODEL";
   detail: Record<string, unknown>;
 }
 
@@ -704,6 +790,159 @@ export function createAgentChatActionHandler(
   }) as AiAgentChatActionHandler;
 }
 
+export function createAIChatLauncher(services: AiChatLauncherServices): AiChatLauncher {
+  return {
+    launchAIChat(input: AiLaunchChatInput) {
+      return launchAIChat(services, input);
+    },
+    recordDataToContextJSON(recordData: Record<string, unknown>, fieldsInfo: AiRecordFieldsInfo = {}) {
+      return createAIRecordContext(recordData, fieldsInfo);
+    }
+  };
+}
+
+export async function launchAIChat(
+  services: AiChatLauncherServices,
+  input: AiLaunchChatInput
+): Promise<AiLaunchChatResult> {
+  const callerComponentName = requireText(input.callerComponentName, "caller component name");
+  const recordId = input.recordId === undefined || input.recordId === null
+    ? null
+    : requirePositiveInteger(input.recordId, "record id");
+  const frontEndRecordInfo = shouldSendRecordInfo(callerComponentName) && input.originalRecordData
+    ? createAIRecordContext(input.originalRecordData, input.originalRecordFields ?? {})
+    : null;
+  if ("aiInsertButtonTarget" in services.mailStore) {
+    services.mailStore.aiInsertButtonTarget = input.aiChatSourceId ?? false;
+  }
+  const draftCall = createAIDraftChannelCall({
+    callerComponentName,
+    channelTitle: input.channelTitle ?? null,
+    recordModel: input.recordModel ?? null,
+    recordId,
+    frontEndRecordInfo,
+    textSelection: input.textSelection ?? null
+  });
+  const draftResult = normalizeAIDraftChannelResult(
+    await services.orm.call(draftCall.model, draftCall.method, draftCall.args, draftCall.kwargs)
+  );
+  services.mailStore.insert?.(draftResult.data);
+  const thread = await services.mailStore.Thread.getOrFetch({
+    model: "discuss.channel",
+    id: draftResult.aiChannelId
+  });
+  if (!thread) throw new Error("AI thread not found");
+  services.storage?.setItem(
+    createAIPromptButtonStorageKey(draftResult.aiChannelId),
+    createAIPromptButtonStorageValue(draftResult.prompts)
+  );
+  const specialActions = { ...(input.aiSpecialActions ?? {}) };
+  if (callerComponentName === "chatter_ai_button" && draftResult.modelHasThread && input.recordModel && recordId) {
+    specialActions.sendMessage = (content: string) => openAIThreadComposer(services, thread, {
+      messageType: "message",
+      recordModel: input.recordModel as string,
+      recordId,
+      content
+    });
+    specialActions.logNote = (content: string) => openAIThreadComposer(services, thread, {
+      messageType: "note",
+      recordModel: input.recordModel as string,
+      recordId,
+      content
+    });
+  }
+  thread.ai_prompt_buttons = [...draftResult.prompts];
+  thread.aiPromptButtons = [...draftResult.prompts];
+  thread.aiSpecialActions = specialActions;
+  thread.aiChatSource = input.aiChatSourceId ?? false;
+  await thread.open?.({ focus: true });
+  await thread.openChatWindow?.();
+  return {
+    channelId: draftResult.aiChannelId,
+    prompts: [...draftResult.prompts],
+    modelHasThread: draftResult.modelHasThread,
+    thread
+  };
+}
+
+export function createAIComposerAction(
+  messageType: "message" | "note",
+  recordModel: string,
+  recordId: number,
+  content: string,
+  partnerIds: readonly number[] = []
+): Record<string, unknown> {
+  const isMessage = messageType === "message";
+  return {
+    name: isMessage ? "Send Message" : "Log Note",
+    res_model: "mail.compose.message",
+    target: "new",
+    type: "ir.actions.act_window",
+    view_id: false,
+    view_mode: "form",
+    views: [[false, "form"]],
+    context: {
+      clicked_on_full_composer: true,
+      default_body: content ?? "",
+      default_model: requireText(recordModel, "record model"),
+      default_partner_ids: [...partnerIds],
+      default_res_ids: [requirePositiveInteger(recordId, "record id")],
+      default_subtype_xmlid: isMessage ? "mail.mt_comment" : "mail.mt_note"
+    }
+  };
+}
+
+export async function openAIThreadComposer(
+  services: AiChatLauncherServices,
+  thread: AiMailThread,
+  options: { messageType: "message" | "note"; recordModel: string; recordId: number; content: string }
+): Promise<Record<string, unknown>> {
+  const partnerIds = options.messageType === "message"
+    ? await resolveAIRecipientPartnerIds(services, thread, options.recordModel, options.recordId)
+    : [];
+  const action = createAIComposerAction(options.messageType, options.recordModel, options.recordId, options.content, partnerIds);
+  await services.action?.doAction(action, {
+    onClose: () => thread.fetchNewMessages?.()
+  });
+  return action;
+}
+
+export async function resolveAIRecipientPartnerIds(
+  services: AiChatLauncherServices,
+  thread: AiMailThread,
+  recordModel = thread.model ?? "",
+  recordId = thread.id ?? 0
+): Promise<number[]> {
+  const recipients = [...(thread.suggestedRecipients ?? []), ...(thread.additionalRecipients ?? [])];
+  const missing = recipients.filter((recipient) => !recipientPartnerID(recipient) && nonEmpty(recipient.email));
+  if (missing.length > 0) {
+    const emails = missing.map((recipient) => recipient.email as string);
+    const partnerRows = await findPartnersFromEmails(services, {
+      threadModel: recordModel,
+      threadId: recordId,
+      emails
+    });
+    partnerRows.forEach((row, index) => {
+      const inserted = services.mailStore["res.partner"]?.insert?.(row);
+      const partnerID = positiveIntegerOrUndefined((isRecord(row) ? row.id : undefined) ?? inserted?.id);
+      if (partnerID) missing[index].partner_id = partnerID;
+    });
+  }
+  return uniquePositiveIntegers(recipients.map(recipientPartnerID));
+}
+
+export function createAIPromptButtonModels(prompts: readonly string[], channelId: number): Array<{ id: string; label: string; prompt: string }> {
+  const baseID = requirePositiveInteger(channelId, "channel id");
+  return prompts.map((prompt, index) => {
+    const label = requireText(prompt, "AI prompt name");
+    return {
+      id: `${baseID}-${index + 1}`,
+      label,
+      prompt: label
+    };
+  });
+}
+
 export function createRealtimeTranscriptionParameters(language: string, prompt: string): RealtimeParameters {
   return {
     expires_after: {
@@ -780,6 +1019,19 @@ export function createAiAdjustSearchEvents(
   if (payload.switchViewType) detail.switchViewType = payload.switchViewType;
   if (payload.customDomain !== undefined) detail.customDomain = payload.customDomain;
   return [{ name: "APPLY_AI_ADJUST_SEARCH", detail }];
+}
+
+export function createAiAdjustModelEvents(
+  detail: Pick<AiAdjustSearchPayload, "measures" | "mode" | "order" | "stacked" | "cumulated">
+): AiBusApplicationEvent[] {
+  const eventDetail: Record<string, unknown> = {
+    measures: [...(detail.measures ?? [])],
+    mode: detail.mode ?? null,
+    order: detail.order ?? "ASC",
+    stacked: Boolean(detail.stacked),
+    cumulated: Boolean(detail.cumulated)
+  };
+  return [{ name: "APPLY_AI_ADJUST_MODEL", detail: eventDetail }];
 }
 
 function createChatMessage(message: AiChatMessageInput): AiChatMessage {
@@ -893,6 +1145,47 @@ function displayName(value: unknown): string | null {
 function aiSessionMatches(eventSession: string | undefined, currentSession: string | undefined): boolean {
   if (!eventSession) return true;
   return eventSession === currentSession;
+}
+
+function shouldSendRecordInfo(callerComponentName: string): boolean {
+  return callerComponentName === "html_field_record" ||
+    callerComponentName === "html_field_text_select" ||
+    callerComponentName === "chatter_ai_button";
+}
+
+async function findPartnersFromEmails(
+  services: AiChatLauncherServices,
+  request: AiPartnerFromEmailRequest
+): Promise<readonly unknown[]> {
+  if (services.partnerFromEmail) return services.partnerFromEmail(request);
+  if (services.rpc) {
+    return services.rpc.call<readonly unknown[]>("/mail/partner/from_email", {
+      thread_model: request.threadModel,
+      thread_id: request.threadId,
+      emails: [...request.emails]
+    });
+  }
+  return [];
+}
+
+function recipientPartnerID(recipient: AiMailRecipient): number | undefined {
+  return positiveIntegerOrUndefined(recipient.partner_id ?? recipient.partnerId);
+}
+
+function positiveIntegerOrUndefined(value: unknown): number | undefined {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : undefined;
+}
+
+function uniquePositiveIntegers(values: readonly (number | undefined)[]): number[] {
+  const seen = new Set<number>();
+  const result: number[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
 }
 
 function aiOpenMenuViewType(eventName: AiOpenMenuEventName): "list" | "kanban" | "pivot" | "graph" {

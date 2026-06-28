@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 const events = {};
 const fetches = [];
+const localStorageData = new Map();
 let sessionResponse = {
   uid: 7,
   name: "Admin",
@@ -76,6 +77,9 @@ globalThis.document = {
     },
     replaceChildren(...nodes) {
       this.children = nodes;
+    },
+    append(...nodes) {
+      this.children = [...(this.children ?? []), ...nodes];
     }
   },
   querySelector() {
@@ -125,8 +129,22 @@ globalThis.document = {
       },
       remove() {
         this.removed = true;
+      },
+      focus() {
+        this.focused = true;
       }
     };
+  }
+};
+globalThis.localStorage = {
+  getItem(key) {
+    return localStorageData.get(key) ?? null;
+  },
+  setItem(key, value) {
+    localStorageData.set(key, String(value));
+  },
+  removeItem(key) {
+    localStorageData.delete(key);
   }
 };
 globalThis.addEventListener = (type, listener) => {
@@ -307,6 +325,22 @@ globalThis.fetch = async (route, options = {}) => {
       return { ok: true, status: 200, async json() { return [{ id: 5, name: "base", display_name: "Base" }]; } };
     }
   }
+  if (route === "/web/dataset/call_kw/ai.agent/action_ask_ai") {
+    return { ok: true, status: 200, async json() { return {
+      type: "ir.actions.client",
+      tag: "agent_chat_action",
+      params: { channelId: 88, user_prompt: "Show partners" }
+    }; } };
+  }
+  if (route === "/mail/message/post") {
+    return { ok: true, status: 200, async json() { return { id: 501, body: "Show partners" }; } };
+  }
+  if (route === "/ai/generate_response") {
+    return { ok: true, status: 200, async json() { return null; } };
+  }
+  if (route === "/ai/close_ai_chat") {
+    return { ok: true, status: 200, async json() { return null; } };
+  }
   if (route === "/web/dataset/call_kw/x.parent/get_views") {
     return { ok: true, status: 200, async json() { return {
       fields: { name: { type: "char", string: "Name" } },
@@ -379,6 +413,7 @@ const ready = new Promise((resolve) => {
 });
 
 const mod = await import("../../../dist/apps/webclient/src/main.js");
+const webclientMod = await import("../../../dist/packages/webclient/src/index.js");
 const detail = await ready;
 
 assert.equal(globalThis.document.documentElement.dataset.tsWebclient, "ready");
@@ -482,6 +517,26 @@ assert.deepEqual(fetches.map((item) => [item.route, item.options.method]), [
   ["/mail/data", "POST"],
   ["/web/webclient/load_menus", "GET"]
 ]);
+
+localStorageData.set("ai.thread.prompt_buttons.88", "[\"Summarize\",\"Reply\"]");
+fetches.length = 0;
+const aiActionHandler = webclientMod.registries.actions.get("agent_chat_action");
+await aiActionHandler(null, {
+  type: "ir.actions.client",
+  tag: "agent_chat_action",
+  params: { channelId: 88, user_prompt: "Show partners" }
+}, {});
+await flushAsync();
+const aiPanel = globalThis.document.body.children.find((node) => String(node.className).includes("gorp-ai-chat"));
+assert.ok(aiPanel);
+assert.equal(aiPanel.dataset.aiChannelId, "88");
+assert.equal(findAll(aiPanel, (node) => String(node.className).includes("o-mail-AI-prompt")).length, 2);
+assert.match(allText(aiPanel), /Show partners/);
+assert.match(allText(aiPanel), /Response generated/);
+assert.deepEqual(fetches.map((item) => item.route), ["/mail/message/post", "/ai/generate_response"]);
+const aiGenerateFetch = fetches.find((item) => item.route === "/ai/generate_response");
+assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).channel_id, 88);
+assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).mail_message_id, 501);
 
 findAll(shell, (node) => String(node.className).includes("o_switch_company_menu"))[0].dispatchEvent(new CustomEvent("click"));
 const logIntoAlpha = findAll(shell, (node) => String(node.className).includes("log_into") && node.dataset?.companyId === "1")[0];

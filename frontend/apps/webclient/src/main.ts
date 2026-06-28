@@ -2,6 +2,7 @@ import {
   createWebClient,
   makeEnv,
   parseRouteState,
+  registries,
   renderWindowAction,
   renderWindowActionDialog,
   routeStateFromStack,
@@ -17,6 +18,14 @@ import {
   type WebClientServices,
   type WindowActionResult
 } from "../../../packages/webclient/src/index.js";
+import {
+  agentChatActionTag,
+  createAgentChatActionHandler,
+  createAIPromptButtonStorageKey,
+  createAIPromptButtonStorageValue,
+  type AiAgentChatThreadLookup,
+  type AiMailThread
+} from "../../../packages/ai/src/index.js";
 import type { RenderedWebClientShell } from "../../../packages/webclient/src/webclient/shell.js";
 import type { NavbarSystrayAction } from "../../../packages/webclient/src/webclient/navbar/navbar.js";
 import {
@@ -37,6 +46,15 @@ export interface GoERPWebClientBootstrapResult {
   menus: Record<string, unknown>;
 }
 
+interface AIChatThreadState extends AiMailThread {
+  id: number;
+  model: "discuss.channel";
+  status: string;
+  messages: Array<{ role: "user" | "assistant" | "system"; body: string }>;
+  container?: HTMLElement;
+  promptButtons?: string[];
+}
+
 export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrapResult> {
   const env = makeEnv({
     debug: new URLSearchParams(globalThis.location?.search ?? "").has("debug"),
@@ -45,6 +63,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
   const isSmall = globalThis.matchMedia?.("(max-width: 767px)")?.matches === true;
   env.rpcTransport = rpcTransport;
   await startServices(env);
+  registerAIClientAction(env);
   let session = await (env.services.session as SessionService).load();
   if (shouldQuickLogin(session)) {
     session = await fetchJSON<Record<string, unknown>>("/web/session/authenticate", {
@@ -91,6 +110,182 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
     detail: { session, menus }
   }));
   return { session, menus };
+}
+
+const aiThreadStore = new Map<number, AIChatThreadState>();
+
+function registerAIClientAction(env: ReturnType<typeof makeEnv>): void {
+  registries.actions.add(agentChatActionTag, createAgentChatActionHandler({
+    getThread(thread) {
+      return getOrCreateAIThread(thread, env);
+    }
+  }), { force: true });
+}
+
+function getOrCreateAIThread(thread: AiAgentChatThreadLookup, env: ReturnType<typeof makeEnv>): AIChatThreadState {
+  const channelID = numericUserID(thread.id);
+  if (!channelID) throw new Error("AI channel id is required");
+  const existing = aiThreadStore.get(channelID);
+  if (existing) return existing;
+  const state: AIChatThreadState = {
+    id: channelID,
+    model: "discuss.channel",
+    status: "ready",
+    messages: [],
+    promptButtons: readAIPromptButtons(channelID),
+    ai_prompt_buttons: readAIPromptButtons(channelID),
+    open(options) {
+      renderAIChatPanel(state, env, options);
+    },
+    openChatWindow() {
+      renderAIChatPanel(state, env, { focus: true });
+    },
+    async post(message: string) {
+      const body = message.trim();
+      if (!body) return;
+      state.messages.push({ role: "user", body });
+      state.status = "loading";
+      renderAIChatPanel(state, env, { focus: true });
+      try {
+        const posted = await postAIUserMessage(channelID, body);
+        await fetchJSON("/ai/generate_response", {
+          mail_message_id: numericUserID(posted.id),
+          channel_id: channelID,
+          current_view_info: currentAIViewInfo(),
+          ai_session_identifier: aiSessionIdentifier()
+        });
+        state.messages.push({ role: "assistant", body: "Response generated." });
+      } catch (error) {
+        state.messages.push({ role: "assistant", body: error instanceof Error ? error.message : "AI request failed." });
+      } finally {
+        state.status = "ready";
+        renderAIChatPanel(state, env, { focus: true });
+      }
+    }
+  };
+  aiThreadStore.set(channelID, state);
+  if (state.promptButtons?.length) {
+    globalThis.localStorage?.setItem?.(createAIPromptButtonStorageKey(channelID), createAIPromptButtonStorageValue(state.promptButtons));
+  }
+  return state;
+}
+
+function renderAIChatPanel(thread: AIChatThreadState, env: ReturnType<typeof makeEnv>, options: { focus: true }): void {
+  let container = thread.container;
+  if (!container) {
+    container = document.createElement("section");
+    container.className = "gorp-ai-chat o-mail-ChatWindow o-mail-Thread";
+    container.dataset.aiChannelId = String(thread.id);
+    container.dataset.aiStatus = thread.status;
+    document.body.append(container);
+    thread.container = container;
+  }
+  container.dataset.aiStatus = thread.status;
+  const header = document.createElement("header");
+  header.className = "gorp-ai-chat-header o-mail-ChatWindow-header";
+  const title = document.createElement("h2");
+  title.textContent = "Ask AI";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "btn btn-link o-mail-ChatWindow-command";
+  close.textContent = "Close";
+  close.addEventListener("click", async () => {
+    await fetchJSON("/ai/close_ai_chat", { channel_id: thread.id }).catch(() => null);
+    thread.container?.remove();
+    thread.container = undefined;
+    aiThreadStore.delete(thread.id);
+    globalThis.localStorage?.removeItem?.(createAIPromptButtonStorageKey(thread.id));
+  });
+  header.append(title, close);
+
+  const promptBar = document.createElement("div");
+  promptBar.className = "gorp-ai-prompt-buttons o-mail-Thread-aiPromptButtons";
+  for (const prompt of thread.promptButtons ?? []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-secondary o-mail-AI-prompt";
+    button.textContent = prompt;
+    button.addEventListener("click", () => void thread.post?.(prompt));
+    promptBar.append(button);
+  }
+
+  const messages = document.createElement("div");
+  messages.className = "gorp-ai-chat-messages o-mail-Thread-messages";
+  for (const message of thread.messages) {
+    const row = document.createElement("article");
+    row.className = `gorp-ai-chat-message o-mail-Message o-${message.role}`;
+    row.dataset.role = message.role;
+    row.textContent = message.body;
+    messages.append(row);
+  }
+  if (thread.messages.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "text-muted";
+    empty.textContent = "Ask a question or use a prompt.";
+    messages.append(empty);
+  }
+
+  const composer = document.createElement("form");
+  composer.className = "gorp-ai-chat-composer o-mail-Composer";
+  const input = document.createElement("textarea");
+  input.className = "o-mail-Composer-input";
+  input.placeholder = "Ask AI";
+  const send = document.createElement("button");
+  send.type = "submit";
+  send.className = "btn btn-primary";
+  send.textContent = thread.status === "loading" ? "Working" : "Send";
+  send.disabled = thread.status === "loading";
+  composer.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const body = input.value.trim();
+    input.value = "";
+    void thread.post?.(body);
+  });
+  composer.append(input, send);
+
+  container.replaceChildren(header, promptBar, messages, composer);
+  if (options.focus) input.focus?.();
+  env.bus.trigger("AI_CHAT_OPENED", { channelId: thread.id });
+}
+
+async function postAIUserMessage(channelID: number, body: string): Promise<Record<string, unknown>> {
+  const payload = await fetchJSON<unknown>("/mail/message/post", {
+    thread_model: "discuss.channel",
+    thread_id: channelID,
+    post_data: { body, message_type: "comment", subtype_xmlid: "mail.mt_comment" },
+    context: {}
+  });
+  if (isRecord(payload)) return payload;
+  return { id: 0 };
+}
+
+function readAIPromptButtons(channelID: number): string[] {
+  const raw = globalThis.localStorage?.getItem?.(createAIPromptButtonStorageKey(channelID));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+function currentAIViewInfo(): Record<string, unknown> {
+  const params = parseRouteState(globalThis.location?.hash ?? "");
+  return {
+    action_id: params.action,
+    model: params.model,
+    view_type: params.view_type,
+    active_id: params.id ?? params.active_id
+  };
+}
+
+function aiSessionIdentifier(): string {
+  const uid = document.documentElement.dataset.aiSessionIdentifier;
+  if (uid) return uid;
+  const generated = `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  document.documentElement.dataset.aiSessionIdentifier = generated;
+  return generated;
 }
 
 async function restoreActionFromHash(

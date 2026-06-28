@@ -5,11 +5,15 @@ import {
   aiRoutes,
   createAgentChatActionHandler,
   createAgentChatActionState,
+  createAIChatLauncher,
+  createAiAdjustModelEvents,
   createAiAdjustSearchEvents,
   createAiButtonState,
+  createAIComposerAction,
   createAiErrorState,
   createAiOpenMenuInvocation,
   createAIDraftChannelCall,
+  createAIPromptButtonModels,
   createAIPromptButtonStorageKey,
   createAIPromptButtonStorageValue,
   createAIRecordContext,
@@ -23,8 +27,10 @@ import {
   createTranscriptionSessionRequest,
   formatCitationLabel,
   isAiNaturalLanguageEventName,
+  launchAIChat,
   normalizeAIDraftChannelResult,
   normalizeSourceCitations,
+  resolveAIRecipientPartnerIds,
   selectPromptButton,
   setChatPanelInput,
   setChatPanelOpen,
@@ -271,6 +277,152 @@ await assert.rejects(
   /Thread not found/
 );
 
+const launcherCalls = [];
+const launcherThread = {
+  id: 90,
+  model: "discuss.channel",
+  status: "ready",
+  suggestedRecipients: [
+    { email: "new@example.test" },
+    { email: "existing@example.test", partner_id: 12 }
+  ],
+  additionalRecipients: [{ email: "other@example.test", partnerId: 13 }],
+  open(options) {
+    launcherCalls.push(["thread.open", options]);
+  },
+  openChatWindow() {
+    launcherCalls.push(["thread.openChatWindow"]);
+  },
+  fetchNewMessages() {
+    launcherCalls.push(["thread.fetchNewMessages"]);
+  }
+};
+const storageCalls = [];
+const partnerRequests = [];
+const insertedPartners = [];
+const actionRequests = [];
+const launcherOrm = {
+  async call(model, method, args, kwargs) {
+    launcherCalls.push(["orm.call", model, method, args, kwargs]);
+    assert.equal(model, "discuss.channel");
+    assert.equal(method, "create_ai_draft_channel");
+    assert.equal(args[0], "chatter_ai_button");
+    assert.equal(args[1], "Partner reply");
+    assert.equal(args[2], "res.partner");
+    assert.equal(args[3], 42);
+    assert.deepEqual(args[4], { name: "Ada", partner_id: "Partner A" });
+    assert.equal(args[5], "Selected text");
+    return {
+      ai_channel_id: "90",
+      data: { "discuss.channel": [{ id: 90, name: "AI" }] },
+      prompts: ["Summarize", "Reply"],
+      model_has_thread: true
+    };
+  }
+};
+const mailStore = {
+  aiInsertButtonTarget: false,
+  insert(data) {
+    launcherCalls.push(["store.insert", data]);
+  },
+  Thread: {
+    getOrFetch(ref) {
+      launcherCalls.push(["Thread.getOrFetch", ref]);
+      return launcherThread;
+    }
+  },
+  "res.partner": {
+    insert(data) {
+      insertedPartners.push(data);
+      return { id: data.id };
+    }
+  }
+};
+const launcher = createAIChatLauncher({
+  orm: launcherOrm,
+  mailStore,
+  action: {
+    async doAction(action, options) {
+      actionRequests.push({ action, options });
+      await options.onClose();
+    }
+  },
+  storage: {
+    setItem(key, value) {
+      storageCalls.push(["setItem", key, value]);
+    },
+    removeItem(key) {
+      storageCalls.push(["removeItem", key]);
+    },
+    getItem() {
+      return null;
+    }
+  },
+  async partnerFromEmail(request) {
+    partnerRequests.push(request);
+    return [{ id: 44, display_name: "New Partner" }];
+  }
+});
+const launchResult = await launcher.launchAIChat({
+  callerComponentName: "chatter_ai_button",
+  recordModel: "res.partner",
+  recordId: 42,
+  channelTitle: "Partner reply",
+  aiChatSourceId: "editor-1",
+  originalRecordData: {
+    name: "Ada",
+    avatar: "base64",
+    partner_id: { display_name: "Partner A" }
+  },
+  originalRecordFields: {
+    avatar: { type: "binary" },
+    partner_id: { type: "many2one" }
+  },
+  textSelection: "Selected text"
+});
+assert.equal(launchResult.channelId, 90);
+assert.equal(mailStore.aiInsertButtonTarget, "editor-1");
+assert.deepEqual(launcherThread.ai_prompt_buttons, ["Summarize", "Reply"]);
+assert.deepEqual(launcherThread.aiPromptButtons, ["Summarize", "Reply"]);
+assert.equal(launcherThread.aiChatSource, "editor-1");
+assert.equal(typeof launcherThread.aiSpecialActions.sendMessage, "function");
+assert.equal(typeof launcherThread.aiSpecialActions.logNote, "function");
+assert.deepEqual(storageCalls[0], ["setItem", "ai.thread.prompt_buttons.90", "[\"Summarize\",\"Reply\"]"]);
+assert.deepEqual(launcherCalls.map((call) => call[0]), [
+  "orm.call",
+  "store.insert",
+  "Thread.getOrFetch",
+  "thread.open",
+  "thread.openChatWindow"
+]);
+await launcherThread.aiSpecialActions.sendMessage("Hello");
+assert.deepEqual(partnerRequests, [{
+  threadModel: "res.partner",
+  threadId: 42,
+  emails: ["new@example.test"]
+}]);
+assert.deepEqual(insertedPartners, [{ id: 44, display_name: "New Partner" }]);
+assert.deepEqual(actionRequests[0].action.context.default_partner_ids, [44, 12, 13]);
+assert.equal(actionRequests[0].action.context.default_subtype_xmlid, "mail.mt_comment");
+assert.equal(actionRequests[0].action.context.default_body, "Hello");
+assert.deepEqual(actionRequests[0].action.context.default_res_ids, [42]);
+assert.equal(launcherCalls.at(-1)[0], "thread.fetchNewMessages");
+await launcherThread.aiSpecialActions.logNote("Internal");
+assert.deepEqual(actionRequests[1].action.context.default_partner_ids, []);
+assert.equal(actionRequests[1].action.context.default_subtype_xmlid, "mail.mt_note");
+assert.deepEqual(createAIComposerAction("message", "res.partner", 7, "Body", [1]).context.default_partner_ids, [1]);
+assert.deepEqual(createAIPromptButtonModels(["Summarize", "Reply"], 90), [
+  { id: "90-1", label: "Summarize", prompt: "Summarize" },
+  { id: "90-2", label: "Reply", prompt: "Reply" }
+]);
+
+const noPartnerThread = { suggestedRecipients: [{ email: "missing@example.test" }], additionalRecipients: [] };
+assert.deepEqual(await resolveAIRecipientPartnerIds({ orm: launcherOrm, mailStore: { ...mailStore, Thread: mailStore.Thread } }, noPartnerThread, "res.partner", 1), []);
+await assert.rejects(
+  () => launchAIChat({ orm: launcherOrm, mailStore }, { callerComponentName: "chatter_ai_button", recordId: 0 }),
+  /record id/
+);
+
 assert.equal(isAiNaturalLanguageEventName("AI_OPEN_MENU_LIST"), true);
 assert.equal(isAiNaturalLanguageEventName("mail.message"), false);
 
@@ -331,3 +483,14 @@ assert.equal(adjustEvents[0].detail.switchViewType, "kanban");
 assert.equal(adjustEvents[0].detail.order, "ASC");
 assert.deepEqual(adjustEvents[0].detail.customDomain, [["amount_total", ">=", 500]]);
 assert.deepEqual(createAiAdjustSearchEvents({ aiSessionIdentifier: "other" }, "sid"), []);
+const modelEvents = createAiAdjustModelEvents({
+  measures: ["amount_total"],
+  mode: "bar",
+  order: "DESC",
+  stacked: true,
+  cumulated: false
+});
+assert.equal(modelEvents[0].name, "APPLY_AI_ADJUST_MODEL");
+assert.deepEqual(modelEvents[0].detail.measures, ["amount_total"]);
+assert.equal(modelEvents[0].detail.mode, "bar");
+assert.equal(modelEvents[0].detail.order, "DESC");
