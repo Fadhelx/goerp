@@ -5384,6 +5384,28 @@ func TestBootstrapOIAIGenerateResponseUsesEnvStoreAndPersistedRAG(t *testing.T) 
 	if !strings.Contains(posted, `href="https://gorp.test/policy"`) || !strings.Contains(posted, "[1]") {
 		t.Fatalf("posted assistant message = %q", posted)
 	}
+	ragAudit, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.Cond("event_type", domain.Equal, "rag.retrieve"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ragAudit.Len() != 1 {
+		t.Fatalf("rag audit len = %d", ragAudit.Len())
+	}
+	ragRows, err := ragAudit.Read("status", "agent_id", "provider", "ai_model", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ragMetadata := stringValue(ragRows[0]["metadata"])
+	if ragRows[0]["status"] != "success" ||
+		int64Value(ragRows[0]["agent_id"]) != agentID ||
+		ragRows[0]["provider"] != string(aiproviders.KindMock) ||
+		ragRows[0]["ai_model"] != "mock-embedding" ||
+		!strings.Contains(ragMetadata, `"retrieved_count":1`) ||
+		!strings.Contains(ragMetadata, strconv.FormatInt(sourceID, 10)) ||
+		strings.Contains(ragMetadata, "needle") ||
+		strings.Contains(ragMetadata, "Where is the policy") {
+		t.Fatalf("rag audit row = %+v", ragRows[0])
+	}
 }
 
 func TestBootstrapOIAIGenerateResponseFiltersRAGByRecordRules(t *testing.T) {
@@ -5506,6 +5528,25 @@ func TestBootstrapOIAIGenerateResponseFiltersRAGByRecordRules(t *testing.T) {
 	prompts := strings.Join(provider.chatRequests[0].SystemPrompts, "\n")
 	if strings.Contains(prompts, "restricted needle is in vault Z") || strings.Contains(prompts, "##RAG context information") {
 		t.Fatalf("unauthorized rag context leaked: %s", prompts)
+	}
+	ragAudit, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.Cond("event_type", domain.Equal, "rag.retrieve"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ragAudit.Len() != 1 {
+		t.Fatalf("restricted rag audit len = %d", ragAudit.Len())
+	}
+	ragRows, err := ragAudit.Read("status", "agent_id", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ragMetadata := stringValue(ragRows[0]["metadata"])
+	if ragRows[0]["status"] != "success" ||
+		int64Value(ragRows[0]["agent_id"]) != agentID ||
+		!strings.Contains(ragMetadata, `"retrieved_count":0`) ||
+		strings.Contains(ragMetadata, "restricted needle") ||
+		strings.Contains(ragMetadata, "vault Z") {
+		t.Fatalf("restricted rag audit row = %+v", ragRows[0])
 	}
 }
 

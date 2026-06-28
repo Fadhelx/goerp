@@ -437,11 +437,64 @@ func (r runtimeAIRetriever) Retrieve(ctx context.Context, req rag.Request) ([]ra
 	if len(req.Agent.SourceIDs) == 0 {
 		return nil, nil
 	}
+	startedAt := time.Now()
 	provider, model, err := r.resolver.embeddingProvider(req.Agent.Model, r.explicitEmbeddingModel)
 	if err != nil {
+		r.logRAGRetrieveAudit(req, nil, "", nil, time.Since(startedAt), err)
 		return nil, err
 	}
-	return rag.PersistedRetriever{Env: r.env, Provider: provider, Authorizer: runtimeRAGAuthorizer{env: r.env}, EmbeddingModel: model}.Retrieve(ctx, req)
+	chunks, err := rag.PersistedRetriever{Env: r.env, Provider: provider, Authorizer: runtimeRAGAuthorizer{env: r.env}, EmbeddingModel: model}.Retrieve(ctx, req)
+	r.logRAGRetrieveAudit(req, provider, model, chunks, time.Since(startedAt), err)
+	return chunks, err
+}
+
+func (r runtimeAIRetriever) logRAGRetrieveAudit(req rag.Request, provider aiproviders.Provider, model string, chunks []rag.RetrievedChunk, latency time.Duration, runErr error) {
+	if r.env == nil {
+		return
+	}
+	persistAIAuditLog(r.env, aiAuditLogEvent{
+		EventType:        "rag.retrieve",
+		UserID:           req.UserID,
+		CompanyID:        req.CompanyID,
+		AgentID:          req.Agent.ID,
+		Provider:         aiAuditProviderKind(provider),
+		Model:            model,
+		LatencyMillis:    latency.Milliseconds(),
+		PermissionResult: "allowed",
+		Status:           aiAuditStatus(runErr),
+		Error:            aiAuditErrorString(runErr),
+		Metadata: map[string]any{
+			"requested_source_ids": append([]int64(nil), req.Agent.SourceIDs...),
+			"explicit_source_ids":  append([]int64(nil), req.SourceIDs...),
+			"retrieved_count":      len(chunks),
+			"retrieved_source_ids": aiAuditRetrievedSourceIDs(chunks),
+			"retrieved_chunk_ids":  aiAuditRetrievedChunkIDs(chunks),
+			"allow_no_agent":       req.AllowNoAgent,
+		},
+	})
+}
+
+func aiAuditRetrievedSourceIDs(chunks []rag.RetrievedChunk) []int64 {
+	seen := map[int64]bool{}
+	out := []int64{}
+	for _, chunk := range chunks {
+		if chunk.SourceID == 0 || seen[chunk.SourceID] {
+			continue
+		}
+		seen[chunk.SourceID] = true
+		out = append(out, chunk.SourceID)
+	}
+	return out
+}
+
+func aiAuditRetrievedChunkIDs(chunks []rag.RetrievedChunk) []int64 {
+	out := make([]int64, 0, len(chunks))
+	for _, chunk := range chunks {
+		if chunk.ID != 0 {
+			out = append(out, chunk.ID)
+		}
+	}
+	return out
 }
 
 type runtimeRAGAuthorizer struct {
