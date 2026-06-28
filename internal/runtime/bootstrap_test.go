@@ -4925,6 +4925,323 @@ func TestBootstrapWebNormalUserCanOpenRecordsListAndForm(t *testing.T) {
 	}
 }
 
+func TestBootstrapOIRegistersAIProcessSourcesAction(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Kind != serveractions.KindGo || result.GoActionName != "ai.process_sources" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestRuntimeAIProcessSourcesCreatesAndSkipsEmbeddings(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.AIEmbeddingModel = "mock-embedding"
+	agentID, err := app.Env.Model(aiaddon.ModelAgent).Create(map[string]any{"name": "Index Agent", "active": true, "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceID, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":       "Policy",
+		"agent_id":   agentID,
+		"type":       "text",
+		"content":    "approved vendor policy",
+		"is_active":  true,
+		"state":      "draft",
+		"status":     "draft",
+		"company_id": int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true, Trigger: "cron"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["processed"] != 1 || result.Metadata["ready"] != 1 || result.Metadata["failed"] != 0 {
+		t.Fatalf("result = %+v", result.Metadata)
+	}
+	rows, err := app.Env.Model(aiaddon.ModelAgentSource).Browse(sourceID).Read("state", "status", "error_details", "embedding_model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "ready" || rows[0]["status"] != "ready" || rows[0]["error_details"] != "" || rows[0]["embedding_model"] != "mock-embedding" {
+		t.Fatalf("source row = %+v", rows[0])
+	}
+	embeddingsFound, err := app.Env.Model(aiaddon.ModelEmbedding).Search(domain.Cond("agent_source_id", domain.Equal, sourceID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embeddingsFound.Len() != 1 {
+		t.Fatalf("embeddings len = %d", embeddingsFound.Len())
+	}
+	embeddingRows, err := embeddingsFound.Read("content", "res_model", "res_id", "embedding_model", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embeddingRows[0]["content"] != "approved vendor policy" || embeddingRows[0]["res_model"] != aiaddon.ModelAgentSource || embeddingRows[0]["res_id"] != sourceID || embeddingRows[0]["embedding_model"] != "mock-embedding" {
+		t.Fatalf("embedding row = %+v", embeddingRows[0])
+	}
+	agentRows, err := app.Env.Model(aiaddon.ModelAgent).Browse(agentID).Read("sources_fully_processed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agentRows[0]["sources_fully_processed"] != true {
+		t.Fatalf("agent row = %+v", agentRows[0])
+	}
+
+	result, err = app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true, Trigger: "cron"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["processed"] != 1 || result.Metadata["skipped"] != 1 || result.Metadata["ready"] != 1 {
+		t.Fatalf("second result = %+v", result.Metadata)
+	}
+	embeddingsFound, err = app.Env.Model(aiaddon.ModelEmbedding).Search(domain.Cond("agent_source_id", domain.Equal, sourceID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embeddingsFound.Len() != 1 {
+		t.Fatalf("second embeddings len = %d", embeddingsFound.Len())
+	}
+
+	if err := app.Env.Model(aiaddon.ModelAgentSource).Browse(sourceID).Write(map[string]any{"content": "changed vendor policy"}); err != nil {
+		t.Fatal(err)
+	}
+	result, err = app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true, Trigger: "cron"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["processed"] != 1 || result.Metadata["ready"] != 1 || result.Metadata["skipped"] != 0 {
+		t.Fatalf("changed result = %+v", result.Metadata)
+	}
+	embeddingsFound, err = app.Env.Model(aiaddon.ModelEmbedding).Search(domain.Cond("agent_source_id", domain.Equal, sourceID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embeddingsFound.Len() != 1 {
+		t.Fatalf("changed embeddings len = %d", embeddingsFound.Len())
+	}
+	embeddingRows, err = embeddingsFound.Read("content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embeddingRows[0]["content"] != "changed vendor policy" {
+		t.Fatalf("changed embedding row = %+v", embeddingRows[0])
+	}
+}
+
+func TestRuntimeAIProcessSourcesMarksFailures(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.AIEmbeddingModel = "mock-embedding"
+	agentID, err := app.Env.Model(aiaddon.ModelAgent).Create(map[string]any{"name": "Failure Agent", "active": true, "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceID, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":       "Empty",
+		"agent_id":   agentID,
+		"type":       "text",
+		"content":    " ",
+		"is_active":  true,
+		"state":      "draft",
+		"status":     "draft",
+		"company_id": int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["processed"] != 1 || result.Metadata["failed"] != 1 || result.Metadata["ready"] != 0 {
+		t.Fatalf("result = %+v", result.Metadata)
+	}
+	rows, err := app.Env.Model(aiaddon.ModelAgentSource).Browse(sourceID).Read("state", "status", "error_details")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0]["state"] != "failed" || rows[0]["status"] != "failed" || !strings.Contains(stringValue(rows[0]["error_details"]), "empty") {
+		t.Fatalf("source row = %+v", rows[0])
+	}
+	found, err := app.Env.Model(aiaddon.ModelEmbedding).Search(domain.Cond("agent_source_id", domain.Equal, sourceID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Len() != 0 {
+		t.Fatalf("failed source embeddings len = %d", found.Len())
+	}
+}
+
+func TestRuntimeAIProcessSourcesCronRunsThroughScheduler(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.AIEmbeddingModel = "mock-embedding"
+	agentID, err := app.Env.Model(aiaddon.ModelAgent).Create(map[string]any{"name": "Cron Agent", "active": true, "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceID, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":       "Cron Policy",
+		"agent_id":   agentID,
+		"type":       "text",
+		"content":    "cron policy",
+		"is_active":  true,
+		"state":      "draft",
+		"status":     "draft",
+		"company_id": int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cronID := app.ExternalIDs["ai.ir_cron_ai_source_process"].ResID
+	if cronID == 0 {
+		t.Fatal("missing AI source cron external id")
+	}
+	allCrons, err := app.Env.Model("ir.cron").Search(domain.And())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range allCrons.IDs() {
+		if err := app.Env.Model("ir.cron").Browse(id).Write(map[string]any{"active": false}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
+	if err := app.Env.Model("ir.cron").Browse(cronID).Write(map[string]any{"active": true, "nextcall": now}); err != nil {
+		t.Fatal(err)
+	}
+	s := scheduler.New()
+	if err := s.LoadFromEnv(app.Env); err != nil {
+		t.Fatal(err)
+	}
+	run := s.RunDueActions(context.Background(), now, app.ServerActions)
+	if run.Ran != 1 || run.Succeeded != 1 || run.Failed != 0 {
+		t.Fatalf("run = %+v", run)
+	}
+	if err := s.SyncToEnv(app.Env); err != nil {
+		t.Fatal(err)
+	}
+	found, err := app.Env.Model(aiaddon.ModelEmbedding).Search(domain.Cond("agent_source_id", domain.Equal, sourceID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Len() != 1 {
+		t.Fatalf("cron embeddings len = %d", found.Len())
+	}
+	progress, err := app.Env.Model("ir.cron.progress").Search(domain.Cond("cron_id", domain.Equal, cronID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if progress.Len() == 0 {
+		t.Fatal("cron progress was not committed")
+	}
+}
+
+func TestRuntimeAIProcessSourcesExtractsRecordAttachmentAndURLContent(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.AIEmbeddingModel = "mock-embedding"
+	agentID, err := app.Env.Model(aiaddon.ModelAgent).Create(map[string]any{"name": "Extractor", "active": true, "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	partnerID, err := app.Env.Model("res.partner").Create(map[string]any{"name": "Record Policy", "email": "policy@example.test", "company_id": int64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":       "Partner",
+		"agent_id":   agentID,
+		"type":       "record",
+		"res_model":  "res.partner",
+		"res_id":     partnerID,
+		"is_active":  true,
+		"state":      "draft",
+		"company_id": int64(1),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	attachmentID, err := app.Env.Model("ir.attachment").Create(map[string]any{
+		"name":       "attachment.txt",
+		"datas":      []byte("Attachment Policy"),
+		"mimetype":   "text/plain",
+		"company_id": int64(1),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":          "Attachment",
+		"agent_id":      agentID,
+		"type":          "attachment",
+		"attachment_id": attachmentID,
+		"is_active":     true,
+		"state":         "draft",
+		"company_id":    int64(1),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sourceServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<h1>URL Policy</h1>"))
+	}))
+	defer sourceServer.Close()
+	if _, err := app.Env.Model(aiaddon.ModelAgentSource).Create(map[string]any{
+		"name":       "URL",
+		"agent_id":   agentID,
+		"type":       "url",
+		"url":        sourceServer.URL,
+		"is_active":  true,
+		"state":      "draft",
+		"company_id": int64(1),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := app.ServerActions.RunNamed(context.Background(), "ai.process_sources", serveractions.ExecutionContext{UserID: 1, Sudo: true, Metadata: map[string]any{"limit": int64(10)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Metadata["processed"] != 3 || result.Metadata["ready"] != 3 || result.Metadata["failed"] != 0 {
+		t.Fatalf("result = %+v", result.Metadata)
+	}
+	found, err := app.Env.Model(aiaddon.ModelEmbedding).Search(domain.And())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := found.Read("content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, row := range rows {
+		joined += " " + stringValue(row["content"])
+	}
+	for _, want := range []string{"Record Policy", "Attachment Policy", "URL Policy"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("embedded content missing %q: %s", want, joined)
+		}
+	}
+}
+
 func TestBootstrapOIAIGenerateResponseUsesEnvStoreAndPersistedRAG(t *testing.T) {
 	app, err := BootstrapOI("")
 	if err != nil {

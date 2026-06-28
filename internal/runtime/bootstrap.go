@@ -176,6 +176,9 @@ func BootstrapOI(root string) (*App, error) {
 	if err := registerAIRuntimeToolActions(serverActionReg, env, bus); err != nil {
 		return nil, err
 	}
+	if err := registerAISourceRuntimeActions(serverActionReg, env, app); err != nil {
+		return nil, err
+	}
 	if err := registerWorkflowRuntimeActions(serverActionReg, env, delegationService, actionHooks); err != nil {
 		return nil, err
 	}
