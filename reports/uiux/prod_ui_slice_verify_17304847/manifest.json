@@ -1,0 +1,851 @@
+{
+  "generated_at": "2026-06-28T20:29:20.717Z",
+  "base_url": "https://api.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-navbar-nested-menus-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-navbar-nested-menus-desktop.png",
+      "sha256": "0ce83a845db51b78bae4cc1908cd7355f3efd4333f544dc0282ee8ed6ba30323",
+      "assertions": {
+        "sections": [
+          {
+            "text": "General Settings",
+            "dropdown": false,
+            "menu_id": "2"
+          },
+          {
+            "text": "Users & Companies",
+            "dropdown": true,
+            "menu_id": "3"
+          },
+          {
+            "text": "Translations",
+            "dropdown": true,
+            "menu_id": "7"
+          },
+          {
+            "text": "Technical",
+            "dropdown": true,
+            "menu_id": "9"
+          }
+        ],
+        "technical_menu": {
+          "parent_id": "",
+          "in_legacy_top_menu": false,
+          "webclient_view": "action",
+          "button_menu_id": "9",
+          "button_expanded": "true",
+          "menu_class": "dropdown-menu o-dropdown-menu o_navbar_dropdown_menu show",
+          "menu_hidden": false,
+          "raw_children": [
+            {
+              "tag": "SPAN",
+              "text": "Email",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "44",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Outgoing Mail Servers",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "46",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Actions",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "10",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "11",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Reports",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "14",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Window Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "12",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Client Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "15",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Server Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "13",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Embedded Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "17",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Configuration Wizards",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "19",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "User-defined Defaults",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "18",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "IAP",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "technical:iap",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "IAP Accounts",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "technical:iap_accounts",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "User Interface",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "24",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Menu Items",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "26",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Views",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "25",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Customized Views",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "27",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "User-defined Filters",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "28",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Tours",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "technical:tours",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Database Structure",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "29",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Decimal Accuracy",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "38",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Assets",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "36",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Models",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "30",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Fields",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "31",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Fields Selection",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "32",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Model Constraints",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "33",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "ManyToMany Relations",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "34",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Attachments",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "35",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Logging",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "37",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Profiling",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "39",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Automation",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "20",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Scheduled Actions",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "22",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Scheduled Actions Triggers",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "23",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Reporting",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "65",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Paper Format",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "66",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Reports",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "67",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Sequences & Identifiers",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "70",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "External Identifiers",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "72",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Sequences",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "71",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Parameters",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "68",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "System Parameters",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "69",
+              "level": "1"
+            },
+            {
+              "tag": "SPAN",
+              "text": "Security",
+              "class_name": "dropdown-header o_navbar_dropdown_header",
+              "menu_id": "40",
+              "level": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Record Rules",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "42",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "Access Rights",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "41",
+              "level": "1"
+            },
+            {
+              "tag": "BUTTON",
+              "text": "User Devices",
+              "class_name": "dropdown-item o_navbar_dropdown_item",
+              "menu_id": "43",
+              "level": "1"
+            }
+          ],
+          "headers": [
+            "Email",
+            "Actions",
+            "IAP",
+            "User Interface",
+            "Database Structure",
+            "Automation",
+            "Reporting",
+            "Sequences & Identifiers",
+            "Parameters",
+            "Security"
+          ],
+          "items": [
+            {
+              "text": "Outgoing Mail Servers",
+              "level": "1",
+              "menu_id": "46"
+            },
+            {
+              "text": "Actions",
+              "level": "1",
+              "menu_id": "11"
+            },
+            {
+              "text": "Reports",
+              "level": "1",
+              "menu_id": "14"
+            },
+            {
+              "text": "Window Actions",
+              "level": "1",
+              "menu_id": "12"
+            },
+            {
+              "text": "Client Actions",
+              "level": "1",
+              "menu_id": "15"
+            },
+            {
+              "text": "Server Actions",
+              "level": "1",
+              "menu_id": "13"
+            },
+            {
+              "text": "Embedded Actions",
+              "level": "1",
+              "menu_id": "17"
+            },
+            {
+              "text": "Configuration Wizards",
+              "level": "1",
+              "menu_id": "19"
+            },
+            {
+              "text": "User-defined Defaults",
+              "level": "1",
+              "menu_id": "18"
+            },
+            {
+              "text": "IAP Accounts",
+              "level": "1",
+              "menu_id": "technical:iap_accounts"
+            },
+            {
+              "text": "Menu Items",
+              "level": "1",
+              "menu_id": "26"
+            },
+            {
+              "text": "Views",
+              "level": "1",
+              "menu_id": "25"
+            },
+            {
+              "text": "Customized Views",
+              "level": "1",
+              "menu_id": "27"
+            },
+            {
+              "text": "User-defined Filters",
+              "level": "1",
+              "menu_id": "28"
+            },
+            {
+              "text": "Tours",
+              "level": "1",
+              "menu_id": "technical:tours"
+            },
+            {
+              "text": "Decimal Accuracy",
+              "level": "1",
+              "menu_id": "38"
+            },
+            {
+              "text": "Assets",
+              "level": "1",
+              "menu_id": "36"
+            },
+            {
+              "text": "Models",
+              "level": "1",
+              "menu_id": "30"
+            },
+            {
+              "text": "Fields",
+              "level": "1",
+              "menu_id": "31"
+            },
+            {
+              "text": "Fields Selection",
+              "level": "1",
+              "menu_id": "32"
+            },
+            {
+              "text": "Model Constraints",
+              "level": "1",
+              "menu_id": "33"
+            },
+            {
+              "text": "ManyToMany Relations",
+              "level": "1",
+              "menu_id": "34"
+            },
+            {
+              "text": "Attachments",
+              "level": "1",
+              "menu_id": "35"
+            },
+            {
+              "text": "Logging",
+              "level": "1",
+              "menu_id": "37"
+            },
+            {
+              "text": "Profiling",
+              "level": "1",
+              "menu_id": "39"
+            },
+            {
+              "text": "Scheduled Actions",
+              "level": "1",
+              "menu_id": "22"
+            },
+            {
+              "text": "Scheduled Actions Triggers",
+              "level": "1",
+              "menu_id": "23"
+            },
+            {
+              "text": "Paper Format",
+              "level": "1",
+              "menu_id": "66"
+            },
+            {
+              "text": "Reports",
+              "level": "1",
+              "menu_id": "67"
+            },
+            {
+              "text": "External Identifiers",
+              "level": "1",
+              "menu_id": "72"
+            },
+            {
+              "text": "Sequences",
+              "level": "1",
+              "menu_id": "71"
+            },
+            {
+              "text": "System Parameters",
+              "level": "1",
+              "menu_id": "69"
+            },
+            {
+              "text": "Record Rules",
+              "level": "1",
+              "menu_id": "42"
+            },
+            {
+              "text": "Access Rights",
+              "level": "1",
+              "menu_id": "41"
+            },
+            {
+              "text": "User Devices",
+              "level": "1",
+              "menu_id": "43"
+            }
+          ],
+          "item_labels": [
+            "Outgoing Mail Servers",
+            "Actions",
+            "Reports",
+            "Window Actions",
+            "Client Actions",
+            "Server Actions",
+            "Embedded Actions",
+            "Configuration Wizards",
+            "User-defined Defaults",
+            "IAP Accounts",
+            "Menu Items",
+            "Views",
+            "Customized Views",
+            "User-defined Filters",
+            "Tours",
+            "Decimal Accuracy",
+            "Assets",
+            "Models",
+            "Fields",
+            "Fields Selection",
+            "Model Constraints",
+            "ManyToMany Relations",
+            "Attachments",
+            "Logging",
+            "Profiling",
+            "Scheduled Actions",
+            "Scheduled Actions Triggers",
+            "Paper Format",
+            "Reports",
+            "External Identifiers",
+            "Sequences",
+            "System Parameters",
+            "Record Rules",
+            "Access Rights",
+            "User Devices"
+          ]
+        },
+        "active_title": "Server Actions"
+      },
+      "duration_ms": 6441
+    },
+    {
+      "name": "default-navbar-technical-dropdown-open-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-navbar-technical-dropdown-open-desktop.png",
+      "sha256": "dae77256653325a0eb06ae5e10a2857253259e698393999a3c74320d7e1296ad",
+      "assertions": {
+        "button_text": "Technical",
+        "expanded": "true",
+        "menu_visible": true,
+        "menu_left": 552,
+        "menu_top": 46,
+        "hit_test_x": 576,
+        "hit_test_y": 70,
+        "dropdown_on_top": true,
+        "top_element": "SPAN.dropdown-header.o_navbar_dropdown_header",
+        "headers": [
+          "Email",
+          "Actions",
+          "IAP",
+          "User Interface",
+          "Database Structure",
+          "Automation",
+          "Reporting",
+          "Sequences & Identifiers",
+          "Parameters",
+          "Security"
+        ],
+        "items": [
+          "Outgoing Mail Servers",
+          "Actions",
+          "Reports",
+          "Window Actions",
+          "Client Actions",
+          "Server Actions",
+          "Embedded Actions",
+          "Configuration Wizards",
+          "User-defined Defaults",
+          "IAP Accounts",
+          "Menu Items",
+          "Views",
+          "Customized Views",
+          "User-defined Filters",
+          "Tours",
+          "Decimal Accuracy",
+          "Assets",
+          "Models",
+          "Fields",
+          "Fields Selection",
+          "Model Constraints",
+          "ManyToMany Relations",
+          "Attachments",
+          "Logging",
+          "Profiling",
+          "Scheduled Actions",
+          "Scheduled Actions Triggers",
+          "Paper Format",
+          "Reports",
+          "External Identifiers",
+          "Sequences",
+          "System Parameters",
+          "Record Rules",
+          "Access Rights",
+          "User Devices"
+        ],
+        "visibleLabels": [
+          "Email",
+          "Outgoing Mail Servers",
+          "Actions",
+          "Actions",
+          "Reports",
+          "Window Actions",
+          "Client Actions",
+          "Server Actions",
+          "Embedded Actions",
+          "Configuration Wizards",
+          "User-defined Defaults",
+          "IAP",
+          "IAP Accounts",
+          "User Interface",
+          "Menu Items",
+          "Views",
+          "Customized Views",
+          "User-defined Filters",
+          "Tours",
+          "Database Structure",
+          "Decimal Accuracy",
+          "Assets",
+          "Models",
+          "Fields",
+          "Fields Selection",
+          "Model Constraints",
+          "ManyToMany Relations",
+          "Attachments",
+          "Logging",
+          "Profiling",
+          "Automation",
+          "Scheduled Actions",
+          "Scheduled Actions Triggers",
+          "Reporting",
+          "Paper Format",
+          "Reports",
+          "Sequences & Identifiers",
+          "External Identifiers",
+          "Sequences",
+          "Parameters",
+          "System Parameters",
+          "Security",
+          "Record Rules",
+          "Access Rights",
+          "User Devices"
+        ],
+        "has_grouped_sections": true,
+        "has_admin_items": true,
+        "reference_order": true,
+        "hidden_custom_first_page": true
+      },
+      "duration_ms": 4379
+    },
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "e39f697417e81d1116fb8d48433398363ef0759cd1b4acdf619d56dc077bea61",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 7,
+          "chips": [
+            "Top-level actions"
+          ],
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "64",
+            "scheduled_action": true
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 1,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Mail Server"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 483,
+          "input_width": 483
+        },
+        "relation_x2many_initial_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "expanded": "true",
+          "active_descendant": "x2m-group_ids-option-0",
+          "active_index": "0",
+          "active_count": 1,
+          "button_count": 11,
+          "option_count": 8,
+          "labels": [
+            "Role / User",
+            "Email Marketing / User",
+            "Default access for new users",
+            "OI Base / User",
+            "Workflow / User",
+            "Delegation / User",
+            "Workflow Advance / User",
+            "Login As / User"
+          ]
+        },
+        "relation_x2many_keyboard_state": {
+          "active_descendant": "x2m-group_ids-option-1",
+          "active_index": "1",
+          "active_count": 1,
+          "button_count": 11
+        }
+      },
+      "duration_ms": 23850
+    },
+    {
+      "name": "default-direct-model-route-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-direct-model-route-desktop.png",
+      "sha256": "e4f2c07083fc9dcbbbad86153941db11a5ec7fe8b787957fcd34b580eee526ed",
+      "assertions": {
+        "url": "https://api.fadhelalqaidoomxyz.xyz/web?smoke=6#model=res.users&view_type=list",
+        "root_view": "action",
+        "model": "res.users",
+        "view": "list",
+        "list_count": 1,
+        "row_count": 2,
+        "home_count": 0
+      },
+      "duration_ms": 9276
+    },
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "5e8bd7e08a70c25dec751db8bb7f3e3d421c4a58c291d7ef33e558ed2408ca8d",
+      "assertions": {
+        "module": "ai",
+        "card_count": 1,
+        "modal_count": 1
+      },
+      "duration_ms": 7615
+    }
+  ],
+  "duration_ms": 51708
+}
