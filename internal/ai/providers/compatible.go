@@ -18,6 +18,7 @@ const (
 	geminiOpenAIBaseURL    = "https://generativelanguage.googleapis.com/v1beta/openai"
 	geminiGenerateBaseURL  = "https://generativelanguage.googleapis.com/v1beta"
 	defaultProviderTimeout = 30 * time.Second
+	maxProviderRetries     = 5
 )
 
 var ErrProviderRequest = errors.New("ai provider request failed")
@@ -151,7 +152,7 @@ func (p *CompatibleProvider) Embed(ctx context.Context, request EmbeddingRequest
 			TotalTokens  int `json:"total_tokens"`
 		} `json:"usage"`
 	}
-	if err := p.postJSON(ctx, "embedding", p.BaseURL+"/embeddings", p.authHeaders(secret), body, timeoutWithFallback(request.Timeout), &response); err != nil {
+	if err := p.postJSONWithRetry(ctx, "embedding", p.BaseURL+"/embeddings", p.authHeaders(secret), body, timeoutWithFallback(request.Timeout), request.MaxRetries, &response); err != nil {
 		return EmbeddingResponse{}, err
 	}
 	vectors := make([][]float64, 0, len(response.Data))
@@ -234,7 +235,7 @@ func (p *CompatibleProvider) openAIChat(ctx context.Context, request ChatRequest
 			TotalTokens  int `json:"total_tokens"`
 		} `json:"usage"`
 	}
-	if err := p.postJSON(ctx, "chat", p.BaseURL+"/responses", p.authHeaders(secret), body, timeoutWithFallback(request.Timeout), &response); err != nil {
+	if err := p.postJSONWithRetry(ctx, "chat", p.BaseURL+"/responses", p.authHeaders(secret), body, timeoutWithFallback(request.Timeout), request.MaxRetries, &response); err != nil {
 		return ChatResponse{}, err
 	}
 	text, tools := parseOpenAIOutput(response.Output)
@@ -288,7 +289,7 @@ func (p *CompatibleProvider) geminiChat(ctx context.Context, request ChatRequest
 		} `json:"usageMetadata"`
 	}
 	url := strings.TrimRight(firstNonEmpty(p.GenerateURL, geminiGenerateBaseURL), "/") + "/models/" + request.Model + ":generateContent"
-	if err := p.postJSON(ctx, "chat", url, map[string]string{"x-goog-api-key": secret}, body, timeoutWithFallback(request.Timeout), &response); err != nil {
+	if err := p.postJSONWithRetry(ctx, "chat", url, map[string]string{"x-goog-api-key": secret}, body, timeoutWithFallback(request.Timeout), request.MaxRetries, &response); err != nil {
 		return ChatResponse{}, err
 	}
 	text, tools := parseGeminiCandidates(response.Candidates)
@@ -373,6 +374,41 @@ func (p *CompatibleProvider) postJSON(ctx context.Context, operation string, url
 		return ProviderHTTPError{Provider: p.ProviderKind, Operation: operation, Reason: "invalid JSON response"}
 	}
 	return nil
+}
+
+func (p *CompatibleProvider) postJSONWithRetry(ctx context.Context, operation string, url string, headers map[string]string, body map[string]any, timeout time.Duration, maxRetries int, out any) error {
+	retries := normalizedRetries(maxRetries)
+	var err error
+	for attempt := 0; attempt <= retries; attempt++ {
+		err = p.postJSON(ctx, operation, url, headers, body, timeout, out)
+		if err == nil {
+			return nil
+		}
+		if attempt == retries || !retryableProviderError(err) {
+			return err
+		}
+	}
+	return err
+}
+
+func normalizedRetries(maxRetries int) int {
+	if maxRetries <= 0 {
+		return 0
+	}
+	if maxRetries > maxProviderRetries {
+		return maxProviderRetries
+	}
+	return maxRetries
+}
+
+func retryableProviderError(err error) bool {
+	var providerErr ProviderHTTPError
+	if !errors.As(err, &providerErr) {
+		return false
+	}
+	return providerErr.Status == http.StatusTooManyRequests ||
+		providerErr.Status >= http.StatusInternalServerError ||
+		(providerErr.Status == 0 && providerErr.Reason == "transport error")
 }
 
 func parseOpenAIOutput(output []map[string]any) (string, []ToolCall) {

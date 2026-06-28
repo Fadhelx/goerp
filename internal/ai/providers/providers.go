@@ -80,9 +80,10 @@ type ChatResponse struct {
 }
 
 type EmbeddingRequest struct {
-	Model   string
-	Content []string
-	Timeout time.Duration
+	Model      string
+	Content    []string
+	Timeout    time.Duration
+	MaxRetries int
 }
 
 type EmbeddingResponse struct {

@@ -254,6 +254,86 @@ func TestGeminiCompatibleEmbeddingHTTP(t *testing.T) {
 	}
 }
 
+func TestOpenAICompatibleRetriesTransientChatHTTP(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if r.URL.Path != "/responses" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if attempts == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			writeProviderJSON(t, w, map[string]any{"error": map[string]any{"message": "temporary"}})
+			return
+		}
+		writeProviderJSON(t, w, map[string]any{
+			"model": "gpt-4o",
+			"output": []any{map[string]any{
+				"type":    "message",
+				"content": []any{map[string]any{"text": "retry ok"}},
+			}},
+		})
+	}))
+	defer server.Close()
+
+	provider := NewOpenAICompatible(SecretRef{Raw: "test-key"}, WithBaseURL(server.URL))
+	chat, err := provider.Chat(context.Background(), ChatRequest{Model: "gpt-4o", UserPrompts: []string{"question"}, MaxRetries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 || chat.Text != "retry ok" {
+		t.Fatalf("attempts=%d chat=%+v", attempts, chat)
+	}
+}
+
+func TestCompatibleProviderDoesNotRetryBadRequest(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusBadRequest)
+		writeProviderJSON(t, w, map[string]any{"error": map[string]any{"message": "bad request"}})
+	}))
+	defer server.Close()
+
+	provider := NewOpenAICompatible(SecretRef{Raw: "test-key"}, WithBaseURL(server.URL))
+	_, err := provider.Chat(context.Background(), ChatRequest{Model: "gpt-4o", UserPrompts: []string{"question"}, MaxRetries: 3})
+	if !errors.Is(err, ErrProviderRequest) {
+		t.Fatalf("expected provider request error, got %v", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d", attempts)
+	}
+}
+
+func TestCompatibleProviderRetriesEmbeddingRateLimitHTTP(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if r.URL.Path != "/embeddings" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if attempts == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			writeProviderJSON(t, w, map[string]any{"error": map[string]any{"message": "rate limit"}})
+			return
+		}
+		writeProviderJSON(t, w, map[string]any{
+			"model": "text-embedding-3-small",
+			"data":  []any{map[string]any{"embedding": []float64{0.1, 0.2}}},
+		})
+	}))
+	defer server.Close()
+
+	provider := NewOpenAICompatible(SecretRef{Raw: "test-key"}, WithBaseURL(server.URL))
+	embedding, err := provider.Embed(context.Background(), EmbeddingRequest{Model: "text-embedding-3-small", Content: []string{"question"}, MaxRetries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 || len(embedding.Vectors) != 1 || len(embedding.Vectors[0]) != 2 {
+		t.Fatalf("attempts=%d embedding=%+v", attempts, embedding)
+	}
+}
+
 func TestCompatibleProviderErrorDoesNotExposeSecret(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
