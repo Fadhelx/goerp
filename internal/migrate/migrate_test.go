@@ -147,6 +147,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"ai_embedding",
 		"ai_composer",
 		"ai_settings",
+		"ai_audit_log",
 		"approval_settings",
 		"approval_settings_state",
 		"approval_buttons",
@@ -192,6 +193,51 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		if !names[name] {
 			t.Fatalf("missing migration %s", name)
 		}
+	}
+}
+
+func TestAIAuditLogMigrationExposesStructuredFields(t *testing.T) {
+	sqlByName := map[string]string{}
+	for _, migration := range BaseMigrations {
+		sqlByName[migration.Name] = migration.SQL
+	}
+	auditSQL := sqlByName["ai_audit_log"]
+	for _, fragment := range []string{
+		"CREATE TABLE IF NOT EXISTS ai_audit_log",
+		"event_type TEXT",
+		"event_time TIMESTAMPTZ",
+		"user_id BIGINT",
+		"company_id BIGINT",
+		"agent_id BIGINT",
+		"prompt_id BIGINT",
+		"action_id BIGINT",
+		"provider TEXT",
+		"ai_model TEXT",
+		"res_model TEXT",
+		"res_id BIGINT",
+		"input_tokens INTEGER",
+		"output_tokens INTEGER",
+		"latency_millis INTEGER",
+		"tool_names TEXT",
+		"tool_count INTEGER",
+		"permission_result TEXT",
+		"status TEXT",
+		"error TEXT",
+		"metadata TEXT",
+		"ai_audit_log_event_time_idx",
+		"ai_audit_log_user_event_idx",
+	} {
+		if !strings.Contains(auditSQL, fragment) {
+			t.Fatalf("ai_audit_log migration missing %s: %s", fragment, auditSQL)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "migrations", "0001_base.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "CREATE TABLE IF NOT EXISTS ai_audit_log") ||
+		!strings.Contains(string(data), "ai_audit_log_event_time_idx") {
+		t.Fatalf("static base SQL missing ai_audit_log")
 	}
 }
 

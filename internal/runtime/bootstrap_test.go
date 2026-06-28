@@ -5038,6 +5038,23 @@ func TestRuntimeAIProcessSourcesCreatesAndSkipsEmbeddings(t *testing.T) {
 	if embeddingRows[0]["content"] != "changed vendor policy" {
 		t.Fatalf("changed embedding row = %+v", embeddingRows[0])
 	}
+	auditRows, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.Cond("event_type", domain.Equal, "source.process"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if auditRows.Len() != 3 {
+		t.Fatalf("source audit len = %d", auditRows.Len())
+	}
+	auditData, err := auditRows.Read("status", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range auditData {
+		metadata := stringValue(row["metadata"])
+		if row["status"] != "success" || strings.Contains(metadata, "vendor policy") {
+			t.Fatalf("source audit row = %+v", row)
+		}
+	}
 }
 
 func TestRuntimeAIProcessSourcesMarksFailures(t *testing.T) {
@@ -5567,6 +5584,44 @@ func TestBootstrapOIAIGenerateResponseRunsTopicToolLoop(t *testing.T) {
 	if !runtimeRowsContainBody(rows, "Tool answer") {
 		t.Fatalf("messages = %+v", rows)
 	}
+	chatAudit, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.Cond("event_type", domain.Equal, "chat.generate"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chatAudit.Len() != 1 {
+		t.Fatalf("chat audit len = %d", chatAudit.Len())
+	}
+	chatRows, err := chatAudit.Read("status", "agent_id", "provider", "ai_model", "res_model", "res_id", "tool_count", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chatRows[0]["status"] != "success" ||
+		int64Value(chatRows[0]["agent_id"]) != defaultAgentID ||
+		chatRows[0]["provider"] != string(aiproviders.KindOpenAI) ||
+		chatRows[0]["ai_model"] != "gpt-5-mini" ||
+		chatRows[0]["res_model"] != "res.partner" ||
+		int64Value(chatRows[0]["res_id"]) != 42 {
+		t.Fatalf("chat audit row = %+v", chatRows[0])
+	}
+	toolAudit, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.Cond("event_type", domain.Equal, "tool.call"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toolAudit.Len() != 1 {
+		t.Fatalf("tool audit len = %d", toolAudit.Len())
+	}
+	toolRows, err := toolAudit.Read("status", "permission_result", "tool_names", "metadata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	toolMetadata := stringValue(toolRows[0]["metadata"])
+	if toolRows[0]["status"] != "success" ||
+		toolRows[0]["permission_result"] != "allowed" ||
+		!strings.Contains(stringValue(toolRows[0]["tool_names"]), "ir_actions_server_get_fields") ||
+		strings.Contains(toolMetadata, "What fields exist") ||
+		strings.Contains(toolMetadata, "res.partner") {
+		t.Fatalf("tool audit row = %+v", toolRows[0])
+	}
 }
 
 func TestRuntimeAIDraftChannelCallKWCreatesContext(t *testing.T) {
@@ -5959,6 +6014,9 @@ func TestRuntimeAIActionRunsSelectedToolAndLogsSummary(t *testing.T) {
 	result, err := app.ServerActions.Run(context.Background(), aiID, serveractions.ExecutionContext{
 		Model:    "res.partner",
 		RecordID: partnerID,
+		Metadata: map[string]any{
+			"api_key": "sk-secret",
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -5989,6 +6047,38 @@ func TestRuntimeAIActionRunsSelectedToolAndLogsSummary(t *testing.T) {
 	}
 	if len(messageRows) != 1 || !strings.Contains(stringValue(messageRows[0]["body"]), "Rename Partner") {
 		t.Fatalf("messages = %+v", messageRows)
+	}
+	auditRows, err := app.Env.Model(aiaddon.ModelAuditLog).Search(domain.And(
+		domain.Cond("event_type", domain.Equal, "server_action.ai"),
+		domain.Cond("action_id", domain.Equal, aiID),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditData, err := auditRows.Read("event_type", "status", "permission_result", "action_id", "provider", "ai_model", "res_model", "res_id", "tool_names", "tool_count", "metadata", "error")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(auditData) != 1 {
+		t.Fatalf("audit rows = %+v", auditData)
+	}
+	audit := auditData[0]
+	if audit["status"] != "success" || audit["permission_result"] != "allowed" || audit["event_type"] != "server_action.ai" {
+		t.Fatalf("audit status = %+v", audit)
+	}
+	if int64Value(audit["action_id"]) != aiID || audit["provider"] != string(aiproviders.KindOpenAI) || audit["ai_model"] != "gpt-4.1" {
+		t.Fatalf("audit action/provider/model = %+v", audit)
+	}
+	if audit["res_model"] != "res.partner" || int64Value(audit["res_id"]) != partnerID || int64Value(audit["tool_count"]) != 1 {
+		t.Fatalf("audit record/tool = %+v", audit)
+	}
+	metadata := stringValue(audit["metadata"])
+	if !strings.Contains(stringValue(audit["tool_names"]), "rename_partner") ||
+		!strings.Contains(metadata, "[redacted]") ||
+		strings.Contains(metadata, "sk-secret") ||
+		strings.Contains(metadata, "Ada Lovelace") ||
+		strings.Contains(metadata, "__end_message") {
+		t.Fatalf("audit metadata/tool redaction failed: %+v", audit)
 	}
 }
 

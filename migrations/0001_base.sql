@@ -2383,6 +2383,33 @@ CREATE TABLE IF NOT EXISTS ai_settings (
   company_id BIGINT
 );
 
+CREATE TABLE IF NOT EXISTS ai_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT,
+  event_type TEXT,
+  event_time TIMESTAMPTZ,
+  user_id BIGINT,
+  company_id BIGINT,
+  agent_id BIGINT,
+  prompt_id BIGINT,
+  action_id BIGINT,
+  provider TEXT,
+  ai_model TEXT,
+  res_model TEXT,
+  res_id BIGINT,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  latency_millis INTEGER,
+  tool_names TEXT,
+  tool_count INTEGER,
+  permission_result TEXT,
+  status TEXT,
+  error TEXT,
+  metadata TEXT
+);
+CREATE INDEX IF NOT EXISTS ai_audit_log_event_time_idx ON ai_audit_log(event_time);
+CREATE INDEX IF NOT EXISTS ai_audit_log_user_event_idx ON ai_audit_log(user_id, event_type);
+
 CREATE TABLE IF NOT EXISTS approval_settings (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,

@@ -39,6 +39,7 @@ func registerAISourceRuntimeActions(reg *serveractions.Registry, env *record.Env
 
 func aiRuntimeProcessSources(env *record.Env, app *App) serveractions.GoAction {
 	return func(ctx context.Context, _ serveractions.ServerAction, exec serveractions.ExecutionContext) (serveractions.Result, error) {
+		startedAt := time.Now()
 		runEnv := aiSourceSystemEnv(env)
 		settings := aiRuntimeSettingsFromEnv(runEnv)
 		resolver := app.aiProviderResolver(runEnv, settings)
@@ -47,6 +48,25 @@ func aiRuntimeProcessSources(env *record.Env, app *App) serveractions.GoAction {
 			return serveractions.Result{}, fmt.Errorf("ai provider registry is unavailable")
 		}
 		out, err := processAISources(ctx, runEnv, resolver, explicitEmbeddingModel, exec)
+		persistAIAuditLog(runEnv, aiAuditLogEvent{
+			EventType:        "source.process",
+			UserID:           exec.UserID,
+			CompanyID:        runEnv.Context().CompanyID,
+			Model:            explicitEmbeddingModel,
+			LatencyMillis:    time.Since(startedAt).Milliseconds(),
+			PermissionResult: "allowed",
+			Status:           aiAuditStatus(err),
+			Error:            aiAuditErrorString(err),
+			Metadata: map[string]any{
+				"trigger":       exec.Trigger,
+				"processed":     out.Processed,
+				"ready":         out.Ready,
+				"failed":        out.Failed,
+				"skipped":       out.Skipped,
+				"embedding_ids": out.EmbeddingIDs,
+				"source_ids":    out.SourceIDs,
+			},
+		})
 		return serveractions.Result{
 			Kind:         serveractions.KindGo,
 			GoActionName: aiProcessSourcesAction,

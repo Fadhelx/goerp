@@ -43,7 +43,7 @@ func TestManifest(t *testing.T) {
 	if err := RegisterModels(reg); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{ModelSettings, ModelAgent, ModelTopic, ModelAgentSource, ModelPromptButton, ModelEmbedding, "ai.composer"} {
+	for _, name := range []string{ModelSettings, ModelAgent, ModelTopic, ModelAgentSource, ModelPromptButton, ModelEmbedding, ModelAuditLog, "ai.composer"} {
 		if _, ok := reg.Models[name]; !ok {
 			t.Fatalf("missing model %s", name)
 		}
@@ -73,6 +73,12 @@ func TestManifest(t *testing.T) {
 	for _, fieldName := range []string{"interface_key", "focused_models", "ai_agent", "available_prompts", "is_system_default"} {
 		if _, ok := composer.Fields[fieldName]; !ok {
 			t.Fatalf("missing ai.composer field %s", fieldName)
+		}
+	}
+	auditLog := reg.Models[ModelAuditLog]
+	for _, fieldName := range []string{"event_type", "event_time", "user_id", "company_id", "agent_id", "prompt_id", "action_id", "provider", "ai_model", "res_model", "res_id", "input_tokens", "output_tokens", "latency_millis", "tool_names", "tool_count", "permission_result", "status", "error", "metadata"} {
+		if _, ok := auditLog.Fields[fieldName]; !ok {
+			t.Fatalf("missing ai.audit.log field %s", fieldName)
 		}
 	}
 }

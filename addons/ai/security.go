@@ -128,6 +128,7 @@ func AISecuredModelNames() []string {
 		ModelAgentSource,
 		ModelPromptButton,
 		ModelEmbedding,
+		ModelAuditLog,
 		ModelComposer,
 	}
 }

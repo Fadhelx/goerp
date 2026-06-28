@@ -20,16 +20,19 @@ const (
 )
 
 func (h envActionHooks) RunAI(ctx context.Context, request serveractions.AIActionRequest) (serveractions.Result, error) {
+	startedAt := time.Now()
 	result := serveractions.Result{ActionID: request.Action.ID, Kind: serveractions.KindAI}
 	if h.app == nil || h.app.ServerActions == nil {
 		return result, serveractions.ErrAIRunnerMissing
 	}
 	provider, model, err := h.aiActionProvider(request.Action)
 	if err != nil {
+		h.logAIActionAudit(request.Action, request.Execution, nil, "", nil, time.Since(startedAt), err)
 		return result, err
 	}
 	toolRegistry, providerTools, err := h.aiActionTools(request.Tools, request.Execution)
 	if err != nil {
+		h.logAIActionAudit(request.Action, request.Execution, provider, model, nil, time.Since(startedAt), err)
 		return result, err
 	}
 	toolLabels := aiActionToolLabels(request.Tools)
@@ -46,6 +49,7 @@ func (h envActionHooks) RunAI(ctx context.Context, request serveractions.AIActio
 			Tools:         providerTools,
 		})
 		if err != nil {
+			h.logAIActionAudit(request.Action, request.Execution, provider, model, history, time.Since(startedAt), err)
 			return result, err
 		}
 		if len(chat.ToolCalls) == 0 {
@@ -80,6 +84,7 @@ func (h envActionHooks) RunAI(ctx context.Context, request serveractions.AIActio
 		}
 	}
 	h.logAIActionToolHistory(request.Action, request.Execution, history)
+	h.logAIActionAudit(request.Action, request.Execution, provider, model, history, time.Since(startedAt), nil)
 	result.Metadata = map[string]any{
 		"model":       model,
 		"responses":   append([]string(nil), responses...),
@@ -258,6 +263,37 @@ func (h envActionHooks) logAIActionToolHistory(action serveractions.ServerAction
 		"model":        model,
 		"res_id":       recordID,
 		"date":         time.Now().UTC(),
+	})
+}
+
+func (h envActionHooks) logAIActionAudit(action serveractions.ServerAction, exec serveractions.ExecutionContext, provider aiproviders.Provider, model string, history []map[string]any, latency time.Duration, runErr error) {
+	if h.env == nil {
+		return
+	}
+	resModel := firstNonEmptyString(exec.Model, stringMetadata(exec.Metadata, "active_model"), action.Model)
+	resID := firstNonZeroInt64(exec.RecordID, int64Metadata(exec.Metadata, "active_id"))
+	metadata := map[string]any{
+		"action_name":        action.Name,
+		"trigger":            exec.Trigger,
+		"record_ids":         append([]int64(nil), exec.RecordIDs...),
+		"execution_metadata": exec.Metadata,
+	}
+	persistAIAuditLog(h.env, aiAuditLogEvent{
+		EventType:        "server_action.ai",
+		UserID:           exec.UserID,
+		CompanyID:        h.env.Context().CompanyID,
+		ActionID:         action.ID,
+		Provider:         aiAuditProviderKind(provider),
+		Model:            model,
+		ResModel:         resModel,
+		ResID:            resID,
+		LatencyMillis:    latency.Milliseconds(),
+		ToolNames:        aiAuditToolNames(history),
+		ToolCount:        len(history),
+		PermissionResult: "allowed",
+		Status:           aiAuditStatus(runErr),
+		Error:            aiAuditErrorString(runErr),
+		Metadata:         metadata,
 	})
 }
 

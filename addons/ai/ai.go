@@ -19,6 +19,7 @@ const (
 	ModelPromptButton = "ai.prompt.button"
 	ModelEmbedding    = "ai.embedding"
 	ModelComposer     = "ai.composer"
+	ModelAuditLog     = "ai.audit.log"
 )
 
 func Manifest() module.Manifest {
@@ -35,6 +36,7 @@ func Manifest() module.Manifest {
 			"data/ai_topic_data.xml",
 			"security/ir.model.access.csv",
 			"views/res_config_settings_views.xml",
+			"views/ai_audit_log_views.xml",
 			"views/ir_actions_server_views.xml",
 			"views/mail_scheduled_message_views.xml",
 			"views/mail_template_views.xml",

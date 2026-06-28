@@ -4,6 +4,7 @@ access_ai_topic_user,ai.topic user,model_ai_topic,base.group_user,1,0,0,0
 access_ai_agent_source_user,ai.agent.source user,model_ai_agent_source,base.group_user,1,0,0,0
 access_ai_prompt_button_user,ai.prompt.button user,model_ai_prompt_button,base.group_user,1,0,0,0
 access_ai_embedding_user,ai.embedding user,model_ai_embedding,base.group_user,1,0,0,0
+access_ai_audit_log_user,ai.audit.log user,model_ai_audit_log,base.group_user,1,0,0,0
 access_ai_composer_user,ai.composer user,model_ai_composer,base.group_user,1,0,0,0
 access_ai_settings_system,ai.settings system,model_ai_settings,base.group_system,1,1,1,1
 access_ai_agent_system,ai.agent system,model_ai_agent,base.group_system,1,1,1,1
@@ -11,4 +12,5 @@ access_ai_topic_system,ai.topic system,model_ai_topic,base.group_system,1,1,1,1
 access_ai_agent_source_system,ai.agent.source system,model_ai_agent_source,base.group_system,1,1,1,1
 access_ai_prompt_button_system,ai.prompt.button system,model_ai_prompt_button,base.group_system,1,1,1,1
 access_ai_embedding_system,ai.embedding system,model_ai_embedding,base.group_system,1,1,1,1
+access_ai_audit_log_system,ai.audit.log system,model_ai_audit_log,base.group_system,1,1,1,1
 access_ai_composer_system,ai.composer system,model_ai_composer,base.group_system,1,1,1,1

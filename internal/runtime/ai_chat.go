@@ -269,8 +269,10 @@ type runtimeAIResponder struct {
 }
 
 func (r runtimeAIResponder) Generate(ctx context.Context, agent agents.Agent, request agents.Request) (agents.Response, error) {
+	startedAt := time.Now()
 	provider, model, err := r.resolver.chatProvider(agent.Model)
 	if err != nil {
+		r.logAIGenerateAudit(agent, request, nil, "", time.Since(startedAt), agents.Response{}, err)
 		return agents.Response{}, err
 	}
 	agent.Model = model
@@ -282,6 +284,7 @@ func (r runtimeAIResponder) Generate(ctx context.Context, agent agents.Agent, re
 		if len(providerTools) > 0 {
 			request.Tools = providerTools
 			request.ToolHandler = agents.ToolHandlerFunc(func(ctx context.Context, call aiproviders.ToolCall, req agents.Request) (map[string]any, error) {
+				toolStartedAt := time.Now()
 				output, err := toolRegistry.Run(ctx, aitools.Request{
 					UserID:    req.UserID,
 					CompanyID: req.CompanyID,
@@ -291,11 +294,77 @@ func (r runtimeAIResponder) Generate(ctx context.Context, agent agents.Agent, re
 					Input:     cloneAIMap(call.Arguments),
 					Metadata:  aiChatToolMetadata(req),
 				})
+				r.logAIChatToolAudit(agent, req, provider, model, call.Name, time.Since(toolStartedAt), err)
 				return cloneAIMap(output.Output), err
 			})
 		}
 	}
-	return agents.Generate(ctx, agent, provider, request)
+	response, err := agents.Generate(ctx, agent, provider, request)
+	r.logAIGenerateAudit(agent, request, provider, model, time.Since(startedAt), response, err)
+	return response, err
+}
+
+func (r runtimeAIResponder) logAIGenerateAudit(agent agents.Agent, request agents.Request, provider aiproviders.Provider, model string, latency time.Duration, response agents.Response, runErr error) {
+	if r.env == nil {
+		return
+	}
+	persistAIAuditLog(r.env, aiAuditLogEvent{
+		EventType:        "chat.generate",
+		UserID:           request.UserID,
+		CompanyID:        request.CompanyID,
+		AgentID:          agent.ID,
+		Provider:         aiAuditProviderKind(provider),
+		Model:            firstNonEmptyString(model, response.Model, agent.Model),
+		ResModel:         request.ActiveModel,
+		ResID:            request.ActiveID,
+		InputTokens:      response.Usage.InputTokens,
+		OutputTokens:     response.Usage.OutputTokens,
+		LatencyMillis:    latency.Milliseconds(),
+		ToolCount:        len(request.Tools),
+		PermissionResult: "allowed",
+		Status:           aiAuditStatus(runErr),
+		Error:            aiAuditErrorString(runErr),
+		Metadata: map[string]any{
+			"context_count":          len(request.Context),
+			"conversation_count":     len(request.Conversation),
+			"max_output":             request.MaxOutput,
+			"restrict_to_sources":    agent.RestrictToSources,
+			"has_session_identifier": strings.TrimSpace(request.SessionID) != "",
+		},
+	})
+}
+
+func (r runtimeAIResponder) logAIChatToolAudit(agent agents.Agent, request agents.Request, provider aiproviders.Provider, model string, toolName string, latency time.Duration, runErr error) {
+	if r.env == nil {
+		return
+	}
+	persistAIAuditLog(r.env, aiAuditLogEvent{
+		EventType:        "tool.call",
+		UserID:           request.UserID,
+		CompanyID:        request.CompanyID,
+		AgentID:          agent.ID,
+		Provider:         aiAuditProviderKind(provider),
+		Model:            model,
+		ResModel:         request.ActiveModel,
+		ResID:            request.ActiveID,
+		LatencyMillis:    latency.Milliseconds(),
+		ToolNames:        []string{toolName},
+		ToolCount:        1,
+		PermissionResult: aiAuditToolPermission(runErr),
+		Status:           aiAuditStatus(runErr),
+		Error:            aiAuditErrorString(runErr),
+		Metadata: map[string]any{
+			"tool_name":              toolName,
+			"has_session_identifier": strings.TrimSpace(request.SessionID) != "",
+		},
+	})
+}
+
+func aiAuditToolPermission(runErr error) string {
+	if runErr != nil && strings.Contains(strings.ToLower(runErr.Error()), "forbidden") {
+		return "denied"
+	}
+	return "allowed"
 }
 
 func (r runtimeAIResponder) agentTopicTools(agent agents.Agent) (*aitools.Registry, []aiproviders.ToolCall, error) {

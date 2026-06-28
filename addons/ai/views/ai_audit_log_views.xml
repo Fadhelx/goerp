@@ -1,0 +1,31 @@
+<odoo>
+  <data>
+    <record id="view_ai_audit_log_list" model="ir.ui.view">
+      <field name="name">ai.audit.log.list</field>
+      <field name="model">ai.audit.log</field>
+      <field name="type">list</field>
+      <field name="arch" type="xml"><list><field name="event_time"/><field name="event_type"/><field name="status"/><field name="user_id"/><field name="agent_id"/><field name="action_id"/><field name="ai_model"/><field name="tool_count"/><field name="latency_millis"/></list></field>
+    </record>
+
+    <record id="view_ai_audit_log_form" model="ir.ui.view">
+      <field name="name">ai.audit.log.form</field>
+      <field name="model">ai.audit.log</field>
+      <field name="type">form</field>
+      <field name="arch" type="xml"><form><sheet><group><field name="event_type"/><field name="event_time"/><field name="status"/><field name="permission_result"/><field name="user_id"/><field name="company_id"/></group><group><field name="agent_id"/><field name="prompt_id"/><field name="action_id"/><field name="provider"/><field name="ai_model"/><field name="res_model"/><field name="res_id"/></group><group><field name="input_tokens"/><field name="output_tokens"/><field name="latency_millis"/><field name="tool_count"/><field name="tool_names"/></group><group><field name="error"/><field name="metadata"/></group></sheet></form></field>
+    </record>
+
+    <record id="action_ai_audit_log" model="ir.actions.act_window">
+      <field name="name">AI Audit Logs</field>
+      <field name="res_model">ai.audit.log</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="menu_ai_audit_log" model="ir.ui.menu">
+      <field name="name">AI Audit Logs</field>
+      <field name="parent_id" ref="base.menu_technical"/>
+      <field name="sequence">86</field>
+      <field name="action">ir.actions.act_window,action_ai_audit_log</field>
+      <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+  </data>
+</odoo>

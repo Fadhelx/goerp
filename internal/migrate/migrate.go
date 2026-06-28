@@ -2586,4 +2586,32 @@ ALTER TABLE base_module_update ADD COLUMN IF NOT EXISTS state TEXT;
 ALTER TABLE res_users ADD COLUMN IF NOT EXISTS lang TEXT;
 ALTER TABLE res_users ADD COLUMN IF NOT EXISTS tz TEXT;
 `},
+	{Version: 224, Name: "ai_audit_log", SQL: `
+CREATE TABLE IF NOT EXISTS ai_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT,
+  event_type TEXT,
+  event_time TIMESTAMPTZ,
+  user_id BIGINT,
+  company_id BIGINT,
+  agent_id BIGINT,
+  prompt_id BIGINT,
+  action_id BIGINT,
+  provider TEXT,
+  ai_model TEXT,
+  res_model TEXT,
+  res_id BIGINT,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  latency_millis INTEGER,
+  tool_names TEXT,
+  tool_count INTEGER,
+  permission_result TEXT,
+  status TEXT,
+  error TEXT,
+  metadata TEXT
+);
+CREATE INDEX IF NOT EXISTS ai_audit_log_event_time_idx ON ai_audit_log(event_time);
+CREATE INDEX IF NOT EXISTS ai_audit_log_user_event_idx ON ai_audit_log(user_id, event_type);
+`},
 }
