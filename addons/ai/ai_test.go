@@ -106,6 +106,13 @@ func TestAISettings(t *testing.T) {
 	if exported["secret_ref"] != "secret_store:providers/openai/default" {
 		t.Fatalf("secret ref export = %+v", exported["secret_ref"])
 	}
+
+	if chat := DefaultChatModelForProvider(ProviderGemini); chat != DefaultGeminiChatModel {
+		t.Fatalf("gemini chat default = %s", chat)
+	}
+	if embedding := DefaultEmbeddingModelForProvider(ProviderGemini); embedding != DefaultGeminiEmbeddingModel {
+		t.Fatalf("gemini embedding default = %s", embedding)
+	}
 }
 
 func TestAISettingsRedactsSecrets(t *testing.T) {

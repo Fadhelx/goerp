@@ -54,11 +54,8 @@ func (a *App) aiChatFactory() func(*record.Env) *aicontrollers.ChatService {
 		if resolver.registry == nil {
 			return nil
 		}
-		defaultChatModel := settings.defaultChatModel
-		if strings.TrimSpace(defaultChatModel) == "" {
-			defaultChatModel = resolver.defaultChatModel()
-		}
-		explicitEmbeddingModel := firstNonEmptyString(a.AIEmbeddingModel)
+		defaultChatModel := firstNonEmptyString(settings.defaultChatModel, resolver.defaultChatModel())
+		explicitEmbeddingModel := firstNonEmptyString(a.AIEmbeddingModel, settings.defaultEmbeddingModel)
 		return &aicontrollers.ChatService{
 			Store:     envAIChannelStore{env: env, defaultChatModel: defaultChatModel},
 			Responder: runtimeAIResponder{env: env, actions: a.ServerActions, resolver: resolver},
@@ -81,30 +78,32 @@ func (a *App) aiProviderResolver(env *record.Env, settings aiRuntimeSettings) ai
 	if fallback != nil {
 		_ = registry.Register(fallback)
 	}
-	return aiProviderResolver{registry: registry, fallback: fallback}
+	return aiProviderResolver{registry: registry, fallback: fallback, defaultProvider: settings.defaultProvider}
 }
 
 type aiRuntimeSettings struct {
-	defaultChatModel string
-	defaultProvider  aiproviders.Kind
-	secretSource     string
-	secretRef        string
+	defaultChatModel      string
+	defaultEmbeddingModel string
+	defaultProvider       aiproviders.Kind
+	secretSource          string
+	secretRef             string
 }
 
 func aiRuntimeSettingsFromEnv(env *record.Env) aiRuntimeSettings {
 	if env == nil {
 		return aiRuntimeSettings{}
 	}
-	rows, err := allRows(env, aiaddon.ModelSettings, "default_chat_model", "default_provider", "secret_source", "secret_ref")
+	rows, err := allRows(env, aiaddon.ModelSettings, "default_chat_model", "default_embedding_model", "default_provider", "secret_source", "secret_ref")
 	if err != nil || len(rows) == 0 {
 		return aiRuntimeSettings{}
 	}
 	row := rows[len(rows)-1]
 	return aiRuntimeSettings{
-		defaultChatModel: strings.TrimSpace(stringValue(row["default_chat_model"])),
-		defaultProvider:  aiProviderKindFromSettings(stringValue(row["default_provider"])),
-		secretSource:     strings.TrimSpace(stringValue(row["secret_source"])),
-		secretRef:        strings.TrimSpace(stringValue(row["secret_ref"])),
+		defaultChatModel:      strings.TrimSpace(stringValue(row["default_chat_model"])),
+		defaultEmbeddingModel: strings.TrimSpace(stringValue(row["default_embedding_model"])),
+		defaultProvider:       aiProviderKindFromSettings(stringValue(row["default_provider"])),
+		secretSource:          strings.TrimSpace(stringValue(row["secret_source"])),
+		secretRef:             strings.TrimSpace(stringValue(row["secret_ref"])),
 	}
 }
 
@@ -198,11 +197,15 @@ func aiProviderKindFromSettings(value string) aiproviders.Kind {
 }
 
 type aiProviderResolver struct {
-	registry *aiproviders.Registry
-	fallback aiproviders.Provider
+	registry        *aiproviders.Registry
+	fallback        aiproviders.Provider
+	defaultProvider aiproviders.Kind
 }
 
 func (r aiProviderResolver) defaultChatModel() string {
+	if r.defaultProvider != "" {
+		return aiaddon.DefaultChatModelForProvider(aiaddon.Provider(r.defaultProvider))
+	}
 	if r.fallback != nil && r.fallback.Kind() == aiproviders.KindMock {
 		return defaultMockChatModel
 	}

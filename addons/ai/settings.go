@@ -13,14 +13,18 @@ const (
 	ProviderOpenAI Provider = aiproviders.KindOpenAI
 	ProviderGemini Provider = aiproviders.KindGemini
 
-	DefaultChatModel       = "gpt-5-mini"
-	DefaultEmbeddingModel  = "text-embedding-3-small"
-	DefaultTokenBudget     = 4096
-	DefaultRateLimitPerMin = 60
-	RedactedValue          = "[redacted]"
-	defaultPromptSystem    = "Answer with business-safe ERP context."
-	defaultPromptContext   = "Use only records, sources, and tools authorized for the current user."
-	defaultPromptSafety    = "Do not expose secrets, raw credentials, or unauthorized record contents."
+	DefaultOpenAIChatModel      = "gpt-5-mini"
+	DefaultOpenAIEmbeddingModel = "text-embedding-3-small"
+	DefaultGeminiChatModel      = "gemini-2.5-flash"
+	DefaultGeminiEmbeddingModel = "gemini-embedding-001"
+	DefaultChatModel            = DefaultOpenAIChatModel
+	DefaultEmbeddingModel       = DefaultOpenAIEmbeddingModel
+	DefaultTokenBudget          = 4096
+	DefaultRateLimitPerMin      = 60
+	RedactedValue               = "[redacted]"
+	defaultPromptSystem         = "Answer with business-safe ERP context."
+	defaultPromptContext        = "Use only records, sources, and tools authorized for the current user."
+	defaultPromptSafety         = "Do not expose secrets, raw credentials, or unauthorized record contents."
 )
 
 type SecretSource string
@@ -54,8 +58,8 @@ type Settings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		DefaultProvider:       ProviderOpenAI,
-		DefaultChatModel:      DefaultChatModel,
-		DefaultEmbeddingModel: DefaultEmbeddingModel,
+		DefaultChatModel:      DefaultChatModelForProvider(ProviderOpenAI),
+		DefaultEmbeddingModel: DefaultEmbeddingModelForProvider(ProviderOpenAI),
 		TokenBudget:           DefaultTokenBudget,
 		RateLimitPerMinute:    DefaultRateLimitPerMin,
 		PromptDefaults: PromptDefaults{
@@ -64,6 +68,24 @@ func DefaultSettings() Settings {
 			Safety:  defaultPromptSafety,
 		},
 		SecretRef: EnvSecret("OPENAI_API_KEY"),
+	}
+}
+
+func DefaultChatModelForProvider(provider Provider) string {
+	switch provider {
+	case ProviderGemini:
+		return DefaultGeminiChatModel
+	default:
+		return DefaultOpenAIChatModel
+	}
+}
+
+func DefaultEmbeddingModelForProvider(provider Provider) string {
+	switch provider {
+	case ProviderGemini:
+		return DefaultGeminiEmbeddingModel
+	default:
+		return DefaultOpenAIEmbeddingModel
 	}
 }
 

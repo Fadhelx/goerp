@@ -5407,14 +5407,40 @@ func TestAIProviderResolverMapsGoogleProviderAlias(t *testing.T) {
 	}
 }
 
+func TestAIProviderResolverDefaultsToConfiguredGeminiProvider(t *testing.T) {
+	app, err := BootstrapOI("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsEnv := app.aiSettingsEnv(app.Env)
+	resolver := app.aiProviderResolver(settingsEnv, aiRuntimeSettings{
+		defaultProvider: aiproviders.KindGemini,
+	})
+	provider, model, err := resolver.chatProvider("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider.Kind() != aiproviders.KindGemini || model != aiaddon.DefaultGeminiChatModel {
+		t.Fatalf("chat provider=%s model=%s", provider.Kind(), model)
+	}
+	embedder, embeddingModel, err := resolver.embeddingProvider("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if embedder.Kind() != aiproviders.KindGemini || embeddingModel != aiaddon.DefaultGeminiEmbeddingModel {
+		t.Fatalf("embedding provider=%s model=%s", embedder.Kind(), embeddingModel)
+	}
+}
+
 func TestAISettingsEnvUsesSystemContext(t *testing.T) {
 	app, err := BootstrapOI("")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Env.Model(aiaddon.ModelSettings).Create(map[string]any{
-		"name":               "Default",
-		"default_chat_model": "gpt-5-mini",
+		"name":                    "Default",
+		"default_chat_model":      "gpt-5-mini",
+		"default_embedding_model": "text-embedding-3-small",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -5428,6 +5454,9 @@ func TestAISettingsEnvUsesSystemContext(t *testing.T) {
 	settings := aiRuntimeSettingsFromEnv(settingsEnv)
 	if settings.defaultChatModel != "gpt-5-mini" {
 		t.Fatal("settings read failed")
+	}
+	if settings.defaultEmbeddingModel != "text-embedding-3-small" {
+		t.Fatal("settings embedding read failed")
 	}
 }
 
