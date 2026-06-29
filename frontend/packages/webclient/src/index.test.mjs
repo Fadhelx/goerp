@@ -2758,6 +2758,44 @@ assert.deepEqual(serverActionCustomFilterCalls[6].action.__search_facets.map((fa
   ["custom-model_name-set", "filter", undefined, undefined, "Model", ["is set"], [["model_name", "!=", false]]]
 ]);
 
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const multiCustomFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterAddCondition === "true")[0].dispatchEvent(new TestEvent("click"));
+let multiFields = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterField === "true");
+let multiOperators = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true");
+let multiValues = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true");
+assert.equal(multiFields.length, 2);
+assert.equal(findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterRemoveCondition === "true" && node.hidden !== true).length, 2);
+multiFields[0].value = "model_name";
+multiFields[0].dispatchEvent(new TestEvent("change"));
+multiOperators = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true");
+multiValues = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true");
+multiOperators[0].value = "ilike";
+multiValues[0].value = "mail";
+multiFields[1].value = "state";
+multiFields[1].dispatchEvent(new TestEvent("change"));
+multiOperators = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true");
+multiValues = findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true");
+multiOperators[1].value = "=";
+multiValues[1].value = "code";
+findAll(multiCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[7].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.domain
+]), [
+  [
+    "custom-combined-and-custom-model_name-ilike-mail-custom-state-code",
+    "filter",
+    "Custom Filter",
+    ["Model mail", "Type Execute Code"],
+    [["model_name", "ilike", "mail"], ["state", "=", "code"]]
+  ]
+]);
+
 const relationCustomFilterCalls = [];
 const relationCustomFilterWindow = renderWindowAction({
   type: "ir.actions.act_window",

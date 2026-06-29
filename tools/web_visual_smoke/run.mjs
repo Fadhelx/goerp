@@ -1843,6 +1843,73 @@ export const scenarios = [
     }
   },
   {
+    name: "default-custom-filter-multi-condition-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_add_custom_filter");
+      const dialogState = await waitFor(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-custom-filter-dialog.o_dialog");
+        if (!dialog) return null;
+        dialog.querySelector("[data-custom-filter-add-condition='true']")?.click();
+        const fields = [...dialog.querySelectorAll("[data-custom-filter-field='true']")];
+        const operators = [...dialog.querySelectorAll("[data-custom-filter-operator='true']")];
+        const values = [...dialog.querySelectorAll("[data-custom-filter-value='true']")];
+        if (fields.length !== 2 || operators.length !== 2 || values.length !== 2) return null;
+        fields[0].value = "model_name";
+        fields[0].dispatchEvent(new Event("change", { bubbles: true }));
+        let nextOperators = [...dialog.querySelectorAll("[data-custom-filter-operator='true']")];
+        let nextValues = [...dialog.querySelectorAll("[data-custom-filter-value='true']")];
+        nextOperators[0].value = "ilike";
+        nextValues[0].value = "mail";
+        fields[1].value = "state";
+        fields[1].dispatchEvent(new Event("change", { bubbles: true }));
+        nextOperators = [...dialog.querySelectorAll("[data-custom-filter-operator='true']")];
+        nextValues = [...dialog.querySelectorAll("[data-custom-filter-value='true']")];
+        nextOperators[1].value = "=";
+        nextValues[1].value = "code";
+        nextValues[1].dispatchEvent(new Event("change", { bubbles: true }));
+        return {
+          rows: fields.length,
+          visible_remove_count: [...dialog.querySelectorAll("[data-custom-filter-remove-condition='true']")].filter((node) => node.hidden !== true).length,
+          first_field: fields[0].value,
+          first_operator: nextOperators[0].value,
+          first_value: nextValues[0].value,
+          second_field: fields[1].value,
+          second_operator: nextOperators[1].value,
+          second_value: nextValues[1].value,
+          second_labels: [...nextValues[1].querySelectorAll("option")].map((option) => option.textContent.trim()).filter(Boolean)
+        };
+      })()`, "multi-condition custom filter dialog controls");
+      if (dialogState.rows !== 2 || dialogState.visible_remove_count !== 2 || dialogState.first_field !== "model_name" || dialogState.first_operator !== "ilike" || dialogState.first_value !== "mail" || dialogState.second_field !== "state" || dialogState.second_operator !== "=" || dialogState.second_value !== "code" || !dialogState.second_labels.includes("Execute Code")) {
+        throw new Error(`multi-condition custom filter dialog invalid: ${JSON.stringify(dialogState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-custom-filter-apply='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "multi-condition custom filter applied action ready");
+      const appliedState = await waitFor(page, `(() => {
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row")];
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='custom-combined-and']");
+        if (!facet || !rows.length) return null;
+        const label = facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "";
+        const values = [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
+        const text = rows.map((row) => row.textContent.trim()).join("\\n").toLowerCase();
+        return {
+          rows: rows.length,
+          label,
+          values,
+          text_has_mail: text.includes("mail"),
+          raw_field_text: facet.textContent.includes("model_name") || facet.textContent.includes("state"),
+          raw_value_text: facet.textContent.includes("code")
+        };
+      })()`, "multi-condition custom filter facet and rows");
+      if (appliedState.label !== "Custom Filter" || !appliedState.values.includes("Model mail") || !appliedState.values.includes("Type Execute Code") || appliedState.raw_field_text || appliedState.raw_value_text || !appliedState.text_has_mail || appliedState.rows >= opened.row_count) {
+        throw new Error(`multi-condition custom filter applied state invalid: ${JSON.stringify({ opened, dialogState, appliedState })}`);
+      }
+      return { baseline_rows: opened.row_count, dialog_state: dialogState, applied_state: appliedState };
+    }
+  },
+  {
     name: "default-custom-filter-relation-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

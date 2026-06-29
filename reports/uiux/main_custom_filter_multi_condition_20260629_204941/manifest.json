@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-06-29T17:49:44.760Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-custom-filter-multi-condition-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-custom-filter-multi-condition-desktop.png",
+      "sha256": "bee35004e78fa4c3a82277eb74ce5518de7c5a1df9b93b40dd16c7d4058bbf79",
+      "assertions": {
+        "baseline_rows": 7,
+        "dialog_state": {
+          "rows": 2,
+          "visible_remove_count": 2,
+          "first_field": "model_name",
+          "first_operator": "ilike",
+          "first_value": "mail",
+          "second_field": "state",
+          "second_operator": "=",
+          "second_value": "code",
+          "second_labels": [
+            "Update Record",
+            "Create Record",
+            "Duplicate Record",
+            "Execute Code",
+            "Send Webhook Notification",
+            "Multi Actions",
+            "Send Email",
+            "Add Followers",
+            "Remove Followers",
+            "Create Next Activity",
+            "Send SMS",
+            "Send WhatsApp",
+            "AI Action",
+            "Create Vendor Bill"
+          ]
+        },
+        "applied_state": {
+          "rows": 2,
+          "label": "Custom Filter",
+          "values": [
+            "Model mail",
+            "Type Execute Code"
+          ],
+          "text_has_mail": true,
+          "raw_field_text": false,
+          "raw_value_text": false
+        }
+      },
+      "duration_ms": 1012
+    }
+  ],
+  "duration_ms": 1188
+}

@@ -3241,6 +3241,15 @@ interface CustomFilterOperatorOption {
   label: string;
 }
 
+interface CustomFilterDialogRow {
+  root: HTMLElement;
+  fieldSelect: HTMLSelectElement;
+  operatorSelect: HTMLSelectElement;
+  valueSlot: HTMLElement;
+  valueControl: HTMLInputElement | HTMLSelectElement;
+  removeButton: HTMLButtonElement;
+}
+
 interface CustomGroupFieldOption {
   name: string;
   label: string;
@@ -3277,54 +3286,41 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
 
   const body = document.createElement("div");
   body.className = "modal-body o_add_custom_filter_menu";
-  const row = document.createElement("div");
-  row.className = "o_custom_filter_row d-flex gap-2 align-items-center";
-  const fieldSelect = document.createElement("select");
-  fieldSelect.className = "o_input o_custom_filter_field";
-  fieldSelect.dataset.customFilterField = "true";
-  fieldSelect.setAttribute("aria-label", "Field");
-  for (const field of fields) {
-    const option = document.createElement("option");
-    option.value = field.name;
-    option.textContent = field.label;
-    option.dataset.fieldType = field.type;
-    fieldSelect.append(option);
-  }
-  fieldSelect.value = fields[0].name;
-  const operatorSelect = document.createElement("select");
-  operatorSelect.className = "o_input o_custom_filter_operator";
-  operatorSelect.dataset.customFilterOperator = "true";
-  operatorSelect.setAttribute("aria-label", "Operator");
-  const valueSlot = document.createElement("span");
-  valueSlot.className = "o_custom_filter_value_slot";
-  let valueControl = renderCustomFilterValueControl(fields[0]);
-  const updateValueVisibility = () => {
-    const needsValue = customFilterOperatorNeedsValue(operatorSelect.value);
-    valueSlot.hidden = !needsValue;
-    valueSlot.dataset.customFilterValueRequired = needsValue ? "true" : "false";
-    valueControl.hidden = !needsValue;
-    valueControl.disabled = !needsValue;
+  const rowsContainer = document.createElement("div");
+  rowsContainer.className = "o_custom_filter_rows";
+  rowsContainer.dataset.customFilterRows = "true";
+  const dialogRows: CustomFilterDialogRow[] = [];
+  const syncRemoveButtons = () => {
+    const removable = dialogRows.length > 1;
+    for (const row of dialogRows) {
+      row.removeButton.hidden = !removable;
+      row.removeButton.disabled = !removable;
+    }
   };
-  const updateControls = () => {
-    const field = customFilterFieldByName(fields, fieldSelect.value);
-    const currentOperator = operatorSelect.value;
-    const operators = customFilterOperatorOptions(field);
-    operatorSelect.replaceChildren(...operators.map((operator) => {
-      const option = document.createElement("option");
-      option.value = operator.value;
-      option.textContent = operator.label;
-      return option;
-    }));
-    operatorSelect.value = operators.some((operator) => operator.value === currentOperator) ? currentOperator : operators[0]?.value ?? "=";
-    valueControl = renderCustomFilterValueControl(field);
-    valueSlot.replaceChildren(valueControl);
-    updateValueVisibility();
+  const addFilterRow = (fieldName?: string) => {
+    const row = renderCustomFilterDialogRow(fields, fieldName);
+    row.removeButton.addEventListener("click", () => {
+      const index = dialogRows.indexOf(row);
+      if (index >= 0) dialogRows.splice(index, 1);
+      removeDescendant(rowsContainer, row.root);
+      syncRemoveButtons();
+    });
+    dialogRows.push(row);
+    rowsContainer.append(row.root);
+    syncRemoveButtons();
+    return row;
   };
-  fieldSelect.addEventListener("change", updateControls);
-  operatorSelect.addEventListener("change", updateValueVisibility);
-  updateControls();
-  row.append(fieldSelect, operatorSelect, valueSlot);
-  body.append(row);
+  const initialRow = addFilterRow();
+  const addCondition = document.createElement("button");
+  addCondition.type = "button";
+  addCondition.className = "btn btn-link o_add_condition";
+  addCondition.dataset.customFilterAddCondition = "true";
+  addCondition.textContent = "Add condition";
+  addCondition.addEventListener("click", () => {
+    const row = addFilterRow();
+    row.fieldSelect.focus?.();
+  });
+  body.append(rowsContainer, addCondition);
 
   const footer = document.createElement("footer");
   footer.className = "modal-footer";
@@ -3340,17 +3336,20 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   cancel.textContent = "Cancel";
   cancel.addEventListener("click", () => removeDescendant(root, overlay));
   apply.addEventListener("click", () => {
-    const facet = customFilterFacet(
-      result,
-      fields,
-      fieldSelect.value,
-      operatorSelect.value,
-      valueControl.value,
-      customFilterValueLabel(valueControl)
-    );
-    if (!facet) return;
+    const newFacets = dialogRows
+      .map((row) => customFilterFacet(
+        result,
+        fields,
+        row.fieldSelect.value,
+        row.operatorSelect.value,
+        row.valueControl.value,
+        customFilterValueLabel(row.valueControl)
+      ))
+      .filter((facet): facet is SearchFacet => !!facet);
+    if (!newFacets.length) return;
+    const nextFacets = newFacets.length === 1 ? newFacets : [customFilterCombinedFacet(newFacets)];
     const currentFacets = result.search?.state.facets ?? [];
-    const nextAction = actionWithCurrentSearch(result, [...currentFacets.map(cloneSearchFacet), facet]);
+    const nextAction = actionWithCurrentSearch(result, [...currentFacets.map(cloneSearchFacet), ...nextFacets]);
     delete nextAction.__search_query;
     void options.services?.action?.doAction(nextAction, replaceActionOptions(options));
     removeDescendant(root, overlay);
@@ -3361,7 +3360,7 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   modal.append(dialog);
   overlay.append(modal);
   root.append(overlay);
-  (valueControl.hidden ? operatorSelect : valueControl).focus?.();
+  (initialRow.valueControl.hidden ? initialRow.operatorSelect : initialRow.valueControl).focus?.();
   return true;
 }
 
@@ -3591,6 +3590,70 @@ function customFilterOperatorLabel(field: CustomFilterFieldOption, operator: str
   return customFilterOperatorOptions(field).find((item) => item.value === operator)?.label ?? operator;
 }
 
+function renderCustomFilterDialogRow(fields: readonly CustomFilterFieldOption[], fieldName?: string): CustomFilterDialogRow {
+  const root = document.createElement("div");
+  root.className = "o_custom_filter_row d-flex gap-2 align-items-center";
+  const fieldSelect = document.createElement("select");
+  fieldSelect.className = "o_input o_custom_filter_field";
+  fieldSelect.dataset.customFilterField = "true";
+  fieldSelect.setAttribute("aria-label", "Field");
+  for (const field of fields) {
+    const option = document.createElement("option");
+    option.value = field.name;
+    option.textContent = field.label;
+    option.dataset.fieldType = field.type;
+    fieldSelect.append(option);
+  }
+  fieldSelect.value = fieldName && fields.some((field) => field.name === fieldName) ? fieldName : fields[0].name;
+  const operatorSelect = document.createElement("select");
+  operatorSelect.className = "o_input o_custom_filter_operator";
+  operatorSelect.dataset.customFilterOperator = "true";
+  operatorSelect.setAttribute("aria-label", "Operator");
+  const valueSlot = document.createElement("span");
+  valueSlot.className = "o_custom_filter_value_slot";
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "btn btn-link o_remove_condition";
+  removeButton.dataset.customFilterRemoveCondition = "true";
+  removeButton.textContent = "Remove";
+  removeButton.setAttribute("aria-label", "Remove condition");
+  const row: CustomFilterDialogRow = {
+    root,
+    fieldSelect,
+    operatorSelect,
+    valueSlot,
+    valueControl: renderCustomFilterValueControl(customFilterFieldByName(fields, fieldSelect.value)),
+    removeButton
+  };
+  const updateValueVisibility = () => {
+    const needsValue = customFilterOperatorNeedsValue(operatorSelect.value);
+    valueSlot.hidden = !needsValue;
+    valueSlot.dataset.customFilterValueRequired = needsValue ? "true" : "false";
+    row.valueControl.hidden = !needsValue;
+    row.valueControl.disabled = !needsValue;
+  };
+  const updateControls = () => {
+    const field = customFilterFieldByName(fields, fieldSelect.value);
+    const currentOperator = operatorSelect.value;
+    const operators = customFilterOperatorOptions(field);
+    operatorSelect.replaceChildren(...operators.map((operator) => {
+      const option = document.createElement("option");
+      option.value = operator.value;
+      option.textContent = operator.label;
+      return option;
+    }));
+    operatorSelect.value = operators.some((operator) => operator.value === currentOperator) ? currentOperator : operators[0]?.value ?? "=";
+    row.valueControl = renderCustomFilterValueControl(field);
+    valueSlot.replaceChildren(row.valueControl);
+    updateValueVisibility();
+  };
+  fieldSelect.addEventListener("change", updateControls);
+  operatorSelect.addEventListener("change", updateValueVisibility);
+  updateControls();
+  root.append(fieldSelect, operatorSelect, valueSlot, removeButton);
+  return row;
+}
+
 function customFilterMany2OneChoices(result: WindowActionResult, fieldName: string, relation: string): Array<[string, string]> {
   const choices: Array<[string, string]> = [];
   const seen = new Set<number>();
@@ -3725,6 +3788,30 @@ function customFilterFacet(
     operator: op,
     value: customFilterValue(field.type, op, cleanValue)
   };
+}
+
+function customFilterCombinedFacet(facets: readonly SearchFacet[]): SearchFacet {
+  const valueLabels = facets.map(customFilterConditionLabel).filter(Boolean);
+  return {
+    id: customFilterFacetID("combined", "and", facets.map((facet) => facet.id).join("-")),
+    type: "filter",
+    label: "Custom Filter",
+    categoryLabel: "Custom Filter",
+    valueLabels: valueLabels.length ? valueLabels : ["Custom Filter"],
+    domain: facets.flatMap(customFilterFacetDomain)
+  };
+}
+
+function customFilterFacetDomain(facet: SearchFacet): unknown[] {
+  if (facet.domain) return [...facet.domain];
+  if (facet.type === "text" && facet.field) return [[facet.field, facet.operator || "ilike", facet.value ?? facet.label]];
+  return [];
+}
+
+function customFilterConditionLabel(facet: SearchFacet): string {
+  const category = String(facet.categoryLabel ?? "").trim();
+  const value = (facet.valueLabels?.length ? facet.valueLabels.join(", ") : facet.label).trim();
+  return category && value ? `${category} ${value}` : value || category;
 }
 
 function customFilterFacetID(field: string, operator: string, value: string): string {
