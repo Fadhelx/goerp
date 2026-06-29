@@ -405,6 +405,8 @@ interface DialogWindowActionContent {
   footer?: HTMLElement;
 }
 
+const actionDialogStack: HTMLElement[] = [];
+
 interface SettingsActionState {
   initialValues: Record<string, unknown>;
   currentValues: Record<string, unknown>;
@@ -2008,9 +2010,15 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   close.className = "btn-close";
   close.setAttribute("aria-label", "Close");
   if (userPreferencesDialog) close.setAttribute("style", "color:#aeb4c2;");
+  const unregisterDialog = () => {
+    const index = actionDialogStack.indexOf(overlay);
+    if (index >= 0) actionDialogStack.splice(index, 1);
+    document.removeEventListener?.("keydown", onDocumentKeydown);
+  };
   const closeDialog = () => {
     if (overlay.dataset.dialogOpen === "false") return;
     overlay.dataset.dialogOpen = "false";
+    unregisterDialog();
     overlay.dispatchEvent(new CustomEvent("dialog:close", {
       bubbles: true,
       detail: { model: result.resModel }
@@ -2023,6 +2031,13 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
     event.preventDefault();
     closeDialog();
   });
+  function onDocumentKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || !isTopOpenActionDialog(overlay)) return;
+    event.preventDefault();
+    closeDialog();
+  }
+  actionDialogStack.push(overlay);
+  document.addEventListener?.("keydown", onDocumentKeydown);
   header.append(title, close);
   const body = document.createElement("div");
   body.className = "modal-body o_act_window";
@@ -2035,6 +2050,15 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   modal.append(dialog);
   overlay.append(backdrop, modal);
   return overlay;
+}
+
+function isTopOpenActionDialog(overlay: HTMLElement): boolean {
+  const documentDialogs = typeof document.querySelectorAll === "function"
+    ? Array.from(document.querySelectorAll<HTMLElement>(".gorp-action-dialog[data-dialog-open='true']"))
+    : [];
+  if (documentDialogs.length) return documentDialogs[documentDialogs.length - 1] === overlay;
+  const stackDialogs = actionDialogStack.filter((dialog) => dialog.dataset.dialogOpen !== "false");
+  return stackDialogs.length ? stackDialogs[stackDialogs.length - 1] === overlay : false;
 }
 
 function renderWindowActionDialogContent(result: WindowActionResult, options: RenderWindowActionDialogOptions): DialogWindowActionContent {

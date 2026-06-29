@@ -3222,6 +3222,27 @@ renderedEscapeDialog.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
 assert.equal(renderedEscapeDialog.dataset.dialogOpen, "false");
 assert.deepEqual(escapeCloseEvents, [{ model: "res.partner" }]);
 
+const bottomEscapeEvents = [];
+const topEscapeEvents = [];
+const bottomEscapeDialog = renderWindowActionDialog({
+  ...windowResult,
+  action: { ...windowResult.action, name: "Bottom Wizard", target: "new" }
+});
+const topEscapeDialog = renderWindowActionDialog({
+  ...windowResult,
+  action: { ...windowResult.action, name: "Top Wizard", target: "new" }
+});
+bottomEscapeDialog.addEventListener("dialog:close", (event) => bottomEscapeEvents.push(event.detail));
+topEscapeDialog.addEventListener("dialog:close", (event) => topEscapeEvents.push(event.detail));
+globalThis.document.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(bottomEscapeDialog.dataset.dialogOpen, "true");
+assert.equal(topEscapeDialog.dataset.dialogOpen, "false");
+assert.deepEqual(bottomEscapeEvents, []);
+assert.deepEqual(topEscapeEvents, [{ model: "res.partner" }]);
+globalThis.document.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(bottomEscapeDialog.dataset.dialogOpen, "false");
+assert.deepEqual(bottomEscapeEvents, [{ model: "res.partner" }]);
+
 const formDialog = renderWindowActionDialog({
   ...windowResult,
   activeView: "form",

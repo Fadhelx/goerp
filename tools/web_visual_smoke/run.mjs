@@ -732,17 +732,31 @@ export const scenarios = [
       if (!state.body_modal_open || state.dialog_open !== "true" || state.backdrop_count !== 1 || !state.backdrop_in_dialog || state.modal_role !== "dialog" || state.close_label !== "Close" || !state.title || state.body_count !== 1 || state.body_control_panel_count !== 0 || state.footer_save_count !== 1 || state.footer_discard_count !== 1 || state.footer_bottom > state.viewport_height || state.width < 360 || state.height < 180) {
         throw new Error(`target-new dialog state invalid: ${JSON.stringify(state)}`);
       }
+      await evaluate(page, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
+      const escapeClosedState = await waitFor(page, `(() => {
+        const action = document.querySelector(".o_web_client .o_action_manager");
+        return !document.body.classList.contains("modal-open") && !action?.querySelector(".gorp-action-dialog[data-dialog-open='true']")
+          ? { dialog_status: action?.dataset.tsDialogStatus || "", dialog_count: action?.querySelectorAll(".gorp-action-dialog").length || 0, body_modal_open: document.body.classList.contains("modal-open") }
+          : null;
+      })()`, "TS target-new action dialog document Escape closes");
+      if (escapeClosedState.body_modal_open || escapeClosedState.dialog_count !== 0 || escapeClosedState.dialog_status !== "closed") {
+        throw new Error(`target-new dialog document Escape close invalid: ${JSON.stringify(escapeClosedState)}`);
+      }
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=web.action_base_document_layout_configurator&view_type=form`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "dialog route TS webclient ready after Escape");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-action-dialog[data-target='new'][data-dialog-open='true']", 1, "TS target-new action dialog after Escape");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-action-dialog .gorp-action-dialog-backdrop", 1, "TS target-new action dialog backdrop after Escape");
       await clickSelector(page, ".o_web_client .o_action_manager .gorp-action-dialog .gorp-action-dialog-backdrop");
-      const closedState = await waitFor(page, `(() => {
+      const backdropClosedState = await waitFor(page, `(() => {
         const action = document.querySelector(".o_web_client .o_action_manager");
         return !document.body.classList.contains("modal-open") && !action?.querySelector(".gorp-action-dialog[data-dialog-open='true']")
           ? { dialog_status: action?.dataset.tsDialogStatus || "", dialog_count: action?.querySelectorAll(".gorp-action-dialog").length || 0, body_modal_open: document.body.classList.contains("modal-open") }
           : null;
       })()`, "TS target-new action dialog backdrop closes");
-      if (closedState.body_modal_open || closedState.dialog_count !== 0 || closedState.dialog_status !== "closed") {
-        throw new Error(`target-new dialog backdrop close invalid: ${JSON.stringify(closedState)}`);
+      if (backdropClosedState.body_modal_open || backdropClosedState.dialog_count !== 0 || backdropClosedState.dialog_status !== "closed") {
+        throw new Error(`target-new dialog backdrop close invalid: ${JSON.stringify(backdropClosedState)}`);
       }
-      return { dialog_count: dialogCount, backdrop_count: backdropCount, state, closed_state: closedState };
+      return { dialog_count: dialogCount, backdrop_count: backdropCount, state, escape_closed_state: escapeClosedState, backdrop_closed_state: backdropClosedState };
     }
   },
   {
