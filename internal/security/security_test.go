@@ -643,6 +643,14 @@ func TestPersistedSecurityLoadsACLsAndRules(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := env.Model("ir.model.access").Create(map[string]any{
+		"name":      "inactive model access",
+		"model":     "inactive.model",
+		"active":    false,
+		"perm_read": true,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := env.Model("ir.rule").Create(map[string]any{
 		"name":         "company read",
 		"model":        "res.partner",
@@ -662,6 +670,9 @@ func TestPersistedSecurityLoadsACLsAndRules(t *testing.T) {
 	}
 	if err := engine.Check(record.Context{UserID: 10}, "res.partner", record.OpRead, nil); err != nil {
 		t.Fatal(err)
+	}
+	if engine.AllowedByACL(10, "inactive.model", record.OpRead) {
+		t.Fatal("inactive persisted ACL should not grant read access")
 	}
 	ok, err := engine.AllowedByRecordRules(10, "res.partner", record.OpRead, map[string]any{"company_id": int64(2)})
 	if err != nil || !ok {
@@ -694,7 +705,9 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"[('commercial_partner_id', '=', user.commercial_partner_id.id)]",
 		"[('id', 'child_of', user.commercial_partner_id.id)]",
 		"[('partner_id', '=', user.partner_id.id)]",
+		"[('message_partner_ids', 'in', user.partner_id.ids)]",
 		"[('company_id', '=', user.company_id.id)]",
+		"[('company_id', 'in', user.company_id.ids)]",
 		"[('group_id', 'in', user.all_group_ids.ids)]",
 		"[('employee_id', 'in', user.employee_ids.ids)]",
 	}
@@ -750,7 +763,9 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('commercial_partner_id', '=', user.commercial_partner_id.id)]", map[string]any{"commercial_partner_id": int64(30)}},
 		{"[('id', 'child_of', user.commercial_partner_id.id)]", map[string]any{"id": int64(31), "commercial_partner_id": int64(30)}},
 		{"[('partner_id', '=', user.partner_id.id)]", map[string]any{"partner_id": int64(20)}},
+		{"[('message_partner_ids', 'in', user.partner_id.ids)]", map[string]any{"message_partner_ids": []int64{20, 99}}},
 		{"[('company_id', '=', user.company_id.id)]", map[string]any{"company_id": int64(1)}},
+		{"[('company_id', 'in', user.company_id.ids)]", map[string]any{"company_id": int64(1)}},
 		{"[('group_id', 'in', user.all_group_ids.ids)]", map[string]any{"group_id": int64(7)}},
 	}
 	for _, tt := range tests {

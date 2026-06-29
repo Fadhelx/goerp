@@ -1181,6 +1181,13 @@ func userCompanyIDs(user User) []int64 {
 	return out
 }
 
+func singletonIDSlice(id int64) []int64 {
+	if id == 0 {
+		return []int64{}
+	}
+	return []int64{id}
+}
+
 func resolveValue(user User, value any) any {
 	switch typed := value.(type) {
 	case []any:
@@ -1195,26 +1202,30 @@ func resolveValue(user User, value any) any {
 		return user.ID
 	case "user.company_id.id", "user.company_id":
 		return user.CompanyID
+	case "user.company_id.ids":
+		return singletonIDSlice(user.CompanyID)
 	case "user.company_ids", "user.company_ids.ids":
 		return userCompanyIDs(user)
 	case "user.ids":
 		return []int64{user.ID}
 	case "user.partner_id", "user.partner_id.id":
 		return user.PartnerID
-	case "user.commercial_partner_id.id":
+	case "user.partner_id.ids":
+		return singletonIDSlice(user.PartnerID)
+	case "user.commercial_partner_id", "user.commercial_partner_id.id":
 		if user.CommercialPartnerID != 0 {
 			return user.CommercialPartnerID
 		}
 		return user.PartnerID
 	case "user.commercial_partner_id.ids", "user.partner_id.commercial_partner_id.ids":
-		return []int64{firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID)}
-	case "user.partner_id.commercial_partner_id.id":
+		return singletonIDSlice(firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID))
+	case "user.partner_id.commercial_partner_id", "user.partner_id.commercial_partner_id.id":
 		return firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID)
-	case "user.group_ids.ids", "user.all_group_ids.ids":
+	case "user.group_ids", "user.group_ids.ids", "user.all_group_ids", "user.all_group_ids.ids":
 		return user.GroupIDs
-	case "user.employee_id.id", "user.employee_id.parent_id.id":
+	case "user.employee_id", "user.employee_id.id", "user.employee_id.parent_id", "user.employee_id.parent_id.id":
 		return int64(0)
-	case "user.employee_ids.ids":
+	case "user.employee_id.ids", "user.employee_ids", "user.employee_ids.ids":
 		return []int64{}
 	case "company_id":
 		return user.CompanyID

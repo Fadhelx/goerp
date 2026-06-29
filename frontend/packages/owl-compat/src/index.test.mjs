@@ -538,6 +538,14 @@ controller.abort();
 bus.trigger("signal");
 assert.equal(signalCount, 0);
 
+let recursiveOnceCount = 0;
+bus.addEventListener("recursive-once", () => {
+  recursiveOnceCount += 1;
+  bus.trigger("recursive-once");
+}, { once: true });
+bus.trigger("recursive-once");
+assert.equal(recursiveOnceCount, 1);
+
 let objectListenerCount = 0;
 const objectListener = {
   handleEvent(event) {

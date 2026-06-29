@@ -920,8 +920,8 @@ export class EventBus {
 
   dispatchEvent(event: CustomEvent): boolean {
     for (const entry of Array.from(this.listeners.get(event.type) ?? [])) {
-      callEventBusListener(entry.listener, event);
       if (entry.once) this.removeEventListener(event.type, entry.listener);
+      callEventBusListener(entry.listener, event);
     }
     return !event.defaultPrevented;
   }
