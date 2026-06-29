@@ -1283,7 +1283,7 @@ function attachGeneralSettingsNavigation(
     button.className = "o_setting_action o_setting_link";
     button.dataset.settingsTarget = target.id;
     if (target.model) button.dataset.settingsTargetModel = target.model;
-    button.setAttribute("style", "color:#f4f5f7 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:500;");
+    button.setAttribute("style", "color:#00d4c8 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:700;");
     button.textContent = settingsTargetButtonLabel(target);
     button.addEventListener("click", () => {
       void openSettingsNavigationTarget(env, menus, settingsApp, outlet, target).catch((error) => {
@@ -2574,9 +2574,7 @@ function appsCatalogCleanRoomIconSource(module: AppsCatalogDisplayModule): strin
   const kind = appsCatalogIconKind(module);
   const mark = appsCatalogIconMark(kind, palette);
   return appsCatalogSvgDataUri(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
-      <rect width="56" height="56" rx="7" fill="${palette.bg}"/>
-      <rect x="1" y="1" width="54" height="54" rx="6" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
       ${mark}
     </svg>
   `);
@@ -2602,28 +2600,41 @@ function appsCatalogIconPalette(module: AppsCatalogDisplayModule): { bg: string;
 }
 
 function appsCatalogIconMark(kind: string, palette: { a: string; b: string; c: string; ink: string }): string {
-  if (kind === "sale_management" || kind === "crm") {
-    return `<path d="M11 39 23 27l8 6 14-17" fill="none" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="27" r="5" fill="${palette.a}"/><circle cx="45" cy="16" r="5" fill="${palette.b}"/>`;
+  const name = kind.replace(/_/g, "-");
+  if (name === "sale-management") {
+    return `<rect x="10" y="26" width="14" height="28" rx="2" fill="${palette.b}"/><rect x="23" y="16" width="15" height="38" rx="2" fill="${palette.a}"/><rect x="37" y="10" width="16" height="44" rx="2" fill="${palette.c}"/>`;
   }
-  if (kind === "account" || kind === "accountant" || kind === "equity") {
-    return `<circle cx="22" cy="31" r="12" fill="${palette.a}"/><circle cx="34" cy="25" r="12" fill="${palette.b}" opacity=".92"/><path d="M15 42h27" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round"/>`;
+  if (name === "crm") {
+    return `<path d="M8 23 25 9l16 15-18 16Z" fill="${palette.a}"/><path d="M26 41 43 25l13 12-17 18Z" fill="${palette.b}"/><circle cx="23" cy="39" r="5" fill="${palette.c}"/><circle cx="43" cy="25" r="5" fill="${palette.c}"/>`;
   }
-  if (kind === "website" || kind === "website_sale" || kind === "website_blog" || kind === "website_forum") {
-    return `<rect x="10" y="15" width="36" height="28" rx="4" fill="${palette.c}"/><path d="M10 23h36" stroke="${palette.a}" stroke-width="5"/><circle cx="18" cy="19" r="2" fill="${palette.b}"/><circle cx="25" cy="19" r="2" fill="${palette.b}"/>`;
+  if (name === "equity" || name === "accountant") {
+    return `<path d="M32 32V8a24 24 0 0 1 22 15H35Z" fill="${palette.a}"/><path d="M32 32 14 50A24 24 0 0 1 32 8Z" fill="${palette.b}"/><path d="M32 32h22a24 24 0 0 1-40 18Z" fill="${palette.c}"/>`;
   }
-  if (kind === "stock" || kind === "purchase" || kind === "mrp" || kind === "barcode") {
-    return `<path d="M12 20 28 11l16 9v18l-16 9-16-9Z" fill="${palette.a}"/><path d="M12 20 28 29l16-9M28 29v18" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linejoin="round"/>`;
+  if (name === "account") {
+    return `<rect x="11" y="10" width="42" height="44" rx="8" fill="${palette.a}"/><circle cx="32" cy="29" r="13" fill="${palette.c}"/><path d="M22 47h22" stroke="${palette.ink}" stroke-width="6" stroke-linecap="round"/><path d="M32 18v24M26 24c2-3 10-3 12 1M26 36c2 3 10 3 12-1" stroke="${palette.a}" stroke-width="3" stroke-linecap="round"/>`;
   }
-  if (kind === "project" || kind === "planning" || kind === "timesheet_grid") {
-    return `<rect x="12" y="14" width="32" height="28" rx="4" fill="${palette.c}"/><path d="M18 23h20M18 31h14M18 39h18" stroke="${palette.a}" stroke-width="4" stroke-linecap="round"/>`;
+  if (name === "pos-restaurant") {
+    return `<circle cx="32" cy="32" r="18" fill="${palette.a}"/><rect x="7" y="7" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="40" y="7" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="7" y="40" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="40" y="40" width="17" height="17" rx="4" fill="${palette.b}"/>`;
   }
-  if (kind === "mail" || kind === "mass_mailing" || kind === "sms") {
-    return `<path d="M10 18h36v25H10Z" fill="${palette.c}"/><path d="m10 19 18 15 18-15" fill="none" stroke="${palette.a}" stroke-width="4" stroke-linejoin="round"/>`;
+  if (name === "point-of-sale") {
+    return `<path d="M11 18h42l4 18H7Z" fill="${palette.b}"/><path d="M13 18h10l-2 18H9Zm20 0h10l2 18H31Z" fill="${palette.a}"/><path d="M14 41h36v10H14Z" fill="${palette.c}"/>`;
   }
-  if (kind.startsWith("hr") || kind === "employees" || kind === "recruitment") {
-    return `<circle cx="22" cy="22" r="8" fill="${palette.b}"/><circle cx="36" cy="24" r="7" fill="${palette.a}"/><path d="M12 43c3-8 9-12 17-12s14 4 17 12Z" fill="${palette.c}"/>`;
+  if (name.includes("website")) {
+    return `<path d="M6 29c9-13 20-16 33-8 7 4 13 5 19 1v13c-8 6-17 6-28 0-8-5-16-4-24 3Z" fill="${palette.a}"/><path d="M6 43c10-6 20-7 31-1 8 4 15 4 21-1v10H6Z" fill="${palette.b}"/>`;
   }
-  return `<rect x="13" y="13" width="20" height="20" rx="5" fill="${palette.c}"/><rect x="23" y="23" width="20" height="20" rx="5" fill="${palette.a}" opacity=".9"/><path d="M17 38h22" stroke="${palette.b}" stroke-width="5" stroke-linecap="round"/>`;
+  if (name === "stock" || name === "purchase" || name === "mrp" || name === "barcode") {
+    return `<path d="M11 20 32 8l21 12v24L32 56 11 44Z" fill="${palette.b}"/><path d="m32 8 21 12-21 12-21-12Z" fill="${palette.c}"/><path d="M32 32v24M11 20l21 12 21-12" fill="none" stroke="${palette.a}" stroke-width="5" stroke-linejoin="round"/>`;
+  }
+  if (name === "project" || name === "planning" || name === "timesheet-grid") {
+    return `<path d="M12 34 25 47 53 14" fill="none" stroke="${palette.a}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 34 25 47" fill="none" stroke="${palette.b}" stroke-width="11" stroke-linecap="round"/>`;
+  }
+  if (name === "mail" || name === "mass-mailing" || name === "sms") {
+    return `<path d="M8 15 58 32 8 50l10-18Z" fill="${palette.a}"/><path d="m18 32 40 0" stroke="${palette.c}" stroke-width="5" stroke-linecap="round"/>`;
+  }
+  if (name.startsWith("hr") || name.includes("employee") || name.includes("recruit")) {
+    return `<circle cx="24" cy="23" r="10" fill="${palette.a}"/><circle cx="42" cy="25" r="9" fill="${palette.b}"/><path d="M9 53c4-12 13-18 26-18s21 6 25 18Z" fill="${palette.c}"/>`;
+  }
+  return `<path d="M12 16h20v20H12Z" fill="${palette.c}"/><path d="M32 28h20v20H32Z" fill="${palette.a}"/><path d="M17 49h30" stroke="${palette.b}" stroke-width="8" stroke-linecap="round"/>`;
 }
 
 function appsCatalogSvgDataUri(svg: string): string {

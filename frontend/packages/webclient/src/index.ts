@@ -1890,6 +1890,8 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
     (body as ModuleCatalogHost).__gorpActionRoot = root;
     root.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 104px) !important;");
     syncModuleCatalogControlPanel(controlPanel, body);
+  } else if (!settingsState) {
+    applyDarkActionRootChrome(root, result.resModel, result.activeView);
   }
   return root;
 }
@@ -2286,14 +2288,38 @@ function applyUserPreferencesChrome(form: HTMLElement): void {
 function applyAdminFormChrome(form: HTMLElement): void {
   form.dataset.enterpriseDark = "true";
   const body = form.querySelector?.(".gorp-form-body.o_form_sheet_bg") as HTMLElement | null;
-  body?.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
+  body?.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;"));
   const sheet = form.querySelector?.(".gorp-form-sheet.o_form_sheet") as HTMLElement | null;
-  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  for (const group of Array.from(form.querySelectorAll?.(".gorp-form-fields.record-grid") ?? [])) {
+    const element = group as HTMLElement;
+    const columns = form.dataset.model === "res.groups" ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))";
+    element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), `display:grid !important;grid-template-columns:${columns} !important;gap:8px 32px !important;align-items:start !important;`));
+  }
+  for (const field of Array.from(form.querySelectorAll?.(".gorp-form-field.o_wrap_field") ?? [])) {
+    const element = field as HTMLElement;
+    if (classNameIncludes(element.className, "gorp-groups-users-field")) {
+      element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "display:block !important;width:100% !important;max-width:none !important;margin:0 !important;"));
+      continue;
+    }
+    if (element.dataset.field === "code") {
+      element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "display:block !important;width:100% !important;max-width:none !important;margin:0 !important;background:#282b36 !important;color:#f4f5f7 !important;"));
+      continue;
+    }
+    const labelWidth = form.dataset.model === "res.groups" ? "166px" : "70px";
+    element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), `display:grid !important;grid-template-columns:${labelWidth} minmax(0, 1fr) !important;align-items:center !important;gap:0 !important;min-height:34px !important;margin:0 !important;max-width:100% !important;background:transparent !important;`));
+  }
+  for (const groupsList of Array.from(form.querySelectorAll?.(".gorp-groups-users-list") ?? [])) {
+    (groupsList as HTMLElement).setAttribute("style", mergeInlineStyle((groupsList as HTMLElement).getAttribute("style"), "display:block !important;width:100% !important;max-width:none !important;"));
+  }
   for (const node of Array.from(form.querySelectorAll?.(".oe_title h1, .gorp-form-title, .gorp-user-identity-title, .gorp-res-user-access-section h2") ?? [])) {
     (node as HTMLElement).setAttribute("style", mergeInlineStyle((node as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;"));
   }
   for (const label of Array.from(form.querySelectorAll?.(".o_form_label, .gorp-res-user-access-label, .gorp-user-identity-label") ?? [])) {
     (label as HTMLElement).setAttribute("style", mergeInlineStyle((label as HTMLElement).getAttribute("style"), "color:#c7c9d1 !important;"));
+  }
+  for (const codeLabel of Array.from(form.querySelectorAll?.(".gorp-form-field[data-field='code'] > .o_form_label") ?? [])) {
+    (codeLabel as HTMLElement).setAttribute("style", mergeInlineStyle((codeLabel as HTMLElement).getAttribute("style"), "display:none !important;"));
   }
   for (const control of Array.from(form.querySelectorAll?.("input.o_input, textarea.o_input, select.o_input, .gorp-form-control.o_input") ?? [])) {
     const element = control as HTMLElement & { type?: string };
@@ -2304,19 +2330,29 @@ function applyAdminFormChrome(form: HTMLElement): void {
     (toggle as HTMLElement).setAttribute("style", mergeInlineStyle((toggle as HTMLElement).getAttribute("style"), "background:#4b4d59 !important;color:#d7d9e1 !important;border-color:#5f6270 !important;box-shadow:none !important;"));
   }
   for (const output of Array.from(form.querySelectorAll?.(".gorp-field-value, .gorp-many2one-value, .gorp-many2one-link, output.o_field_widget") ?? [])) {
-    (output as HTMLElement).setAttribute("style", mergeInlineStyle((output as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;background:transparent !important;"));
+    (output as HTMLElement).setAttribute("style", mergeInlineStyle((output as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;background:transparent !important;border:0 !important;box-shadow:none !important;"));
   }
-  for (const notebook of Array.from(form.querySelectorAll?.(".gorp-form-notebook, .gorp-form-notebook-pages, .gorp-form-notebook-page") ?? [])) {
-    (notebook as HTMLElement).setAttribute("style", mergeInlineStyle((notebook as HTMLElement).getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
+  for (const notebook of Array.from(form.querySelectorAll?.(".gorp-form-notebook, .gorp-form-notebook-pages, .gorp-form-notebook-page, .gorp-form-notebook-content, .gorp-form-notebook-tabs") ?? [])) {
+    (notebook as HTMLElement).setAttribute("style", mergeInlineStyle((notebook as HTMLElement).getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border-color:#3a3f4e !important;box-shadow:none !important;"));
   }
   for (const tab of Array.from(form.querySelectorAll?.(".gorp-form-notebook-tab") ?? [])) {
-    (tab as HTMLElement).setAttribute("style", mergeInlineStyle((tab as HTMLElement).getAttribute("style"), "color:#e4e4e4 !important;background:transparent !important;border-color:#3a3f4e !important;"));
+    (tab as HTMLElement).setAttribute("style", mergeInlineStyle((tab as HTMLElement).getAttribute("style"), "color:#e4e4e4 !important;background:#282b36 !important;border-color:#3a3f4e !important;border-bottom-color:#282b36 !important;"));
   }
   for (const grid of Array.from(form.querySelectorAll?.(".gorp-groups-users-list table, .gorp-groups-users-list th, .gorp-groups-users-list td") ?? [])) {
-    (grid as HTMLElement).setAttribute("style", mergeInlineStyle((grid as HTMLElement).getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border-color:#3a3f4e !important;"));
+    const element = grid as HTMLElement;
+    const width = element.tagName === "TABLE" ? "width:100% !important;" : "";
+    element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), `${width}background:#282b36 !important;color:#e4e4e4 !important;border-color:#3a3f4e !important;`));
   }
+  for (const inner of Array.from(form.querySelectorAll?.(".gorp-server-action-notebook .gorp-form-fields.o_inner_group, .gorp-scheduled-action-notebook .gorp-form-fields.o_inner_group") ?? [])) {
+    (inner as HTMLElement).setAttribute("style", mergeInlineStyle((inner as HTMLElement).getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:0 !important;box-shadow:none !important;padding:0 !important;"));
+  }
+  for (const code of Array.from(form.querySelectorAll?.(".gorp-code-viewer, .gorp-code-editor") ?? [])) {
+    (code as HTMLElement).setAttribute("style", mergeInlineStyle((code as HTMLElement).getAttribute("style"), "display:block !important;width:100% !important;min-height:294px !important;background:#282b36 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  }
+  const smartBar = form.querySelector?.(".gorp-access-smart-buttons") as HTMLElement | null;
+  smartBar?.setAttribute("style", mergeInlineStyle(smartBar.getAttribute("style"), "display:flex !important;justify-content:center !important;gap:0 !important;min-height:42px !important;margin:0 !important;padding:0 16px 8px !important;background:#1b1d26 !important;color:#e4e4e4 !important;"));
   for (const smart of Array.from(form.querySelectorAll?.(".gorp-access-smart-button") ?? [])) {
-    (smart as HTMLElement).setAttribute("style", mergeInlineStyle((smart as HTMLElement).getAttribute("style"), "background:#303442 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;"));
+    (smart as HTMLElement).setAttribute("style", mergeInlineStyle((smart as HTMLElement).getAttribute("style"), "display:inline-flex !important;align-items:center !important;gap:6px !important;min-width:122px !important;min-height:34px !important;margin:0 !important;padding:4px 10px !important;background:#242733 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;border-radius:4px !important;box-shadow:none !important;"));
   }
 }
 
@@ -2866,6 +2902,7 @@ function renderWindowActionControlPanel(
       : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited };
   const views = normalizeActionViews(result.action)
     .filter((view) => view[1] !== "search")
+    .filter((view) => !(result.resModel === "ir.module.module" && result.activeView === "kanban" && view[1] === "form"))
     .map<ActionControlPanelView>((view) => ({
       type: view[1],
       label: viewLabel(view[1]),
@@ -3545,6 +3582,39 @@ function classNameIncludes(className: unknown, target: string): boolean {
   return String(className ?? "").split(/\s+/).includes(target);
 }
 
+function usesDarkActionSurface(model: string | undefined, viewType: string | undefined): boolean {
+  return model !== "ir.module.module" && (viewType === "form" || viewType === "list");
+}
+
+function applyDarkActionRootChrome(root: HTMLElement, model: string | undefined, viewType: string | undefined): void {
+  if (!usesDarkActionSurface(model, viewType)) return;
+  root.dataset.enterpriseDark = "true";
+  root.setAttribute("style", mergeInlineStyle(root.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;min-height:calc(100vh - 104px) !important;"));
+}
+
+function applyDarkListShellChrome(shell: HTMLElement, table: HTMLElement, model: string | undefined): void {
+  if (!usesDarkActionSurface(model, "list")) return;
+  shell.dataset.enterpriseDark = "true";
+  shell.setAttribute("style", mergeInlineStyle(shell.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;min-height:calc(100vh - 104px) !important;"));
+  table.setAttribute("style", mergeInlineStyle(table.getAttribute("style"), "width:100% !important;background:#1b1d26 !important;color:#e4e4e4 !important;border-color:#3a3f4e !important;border-collapse:collapse !important;"));
+}
+
+function applyDarkListHeaderChrome(cell: HTMLElement): void {
+  cell.setAttribute("style", mergeInlineStyle(cell.getAttribute("style"), "height:42px !important;background:#1b1d26 !important;color:#f4f5f7 !important;border-bottom:1px solid #3a3f4e !important;font-weight:700 !important;"));
+}
+
+function applyDarkListHeaderButtonChrome(button: HTMLElement): void {
+  button.setAttribute("style", mergeInlineStyle(button.getAttribute("style"), "background:transparent !important;color:#f4f5f7 !important;border:0 !important;font-weight:700 !important;box-shadow:none !important;"));
+}
+
+function applyDarkListRowChrome(row: HTMLElement): void {
+  row.setAttribute("style", mergeInlineStyle(row.getAttribute("style"), "height:42px !important;background:#282b36 !important;color:#e4e4e4 !important;border-bottom:1px solid #3a3f4e !important;"));
+}
+
+function applyDarkListCellChrome(cell: HTMLElement): void {
+  cell.setAttribute("style", mergeInlineStyle(cell.getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border-top:1px solid #3a3f4e !important;border-bottom:1px solid #3a3f4e !important;"));
+}
+
 function renderWindowActionCreateButton(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): HTMLElement | null {
   if (result.resModel === "ir.module.module") return null;
   if (result.activeView === "form" || actionCreateDisabled(result.action)) return null;
@@ -3643,6 +3713,7 @@ function renderListView(
   if (model) shell.dataset.model = model;
   const table = document.createElement("table");
   table.className = "gorp-list-view o_list_renderer o_list_table";
+  applyDarkListShellChrome(shell, table, model);
   const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {}, model);
   const names = fieldNodes.map((node) => node.name);
   const showUserAvatarColumn = model === "res.users" && !names.includes("avatar_128");
@@ -3651,6 +3722,7 @@ function renderListView(
   if (showSelectors) {
     const selectHead = document.createElement("th");
     selectHead.className = "o_list_record_selector";
+    applyDarkListHeaderChrome(selectHead);
     const selectAll = document.createElement("input");
     selectAll.type = "checkbox";
     selectAll.className = "o_list_record_selector";
@@ -3673,9 +3745,11 @@ function renderListView(
     th.className = "o_column_sortable gorp-user-avatar-column";
     th.dataset.name = "avatar_128";
     th.setAttribute("aria-sort", "none");
+    applyDarkListHeaderChrome(th);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "o_list_header_button";
+    applyDarkListHeaderButtonChrome(button);
     th.append(button);
     headerRow.append(th);
   }
@@ -3684,9 +3758,11 @@ function renderListView(
     th.className = "o_column_sortable";
     th.dataset.name = node.name;
     th.setAttribute("aria-sort", "none");
+    applyDarkListHeaderChrome(th);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "o_list_header_button";
+    applyDarkListHeaderButtonChrome(button);
     button.textContent = fieldLabel(fields, node.name, model);
     button.addEventListener("click", () => {
       sortListRows(tbody, fieldNodes, fields, node.name, th, showSelectors);
@@ -3736,6 +3812,7 @@ function renderListView(
         if (showToolbar) updateListToolbarButtons(shell, selectedIds);
       });
       selectCell.append(checkbox);
+      applyDarkListCellChrome(selectCell);
       row.append(selectCell);
     }
     if (showUserAvatarColumn) {
@@ -3744,14 +3821,17 @@ function renderListView(
       cell.setAttribute("role", "gridcell");
       cell.setAttribute("aria-label", "Binary file");
       cell.append(renderUserListAvatarCell(record));
+      applyDarkListCellChrome(cell);
       row.append(cell);
     }
     for (const node of fieldNodes) {
       const cell = document.createElement("td");
       cell.dataset.field = node.name;
       cell.append(renderListCellValue(node, fields[node.name], record, model));
+      applyDarkListCellChrome(cell);
       row.append(cell);
     }
+    applyDarkListRowChrome(row);
     tbody.append(row);
   }
   table.append(thead, tbody);
@@ -5418,8 +5498,6 @@ function renderModuleCatalogView(
   const pagerLabel = document.createElement("span");
   pagerLabel.className = "gorp-apps-catalog-pager";
   pagerLabel.hidden = true;
-  const topActions = renderModuleCatalogTopActions();
-  wrapper.append(topActions);
   content.append(sidebar, renderer, pagerLabel);
   wrapper.append(content);
 
@@ -5467,27 +5545,6 @@ function renderModuleCatalogView(
   };
   render();
   return wrapper;
-}
-
-function renderModuleCatalogTopActions(): HTMLElement {
-  const toolbar = document.createElement("div");
-  toolbar.className = "gorp-apps-catalog-top-actions o_control_panel_main_buttons";
-  toolbar.setAttribute("role", "toolbar");
-  toolbar.setAttribute("aria-label", "Apps actions");
-  toolbar.setAttribute("style", "display:flex !important;align-items:center !important;gap:8px !important;padding:10px 16px 0 !important;background:#262a36 !important;color:#e8e9ef !important;");
-  for (const action of [
-    ["update_apps_list", "Update Apps List"],
-    ["apply_scheduled_upgrades", "Apply Scheduled Upgrades"],
-    ["import_module", "Import Module"]
-  ] as const) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "btn btn-secondary btn-sm o_app_action";
-    button.dataset.catalogAction = action[0];
-    button.textContent = action[1];
-    toolbar.append(button);
-  }
-  return toolbar;
 }
 
 function renderModuleCatalogFilters(
@@ -5725,7 +5782,7 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   control.setAttribute("style", "position:relative !important;background:#262a36 !important;border-bottom:1px solid #3a3f4e !important;color:#f4f5f7 !important;height:56px !important;min-height:56px !important;max-height:56px !important;padding:0 16px !important;display:flex !important;flex-direction:row !important;align-items:center !important;justify-content:space-between !important;gap:16px !important;overflow:visible !important;");
   const top = document.createElement("div");
   top.className = "gorp-module-info-navigation";
-  top.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;height:34px !important;margin:0 !important;padding:0 !important;");
+  top.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;justify-content:space-between !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;width:100% !important;height:34px !important;margin:0 !important;padding:0 !important;");
   const breadcrumb = document.createElement("ol");
   breadcrumb.className = "breadcrumb o_breadcrumb";
   breadcrumb.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:6px !important;height:34px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;white-space:nowrap !important;");
@@ -5762,39 +5819,18 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   previous.disabled = true;
   previous.setAttribute("aria-label", "Previous");
   previous.setAttribute("style", "position:static !important;width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;margin:0 !important;padding:0 !important;display:grid !important;place-items:center !important;");
-  previous.textContent = "Previous";
+  previous.textContent = "<";
   const next = document.createElement("button");
   next.type = "button";
   next.className = "o_pager_next btn btn-secondary";
   next.disabled = true;
   next.setAttribute("aria-label", "Next");
   next.setAttribute("style", "position:static !important;width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;margin:0 !important;padding:0 !important;display:grid !important;place-items:center !important;");
-  next.textContent = "Next";
+  next.textContent = ">";
   pager.append(value, sep, limit, previous, next);
   top.append(breadcrumb, pager);
-  const bottom = document.createElement("div");
-  bottom.className = "gorp-module-info-actions-row";
-  bottom.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;width:auto !important;min-height:34px !important;margin:0 !important;padding:0 !important;");
-  const actions = document.createElement("div");
-  actions.className = "o_control_panel_actions";
-  actions.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;");
-  const menus = renderActionMenus({
-    className: "gorp-form-action-menu",
-    model: "ir.module.module",
-    actionMenus: undefined,
-    staticActionButtons: [
-      renderStaticActionMenuButton("duplicate", "Duplicate", "fa fa-clone", 30, async () => undefined)
-    ],
-    getActiveIds: () => item.id !== undefined ? [item.id] : [],
-    requiresSelection: false,
-    root: control,
-    options: {}
-  });
-  menus.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;");
-  actions.append(menus);
-  actions.dataset.sourceAction = String(action.id ?? "");
-  bottom.append(actions);
-  control.append(bottom, top);
+  control.dataset.sourceAction = String(action.id ?? "");
+  control.append(top);
   return control;
 }
 
@@ -6263,9 +6299,7 @@ function moduleCatalogIconSource(item: ModuleCatalogItem): string {
   const palette = moduleCatalogIconPalette(item);
   const kind = slugID(item.technicalName);
   return moduleCatalogSVGDataURI(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
-      <rect width="56" height="56" rx="6" fill="${palette.bg}"/>
-      <rect x="1" y="1" width="54" height="54" rx="6" fill="none" stroke="#fff" stroke-opacity=".16"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
       ${moduleCatalogIconMark(kind, palette)}
     </svg>
   `);
@@ -6310,28 +6344,41 @@ function moduleCatalogIconToken(item: ModuleCatalogItem): string {
 }
 
 function moduleCatalogIconMark(kind: string, palette: { a: string; b: string; c: string; ink: string }): string {
-  if (kind === "sale-management" || kind === "crm") {
-    return `<path d="M11 39 23 27l8 6 14-17" fill="none" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23" cy="27" r="5" fill="${palette.a}"/><circle cx="45" cy="16" r="5" fill="${palette.b}"/>`;
+  const name = kind.replace(/_/g, "-");
+  if (name === "sale-management") {
+    return `<rect x="10" y="26" width="14" height="28" rx="2" fill="${palette.b}"/><rect x="23" y="16" width="15" height="38" rx="2" fill="${palette.a}"/><rect x="37" y="10" width="16" height="44" rx="2" fill="${palette.c}"/>`;
   }
-  if (kind === "account" || kind === "accountant" || kind === "equity") {
-    return `<circle cx="22" cy="31" r="12" fill="${palette.a}"/><circle cx="34" cy="25" r="12" fill="${palette.b}" opacity=".92"/><path d="M15 42h27" stroke="${palette.ink}" stroke-width="5" stroke-linecap="round"/>`;
+  if (name === "crm") {
+    return `<path d="M8 23 25 9l16 15-18 16Z" fill="${palette.a}"/><path d="M26 41 43 25l13 12-17 18Z" fill="${palette.b}"/><circle cx="23" cy="39" r="5" fill="${palette.c}"/><circle cx="43" cy="25" r="5" fill="${palette.c}"/>`;
   }
-  if (kind.includes("website")) {
-    return `<rect x="10" y="15" width="36" height="28" rx="4" fill="${palette.c}"/><path d="M10 23h36" stroke="${palette.a}" stroke-width="5"/><circle cx="18" cy="19" r="2" fill="${palette.b}"/><circle cx="25" cy="19" r="2" fill="${palette.b}"/>`;
+  if (name === "equity" || name === "accountant") {
+    return `<path d="M32 32V8a24 24 0 0 1 22 15H35Z" fill="${palette.a}"/><path d="M32 32 14 50A24 24 0 0 1 32 8Z" fill="${palette.b}"/><path d="M32 32h22a24 24 0 0 1-40 18Z" fill="${palette.c}"/>`;
   }
-  if (kind === "stock" || kind === "purchase" || kind === "mrp" || kind === "barcode") {
-    return `<path d="M12 20 28 11l16 9v18l-16 9-16-9Z" fill="${palette.a}"/><path d="M12 20 28 29l16-9M28 29v18" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linejoin="round"/>`;
+  if (name === "account") {
+    return `<rect x="11" y="10" width="42" height="44" rx="8" fill="${palette.a}"/><circle cx="32" cy="29" r="13" fill="${palette.c}"/><path d="M22 47h22" stroke="${palette.ink}" stroke-width="6" stroke-linecap="round"/><path d="M32 18v24M26 24c2-3 10-3 12 1M26 36c2 3 10 3 12-1" stroke="${palette.a}" stroke-width="3" stroke-linecap="round"/>`;
   }
-  if (kind === "project" || kind === "planning" || kind === "timesheet-grid") {
-    return `<rect x="12" y="14" width="32" height="28" rx="4" fill="${palette.c}"/><path d="M18 23h20M18 31h14M18 39h18" stroke="${palette.a}" stroke-width="4" stroke-linecap="round"/>`;
+  if (name === "pos-restaurant") {
+    return `<circle cx="32" cy="32" r="18" fill="${palette.a}"/><rect x="7" y="7" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="40" y="7" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="7" y="40" width="17" height="17" rx="4" fill="${palette.b}"/><rect x="40" y="40" width="17" height="17" rx="4" fill="${palette.b}"/>`;
   }
-  if (kind === "mail" || kind === "mass-mailing" || kind === "sms") {
-    return `<path d="M10 18h36v25H10Z" fill="${palette.c}"/><path d="m10 19 18 15 18-15" fill="none" stroke="${palette.a}" stroke-width="4" stroke-linejoin="round"/>`;
+  if (name === "point-of-sale") {
+    return `<path d="M11 18h42l4 18H7Z" fill="${palette.b}"/><path d="M13 18h10l-2 18H9Zm20 0h10l2 18H31Z" fill="${palette.a}"/><path d="M14 41h36v10H14Z" fill="${palette.c}"/>`;
   }
-  if (kind.startsWith("hr") || kind.includes("employee") || kind.includes("recruit")) {
-    return `<circle cx="22" cy="22" r="8" fill="${palette.b}"/><circle cx="36" cy="24" r="7" fill="${palette.a}"/><path d="M12 43c3-8 9-12 17-12s14 4 17 12Z" fill="${palette.c}"/>`;
+  if (name.includes("website")) {
+    return `<path d="M6 29c9-13 20-16 33-8 7 4 13 5 19 1v13c-8 6-17 6-28 0-8-5-16-4-24 3Z" fill="${palette.a}"/><path d="M6 43c10-6 20-7 31-1 8 4 15 4 21-1v10H6Z" fill="${palette.b}"/>`;
   }
-  return `<rect x="13" y="13" width="20" height="20" rx="5" fill="${palette.c}"/><rect x="23" y="23" width="20" height="20" rx="5" fill="${palette.a}" opacity=".9"/><path d="M17 38h22" stroke="${palette.b}" stroke-width="5" stroke-linecap="round"/>`;
+  if (name === "stock" || name === "purchase" || name === "mrp" || name === "barcode") {
+    return `<path d="M11 20 32 8l21 12v24L32 56 11 44Z" fill="${palette.b}"/><path d="m32 8 21 12-21 12-21-12Z" fill="${palette.c}"/><path d="M32 32v24M11 20l21 12 21-12" fill="none" stroke="${palette.a}" stroke-width="5" stroke-linejoin="round"/>`;
+  }
+  if (name === "project" || name === "planning" || name === "timesheet-grid") {
+    return `<path d="M12 34 25 47 53 14" fill="none" stroke="${palette.a}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 34 25 47" fill="none" stroke="${palette.b}" stroke-width="11" stroke-linecap="round"/>`;
+  }
+  if (name === "mail" || name === "mass-mailing" || name === "sms") {
+    return `<path d="M8 15 58 32 8 50l10-18Z" fill="${palette.a}"/><path d="m18 32 40 0" stroke="${palette.c}" stroke-width="5" stroke-linecap="round"/>`;
+  }
+  if (name.startsWith("hr") || name.includes("employee") || name.includes("recruit")) {
+    return `<circle cx="24" cy="23" r="10" fill="${palette.a}"/><circle cx="42" cy="25" r="9" fill="${palette.b}"/><path d="M9 53c4-12 13-18 26-18s21 6 25 18Z" fill="${palette.c}"/>`;
+  }
+  return `<path d="M12 16h20v20H12Z" fill="${palette.c}"/><path d="M32 28h20v20H32Z" fill="${palette.a}"/><path d="M17 49h30" stroke="${palette.b}" stroke-width="8" stroke-linecap="round"/>`;
 }
 
 function moduleCatalogSVGDataURI(svg: string): string {
@@ -8390,27 +8437,26 @@ function renderFormView(
     }
     form.append(header);
   }
+  if (model === "res.users") {
+    form.append(renderAccessSmartButtons(recordValues, "users"));
+  } else if (model === "res.groups") {
+    form.append(renderAccessSmartButtons(recordValues, "groups"));
+  }
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
-  if (model === "res.users" || model === "res.groups") {
-    body.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
-  }
+  if (usesDarkActionSurface(model, "form")) body.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;"));
   if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
-  if (model === "res.users" || model === "res.groups") {
-    sheet.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
-  }
+  if (usesDarkActionSurface(model, "form")) sheet.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
   if (scheduledActionForm) sheet.append(renderScheduledActionRunButton(recordValues, form));
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
-    sheet.append(renderAccessSmartButtons(recordValues, "users"));
   } else if (serverActionForm && (recordID === undefined || editMode)) {
     sheet.append(renderServerActionNewTitle(recordValues, form, options));
   } else {
     const title = renderFormTitle(model === "res.groups" ? { ...recordValues, name: accessGroupDisplayName(recordValues) } : recordValues);
     if (title) sheet.append(title);
-    if (model === "res.groups") sheet.append(renderAccessSmartButtons(recordValues, "groups"));
   }
   const technicalBand = renderTechnicalActionBand(model, fields, recordValues);
   if (technicalBand) sheet.append(technicalBand);
@@ -8436,7 +8482,7 @@ function renderFormView(
   body.append(sheet);
   form.append(body);
   if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
-  if (model === "res.users" || model === "res.groups") applyAdminFormChrome(form);
+  if (usesDarkActionSurface(model, "form")) applyAdminFormChrome(form);
   return form;
 }
 
@@ -8480,7 +8526,9 @@ function resGroupsMainFieldNodes(
   const byName = new Map(nodes.map((node) => [node.name, node]));
   const out: ViewFieldNode[] = [];
   const added = new Set<string>();
+  if (numberRecordID(values.id) !== undefined) added.add("name");
   for (const name of ["name", "privilege_id", "share", "api_key_duration"]) {
+    if (added.has(name)) continue;
     const node = byName.get(name);
     if (node) {
       out.push(node);
@@ -8569,37 +8617,47 @@ function renderScheduledActionRunButton(values: Record<string, unknown>, form: H
 function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
   const root = document.createElement("section");
   root.className = "gorp-user-identity o_user_identity_block";
+  root.setAttribute("style", "display:grid;grid-template-columns:72px minmax(0, 1fr);align-items:start;gap:24px;margin:0 0 14px;padding:24px 24px 8px;");
   const photo = document.createElement("div");
   photo.className = "gorp-user-photo o_avatar_128";
-  photo.setAttribute("style", "width:128px;min-width:128px;display:flex;flex-direction:column;align-items:center;gap:8px;");
+  photo.setAttribute("style", "width:72px;min-width:72px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;");
   const avatar = document.createElement("span");
   avatar.className = "gorp-user-identity-avatar o_avatar";
   avatar.dataset.userId = String(values.id ?? "");
-  avatar.setAttribute("style", "width:96px;height:96px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:38px;");
-  avatar.textContent = userInitial(values);
+  avatar.setAttribute("role", "img");
+  avatar.setAttribute("aria-label", "Binary file");
+  avatar.setAttribute("style", "width:64px;height:64px;border-radius:2px;display:flex;align-items:center;justify-content:center;background:transparent;color:#f4f5f7;font-size:13px;line-height:16px;");
+  avatar.textContent = "Binary file";
   const addPhoto = document.createElement("button");
   addPhoto.type = "button";
   addPhoto.className = "btn btn-link gorp-user-add-photo o_add_photo";
   addPhoto.dataset.field = "avatar_128";
   addPhoto.textContent = "Add Photo";
+  addPhoto.setAttribute("style", "min-height:22px;padding:0;border:0;background:transparent;color:#d889c1;font-size:12px;line-height:18px;box-shadow:none;");
   photo.append(avatar, addPhoto);
   const content = document.createElement("div");
   content.className = "gorp-user-identity-content";
+  content.setAttribute("style", "min-width:0;");
   const title = document.createElement("h1");
   title.className = "gorp-form-title";
   title.textContent = String(values.name ?? values.display_name ?? values.login ?? "User");
+  title.setAttribute("style", "margin:0 0 10px;padding:0 0 6px;border-bottom:1px solid #d7d9e1;color:#f4f5f7;font-size:32px;line-height:38px;font-weight:500;max-width:675px;");
   const lines = document.createElement("div");
   lines.className = "gorp-user-identity-lines";
-  lines.setAttribute("style", "display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;max-width:840px;");
+  lines.setAttribute("style", "display:grid;grid-template-columns:minmax(0, 1fr);gap:6px;max-width:675px;");
   lines.append(
-    renderUserIdentityLine("login", "Login", "oi oi-person", String(values.login ?? "")),
+    renderUserIdentityLine("login", "Login", "oi oi-key", String(values.login ?? "")),
     renderUserIdentityLine("email", "Email", "oi oi-envelope-closed", String(values.email || ""), "Email"),
     renderUserIdentityLine("phone", "Phone", "oi oi-phone", String(values.phone || ""), "Phone")
   );
   const related = document.createElement("div");
   related.className = "gorp-user-related-partner gorp-user-identity-line muted";
-  related.setAttribute("style", "display:flex;align-items:center;gap:8px;");
+  related.setAttribute("style", "display:flex;align-items:center;gap:12px;margin-top:12px;color:#c7c9d1;");
   related.setAttribute("aria-label", "Related Partner");
+  const relatedLabel = document.createElement("span");
+  relatedLabel.className = "gorp-user-related-partner-label";
+  relatedLabel.textContent = "Related Partner ?";
+  relatedLabel.setAttribute("style", "font-weight:600;color:#c7c9d1;");
   const icon = document.createElement("i");
   icon.className = "oi oi-link-intact";
   icon.setAttribute("aria-hidden", "true");
@@ -8607,7 +8665,7 @@ function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
   partner.className = "gorp-field-value o_field_widget o_readonly_modifier";
   partner.dataset.field = "partner_id";
   partner.textContent = many2OneDisplayData(values.partner_id).displayName || String(values.name ?? "");
-  related.append(icon, partner);
+  related.append(relatedLabel, icon, partner);
   content.append(title, lines, related);
   root.append(photo, content);
   return root;
@@ -8618,19 +8676,18 @@ function renderUserIdentityLine(fieldName: string, labelText: string, iconClassN
   wrapper.className = value ? "gorp-user-identity-line gorp-user-identity-inline" : "gorp-user-identity-line gorp-user-identity-inline muted";
   wrapper.dataset.field = fieldName;
   wrapper.setAttribute("aria-label", labelText);
-  wrapper.setAttribute("style", "display:inline-flex;align-items:center;gap:7px;min-height:22px;");
+  wrapper.setAttribute("style", "display:inline-flex;align-items:center;gap:8px;min-height:22px;color:#f4f5f7;");
   const icon = document.createElement("i");
   icon.className = iconClassName;
   icon.setAttribute("aria-hidden", "true");
-  const input = document.createElement("input");
-  input.className = "gorp-user-identity-input o_input o_field_widget";
-  input.dataset.field = fieldName;
-  input.value = value;
-  input.placeholder = placeholder || labelText;
-  input.readOnly = true;
-  input.setAttribute("readonly", "readonly");
-  input.setAttribute("aria-label", labelText);
-  wrapper.append(icon, input);
+  icon.setAttribute("style", "width:14px;color:#d889c1;text-align:center;");
+  const output = document.createElement("output");
+  output.className = "gorp-user-identity-value gorp-field-value o_field_widget o_readonly_modifier";
+  output.dataset.field = fieldName;
+  output.textContent = value || placeholder || labelText;
+  output.setAttribute("aria-label", labelText);
+  output.setAttribute("style", value ? "color:#f4f5f7;background:transparent;border:0;" : "color:#9ca3af;background:transparent;border:0;");
+  wrapper.append(icon, output);
   return wrapper;
 }
 
@@ -8655,8 +8712,8 @@ function renderAccessSmartButton(labelText: string, count: number | undefined): 
   button.type = "button";
   button.className = "btn btn-secondary oe_stat_button gorp-access-smart-button";
   button.dataset.smartButton = labelText.toLowerCase().replace(/\s+/g, "-");
-  const icon = document.createElement("span");
-  icon.className = "gorp-access-smart-icon";
+  const icon = document.createElement("i");
+  icon.className = `gorp-access-smart-icon ${accessSmartButtonIcon(labelText)}`;
   icon.setAttribute("aria-hidden", "true");
   const label = document.createElement("span");
   label.className = "o_stat_text";
@@ -8668,6 +8725,12 @@ function renderAccessSmartButton(labelText: string, count: number | undefined): 
   if (count !== undefined) button.append(document.createTextNode(" "));
   button.append(label);
   return button;
+}
+
+function accessSmartButtonIcon(labelText: string): string {
+  if (labelText === "Groups" || labelText === "Users") return "oi oi-people";
+  if (labelText === "Access Rights" || labelText === "Record Rules") return "oi oi-lock-locked";
+  return "oi oi-apps";
 }
 
 function adminAccessSmartFallback(values: Record<string, unknown>, kind: "groups" | "access_rights" | "record_rules"): number | undefined {
@@ -9335,28 +9398,25 @@ function renderReadonlyFieldValue(
 }
 
 function renderReadonlyGroupFormControl(fieldName: string, value: unknown, values: Record<string, unknown>): HTMLElement {
-  const input = document.createElement("input");
-  input.className = "gorp-form-control o_input o_field_widget o_readonly_modifier";
-  input.dataset.field = fieldName;
-  input.setAttribute("style", "width:181px !important;min-width:181px !important;max-width:181px !important;min-height:31px !important;background:#4b4d59 !important;color:#f4f5f7 !important;border:1px solid #5f6270 !important;border-radius:0 !important;padding:6px 8px !important;box-shadow:none !important;");
-  input.readOnly = true;
-  input.setAttribute("readonly", "readonly");
+  const output = document.createElement("output");
+  output.className = "gorp-groups-readonly-value gorp-field-value o_field_widget o_readonly_modifier";
+  output.dataset.field = fieldName;
+  output.setAttribute("style", "display:inline-flex !important;align-items:center !important;min-height:31px !important;background:transparent !important;color:#f4f5f7 !important;border:0 !important;padding:0 !important;box-shadow:none !important;");
   if (fieldName === "privilege_id") {
-    input.setAttribute("role", "combobox");
-    input.setAttribute("aria-expanded", "false");
-    input.setAttribute("aria-label", "Privilege?");
-    input.value = many2OneDisplayData(value).displayName || many2OneDisplayData(values.privilege_id).displayName;
-    return input;
+    output.setAttribute("aria-label", "Privilege?");
+    const privilege = many2OneDisplayData(value).displayName || many2OneDisplayData(values.privilege_id).displayName;
+    output.textContent = privilege === "Role" ? "" : privilege;
+    return output;
   }
   if (fieldName === "api_key_duration") {
-    input.setAttribute("aria-label", "API Keys maximum duration days?");
+    output.setAttribute("aria-label", "API Keys maximum duration days?");
     const number = Number(value);
-    input.value = Number.isFinite(number) ? number.toFixed(2) : "0.00";
-    return input;
+    output.textContent = Number.isFinite(number) ? number.toFixed(2) : "0.00";
+    return output;
   }
-  input.setAttribute("aria-label", "Group Name");
-  input.value = firstText(value, values.name, values.display_name) || "";
-  return input;
+  output.setAttribute("aria-label", "Group Name");
+  output.textContent = firstText(value, values.name, values.display_name) || "";
+  return output;
 }
 
 function renderReadonlyBooleanValue(fieldName: string, value: unknown): HTMLElement {
@@ -11684,7 +11744,7 @@ function applyMany2OneDropdownGeometry(root: HTMLElement, input: HTMLInputElemen
   if (!style) return;
   const inputWidth = input.getBoundingClientRect?.().width || 0;
   const rootWidth = root.getBoundingClientRect?.().width || 0;
-  const width = Math.round(inputWidth || rootWidth || 0);
+  const width = relationDropdownShellWidth(inputWidth || rootWidth || 0);
   if (rootStyle) rootStyle.position = rootStyle.position || "relative";
   style.position = "absolute";
   style.insetInlineStart = "0";
@@ -11698,6 +11758,13 @@ function applyMany2OneDropdownGeometry(root: HTMLElement, input: HTMLInputElemen
     style.minWidth = `${width}px`;
     dropdown.dataset.widthPx = String(width);
   }
+}
+
+function relationDropdownShellWidth(rawWidth: number): number {
+  const width = Math.round(rawWidth || 0);
+  if (width <= 0) return 0;
+  if (width <= 240) return width;
+  return 240;
 }
 
 function setMany2OneDropdownItemID(button: HTMLButtonElement, fieldName: string): void {

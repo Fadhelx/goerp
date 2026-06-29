@@ -140,8 +140,54 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
 
   container.append(registrationBanner, searchWrap, grid);
   shell.append(container);
-  section.append(shell);
+  section.append(homeMenuParityStyleElement(), shell);
   return section;
+}
+
+function homeMenuParityStyleElement(): HTMLElement {
+  const style = document.createElement("style");
+  style.dataset.homeMenuParity = "odoo19-banner";
+  style.textContent = `
+    .o_app_launcher .o_home_menu_registration_banner {
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      max-width: min(920px, calc(100vw - 32px));
+      margin: 12px auto 0;
+      padding: 7px 12px;
+      overflow: hidden;
+      border-radius: 3px;
+    }
+    .o_app_launcher .o_home_menu_registration_text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .o_app_launcher .o_home_menu_registration_close {
+      flex: 0 0 auto;
+      max-width: 112px;
+      min-height: 26px;
+      padding: 2px 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    @media (max-width: 575px) {
+      .o_app_launcher .o_home_menu_registration_banner {
+        justify-content: flex-start;
+        max-width: calc(100vw - 16px);
+        margin: 8px 8px 0;
+        padding: 6px 8px;
+      }
+      .o_app_launcher .o_home_menu_registration_close {
+        max-width: 76px;
+      }
+    }
+  `;
+  return style;
 }
 
 function isTextInput(target: EventTarget | null): boolean {

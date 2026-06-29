@@ -2780,17 +2780,18 @@ const roleAdministratorFallbackRows = findAll(roleAdministratorFallbackWindow, (
 assert.deepEqual(roleAdministratorFallbackRows.map((row) => findAll(row, (node) => node.tag === "td").map((cell) => cell.textContent)), [
   ["Administrator", "admin", "Administrator"]
 ]);
-assert.equal(findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label") && node.textContent === "Group Name").length, 1);
-assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "api_key_duration" && node.value === "0.00").length, 1);
-assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "privilege_id" && node.attributes?.role === "combobox" && node.value === "Role").length, 1);
-for (const fieldName of ["name", "privilege_id", "api_key_duration"]) {
-  const control = findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === fieldName && String(node.className ?? "").includes("gorp-form-control"))[0];
-  assert.match(control.attributes.style, /background:#4b4d59 !important/);
+assert.equal(findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label") && node.textContent === "Group Name").length, 0);
+const groupReadonlyValues = findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").includes("gorp-groups-readonly-value"));
+assert.equal(groupReadonlyValues.some((node) => node.dataset?.field === "api_key_duration" && node.textContent === "0.00"), true);
+assert.equal(groupReadonlyValues.some((node) => node.dataset?.field === "privilege_id" && node.textContent === ""), true);
+assert.equal(findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-control") && ["name", "privilege_id", "api_key_duration"].includes(node.dataset?.field)).length, 0);
+for (const control of groupReadonlyValues) {
+  assert.match(control.attributes.style, /background:transparent !important/);
   assert.match(control.attributes.style, /color:#f4f5f7 !important/);
-  assert.match(control.attributes.style, /min-width:181px !important/);
+  assert.match(control.attributes.style, /border:0 !important/);
 }
 const roleAdministratorFallbackSheet = findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-sheet"))[0];
-assert.match(roleAdministratorFallbackSheet.attributes.style, /background:#262a36 !important/);
+assert.match(roleAdministratorFallbackSheet.attributes.style, /background:#282b36 !important/);
 assert.match(roleAdministratorFallbackSheet.attributes.style, /color:#e4e4e4 !important/);
 
 const groupsListParityWindow = renderWindowAction({
@@ -2822,6 +2823,11 @@ const groupsListParityWindow = renderWindowAction({
   countLimited: false
 });
 const groupsListRows = findAll(groupsListParityWindow, (node) => node.tag === "tr" && String(node.className ?? "").includes("o_data_row"));
+const groupsParityListShell = findAll(groupsListParityWindow, (node) => String(node.className ?? "").includes("gorp-list-shell"))[0];
+const groupsParityListTable = findAll(groupsListParityWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.equal(groupsParityListShell.dataset.enterpriseDark, "true");
+assert.match(groupsParityListShell.attributes.style, /background:#1b1d26 !important/);
+assert.match(groupsParityListTable.attributes.style, /background:#1b1d26 !important/);
 assert.deepEqual(groupsListRows.map((row) => row.attributes?.["aria-label"]), [
   "Contact / Creation",
   "Export / Allowed",
@@ -2956,6 +2962,11 @@ const usersListParityWindow = renderWindowAction({
   countLimited: false
 });
 const usersListRows = findAll(usersListParityWindow, (node) => node.tag === "tr" && String(node.className ?? "").includes("o_data_row"));
+const usersParityListShell = findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-list-shell"))[0];
+const usersParityListTable = findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
+assert.equal(usersParityListShell.dataset.enterpriseDark, "true");
+assert.match(usersParityListShell.attributes.style, /background:#1b1d26 !important/);
+assert.match(usersParityListTable.attributes.style, /background:#1b1d26 !important/);
 assert.equal(usersListRows[0].attributes?.["aria-label"], "Administrator / admin / Administrator");
 assert.equal(findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-user-avatar") && node.attributes?.["aria-hidden"] === "true").length, 1);
 assert.equal(findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-user-list-avatar-cell") && node.attributes?.role === "img" && node.attributes?.["aria-label"] === "Binary file").length, 1);
@@ -4182,7 +4193,11 @@ assert.deepEqual(
 );
 assert.deepEqual(
   findAll(referenceAppsCatalogWindow, (node) => node.dataset?.catalogAction).map((node) => node.textContent),
-  ["Update Apps List", "Apply Scheduled Upgrades", "Import Module"]
+  []
+);
+assert.deepEqual(
+  findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_switch_view")).map((node) => node.dataset?.viewType),
+  ["kanban", "list"]
 );
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_search_panel_label") && node.textContent === "Technical").length, 1);
 findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_info_button"))[0].dispatchEvent(new TestEvent("click"));
@@ -4196,7 +4211,9 @@ assert.match(moduleInfoControlPanel.attributes.style, /position:relative !import
 assert.match(moduleInfoControlPanel.attributes.style, /flex-direction:row !important/);
 assert.match(moduleInfoControlPanel.attributes.style, /justify-content:space-between !important/);
 assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("gorp-module-info-navigation"))[0].attributes.style, /position:static !important/);
+assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("gorp-module-info-navigation"))[0].attributes.style, /justify-content:space-between !important/);
 assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("o_pager"))[0].attributes.style, /position:static !important/);
+assert.equal(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("gorp-form-action-menu")).length, 0);
 assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-body"))[0].attributes.style, /max-width:none !important/);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_value")).map((node) => node.textContent)[0], "1");
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_limit")).map((node) => node.textContent)[0], "1");
@@ -6327,6 +6344,12 @@ const usersExplicitNotebook = findAll(usersExplicitFormWindow, (node) => String(
 assert.ok(usersExplicitNotebook);
 assert.deepEqual(findAll(usersExplicitNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights", "Preferences"]);
 assert.equal(findAll(usersExplicitNotebook, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
+const usersExplicitIdentity = findAll(usersExplicitFormWindow, (node) => String(node.className ?? "").includes("gorp-user-identity"))[0];
+assert.equal(findAll(usersExplicitIdentity, (node) => String(node.className ?? "").includes("gorp-user-identity-input")).length, 0);
+const usersExplicitLoginLine = findAll(usersExplicitIdentity, (node) => String(node.className ?? "").includes("gorp-user-identity-inline") && node.dataset?.field === "login")[0];
+assert.equal(findAll(usersExplicitLoginLine, (node) => String(node.className ?? "").includes("gorp-user-identity-value") && node.dataset?.field === "login")[0].textContent, "admin");
+assert.equal(findAll(usersExplicitIdentity, (node) => String(node.className ?? "").includes("gorp-user-identity-inline") && node.dataset?.field === "email")[0].attributes?.["aria-label"], "Email");
+assert.equal(findAll(usersExplicitFormWindow, (node) => String(node.className ?? "").includes("gorp-access-smart-buttons"))[0].children.length, 3);
 const usersExplicitMainFields = findAll(usersExplicitFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-fields"))[0];
 assert.equal(usersExplicitMainFields.children.some((node) => String(node.className ?? "").includes("gorp-res-user-group-ids")), false);
 
@@ -6423,8 +6446,8 @@ assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes(
 assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-user-add-photo") && node.textContent === "Add Photo").length, 1);
 const usersIdentityValue = (root, field) => findAll(
   findAll(root, (node) => String(node.className ?? "").includes("gorp-user-identity-inline") && node.dataset?.field === field)[0],
-  (node) => node.tag === "input"
-).map((node) => node.value || node.placeholder)[0];
+  (node) => String(node.className ?? "").includes("gorp-user-identity-value")
+).map((node) => node.textContent)[0];
 assert.equal(usersIdentityValue(usersForm, "login"), "admin");
 assert.equal(usersIdentityValue(usersForm, "email"), "admin@example.test");
 assert.equal(usersIdentityValue(usersForm, "phone"), "Phone");

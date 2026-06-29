@@ -706,7 +706,7 @@ assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "apps" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "ai" && node.dataset?.settingsTargetModel === "ir.module.module").length, 1);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users")[0].textContent, "Manage Users");
-assert.match(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users")[0].attributes.style, /color:#f4f5f7 !important/);
+assert.match(findAll(actionManager, (node) => node.dataset?.settingsTarget === "users")[0].attributes.style, /color:#00d4c8 !important/);
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "languages")[0].textContent, "Languages");
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "default_access_rights")[0].textContent, "Default Access Rights");
 assert.equal(findAll(actionManager, (node) => node.dataset?.settingsTarget === "api_keys")[0].textContent, "Manage API Keys");

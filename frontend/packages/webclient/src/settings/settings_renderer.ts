@@ -91,12 +91,18 @@ export function renderSettingsView(
   callbacks: SettingsRendererCallbacks = {}
 ): HTMLElement {
   const state = createSettingsRendererState(input);
+  const showSearchPanel = input.showSearchPanel !== false;
   const root = document.createElement("section");
-  root.className = `o_settings_container o_form_view gorp-settings-parity${settingsMobileViewport() ? " gorp-settings-mobile" : ""}`;
+  root.className = [
+    "o_settings_container",
+    "o_form_view",
+    "gorp-settings-parity",
+    showSearchPanel ? "gorp-settings-with-search" : "gorp-settings-embedded",
+    settingsMobileViewport() ? "gorp-settings-mobile" : ""
+  ].filter(Boolean).join(" ");
   root.dataset.search = state.search;
   let activeAppId = state.activeAppId;
   if (activeAppId) root.dataset.activeApp = activeAppId;
-  const showSearchPanel = input.showSearchPanel !== false;
 
   const toolbar = showSearchPanel ? document.createElement("div") : null;
   let search: HTMLInputElement | null = null;
@@ -124,7 +130,7 @@ export function renderSettingsView(
   }
 
   const sidebar = document.createElement("nav");
-  sidebar.className = "o_settings_sidebar settings_tab";
+  sidebar.className = "o_settings_sidebar";
   sidebar.setAttribute("aria-label", "Settings applications");
 
   const content = document.createElement("div");
@@ -176,6 +182,7 @@ export function renderSettingsView(
       const active = id === app.id;
       tab.className = active ? "o_settings_tab active" : "o_settings_tab";
       tab.setAttribute("aria-pressed", active ? "true" : "false");
+      tab.setAttribute("style", settingsTabInlineStyle(active));
     }
     applySearch();
     if (emit) callbacks.onAppSelect?.(app);
@@ -202,10 +209,10 @@ function applyMobileSettingsChrome(root: HTMLElement, sidebar: HTMLElement, cont
   const height = globalThis.innerHeight || document.documentElement?.clientHeight || 0;
   if (width > 575 && height > 860) return;
   root.setAttribute("style", "display:block;min-height:0;background:#262a36;color:#e4e4e4;");
-  sidebar.setAttribute("style", "display:flex;order:-1;gap:6px;width:100%;height:74px;max-height:74px;padding:8px 10px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #3a3f4e;background:#262a36;");
-  content.setAttribute("style", "padding:12px 14px 32px;overflow:visible;background:#262a36;color:#e4e4e4;");
+  sidebar.setAttribute("style", "display:flex;order:-1;gap:0;width:100%;height:40px;max-height:40px;padding:0;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #3a3f4e;background:#20232d;");
+  content.setAttribute("style", "padding:0 0 32px;overflow:visible;background:#262a36;color:#e4e4e4;");
   for (const tab of Array.from(sidebar.children)) {
-    (tab as HTMLElement).setAttribute("style", "flex:0 0 auto;width:auto;min-height:32px;padding:6px 11px;border-left:0;border-bottom:2px solid transparent;white-space:nowrap;");
+    (tab as HTMLElement).setAttribute("style", "flex:0 0 auto;width:auto;min-height:40px;padding:0 16px;border-left:0;border-bottom:0;white-space:nowrap;");
   }
 }
 
@@ -213,49 +220,65 @@ function settingsParityStyleElement(): HTMLElement {
   const style = document.createElement("style");
   style.dataset.settingsParity = "odoo19-dark";
   style.textContent = `
-    .gorp-settings-parity { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: calc(100vh - 102px); background: #262a36; color: #e4e4e4; }
-    .gorp-settings-parity .o_settings_search_panel { grid-column: 1 / -1; min-height: 44px; padding: 8px 16px; background: #262a36; border-bottom: 1px solid #3a3f4e; }
-    .gorp-settings-parity .o_settings_search_wrapper { display: flex; align-items: center; max-width: 420px; min-height: 30px; border: 1px solid #4b4d59; background: #303442; color: #e4e4e4; }
+    .gorp-settings-parity { display: grid !important; grid-template-columns: 182px minmax(0, 1fr) !important; grid-template-rows: auto minmax(0, 1fr) !important; min-height: calc(100vh - 102px) !important; background: #262a36 !important; color: #e4e4e4 !important; }
+    .gorp-settings-parity.gorp-settings-embedded { grid-template-rows: minmax(0, 1fr) !important; }
+    .gorp-settings-parity .o_settings_search_panel { grid-column: 1 / -1; grid-row: 1; min-height: 44px; padding: 8px 16px; background: #262a36; border-bottom: 1px solid #3a3f4e; }
+    .gorp-settings-parity .o_settings_search_wrapper { display: flex; align-items: center; max-width: 420px; min-height: 30px; border: 1px solid #00a09d; border-radius: 3px; background: #20232d; color: #e4e4e4; }
+    .gorp-settings-parity .o_settings_search_icon::before { content: "⌕"; display: inline-block; width: 30px; color: #d7d9e0; text-align: center; font-size: 18px; line-height: 28px; }
+    .gorp-settings-parity .o_settings_search_dropdown::before { content: "▾"; }
     .gorp-settings-parity .o_settings_search { min-height: 30px; border: 0; background: transparent; color: #f4f5f7; }
-    .gorp-settings-parity .o_settings_sidebar { grid-column: 1; grid-row: 2; min-width: 0; padding: 10px 0; background: #262a36; border-right: 1px solid #3a3f4e; color: #e4e4e4; }
-    .gorp-settings-parity .o_settings_tab { width: 100%; min-height: 34px; padding: 7px 16px; border: 0; border-left: 3px solid transparent; background: transparent; color: #c7c9d1; text-align: left; font-size: 14px; line-height: 20px; font-weight: 500; }
-    .gorp-settings-parity .o_settings_tab.active { border-left-color: #00a09d; background: #303442; color: #f4f5f7; }
-    .gorp-settings-parity .o_setting_container { grid-column: 2; grid-row: 2; min-width: 0; padding: 20px 32px 48px; overflow: auto; background: #262a36; color: #e4e4e4; }
-    .gorp-settings-parity .app_settings_block { max-width: 1180px; margin: 0 auto; color: #e4e4e4; }
-    .gorp-settings-parity .o_settings_app_title { margin: 0 0 18px; color: #f4f5f7; font-size: 24px; line-height: 32px; font-weight: 600; }
-    .gorp-settings-parity .o_settings_block { margin: 0 0 22px; border-top: 1px solid #3a3f4e; }
-    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 11px 0 8px; background: #262a36; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }
-    .gorp-settings-parity .o_setting_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
-    .gorp-settings-parity .o_setting_box { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; min-height: 54px; padding: 11px 0; color: #e4e4e4; border-top: 1px solid rgba(58, 63, 78, .7); }
+    .gorp-settings-parity .o_settings_sidebar { grid-column: 1 !important; grid-row: 2 !important; min-width: 0 !important; width: auto !important; padding: 0 !important; background: #1d2029 !important; border-right: 1px solid #3a3f4e !important; color: #e4e4e4 !important; }
+    .gorp-settings-parity.gorp-settings-embedded .o_settings_sidebar { grid-row: 1 !important; }
+    .gorp-settings-parity .o_settings_tab { display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important; min-height: 42px !important; padding: 0 16px !important; border: 0 !important; border-left: 3px solid transparent !important; background: transparent !important; color: #f4f5f7 !important; text-align: left !important; font-size: 14px !important; line-height: 20px !important; font-weight: 700 !important; }
+    .gorp-settings-parity .o_settings_tab_icon { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 4px; background: conic-gradient(from 0deg, #c060a1 0 25%, #35a6d9 0 50%, #ef5350 0 75%, #2fc6bd 0 100%); box-shadow: inset 0 0 0 4px #263445; }
+    .gorp-settings-parity .o_settings_tab_label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gorp-settings-parity .o_settings_tab.active { border-left-color: #00a09d !important; background: #163b3f !important; color: #fff !important; }
+    .gorp-settings-parity .o_setting_container { grid-column: 2 !important; grid-row: 2 !important; min-width: 0 !important; padding: 0 0 48px !important; overflow: auto !important; background: #262a36 !important; color: #e4e4e4 !important; }
+    .gorp-settings-parity.gorp-settings-embedded .o_setting_container { grid-row: 1 !important; }
+    .gorp-settings-parity .app_settings_block { max-width: none !important; margin: 0 !important; color: #e4e4e4 !important; }
+    .gorp-settings-parity .o_settings_app_title { display: none !important; }
+    .gorp-settings-parity .o_settings_block { margin: 0 !important; border-top: 0 !important; }
+    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 12px 32px; background: #434756 !important; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }
+    .gorp-settings-parity .o_setting_grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 !important; padding: 32px 72px 34px !important; }
+    .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) !important; gap: 12px !important; min-height: 56px !important; padding: 0 24px 10px 0 !important; color: #e4e4e4 !important; border-left: 1px solid #3a3f4e !important; border-top: 0 !important; }
+    .gorp-settings-parity .o_setting_left_pane { display: flex; justify-content: center; padding-top: 2px; }
+    .gorp-settings-parity .o_setting_right_pane { min-width: 0; }
     .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7; font-weight: 600; }
     .gorp-settings-parity .text-muted { color: #aeb4c2 !important; }
     .gorp-settings-parity .o_setting_buttons { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 8px; }
-    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #f4f5f7 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 500; }
+    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #00d4c8 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 700; }
+    .gorp-settings-parity .o_setting_action::before, .gorp-settings-parity .o_setting_link::before { content: "➜"; margin-right: 6px; }
     .gorp-settings-parity .o_setting_action:hover, .gorp-settings-parity .o_setting_action:focus-visible { color: #8ddad8 !important; text-decoration: underline; }
     .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59; color: #f4f5f7; border: 1px solid #5f6270; border-radius: 0; }
     .gorp-settings-parity .gorp-settings-many2one { position: relative; display: inline-flex; align-items: stretch; min-width: 180px; }
     .gorp-settings-parity .gorp-settings-many2one input { padding-right: 28px; width: 100%; }
     .gorp-settings-parity .gorp-settings-many2one-toggle { position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border: 0; border-left: 1px solid #5f6270; background: transparent; color: #c7c9d1; }
     @media (max-width: 1024px) {
-      .gorp-settings-parity { display: block; min-height: 0; }
-      .gorp-settings-parity .o_settings_sidebar { display: flex; gap: 6px; width: 100%; height: 74px; max-height: 74px; min-height: 0; box-sizing: border-box; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #3a3f4e; }
-      .gorp-settings-parity .o_settings_tab { flex: 0 0 auto; width: auto; min-height: 32px; padding: 6px 11px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
-      .gorp-settings-parity .o_settings_tab.active { border-bottom-color: #00a09d; background: #303442; }
-      .gorp-settings-parity .o_setting_container { padding: 12px 14px 32px; overflow: visible; }
+      .gorp-settings-parity { display: block !important; min-height: 0 !important; }
+      .gorp-settings-parity .o_settings_sidebar { display: flex !important; gap: 0 !important; width: 100% !important; height: 40px !important; max-height: 40px !important; min-height: 0 !important; box-sizing: border-box !important; padding: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; border-right: 0 !important; border-bottom: 1px solid #3a3f4e !important; background: #20232d !important; }
+      .gorp-settings-parity .o_settings_tab { flex: 0 0 auto !important; width: auto !important; min-height: 40px !important; padding: 0 16px !important; border-left: 0 !important; border-bottom: 0 !important; white-space: nowrap !important; }
+      .gorp-settings-parity .o_settings_tab.active { background: #875a7b !important; color: #fff !important; }
+      .gorp-settings-parity .o_settings_tab_icon { display: none; }
+      .gorp-settings-parity .o_setting_container { display: block !important; width: 100% !important; padding: 0 0 32px !important; overflow: visible !important; }
       .gorp-settings-parity .app_settings_block { margin: 0; max-width: none; }
       .gorp-settings-parity .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }
-      .gorp-settings-parity .o_setting_grid { display: block; }
-      .gorp-settings-parity .o_setting_box { grid-template-columns: 34px minmax(0, 1fr); min-height: 46px; padding: 9px 0; }
+      .gorp-settings-parity .o_settings_block_title { padding: 12px 16px !important; background: #262a36 !important; }
+      .gorp-settings-parity .o_setting_grid { display: block !important; padding: 40px 16px 32px 40px !important; }
+      .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 0 minmax(0, 1fr) !important; min-height: 52px !important; padding: 0 0 18px 14px !important; border-left: 1px solid #3a3f4e !important; }
+      .gorp-settings-parity .o_setting_left_pane { display: none; }
     }
-    .gorp-settings-parity.gorp-settings-mobile { display: block; min-height: 0; }
-    .gorp-settings-parity.gorp-settings-mobile .o_settings_sidebar { display: flex; gap: 6px; width: 100%; height: 74px; max-height: 74px; min-height: 0; box-sizing: border-box; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #3a3f4e; }
-    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab { flex: 0 0 auto; width: auto; min-height: 32px; padding: 6px 11px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
-    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab.active { border-bottom-color: #00a09d; background: #303442; }
-    .gorp-settings-parity.gorp-settings-mobile .o_setting_container { padding: 12px 14px 32px; overflow: visible; }
+    .gorp-settings-parity.gorp-settings-mobile { display: block !important; min-height: 0 !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_sidebar { display: flex !important; gap: 0 !important; width: 100% !important; height: 40px !important; max-height: 40px !important; min-height: 0 !important; box-sizing: border-box !important; padding: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; border-right: 0 !important; border-bottom: 1px solid #3a3f4e !important; background: #20232d !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab { flex: 0 0 auto !important; width: auto !important; min-height: 40px !important; padding: 0 16px !important; border-left: 0 !important; border-bottom: 0 !important; white-space: nowrap !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab.active { background: #875a7b !important; color: #fff !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab_icon { display: none; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_container { display: block !important; width: 100% !important; padding: 0 0 32px !important; overflow: visible !important; }
     .gorp-settings-parity.gorp-settings-mobile .app_settings_block { margin: 0; max-width: none; }
     .gorp-settings-parity.gorp-settings-mobile .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }
-    .gorp-settings-parity.gorp-settings-mobile .o_setting_grid { display: block; }
-    .gorp-settings-parity.gorp-settings-mobile .o_setting_box { grid-template-columns: 34px minmax(0, 1fr); min-height: 46px; padding: 9px 0; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_block_title { padding: 12px 16px !important; background: #262a36 !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_grid { display: block !important; padding: 40px 16px 32px 40px !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_box { display: grid !important; grid-template-columns: 0 minmax(0, 1fr) !important; min-height: 52px !important; padding: 0 0 18px 14px !important; border-left: 1px solid #3a3f4e !important; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_left_pane { display: none; }
   `;
   return style;
 }
@@ -267,9 +290,9 @@ function settingsMobileViewport(): boolean {
     screen?: { width?: number };
     navigator?: { maxTouchPoints?: number };
   };
-  const widths = [runtime.visualViewport?.width, runtime.innerWidth, runtime.screen?.width]
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
-  if (widths.some((width) => width <= 1024)) return true;
+  const viewportWidth = [runtime.visualViewport?.width, runtime.innerWidth, document.documentElement?.clientWidth]
+    .find((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+  if (viewportWidth !== undefined) return viewportWidth <= 1024;
   return Boolean(runtime.navigator?.maxTouchPoints && runtime.screen?.width && runtime.screen.width <= 1024);
 }
 
@@ -278,10 +301,27 @@ function renderAppTab(app: SettingsApp, active: boolean, onSelect: () => void): 
   button.type = "button";
   button.className = active ? "o_settings_tab active" : "o_settings_tab";
   button.dataset.appId = app.id;
-  button.textContent = app.label;
+  button.setAttribute("style", settingsTabInlineStyle(active));
+  const icon = document.createElement("span");
+  icon.className = "o_settings_tab_icon";
+  icon.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.className = "o_settings_tab_label";
+  label.textContent = app.label;
+  button.append(icon, label);
   button.setAttribute("aria-pressed", active ? "true" : "false");
   button.addEventListener("click", onSelect);
   return button;
+}
+
+function settingsTabInlineStyle(active: boolean): string {
+  if (settingsMobileViewport()) {
+    const background = active ? "#875a7b" : "transparent";
+    return `display:flex !important;align-items:center !important;gap:10px !important;flex:0 0 auto !important;width:auto !important;min-height:40px !important;padding:0 16px !important;border:0 !important;background:${background} !important;color:#fff !important;text-align:left !important;font-weight:700 !important;`;
+  }
+  const background = active ? "#163b3f" : "transparent";
+  const borderLeft = active ? "#00a09d" : "transparent";
+  return `display:flex !important;align-items:center !important;gap:10px !important;width:100% !important;min-height:42px !important;padding:0 16px !important;border:0 !important;border-left:3px solid ${borderLeft} !important;background:${background} !important;color:#f4f5f7 !important;text-align:left !important;font-weight:700 !important;`;
 }
 
 function renderApp(
@@ -329,7 +369,7 @@ function renderBlock(
   if (block.title) {
     const title = document.createElement("h2");
     title.className = "o_settings_block_title";
-    title.setAttribute("style", "background:#262a36;color:#f4f5f7;");
+    title.setAttribute("style", "background:#434756;color:#f4f5f7;");
     title.textContent = block.title;
     section.append(title);
   }

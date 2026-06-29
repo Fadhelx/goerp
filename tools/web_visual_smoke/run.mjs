@@ -1398,17 +1398,18 @@ export const scenarios = [
         const apiKeyDurationField = form?.querySelector("input[data-field='api_key_duration'], output[data-field='api_key_duration'], .gorp-field-value[data-field='api_key_duration']");
         const apiKeyDuration = apiKeyDurationField?.value || apiKeyDurationField?.textContent?.trim() || "";
         const sheetStyle = sheet ? getComputedStyle(sheet) : null;
-        const readonlyControls = [...(form?.querySelectorAll("input.gorp-form-control.o_readonly_modifier[data-field='name'], input.gorp-form-control.o_readonly_modifier[data-field='privilege_id'], input.gorp-form-control.o_readonly_modifier[data-field='api_key_duration']") || [])].map((node) => {
+        const readonlyControls = [...(form?.querySelectorAll(".gorp-groups-readonly-value[data-field='privilege_id'], .gorp-groups-readonly-value[data-field='api_key_duration']") || [])].map((node) => {
           const style = getComputedStyle(node);
           const rect = node.getBoundingClientRect();
           return {
             field: node.dataset.field || "",
-            value: node.value || "",
+            value: node.textContent?.trim() || "",
             bg: style.backgroundColor,
             color: style.color,
             width: Math.round(rect.width || 0)
           };
         });
+        const boxedReadonlyControlCount = form?.querySelectorAll("input.gorp-form-control.o_readonly_modifier[data-field='name'], input.gorp-form-control.o_readonly_modifier[data-field='privilege_id'], input.gorp-form-control.o_readonly_modifier[data-field='api_key_duration']").length || 0;
 	        return {
           notebook_id: root?.dataset?.notebook || "",
           tab_labels: tabs.map((node) => node.textContent.trim()),
@@ -1425,9 +1426,10 @@ export const scenarios = [
 	          users_rows: [...(usersGrid?.querySelectorAll("tbody tr") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean)).filter((row) => row.length),
 	          users_add_line: usersGrid?.querySelector(".gorp-groups-users-add")?.textContent?.trim() || "",
 	          users_blank_rows: usersGrid?.querySelectorAll(".gorp-groups-users-blank-row")?.length || 0,
-	          labels,
-	          api_key_duration: apiKeyDuration,
-	          readonly_controls: readonlyControls,
+		          labels,
+		          api_key_duration: apiKeyDuration,
+		          readonly_controls: readonlyControls,
+		          boxed_readonly_control_count: boxedReadonlyControlCount,
 	          pager_value: pager?.querySelector(".o_pager_value")?.textContent?.trim() || "",
 	          pager_limit: pager?.querySelector(".o_pager_limit")?.textContent?.trim() || "",
 	          pager_previous_disabled: pager?.querySelector(".o_pager_previous")?.disabled === true,
@@ -1448,9 +1450,9 @@ export const scenarios = [
 	      if (!state.users_rows.some((row) => row[0] === "Administrator" && row[1] === "admin")) throw new Error(`Groups Users grid populated Administrator row missing: ${JSON.stringify(state)}`);
 	      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
 	      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
-	      if (!state.labels.includes("Group Name") || state.api_key_duration !== "0.00" || state.action_menu_count < 1 || state.pager_limit !== "13" || !state.pager_value || state.pager_previous_disabled || state.pager_next_disabled) throw new Error(`Groups form chrome invalid: ${JSON.stringify(state)}`);
-	      if (state.sheet_bg !== "rgb(38, 42, 54)" || state.sheet_color !== "rgb(228, 228, 228)") throw new Error(`Groups form sheet dark chrome invalid: ${JSON.stringify(state)}`);
-	      if (state.readonly_controls.length < 3 || state.readonly_controls.some((control) => !isDarkAdminControl(control.bg, control.color) || control.width < 160)) throw new Error(`Groups form readonly controls invalid: ${JSON.stringify(state)}`);
+		      if (state.labels.includes("Group Name") || !state.labels.includes("Privilege") || state.api_key_duration !== "0.00" || state.action_menu_count < 1 || state.pager_limit !== "13" || !state.pager_value || state.pager_previous_disabled || state.pager_next_disabled) throw new Error(`Groups form chrome invalid: ${JSON.stringify(state)}`);
+		      if (state.sheet_bg !== "rgb(40, 43, 54)" || state.sheet_color !== "rgb(228, 228, 228)") throw new Error(`Groups form sheet dark chrome invalid: ${JSON.stringify(state)}`);
+		      if (state.boxed_readonly_control_count !== 0 || state.readonly_controls.length < 2 || state.readonly_controls.some((control) => control.bg !== "rgba(0, 0, 0, 0)" || !isLightTextColor(control.color))) throw new Error(`Groups form readonly controls invalid: ${JSON.stringify(state)}`);
 	      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
@@ -3152,7 +3154,7 @@ export const scenarios = [
           generated_icon_count: cards.filter((card) => card.querySelector("img.o_module_icon[data-generated-icon='clean-room']")).length
         };
       })()`);
-      const expectedSections = ["Apps"];
+      const expectedSections = ["Apps", "Update Apps List", "Apply Scheduled Upgrades", "Import Module"];
       if (JSON.stringify(state.navbar_sections) !== JSON.stringify(expectedSections)) throw new Error(`Apps catalog navbar invalid: ${JSON.stringify(state)}`);
       const expectedSidebar = ["All", "Official Apps", "Industries", "All", "Sales", "Website", "Services"];
       if (
@@ -3163,7 +3165,7 @@ export const scenarios = [
         state.catalog_visible_count !== "77" ||
         !state.pager.includes("1-77") ||
 	        state.create_button_count !== 0 ||
-	        JSON.stringify(state.top_actions) !== JSON.stringify(["Update Apps List", "Apply Scheduled Upgrades", "Import Module"]) ||
+	        JSON.stringify(state.top_actions) !== JSON.stringify([]) ||
 	        state.sidebar_count !== 1 ||
 	        JSON.stringify(state.sidebar_labels.slice(0, expectedSidebar.length)) !== JSON.stringify(expectedSidebar) ||
 	        !state.sidebar_labels.includes("Technical") ||
@@ -3961,6 +3963,10 @@ function isDarkLauncherBackground(value) {
 
 function isDarkAdminControl(background, color) {
   return colorLuminance(background) < 120 && colorLuminance(color) > 180;
+}
+
+function isLightTextColor(color) {
+  return colorLuminance(color) > 180;
 }
 
 function colorLuminance(value) {
