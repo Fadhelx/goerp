@@ -71,6 +71,7 @@ test("scenario inventory covers requested web theme surfaces", () => {
     "default-date-filter-period-menu-desktop",
     "default-search-filter-click-desktop",
     "default-custom-filter-dialog-desktop",
+    "default-custom-group-dialog-desktop",
     "default-view-switch-desktop",
     "default-kanban-view-desktop",
     "default-kanban-load-more-desktop",

@@ -2536,7 +2536,8 @@ const serverActionCustomFilterWindow = renderWindowAction({
       state: { type: "selection", string: "state" },
       model_name: { type: "char", string: "model_name" },
       model_id: { type: "many2one", relation: "ir.model", string: "model_id" },
-      active: { type: "boolean", string: "active" }
+      active: { type: "boolean", string: "active" },
+      create_date: { type: "datetime", string: "Created On" }
     },
     relatedModels: {},
     views: {
@@ -2592,6 +2593,51 @@ assert.deepEqual(serverActionCustomFilterCalls[0].action.__search_facets.map((fa
 ]);
 assert.equal("__search_query" in serverActionCustomFilterCalls[0].action, false);
 assert.deepEqual(serverActionCustomFilterCalls[0].options, { additionalContext: {}, replaceLastAction: true });
+
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
+const customGroupDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-group-dialog"))[0];
+assert.equal(customGroupDialog.attributes.role, "dialog");
+const customGroupField = findAll(customGroupDialog, (node) => node.dataset?.customGroupField === "true")[0];
+const customGroupInterval = findAll(customGroupDialog, (node) => node.dataset?.customGroupInterval === "true")[0];
+assert.equal(customGroupField.value, "model_id");
+assert.equal(findAll(customGroupField, (node) => node.tag === "option").map((node) => node.textContent).includes("Model"), true);
+assert.equal(customGroupInterval.hidden, true);
+findAll(customGroupDialog, (node) => node.dataset?.customGroupApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-group-dialog")).length, 0);
+assert.deepEqual(serverActionCustomFilterCalls[1].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.interval,
+  facet.categoryLabel,
+  facet.valueLabels
+]), [
+  ["custom-group-model_id", "groupBy", "model_id", undefined, "Model", ["Model"]]
+]);
+assert.equal("__search_query" in serverActionCustomFilterCalls[1].action, false);
+assert.deepEqual(serverActionCustomFilterCalls[1].options, { additionalContext: {}, replaceLastAction: true });
+
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
+const dateCustomGroupDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-group-dialog"))[0];
+const dateCustomGroupField = findAll(dateCustomGroupDialog, (node) => node.dataset?.customGroupField === "true")[0];
+const dateCustomGroupInterval = findAll(dateCustomGroupDialog, (node) => node.dataset?.customGroupInterval === "true")[0];
+dateCustomGroupField.value = "create_date";
+dateCustomGroupField.dispatchEvent(new TestEvent("change"));
+assert.equal(dateCustomGroupInterval.hidden, false);
+dateCustomGroupInterval.value = "week";
+findAll(dateCustomGroupDialog, (node) => node.dataset?.customGroupApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[2].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.interval,
+  facet.categoryLabel,
+  facet.valueLabels
+]), [
+  ["custom-group-create_date-week", "groupBy", "create_date", "week", "Created On", ["Week"]]
+]);
 
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({

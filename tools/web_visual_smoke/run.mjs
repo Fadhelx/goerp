@@ -1734,6 +1734,42 @@ export const scenarios = [
     }
   },
   {
+    name: "default-custom-group-dialog-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, desktopViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_add_custom_group_menu");
+      const dialogState = await waitFor(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-custom-group-dialog.o_dialog");
+        const field = dialog?.querySelector("[data-custom-group-field='true']");
+        const interval = dialog?.querySelector("[data-custom-group-interval='true']");
+        const labels = field ? [...field.querySelectorAll("option")].map((option) => option.textContent.trim()).filter(Boolean) : [];
+        return dialog && field && interval ? { field: field.value, interval_hidden: interval.hidden, labels } : null;
+      })()`, "custom group dialog controls");
+      if (dialogState.field !== "model_id" || !dialogState.interval_hidden || !dialogState.labels.includes("Model")) {
+        throw new Error(`custom group dialog invalid: ${JSON.stringify(dialogState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-custom-group-apply='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "custom group applied action ready");
+      const appliedState = await waitFor(page, `(() => {
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id='custom-group-model_id']");
+        const grouped = document.querySelectorAll(".o_web_client .o_action_manager [data-group-key], .o_web_client .o_action_manager .gorp-group-row").length;
+        if (!facet) return null;
+        const label = facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "";
+        const values = [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
+        return { label, values, grouped };
+      })()`, "custom group facet");
+      if (appliedState.label !== "Group By" && appliedState.label !== "Model") {
+        throw new Error(`custom group facet label invalid: ${JSON.stringify(appliedState)}`);
+      }
+      if (!appliedState.values.includes("Model")) {
+        throw new Error(`custom group facet value invalid: ${JSON.stringify(appliedState)}`);
+      }
+      return { dialog_state: dialogState, applied_state: appliedState };
+    }
+  },
+  {
     name: "default-view-switch-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
