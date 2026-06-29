@@ -256,6 +256,7 @@ export function xml(strings: TemplateStringsArray, ...values: unknown[]): Templa
 }
 
 export function htmlEscape(value: unknown): string {
+  if (isMarkup(value)) return value.toString();
   return escapeText(String(value ?? ""));
 }
 
@@ -906,14 +907,38 @@ export interface Markup {
   toString(): string;
 }
 
-export function markup(value: string): Markup {
-  return {
-    __owlMarkup: true,
-    value,
-    toString() {
-      return value;
+class MarkupString implements Markup {
+  readonly __owlMarkup = true;
+  readonly value: string;
+
+  constructor(value = "") {
+    this.value = String(value);
+  }
+
+  toString(): string {
+    return this.value;
+  }
+
+  valueOf(): string {
+    return this.value;
+  }
+}
+
+export function markup(value?: string | TemplateStringsArray | Markup, ...values: unknown[]): Markup {
+  if (Array.isArray(value) && "raw" in value) {
+    let out = "";
+    for (let i = 0; i < value.length; i += 1) {
+      out += value[i];
+      if (i < values.length) out += htmlEscape(values[i]);
     }
-  };
+    return new MarkupString(out);
+  }
+  if (isMarkup(value)) return value;
+  return new MarkupString(value == null ? "" : String(value));
+}
+
+function isMarkup(value: unknown): value is Markup {
+  return Boolean(value && typeof value === "object" && (value as Markup).__owlMarkup === true && typeof (value as Markup).toString === "function");
 }
 
 function addLifecycleHook(name: string, callback: LifecycleCallback): void {
@@ -1004,7 +1029,13 @@ function makeCustomEvent(type: string, detail: unknown): CustomEvent {
 }
 
 function escapeText(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#x27;")
+    .replaceAll("`", "&#x60;");
 }
 
 function sameDeps(left: unknown[], right: unknown[]): boolean {

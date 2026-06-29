@@ -238,7 +238,7 @@ function settingsParityStyleElement(): HTMLElement {
     .gorp-settings-parity .app_settings_block { max-width: none !important; margin: 0 !important; color: #e4e4e4 !important; }
     .gorp-settings-parity .o_settings_app_title { display: none !important; }
     .gorp-settings-parity .o_settings_block { margin: 0 !important; border-top: 0 !important; }
-    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 12px 32px; background: #434756 !important; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }
+    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 12px 32px; background: #262a36 !important; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }
     .gorp-settings-parity .o_setting_grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 !important; padding: 32px 72px 34px !important; }
     .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) !important; gap: 12px !important; min-height: 56px !important; padding: 0 24px 10px 0 !important; color: #e4e4e4 !important; border-left: 1px solid #3a3f4e !important; border-top: 0 !important; }
     .gorp-settings-parity .o_setting_left_pane { display: flex; justify-content: center; padding-top: 2px; }
@@ -246,7 +246,7 @@ function settingsParityStyleElement(): HTMLElement {
     .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7; font-weight: 600; }
     .gorp-settings-parity .text-muted { color: #aeb4c2 !important; }
     .gorp-settings-parity .o_setting_buttons { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 8px; }
-    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #00d4c8 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 700; }
+    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #8ddad8 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 700; }
     .gorp-settings-parity .o_setting_action::before, .gorp-settings-parity .o_setting_link::before { content: "➜"; margin-right: 6px; }
     .gorp-settings-parity .o_setting_action:hover, .gorp-settings-parity .o_setting_action:focus-visible { color: #8ddad8 !important; text-decoration: underline; }
     .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59; color: #f4f5f7; border: 1px solid #5f6270; border-radius: 0; }

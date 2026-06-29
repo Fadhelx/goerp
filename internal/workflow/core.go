@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -1346,21 +1347,40 @@ func MatchDomain(row map[string]any, node domain.Node) (bool, error) {
 	case "":
 		return true, nil
 	case domain.Condition:
-		left := row[node.Field]
+		left := workflowValueForField(row, node.Field)
 		switch node.Operator {
 		case domain.Equal:
-			return reflect.DeepEqual(left, node.Value), nil
+			return workflowValuesEqual(left, node.Value), nil
 		case domain.NotEqual:
-			return !reflect.DeepEqual(left, node.Value), nil
+			return !workflowValuesEqual(left, node.Value), nil
+		case domain.OptionalEqual:
+			if !workflowTruthy(node.Value) {
+				return true, nil
+			}
+			return workflowValuesEqual(left, node.Value), nil
 		case domain.In:
-			return containsAny(node.Value, left)
+			return workflowValueIn(left, node.Value)
 		case domain.NotIn:
-			ok, err := containsAny(node.Value, left)
+			ok, err := workflowValueIn(left, node.Value)
 			return !ok, err
 		case domain.Less, domain.LessEqual, domain.Greater, domain.GreaterEqual:
 			return compare(left, node.Value, node.Operator)
-		case domain.Like, domain.ILike:
-			return like(fmt.Sprint(left), fmt.Sprint(node.Value), node.Operator == domain.ILike), nil
+		case domain.Like:
+			return workflowContainsMatch(left, node.Value, false, false), nil
+		case domain.NotLike:
+			return !workflowContainsMatch(left, node.Value, false, false), nil
+		case domain.ILike:
+			return workflowContainsMatch(left, node.Value, true, false), nil
+		case domain.NotILike:
+			return !workflowContainsMatch(left, node.Value, true, false), nil
+		case domain.EqualLike:
+			return workflowContainsMatch(left, node.Value, false, true), nil
+		case domain.NotEqualLike:
+			return !workflowContainsMatch(left, node.Value, false, true), nil
+		case domain.EqualILike:
+			return workflowContainsMatch(left, node.Value, true, true), nil
+		case domain.NotEqualILike:
+			return !workflowContainsMatch(left, node.Value, true, true), nil
 		default:
 			return false, fmt.Errorf("workflow domain operator %s not implemented", node.Operator)
 		}
@@ -1445,29 +1465,134 @@ func number(value any) (float64, bool) {
 	}
 }
 
-func containsAny(container any, value any) (bool, error) {
-	if container == nil {
-		return false, fmt.Errorf("in operator requires slice value")
+func workflowValueForField(row map[string]any, fieldName string) any {
+	current := any(row)
+	for _, part := range strings.Split(fieldName, ".") {
+		values, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = values[part]
 	}
-	rv := reflect.ValueOf(container)
-	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
-		return false, fmt.Errorf("in operator requires slice value")
+	return current
+}
+
+func workflowValuesEqual(left any, right any) bool {
+	left = domain.NormalizeScalar(left)
+	right = domain.NormalizeScalar(right)
+	if left == nil || right == nil {
+		return !workflowTruthy(left) && !workflowTruthy(right)
 	}
-	for i := 0; i < rv.Len(); i++ {
-		if reflect.DeepEqual(rv.Index(i).Interface(), value) {
+	leftType := reflect.TypeOf(left)
+	rightType := reflect.TypeOf(right)
+	if leftType != nil && rightType != nil && leftType.Comparable() && rightType.Comparable() {
+		return left == right
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+func workflowValueIn(left any, right any) (bool, error) {
+	values, err := workflowCollectionValues(right)
+	if err != nil {
+		if !workflowTruthy(right) {
+			return !workflowTruthy(left), nil
+		}
+		values = []any{right}
+	}
+	leftValues, err := workflowCollectionValues(left)
+	if err == nil {
+		if len(leftValues) == 0 {
+			for _, value := range values {
+				if !workflowTruthy(value) {
+					return true, nil
+				}
+			}
+			return false, nil
+		}
+		for _, leftValue := range leftValues {
+			for _, value := range values {
+				if workflowValuesEqual(leftValue, value) {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+	for _, value := range values {
+		if workflowValuesEqual(left, value) {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func like(left string, pattern string, insensitive bool) bool {
-	if insensitive {
-		left = strings.ToLower(left)
-		pattern = strings.ToLower(pattern)
+func workflowCollectionValues(value any) ([]any, error) {
+	if value == nil {
+		return nil, fmt.Errorf("in operator requires slice value")
 	}
-	pattern = strings.Trim(pattern, "%")
-	return strings.Contains(left, pattern)
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+		return nil, fmt.Errorf("in operator requires slice value")
+	}
+	values := make([]any, 0, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		values = append(values, rv.Index(i).Interface())
+	}
+	return values, nil
+}
+
+func workflowTruthy(value any) bool {
+	switch typed := domain.NormalizeScalar(value).(type) {
+	case nil:
+		return false
+	case bool:
+		return typed
+	case int64:
+		return typed != 0
+	case float64:
+		return typed != 0
+	case string:
+		return typed != ""
+	default:
+		rv := reflect.ValueOf(value)
+		switch rv.Kind() {
+		case reflect.Slice, reflect.Array, reflect.Map:
+			return rv.Len() > 0
+		default:
+			return true
+		}
+	}
+}
+
+func workflowContainsMatch(left any, right any, caseFold bool, pattern bool) bool {
+	leftText := fmt.Sprint(left)
+	rightText := fmt.Sprint(right)
+	if caseFold {
+		leftText = strings.ToLower(leftText)
+		rightText = strings.ToLower(rightText)
+	}
+	if pattern {
+		return workflowWildcardMatch(leftText, rightText)
+	}
+	return strings.Contains(leftText, rightText)
+}
+
+func workflowWildcardMatch(text string, pattern string) bool {
+	var builder strings.Builder
+	builder.WriteString("^")
+	for _, char := range pattern {
+		switch char {
+		case '%':
+			builder.WriteString(".*")
+		case '_':
+			builder.WriteString(".")
+		default:
+			builder.WriteString(regexp.QuoteMeta(string(char)))
+		}
+	}
+	builder.WriteString("$")
+	ok, _ := regexp.MatchString(builder.String(), text)
+	return ok
 }
 
 func hasAnyGroup(userGroups []int64, required []int64) bool {

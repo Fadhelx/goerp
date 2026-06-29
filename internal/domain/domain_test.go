@@ -49,6 +49,25 @@ func TestParseLegacyDomain(t *testing.T) {
 	}
 }
 
+func TestParseAnyOperators(t *testing.T) {
+	node, err := Parse([]any{
+		[]any{"line_ids", "any", []any{[]any{"state", "=", "done"}}},
+		[]any{"line_ids", "not any", []any{[]any{"state", "=", "cancel"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if node.Kind != All || len(node.Children) != 2 {
+		t.Fatalf("node = %#v", node)
+	}
+	if node.Children[0].Operator != AnyOf {
+		t.Fatalf("first operator = %s", node.Children[0].Operator)
+	}
+	if node.Children[1].Operator != NotAnyOf {
+		t.Fatalf("second operator = %s", node.Children[1].Operator)
+	}
+}
+
 func TestParseImplicitAndAndOptionalEqual(t *testing.T) {
 	node, err := Parse([]any{
 		[]any{"name", "=", "Admin"},

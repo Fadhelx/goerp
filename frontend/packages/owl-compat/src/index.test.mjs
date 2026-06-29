@@ -536,4 +536,12 @@ assert.equal(autoPatchTarget.children[0].innerHTML, "count:2");
 assert.notEqual(autoPatchTarget.children[0], firstAutoPatchEl);
 autoPatchComponent.unmount();
 
+assert.equal(markup().toString(), "");
 assert.equal(markup("<b>x</b>").toString(), "<b>x</b>");
+assert.equal(markup`<b>${"<x>"}</b>`.toString(), "<b>&lt;x&gt;</b>");
+assert.equal(markup`<b>${markup("<i>x</i>")}</b>`.toString(), "<b><i>x</i></b>");
+const markupConstructor = markup("").constructor;
+assert.equal(markup("<b>x</b>").constructor, markupConstructor);
+assert.notEqual({ toString: () => "" }.constructor, markupConstructor);
+assert.equal(htmlEscape(`&<>'"\``), "&amp;&lt;&gt;&#x27;&quot;&#x60;");
+assert.equal(htmlEscape(markup("<span>x</span>")), "<span>x</span>");

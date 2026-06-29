@@ -420,6 +420,11 @@ func evalDomainWithContext(modelName string, row map[string]any, user User, node
 			return !containsMatch(left, right, true, true), nil
 		case domain.ChildOf, domain.ParentOf:
 			return hierarchyValueMatch(row, modelName, node.Field, left, right, node.Operator, companies, hierarchies)
+		case domain.AnyOf:
+			return valueAny(modelName, node.Field, left, right, user, companies, hierarchies)
+		case domain.NotAnyOf:
+			ok, err := valueAny(modelName, node.Field, left, right, user, companies, hierarchies)
+			return !ok, err
 		default:
 			return false, fmt.Errorf("record rule operator %s not implemented", node.Operator)
 		}
@@ -1367,6 +1372,48 @@ func valueIn(left any, right any) (bool, error) {
 	}
 	for _, value := range values {
 		if valuesEqual(left, value) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func valueAny(modelName string, fieldName string, left any, right any, user User, companies map[int64]Company, hierarchies map[string]map[int64]int64) (bool, error) {
+	leftValues, err := collectionValues(left)
+	if err != nil {
+		return false, fmt.Errorf("record rule operator any requires row-resident collection for %s.%s", modelName, fieldName)
+	}
+	childDomain, err := domain.Parse(right)
+	if err != nil {
+		rightValues, rightErr := collectionValues(right)
+		if rightErr != nil {
+			return false, fmt.Errorf("record rule operator any requires nested domain or collection value for %s.%s", modelName, fieldName)
+		}
+		if len(rightValues) == 0 {
+			return len(leftValues) > 0, nil
+		}
+		for _, leftValue := range leftValues {
+			for _, rightValue := range rightValues {
+				if valuesEqual(leftValue, rightValue) {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+	if childDomain.Kind == domain.All && len(childDomain.Children) == 0 {
+		return len(leftValues) > 0, nil
+	}
+	for _, leftValue := range leftValues {
+		childRow, ok := leftValue.(map[string]any)
+		if !ok {
+			return false, fmt.Errorf("record rule operator any with nested domain requires row-resident child maps for %s.%s", modelName, fieldName)
+		}
+		ok, err := evalDomainWithContext("", childRow, user, childDomain, companies, hierarchies)
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			return true, nil
 		}
 	}

@@ -32,6 +32,42 @@ func (f eventMailer) SendWorkflowEmail(_ context.Context, request EmailRequest) 
 	return nil
 }
 
+func TestMatchDomainSupportsOdooBaseOperators(t *testing.T) {
+	row := map[string]any{
+		"name":    "Administrator",
+		"code":    "ADM-001",
+		"state":   "done",
+		"score":   int64(10),
+		"tag_ids": []int64{4, 7},
+		"partner": map[string]any{
+			"company_id": int64(2),
+		},
+	}
+	tests := []struct {
+		name string
+		node domain.Node
+	}{
+		{"optional false", domain.Cond("missing", domain.OptionalEqual, false)},
+		{"nested field", domain.Cond("partner.company_id", domain.Equal, 2)},
+		{"slice in", domain.Cond("tag_ids", domain.In, []int{7})},
+		{"not in", domain.Cond("state", domain.NotIn, []string{"draft", "cancel"})},
+		{"not like", domain.Cond("name", domain.NotLike, "Demo")},
+		{"not ilike", domain.Cond("name", domain.NotILike, "demo")},
+		{"equal like", domain.Cond("code", domain.EqualLike, "ADM-%")},
+		{"not equal like", domain.Cond("code", domain.NotEqualLike, "INV-%")},
+		{"equal ilike", domain.Cond("code", domain.EqualILike, "adm-___")},
+		{"not equal ilike", domain.Cond("code", domain.NotEqualILike, "inv-%")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, err := MatchDomain(row, tt.node)
+			if err != nil || !ok {
+				t.Fatalf("expected match, got %v %v", ok, err)
+			}
+		})
+	}
+}
+
 func TestWorkflowTransitionsAndAudit(t *testing.T) {
 	engine := NewEngine()
 	now := time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC)

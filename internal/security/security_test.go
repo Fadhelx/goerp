@@ -132,6 +132,47 @@ func TestRecordRules(t *testing.T) {
 	}
 }
 
+func TestAllowedByRecordRulesSupportsAnyAndNotAny(t *testing.T) {
+	engine := testEngine()
+	engine.Rules = []Rule{
+		{Model: "approval.request", Global: true, Active: true, PermRead: true, Domain: domain.Cond("line_ids", domain.AnyOf, domain.Cond("state", domain.Equal, "done"))},
+	}
+	ok, err := engine.AllowedByRecordRules(10, "approval.request", record.OpRead, map[string]any{
+		"line_ids": []map[string]any{{"state": "draft"}, {"state": "done"}},
+	})
+	if err != nil || !ok {
+		t.Fatalf("expected any rule allowed, got %v %v", ok, err)
+	}
+	ok, err = engine.AllowedByRecordRules(10, "approval.request", record.OpRead, map[string]any{
+		"line_ids": []map[string]any{{"state": "draft"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected any rule denied")
+	}
+
+	engine.Rules = []Rule{
+		{Model: "approval.request", Global: true, Active: true, PermRead: true, Domain: domain.Cond("line_ids", domain.NotAnyOf, domain.Cond("state", domain.Equal, "cancel"))},
+	}
+	ok, err = engine.AllowedByRecordRules(10, "approval.request", record.OpRead, map[string]any{
+		"line_ids": []map[string]any{{"state": "draft"}},
+	})
+	if err != nil || !ok {
+		t.Fatalf("expected not any rule allowed, got %v %v", ok, err)
+	}
+	ok, err = engine.AllowedByRecordRules(10, "approval.request", record.OpRead, map[string]any{
+		"line_ids": []map[string]any{{"state": "cancel"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected not any rule denied")
+	}
+}
+
 func TestRecordRulesUseCompanyHierarchyForChildAndParentOf(t *testing.T) {
 	engine := testEngine()
 	engine.Companies[3] = Company{ID: 3, Name: "Sub Branch", ParentID: 2, Active: true}
@@ -647,6 +688,25 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 	}
 }
 
+func TestParseDomainForceSupportsOdoo19AnyDomains(t *testing.T) {
+	tests := map[string]domain.Operator{
+		"[('line_ids', 'any', [('state', '=', 'done')])]":       domain.AnyOf,
+		"[('line_ids', 'not any', [('state', '=', 'cancel')])]": domain.NotAnyOf,
+	}
+	for text, want := range tests {
+		node, err := ParseDomainForce(text)
+		if err != nil {
+			t.Fatalf("parse %s: %v", text, err)
+		}
+		if node.Kind != domain.Condition {
+			t.Fatalf("parsed %s = %#v", text, node)
+		}
+		if node.Operator != want {
+			t.Fatalf("operator for %s = %s, want %s", text, node.Operator, want)
+		}
+	}
+}
+
 func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{1, 2}}
 	tests := []struct {
@@ -1088,6 +1148,42 @@ func TestEvalDomainSupportsOdooOperators(t *testing.T) {
 				t.Fatalf("expected match, got %v %v", ok, err)
 			}
 		})
+	}
+}
+
+func TestEvalDomainSupportsAnyAndNotAnyOnRowCollections(t *testing.T) {
+	row := map[string]any{
+		"line_ids": []map[string]any{
+			{"state": "draft", "amount": int64(50)},
+			{"state": "done", "amount": int64(100)},
+		},
+		"empty_ids": []map[string]any{},
+	}
+	tests := []struct {
+		name string
+		node domain.Node
+		want bool
+	}{
+		{"any nested domain", domain.Cond("line_ids", domain.AnyOf, domain.Cond("state", domain.Equal, "done")), true},
+		{"not any nested domain", domain.Cond("line_ids", domain.NotAnyOf, domain.Cond("state", domain.Equal, "cancel")), true},
+		{"any empty subdomain nonempty", domain.Cond("line_ids", domain.AnyOf, domain.And()), true},
+		{"any empty subdomain empty", domain.Cond("empty_ids", domain.AnyOf, domain.And()), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, err := EvalDomain(row, User{}, tt.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ok != tt.want {
+				t.Fatalf("EvalDomain = %v, want %v", ok, tt.want)
+			}
+		})
+	}
+
+	_, err := EvalDomain(map[string]any{"line_ids": int64(9)}, User{}, domain.Cond("line_ids", domain.AnyOf, domain.Cond("state", domain.Equal, "done")))
+	if err == nil || !strings.Contains(err.Error(), "row-resident collection") {
+		t.Fatalf("expected unsupported relational any error, got %v", err)
 	}
 }
 

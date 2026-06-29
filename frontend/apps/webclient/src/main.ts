@@ -1283,7 +1283,7 @@ function attachGeneralSettingsNavigation(
     button.className = "o_setting_action o_setting_link";
     button.dataset.settingsTarget = target.id;
     if (target.model) button.dataset.settingsTargetModel = target.model;
-    button.setAttribute("style", "color:#00d4c8 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:700;");
+    button.setAttribute("style", "color:#8ddad8 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:700;");
     button.textContent = settingsTargetButtonLabel(target);
     button.addEventListener("click", () => {
       void openSettingsNavigationTarget(env, menus, settingsApp, outlet, target).catch((error) => {
