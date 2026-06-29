@@ -220,6 +220,139 @@ const assignmentState = reactive({ child: null }, () => undefined);
 assignmentState.child = assignedChildProxy;
 assert.equal(toRaw(assignmentState.child), assignedChildRaw);
 
+const unsupportedDate = new Date("2026-06-29T00:00:00Z");
+assert.equal(reactive(unsupportedDate), unsupportedDate);
+
+let mapCalls = 0;
+const mapState = reactive(new Map([["observed", { count: 1 }]]), () => {
+  mapCalls += 1;
+});
+assert.equal(mapState.get("observed").count, 1);
+mapState.set("unread", { count: 1 });
+await nextTick();
+assert.equal(mapCalls, 0);
+mapState.get("observed").count = 2;
+await nextTick();
+assert.equal(mapCalls, 1);
+assert.equal(mapState.get("observed").count, 2);
+mapState.set("observed", { count: 3 });
+await nextTick();
+assert.equal(mapCalls, 2);
+assert.equal(mapState.get("observed").count, 3);
+
+let mapKeyCalls = 0;
+const keyTrackedMap = reactive(new Map([["a", 1]]), () => {
+  mapKeyCalls += 1;
+});
+assert.deepEqual([...keyTrackedMap.keys()], ["a"]);
+keyTrackedMap.set("b", 2);
+await nextTick();
+assert.equal(mapKeyCalls, 1);
+assert.deepEqual([...keyTrackedMap.entries()], [["a", 1], ["b", 2]]);
+keyTrackedMap.delete("b");
+await nextTick();
+assert.equal(mapKeyCalls, 2);
+assert.deepEqual([...keyTrackedMap.keys()], ["a"]);
+keyTrackedMap.clear();
+await nextTick();
+assert.equal(mapKeyCalls, 3);
+
+let mapExistingKeyCalls = 0;
+const existingKeyMap = reactive(new Map([["a", 1]]), () => {
+  mapExistingKeyCalls += 1;
+});
+assert.deepEqual([...existingKeyMap.keys()], ["a"]);
+existingKeyMap.set("a", 2);
+await nextTick();
+assert.equal(mapExistingKeyCalls, 1);
+
+let mapExistingValueCalls = 0;
+const existingValueMap = reactive(new Map([["a", 1]]), () => {
+  mapExistingValueCalls += 1;
+});
+assert.deepEqual([...existingValueMap.values()], [1]);
+existingValueMap.set("a", 2);
+await nextTick();
+assert.equal(mapExistingValueCalls, 1);
+
+let mapExistingEntryCalls = 0;
+const existingEntryMap = reactive(new Map([["a", 1]]), () => {
+  mapExistingEntryCalls += 1;
+});
+assert.deepEqual([...existingEntryMap.entries()], [["a", 1]]);
+existingEntryMap.set("a", 2);
+await nextTick();
+assert.equal(mapExistingEntryCalls, 1);
+
+let mapForEachCalls = 0;
+const forEachMap = reactive(new Map([["a", 1]]), () => {
+  mapForEachCalls += 1;
+});
+const forEachSeen = [];
+forEachMap.forEach((value, key, map) => {
+  forEachSeen.push([key, value, map === forEachMap]);
+});
+assert.deepEqual(forEachSeen, [["a", 1, true]]);
+forEachMap.set("a", 2);
+await nextTick();
+assert.equal(mapForEachCalls, 1);
+
+const rawMapKey = { id: 1 };
+const reactiveMapKey = reactive(rawMapKey);
+const objectKeyMap = reactive(new Map([[rawMapKey, "raw"]]));
+assert.equal(objectKeyMap.get(reactiveMapKey), "raw");
+assert.equal(objectKeyMap.set(reactiveMapKey, "updated"), objectKeyMap);
+assert.equal(toRaw(objectKeyMap).get(rawMapKey), "updated");
+
+let setCalls = 0;
+const setState = reactive(new Set(["observed"]), () => {
+  setCalls += 1;
+});
+assert.equal(setState.has("observed"), true);
+setState.add("unread");
+await nextTick();
+assert.equal(setCalls, 0);
+setState.delete("observed");
+await nextTick();
+assert.equal(setCalls, 1);
+
+let setKeyCalls = 0;
+const keyTrackedSet = reactive(new Set(["a"]), () => {
+  setKeyCalls += 1;
+});
+assert.deepEqual([...keyTrackedSet], ["a"]);
+assert.equal(keyTrackedSet.add("b"), keyTrackedSet);
+await nextTick();
+assert.equal(setKeyCalls, 1);
+assert.deepEqual([...keyTrackedSet.entries()], [["a", "a"], ["b", "b"]]);
+keyTrackedSet.clear();
+await nextTick();
+assert.equal(setKeyCalls, 2);
+
+const rawSetValue = { id: 2 };
+const reactiveSetValue = reactive(rawSetValue);
+const objectSet = reactive(new Set([rawSetValue]));
+assert.equal(objectSet.has(reactiveSetValue), true);
+objectSet.delete(reactiveSetValue);
+assert.equal(toRaw(objectSet).has(rawSetValue), false);
+
+let weakMapCalls = 0;
+const rawWeakKey = { id: 3 };
+const weakMapState = reactive(new WeakMap([[rawWeakKey, { count: 1 }]]), () => {
+  weakMapCalls += 1;
+});
+const reactiveWeakKey = reactive(rawWeakKey);
+assert.equal(weakMapState.has(reactiveWeakKey), true);
+assert.equal(weakMapState.get(reactiveWeakKey).count, 1);
+weakMapState.get(reactiveWeakKey).count = 2;
+await nextTick();
+assert.equal(weakMapCalls, 1);
+assert.equal(weakMapState.has(reactiveWeakKey), true);
+weakMapState.set(reactiveWeakKey, { count: 3 });
+await nextTick();
+assert.equal(weakMapCalls, 2);
+assert.equal(toRaw(weakMapState).get(rawWeakKey).count, 3);
+
 const events = [];
 const externalTarget = {
   added: false,
@@ -265,7 +398,7 @@ const component = await mount(RuntimeDemo, target, {
 });
 assert.equal(status(component), "mounted");
 assert.equal(target.children.length, 1);
-assert.deepEqual(events.slice(0, 4), ["willStart", "rendered", "effect", "mounted"]);
+assert.deepEqual(events.slice(0, 4), ["willStart", "rendered", "mounted", "effect"]);
 component.patch();
 assert.equal(events.includes("willPatch"), true);
 assert.equal(events.includes("patched"), true);
@@ -276,6 +409,31 @@ assert.equal(events.includes("willDestroy"), true);
 assert.equal(events.includes("effectCleanup"), true);
 assert.equal(externalTarget.added, true);
 assert.equal(externalTarget.removed, true);
+
+const effectEvents = [];
+class EffectDepsDemo extends Component {
+  static template = xml`<div>effect</div>`;
+
+  setup() {
+    this.state = useState({ value: "a" });
+    onMounted(() => effectEvents.push("mounted"));
+    onPatched(() => effectEvents.push("patched"));
+    useEffect((value) => {
+      effectEvents.push(`effect:${value}`);
+      return () => effectEvents.push(`cleanup:${value}`);
+    }, () => [this.state.value]);
+  }
+}
+
+const effectComponent = await mount(EffectDepsDemo, createElement());
+assert.deepEqual(effectEvents, ["mounted", "effect:a"]);
+effectComponent.patch();
+assert.deepEqual(effectEvents, ["mounted", "effect:a", "patched"]);
+effectComponent.state.value = "b";
+await nextTick();
+assert.deepEqual(effectEvents, ["mounted", "effect:a", "patched", "patched", "cleanup:a", "effect:b"]);
+effectComponent.unmount();
+assert.deepEqual(effectEvents, ["mounted", "effect:a", "patched", "patched", "cleanup:a", "effect:b", "cleanup:b"]);
 
 let protectedService;
 class ProtectedServiceDemo extends Component {

@@ -6,12 +6,13 @@ export type LifecycleCallback = () => void | Promise<void>;
 export type ErrorCallback = (error: unknown) => void;
 export type Cleanup = () => void;
 export type ServiceAsyncMetadata = true | readonly string[];
+type ReactiveKey = PropertyKey | object;
 
 let currentComponent: Component | null = null;
 const rawObjects = new WeakSet<object>();
 const rawToProxy = new WeakMap<object, WeakMap<() => void, object>>();
 const proxyToRaw = new WeakMap<object, object>();
-const targetToKeysToCallbacks = new WeakMap<object, Map<PropertyKey, Set<() => void>>>();
+const targetToKeysToCallbacks = new WeakMap<object, Map<ReactiveKey, Set<() => void>>>();
 const callbacksToTargets = new WeakMap<() => void, Set<object>>();
 export const KEYCHANGES = Symbol("KEYCHANGES");
 
@@ -334,12 +335,13 @@ export function useState<T extends object>(initial: T): T {
 }
 
 export function reactive<T extends object>(initial: T, callback: () => void = scheduleNoop): T {
-  if (rawObjects.has(initial)) return initial;
-  const proxyCache = rawToProxy.get(initial) ?? new WeakMap<() => void, object>();
-  rawToProxy.set(initial, proxyCache);
+  const target = toRaw(initial);
+  if (!canBeMadeReactive(target)) return target;
+  const proxyCache = rawToProxy.get(target) ?? new WeakMap<() => void, object>();
+  rawToProxy.set(target, proxyCache);
   const existing = proxyCache.get(callback);
   if (existing) return existing as T;
-  const proxy = new Proxy(initial, {
+  const proxy = collectionHandler(target, callback) ?? new Proxy(target, {
     get(target, key, receiver) {
       if (key === "__raw__") return target;
       subscribeReactive(target, key, callback);
@@ -380,8 +382,8 @@ export function reactive<T extends object>(initial: T, callback: () => void = sc
     }
   });
   proxyCache.set(callback, proxy);
-  proxyToRaw.set(proxy, initial);
-  return proxy;
+  proxyToRaw.set(proxy, target);
+  return proxy as T;
 }
 
 export function markRaw<T extends object>(value: T): T {
@@ -394,11 +396,303 @@ export function toRaw<T>(value: T): T {
 }
 
 function reactiveChild(value: unknown, callback: () => void): unknown {
-  if (typeof value !== "object" || value === null || rawObjects.has(value)) return value;
+  if (typeof value !== "object" || value === null || !canBeMadeReactive(value)) return value;
   return reactive(value as object, callback);
 }
 
-function subscribeReactive(target: object, key: PropertyKey, callback: () => void): void {
+function canBeMadeReactive<T extends object>(value: T): value is T {
+  if (rawObjects.has(value)) return false;
+  return ["Object", "Array", "Set", "Map", "WeakMap"].includes(rawType(value));
+}
+
+function rawType(value: object): string {
+  return Object.prototype.toString.call(value).slice(8, -1);
+}
+
+function collectionHandler(target: object, callback: () => void): object | null {
+  if (target instanceof Map) return reactiveMap(target, callback);
+  if (target instanceof Set) return reactiveSet(target, callback);
+  if (target instanceof WeakMap) return reactiveWeakMap(target, callback);
+  return null;
+}
+
+function reactiveMap<K, V>(target: Map<K, V>, callback: () => void): Map<K, V> {
+  let proxy: Map<K, V>;
+  proxy = new Proxy(target, {
+    get(mapTarget, key) {
+      if (key === "__raw__") return mapTarget;
+      if (key === "size") {
+        subscribeReactive(mapTarget, KEYCHANGES, callback);
+        return mapTarget.size;
+      }
+      if (key === "get") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          subscribeReactive(mapTarget, rawKey as ReactiveKey, callback);
+          return reactiveChild(mapTarget.get(rawKey), callback);
+        };
+      }
+      if (key === "has") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          subscribeReactive(mapTarget, rawKey as ReactiveKey, callback);
+          return mapTarget.has(rawKey);
+        };
+      }
+      if (key === "set") {
+        return (itemKey: K, itemValue: V) => {
+          const rawKey = toRaw(itemKey);
+          const rawValue = toRaw(itemValue);
+          const hadKey = mapTarget.has(rawKey);
+          const oldValue = mapTarget.get(rawKey);
+          mapTarget.set(rawKey, rawValue);
+          if (!hadKey) {
+            notifyReactive(mapTarget, rawKey as ReactiveKey);
+            notifyReactive(mapTarget, KEYCHANGES);
+          } else if (oldValue !== rawValue) {
+            notifyReactive(mapTarget, rawKey as ReactiveKey);
+          }
+          return proxy;
+        };
+      }
+      if (key === "delete") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          const hadKey = mapTarget.has(rawKey);
+          const deleted = mapTarget.delete(rawKey);
+          if (hadKey && deleted) {
+            notifyReactive(mapTarget, rawKey as ReactiveKey);
+            notifyReactive(mapTarget, KEYCHANGES);
+          }
+          return deleted;
+        };
+      }
+      if (key === "clear") {
+        return () => {
+          if (!mapTarget.size) return undefined;
+          mapTarget.clear();
+          notifyReactiveAll(mapTarget);
+          return undefined;
+        };
+      }
+      if (key === "keys") return () => reactiveMapKeyIterator(mapTarget, mapTarget.keys(), callback);
+      if (key === "values") return () => reactiveMapValueIterator(mapTarget, mapTarget.entries(), callback);
+      if (key === "entries" || key === Symbol.iterator) return () => reactiveMapEntryIterator(mapTarget, mapTarget.entries(), callback);
+      if (key === "forEach") {
+        return (fn: (value: V, key: K, map: Map<K, V>) => void, thisArg?: unknown) => {
+          subscribeReactive(mapTarget, KEYCHANGES, callback);
+          mapTarget.forEach((value, itemKey) => {
+            subscribeReactive(mapTarget, itemKey as ReactiveKey, callback);
+            fn.call(thisArg, reactiveChild(value, callback) as V, reactiveChild(itemKey, callback) as K, proxy);
+          });
+        };
+      }
+      const value = Reflect.get(mapTarget, key, mapTarget);
+      return typeof value === "function" ? value.bind(mapTarget) : value;
+    }
+  });
+  return proxy;
+}
+
+function reactiveSet<T>(target: Set<T>, callback: () => void): Set<T> {
+  let proxy: Set<T>;
+  proxy = new Proxy(target, {
+    get(setTarget, key) {
+      if (key === "__raw__") return setTarget;
+      if (key === "size") {
+        subscribeReactive(setTarget, KEYCHANGES, callback);
+        return setTarget.size;
+      }
+      if (key === "has") {
+        return (item: T) => {
+          const rawItem = toRaw(item);
+          subscribeReactive(setTarget, rawItem as ReactiveKey, callback);
+          return setTarget.has(rawItem);
+        };
+      }
+      if (key === "add") {
+        return (item: T) => {
+          const rawItem = toRaw(item);
+          const hadItem = setTarget.has(rawItem);
+          setTarget.add(rawItem);
+          if (!hadItem) {
+            notifyReactive(setTarget, rawItem as ReactiveKey);
+            notifyReactive(setTarget, KEYCHANGES);
+          }
+          return proxy;
+        };
+      }
+      if (key === "delete") {
+        return (item: T) => {
+          const rawItem = toRaw(item);
+          const hadItem = setTarget.has(rawItem);
+          const deleted = setTarget.delete(rawItem);
+          if (hadItem && deleted) {
+            notifyReactive(setTarget, rawItem as ReactiveKey);
+            notifyReactive(setTarget, KEYCHANGES);
+          }
+          return deleted;
+        };
+      }
+      if (key === "clear") {
+        return () => {
+          if (!setTarget.size) return undefined;
+          setTarget.clear();
+          notifyReactiveAll(setTarget);
+          return undefined;
+        };
+      }
+      if (key === "keys" || key === "values" || key === Symbol.iterator) return () => reactiveIterator(setTarget, setTarget.values(), callback);
+      if (key === "entries") return () => reactiveEntryIterator(setTarget, setTarget.entries(), callback);
+      if (key === "forEach") {
+        return (fn: (value: T, key: T, set: Set<T>) => void, thisArg?: unknown) => {
+          subscribeReactive(setTarget, KEYCHANGES, callback);
+          setTarget.forEach((value) => {
+            const reactiveValue = reactiveChild(value, callback) as T;
+            fn.call(thisArg, reactiveValue, reactiveValue, proxy);
+          });
+        };
+      }
+      const value = Reflect.get(setTarget, key, setTarget);
+      return typeof value === "function" ? value.bind(setTarget) : value;
+    }
+  });
+  return proxy;
+}
+
+function reactiveWeakMap<K extends object, V>(target: WeakMap<K, V>, callback: () => void): WeakMap<K, V> {
+  let proxy: WeakMap<K, V>;
+  proxy = new Proxy(target, {
+    get(mapTarget, key) {
+      if (key === "__raw__") return mapTarget;
+      if (key === "get") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          subscribeReactive(mapTarget, rawKey as ReactiveKey, callback);
+          return reactiveChild(mapTarget.get(rawKey), callback);
+        };
+      }
+      if (key === "has") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          subscribeReactive(mapTarget, rawKey as ReactiveKey, callback);
+          return mapTarget.has(rawKey);
+        };
+      }
+      if (key === "set") {
+        return (itemKey: K, itemValue: V) => {
+          const rawKey = toRaw(itemKey);
+          const rawValue = toRaw(itemValue);
+          const hadKey = mapTarget.has(rawKey);
+          const oldValue = mapTarget.get(rawKey);
+          mapTarget.set(rawKey, rawValue);
+          if (!hadKey || oldValue !== rawValue) notifyReactive(mapTarget, rawKey as ReactiveKey);
+          return proxy;
+        };
+      }
+      if (key === "delete") {
+        return (itemKey: K) => {
+          const rawKey = toRaw(itemKey);
+          const hadKey = mapTarget.has(rawKey);
+          const deleted = mapTarget.delete(rawKey);
+          if (hadKey && deleted) notifyReactive(mapTarget, rawKey as ReactiveKey);
+          return deleted;
+        };
+      }
+      const value = Reflect.get(mapTarget, key, mapTarget);
+      return typeof value === "function" ? value.bind(mapTarget) : value;
+    }
+  });
+  return proxy;
+}
+
+function reactiveIterator<T>(target: object, iterator: IterableIterator<T>, callback: () => void): IterableIterator<T> {
+  subscribeReactive(target, KEYCHANGES, callback);
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      const item = iterator.next();
+      return item.done ? item : { done: false, value: reactiveChild(item.value, callback) as T };
+    }
+  };
+}
+
+function reactiveMapKeyIterator<K>(target: Map<K, unknown>, iterator: IterableIterator<K>, callback: () => void): IterableIterator<K> {
+  subscribeReactive(target, KEYCHANGES, callback);
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      const item = iterator.next();
+      if (item.done) return item;
+      subscribeReactive(target, item.value as ReactiveKey, callback);
+      return { done: false, value: reactiveChild(item.value, callback) as K };
+    }
+  };
+}
+
+function reactiveMapValueIterator<K, V>(
+  target: Map<K, V>,
+  iterator: IterableIterator<[K, V]>,
+  callback: () => void
+): IterableIterator<V> {
+  subscribeReactive(target, KEYCHANGES, callback);
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      const item = iterator.next();
+      if (item.done) return item;
+      subscribeReactive(target, item.value[0] as ReactiveKey, callback);
+      return { done: false, value: reactiveChild(item.value[1], callback) as V };
+    }
+  };
+}
+
+function reactiveMapEntryIterator<K, V>(
+  target: Map<K, V>,
+  iterator: IterableIterator<[K, V]>,
+  callback: () => void
+): IterableIterator<[K, V]> {
+  subscribeReactive(target, KEYCHANGES, callback);
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      const item = iterator.next();
+      if (item.done) return item;
+      subscribeReactive(target, item.value[0] as ReactiveKey, callback);
+      return {
+        done: false,
+        value: [reactiveChild(item.value[0], callback) as K, reactiveChild(item.value[1], callback) as V]
+      };
+    }
+  };
+}
+
+function reactiveEntryIterator<K, V>(target: object, iterator: IterableIterator<[K, V]>, callback: () => void): IterableIterator<[K, V]> {
+  subscribeReactive(target, KEYCHANGES, callback);
+  return {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      const item = iterator.next();
+      if (item.done) return item;
+      return {
+        done: false,
+        value: [reactiveChild(item.value[0], callback) as K, reactiveChild(item.value[1], callback) as V]
+      };
+    }
+  };
+}
+
+function subscribeReactive(target: object, key: ReactiveKey, callback: () => void): void {
   if (callback === scheduleNoop) return;
   let keyMap = targetToKeysToCallbacks.get(target);
   if (!keyMap) {
@@ -419,10 +713,23 @@ function subscribeReactive(target: object, key: PropertyKey, callback: () => voi
   targets.add(target);
 }
 
-function notifyReactive(target: object, key: PropertyKey): void {
+function notifyReactive(target: object, key: ReactiveKey): void {
   const callbacks = targetToKeysToCallbacks.get(target)?.get(key);
   if (!callbacks?.size) return;
   for (const callback of Array.from(callbacks)) {
+    clearReactiveSubscriptions(callback);
+    queueMicrotask(callback);
+  }
+}
+
+function notifyReactiveAll(target: object): void {
+  const keyMap = targetToKeysToCallbacks.get(target);
+  if (!keyMap?.size) return;
+  const callbacks = new Set<() => void>();
+  for (const subscribers of keyMap.values()) {
+    for (const callback of subscribers) callbacks.add(callback);
+  }
+  for (const callback of callbacks) {
     clearReactiveSubscriptions(callback);
     queueMicrotask(callback);
   }
@@ -526,18 +833,20 @@ export function onError(callback: ErrorCallback): void {
   currentComponent.addErrorHandler(callback);
 }
 
-export function useEffect(effect: () => void | Cleanup, _deps?: () => unknown[]): void {
+export function useEffect(effect: (...deps: unknown[]) => void | Cleanup, _deps?: () => unknown[]): void {
   const component = currentComponent;
   let cleanup: Cleanup | null = null;
   let previousDeps: unknown[] | null = null;
-  addLifecycleHook("rendered", () => {
+  const runEffect = () => {
     const nextDeps = _deps?.() ?? null;
     if (previousDeps && nextDeps && sameDeps(previousDeps, nextDeps)) return;
     cleanup?.();
     previousDeps = nextDeps ? [...nextDeps] : null;
-    const nextCleanup = effect();
+    const nextCleanup = effect(...(nextDeps ?? []));
     cleanup = typeof nextCleanup === "function" ? nextCleanup : null;
-  });
+  };
+  addLifecycleHook("mounted", runEffect);
+  addLifecycleHook("patched", runEffect);
   component?.onWillUnmount(() => {
     cleanup?.();
     cleanup = null;
