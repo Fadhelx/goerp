@@ -16280,12 +16280,66 @@ function matchDomainCondition(record: Record<string, unknown>, condition: readon
       return matchLike(fieldValue, String(value ?? ""), op) !== not;
     case "any":
     case "not any":
+      return true;
     case "child_of":
     case "parent_of":
-      return true;
+      return matchHierarchicalDomain(record, String(field), fieldValue, value, op);
     default:
       throw new InvalidDomainError(`Unsupported domain operator: ${op}`);
   }
+}
+
+interface HierarchyDomainItem {
+  id: unknown;
+  parent?: HierarchyDomainItem;
+}
+
+function matchHierarchicalDomain(
+  record: Record<string, unknown>,
+  fieldName: string,
+  fieldValue: unknown,
+  value: unknown,
+  operator: "child_of" | "parent_of"
+): boolean {
+  const fieldItems = hierarchyDomainItems(fieldValue);
+  const candidates = fieldName === "id"
+    ? fieldItems.map((item) => item.parent ? item : { ...item, parent: hierarchyDomainItems(record.parent_id)[0] })
+    : fieldItems;
+  const targets = hierarchyDomainItems(value);
+  if (!candidates.length || !targets.length) return false;
+  if (operator === "child_of") {
+    return candidates.some((candidate) => targets.some((target) => hierarchyDomainItemDescendsFrom(candidate, target)));
+  }
+  return candidates.some((candidate) => targets.some((target) => hierarchyDomainItemDescendsFrom(target, candidate)));
+}
+
+function hierarchyDomainItemDescendsFrom(candidate: HierarchyDomainItem | undefined, target: HierarchyDomainItem): boolean {
+  for (let current = candidate; current; current = current.parent) {
+    if (pythonEquals(current.id, target.id)) return true;
+  }
+  return false;
+}
+
+function hierarchyDomainItems(value: unknown): HierarchyDomainItem[] {
+  if (value === false || value === null || value === undefined) return [];
+  if (isRecord(value)) {
+    const id = value.id ?? value.res_id;
+    if (id === false || id === null || id === undefined) return [];
+    const parent = hierarchyDomainItems(value.parent_id)[0];
+    return [{ id, ...(parent ? { parent } : {}) }];
+  }
+  if (Array.isArray(value)) {
+    if (value.length >= 2 && hierarchyDomainScalar(value[0]) && !Array.isArray(value[1]) && !isRecord(value[1])) {
+      return [{ id: value[0] }];
+    }
+    return value.flatMap(hierarchyDomainItems);
+  }
+  if (hierarchyDomainScalar(value)) return [{ id: value }];
+  return [];
+}
+
+function hierarchyDomainScalar(value: unknown): boolean {
+  return (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.trim() !== "");
 }
 
 function readDottedValue(record: unknown, path: string): unknown {
