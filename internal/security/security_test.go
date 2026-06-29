@@ -663,10 +663,21 @@ func TestPersistedSecurityLoadsACLsAndRules(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	countryCompanyID, err := env.Model("res.company").Create(map[string]any{
+		"name":       "Country Company",
+		"active":     true,
+		"country_id": int64(840),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	engine := testEngine()
 	if err := engine.LoadPersistedSecurity(env); err != nil {
 		t.Fatal(err)
+	}
+	if engine.Companies[countryCompanyID].CountryID != 840 {
+		t.Fatalf("loaded company country_id = %d, want 840", engine.Companies[countryCompanyID].CountryID)
 	}
 	if err := engine.Check(record.Context{UserID: 10}, "res.partner", record.OpRead, nil); err != nil {
 		t.Fatal(err)
@@ -708,6 +719,10 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"[('message_partner_ids', 'in', user.partner_id.ids)]",
 		"[('company_id', '=', user.company_id.id)]",
 		"[('company_id', 'in', user.company_id.ids)]",
+		"[('company_id', '=', user.env.company.id)]",
+		"[('company_id', 'in', user.env.companies.ids)]",
+		"[('country_id', 'in', user.env.companies.mapped('country_id').ids + [False])]",
+		"[('country_id', 'in', [False] + user.env.companies.mapped(\"country_id\").ids)]",
 		"[('group_id', 'in', user.all_group_ids.ids)]",
 		"[('employee_id', 'in', user.employee_ids.ids)]",
 	}
@@ -766,6 +781,8 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('message_partner_ids', 'in', user.partner_id.ids)]", map[string]any{"message_partner_ids": []int64{20, 99}}},
 		{"[('company_id', '=', user.company_id.id)]", map[string]any{"company_id": int64(1)}},
 		{"[('company_id', 'in', user.company_id.ids)]", map[string]any{"company_id": int64(1)}},
+		{"[('company_id', '=', user.env.company.id)]", map[string]any{"company_id": int64(1)}},
+		{"[('company_id', 'in', user.env.companies.ids)]", map[string]any{"company_id": int64(2)}},
 		{"[('group_id', 'in', user.all_group_ids.ids)]", map[string]any{"group_id": int64(7)}},
 	}
 	for _, tt := range tests {
@@ -777,6 +794,37 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		if err != nil || !ok {
 			t.Fatalf("eval %s = %v %v", tt.expr, ok, err)
 		}
+	}
+}
+
+func TestCompanyCountryDomainUsesActiveCompanies(t *testing.T) {
+	engine := NewEngine()
+	engine.Companies[1] = Company{ID: 1, Name: "Main", CountryID: 840, Active: true}
+	engine.Companies[2] = Company{ID: 2, Name: "Branch", CountryID: 48, Active: true}
+	engine.Companies[3] = Company{ID: 3, Name: "Other", CountryID: 999, Active: true}
+	engine.Users[10] = User{ID: 10, Active: true, CompanyID: 2, CompanyIDs: []int64{1}}
+	node, err := ParseDomainForce("[('country_id', 'in', user.env.companies.mapped('country_id').ids + [False])]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.Rules = []Rule{{Model: "x.record", Active: true, Global: true, PermRead: true, Domain: node}}
+
+	for _, row := range []map[string]any{
+		{"country_id": int64(48)},
+		{"country_id": int64(840)},
+		{"country_id": false},
+	} {
+		ok, err := engine.AllowedByRecordRules(10, "x.record", record.OpRead, row)
+		if err != nil || !ok {
+			t.Fatalf("expected row allowed: row=%+v ok=%v err=%v", row, ok, err)
+		}
+	}
+	ok, err := engine.AllowedByRecordRules(10, "x.record", record.OpRead, map[string]any{"country_id": int64(999)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected country outside active companies denied")
 	}
 }
 

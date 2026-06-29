@@ -50,10 +50,11 @@ type Group struct {
 }
 
 type Company struct {
-	ID       int64
-	Name     string
-	ParentID int64
-	Active   bool
+	ID        int64
+	Name      string
+	ParentID  int64
+	CountryID int64
+	Active    bool
 }
 
 type ACL struct {
@@ -390,7 +391,7 @@ func evalDomainWithContext(modelName string, row map[string]any, user User, node
 		return value, nil
 	case domain.Condition:
 		left := valueForField(row, node.Field)
-		right := resolveValue(user, node.Value)
+		right := resolveValue(user, node.Value, companies)
 		switch node.Operator {
 		case domain.Equal:
 			return valuesEqual(left, right), nil
@@ -517,7 +518,7 @@ func (e *Engine) LoadPersistedSecurity(env *record.Env) error {
 }
 
 func loadPersistedCompanies(env *record.Env) (map[int64]Company, error) {
-	rows, err := readExistingFields(env, "res.company", "name", "parent_id", "active")
+	rows, err := readExistingFields(env, "res.company", "name", "parent_id", "country_id", "active")
 	if err != nil {
 		return nil, err
 	}
@@ -532,10 +533,11 @@ func loadPersistedCompanies(env *record.Env) (map[int64]Company, error) {
 			active = true
 		}
 		out[id] = Company{
-			ID:       id,
-			Name:     stringValue(row["name"]),
-			ParentID: int64Value(row["parent_id"]),
-			Active:   active,
+			ID:        id,
+			Name:      stringValue(row["name"]),
+			ParentID:  int64Value(row["parent_id"]),
+			CountryID: int64Value(row["country_id"]),
+			Active:    active,
 		}
 	}
 	return out, nil
@@ -859,6 +861,7 @@ func ParseDomainForce(text string) (domain.Node, error) {
 	if err := json.Unmarshal([]byte(text), &value); err == nil {
 		return domain.Parse(value)
 	}
+	text = normalizeCompanyCountryIDs(text)
 	normalized := strings.NewReplacer(
 		"(", "[",
 		")", "]",
@@ -882,6 +885,22 @@ func normalizeCompanyIDsPlusFalse(text string) string {
 	}
 	for _, pattern := range patterns {
 		text = pattern.ReplaceAllString(text, `"company_ids_plus_false"`)
+	}
+	return text
+}
+
+func normalizeCompanyCountryIDs(text string) string {
+	mappedCountryIDs := `user\.env\.companies\.mapped\(\s*["']country_id["']\s*\)\.ids`
+	patterns := []struct {
+		pattern     *regexp.Regexp
+		replacement string
+	}{
+		{regexp.MustCompile(mappedCountryIDs + `\s*\+\s*\[\s*(?:False|false)\s*\]`), `"company_country_ids_plus_false"`},
+		{regexp.MustCompile(`\[\s*(?:False|false)\s*\]\s*\+\s*` + mappedCountryIDs), `"company_country_ids_plus_false"`},
+		{regexp.MustCompile(mappedCountryIDs), `"company_country_ids"`},
+	}
+	for _, pattern := range patterns {
+		text = pattern.pattern.ReplaceAllString(text, pattern.replacement)
 	}
 	return text
 }
@@ -1188,23 +1207,23 @@ func singletonIDSlice(id int64) []int64 {
 	return []int64{id}
 }
 
-func resolveValue(user User, value any) any {
+func resolveValue(user User, value any, companies map[int64]Company) any {
 	switch typed := value.(type) {
 	case []any:
 		out := make([]any, 0, len(typed))
 		for _, item := range typed {
-			out = append(out, resolveValue(user, item))
+			out = append(out, resolveValue(user, item, companies))
 		}
 		return out
 	}
 	switch value {
 	case "user.id":
 		return user.ID
-	case "user.company_id.id", "user.company_id":
+	case "user.company_id.id", "user.company_id", "user.env.company.id", "user.env.company":
 		return user.CompanyID
 	case "user.company_id.ids":
 		return singletonIDSlice(user.CompanyID)
-	case "user.company_ids", "user.company_ids.ids":
+	case "user.company_ids", "user.company_ids.ids", "user.env.companies", "user.env.companies.ids":
 		return userCompanyIDs(user)
 	case "user.ids":
 		return []int64{user.ID}
@@ -1238,9 +1257,35 @@ func resolveValue(user User, value any) any {
 			values = append(values, id)
 		}
 		return append(values, false)
+	case "company_country_ids":
+		return companyCountryIDs(user, companies)
+	case "company_country_ids_plus_false":
+		countryIDs := companyCountryIDs(user, companies)
+		values := make([]any, 0, len(countryIDs)+1)
+		for _, id := range countryIDs {
+			values = append(values, id)
+		}
+		return append(values, false)
 	default:
 		return value
 	}
+}
+
+func companyCountryIDs(user User, companies map[int64]Company) []int64 {
+	if len(companies) == 0 {
+		return nil
+	}
+	seen := map[int64]bool{}
+	out := []int64{}
+	for _, companyID := range userCompanyIDs(user) {
+		countryID := companies[companyID].CountryID
+		if countryID == 0 || seen[countryID] {
+			continue
+		}
+		seen[countryID] = true
+		out = append(out, countryID)
+	}
+	return out
 }
 
 func firstNonZeroInt64(values ...int64) int64 {
