@@ -1348,9 +1348,20 @@ export const scenarios = [
 	        const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
 	        const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
 	        const smartButtons = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-access-smart-button")].map((node) => node.textContent.trim()).filter(Boolean);
-	        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const apiKeyDurationField = form?.querySelector("input[data-field='api_key_duration'], output[data-field='api_key_duration'], .gorp-field-value[data-field='api_key_duration']");
         const apiKeyDuration = apiKeyDurationField?.value || apiKeyDurationField?.textContent?.trim() || "";
+        const readonlyControls = [...(form?.querySelectorAll("input.gorp-form-control.o_readonly_modifier[data-field='name'], input.gorp-form-control.o_readonly_modifier[data-field='privilege_id'], input.gorp-form-control.o_readonly_modifier[data-field='api_key_duration']") || [])].map((node) => {
+          const style = getComputedStyle(node);
+          const rect = node.getBoundingClientRect();
+          return {
+            field: node.dataset.field || "",
+            value: node.value || "",
+            bg: style.backgroundColor,
+            color: style.color,
+            width: Math.round(rect.width || 0)
+          };
+        });
 	        return {
           notebook_id: root?.dataset?.notebook || "",
           tab_labels: tabs.map((node) => node.textContent.trim()),
@@ -1367,6 +1378,7 @@ export const scenarios = [
 	          users_blank_rows: usersGrid?.querySelectorAll(".gorp-groups-users-blank-row")?.length || 0,
 	          labels,
 	          api_key_duration: apiKeyDuration,
+	          readonly_controls: readonlyControls,
 	          pager_value: pager?.querySelector(".o_pager_value")?.textContent?.trim() || "",
 	          pager_limit: pager?.querySelector(".o_pager_limit")?.textContent?.trim() || "",
 	          pager_previous_disabled: pager?.querySelector(".o_pager_previous")?.disabled === true,
@@ -1388,6 +1400,7 @@ export const scenarios = [
 	      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
 	      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
 	      if (!state.labels.includes("Group Name") || state.api_key_duration !== "0.00" || state.action_menu_count < 1 || state.pager_limit !== "13" || !state.pager_value || state.pager_previous_disabled || state.pager_next_disabled) throw new Error(`Groups form chrome invalid: ${JSON.stringify(state)}`);
+	      if (state.readonly_controls.length < 3 || state.readonly_controls.some((control) => control.bg !== "rgb(255, 255, 255)" || control.color !== "rgb(31, 41, 51)" || control.width < 160)) throw new Error(`Groups form readonly controls invalid: ${JSON.stringify(state)}`);
 	      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
@@ -3161,6 +3174,18 @@ export const scenarios = [
           activate_count: root?.querySelectorAll(".o_module_install_button").length || 0,
           activate_in_sheet_count: root?.querySelectorAll(".gorp-module-info-title .o_module_install_button").length || 0,
           activate_in_control_panel_count: root?.querySelectorAll(".gorp-module-info-control-panel .o_module_install_button").length || 0,
+          control_panel_rect: (() => {
+            const rect = root?.querySelector(".gorp-module-info-control-panel")?.getBoundingClientRect?.();
+            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+          })(),
+          breadcrumb_rect: (() => {
+            const rect = root?.querySelector(".gorp-module-info-control-panel .o_breadcrumb")?.getBoundingClientRect?.();
+            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+          })(),
+          pager_rect: (() => {
+            const rect = root?.querySelector(".gorp-module-info-control-panel .o_pager")?.getBoundingClientRect?.();
+            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+          })(),
           body_rect: (() => {
             const rect = moduleBody?.getBoundingClientRect?.();
             return { width: Math.round(rect?.width || 0), x: Math.round(rect?.x || 0) };
@@ -3181,7 +3206,7 @@ export const scenarios = [
           text: moduleBody?.textContent || ""
         };
       })()`);
-      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.activate_in_sheet_count !== 1 || state.activate_in_control_panel_count !== 0 || state.body_rect.width < 1200 || state.sheet_rect.width < 1180 || state.sheet_rect.x > 24 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || state.icon_rect.width !== 88 || state.icon_rect.height !== 88 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
+      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.activate_in_sheet_count !== 1 || state.activate_in_control_panel_count !== 0 || state.control_panel_rect.y < 44 || state.breadcrumb_rect.y < state.control_panel_rect.y || state.pager_rect.y < state.control_panel_rect.y || state.body_rect.width < 1200 || state.sheet_rect.width < 1180 || state.sheet_rect.x > 24 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || state.icon_rect.width !== 88 || state.icon_rect.height !== 88 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
         throw new Error(`Apps Module Info action form invalid: ${JSON.stringify(state)}`);
       }
       await clickExactText(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'] .gorp-form-notebook-tab", "Technical Data");
@@ -3338,7 +3363,16 @@ export const scenarios = [
 	          master_data_rows: groupWidget?.querySelectorAll(".gorp-res-user-access-master-data .gorp-res-user-group-privilege").length || 0,
 	          master_data_values: [...(groupWidget?.querySelectorAll(".gorp-res-user-access-master-data .gorp-res-user-group-privilege") || [])].map((row) => ({
 	            label: row.querySelector(".gorp-res-user-access-label")?.textContent?.replace("?", "").trim() || "",
-	            value: row.querySelector(".gorp-res-user-access-select")?.selectedOptions?.[0]?.textContent?.trim() || ""
+	            value: row.querySelector(".gorp-res-user-access-select")?.selectedOptions?.[0]?.textContent?.trim() || "",
+	            style: (() => {
+	              const select = row.querySelector(".gorp-res-user-access-select");
+	              const computed = select ? getComputedStyle(select) : null;
+	              return {
+	                bg: computed?.backgroundColor || "",
+	                color: computed?.color || "",
+	                width: Math.round(select?.getBoundingClientRect?.().width || 0)
+	              };
+	            })()
 	          })),
 	          extra_right_rows: groupWidget?.querySelectorAll(".gorp-res-user-access-extra-rights .gorp-res-user-group-option").length || 0,
 	          boxed_access_chrome: boxedAccessChrome,
@@ -3369,6 +3403,9 @@ export const scenarios = [
 	      const masterValues = new Map(formState.master_data_values.map((item) => [item.label, item.value]));
 	      if (masterValues.get("Contact") !== "Creation" || masterValues.get("Export") !== "Allowed") {
 	        throw new Error(`Users master data access values invalid: ${JSON.stringify(formState)}`);
+	      }
+	      if (formState.master_data_values.some((item) => item.style.bg !== "rgb(255, 255, 255)" || item.style.color !== "rgb(31, 41, 51)" || item.style.width < 320)) {
+	        throw new Error(`Users master data controls invalid: ${JSON.stringify(formState)}`);
 	      }
 	      if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
 	        throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);

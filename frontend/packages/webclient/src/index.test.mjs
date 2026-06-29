@@ -2773,6 +2773,12 @@ assert.deepEqual(roleAdministratorFallbackRows.map((row) => findAll(row, (node) 
 assert.equal(findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label") && node.textContent === "Group Name").length, 1);
 assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "api_key_duration" && node.value === "0.00").length, 1);
 assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "privilege_id" && node.attributes?.role === "combobox" && node.value === "Role").length, 1);
+for (const fieldName of ["name", "privilege_id", "api_key_duration"]) {
+  const control = findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === fieldName && String(node.className ?? "").includes("gorp-form-control"))[0];
+  assert.match(control.attributes.style, /background:#fff !important/);
+  assert.match(control.attributes.style, /color:#1f2933 !important/);
+  assert.match(control.attributes.style, /min-width:181px !important/);
+}
 
 const groupsListParityWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -4171,7 +4177,13 @@ assert.equal(referenceAppsCatalogWindow.dataset.view, "form");
 assert.equal(referenceAppsCatalogWindow.dataset.moduleInfoAction, "sale_management");
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-dialog-window-action")).length, 0);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_control_panel") && node.dataset?.model === "ir.module.module").length, 1);
-assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-control-panel"))[0].attributes.style, /height:56px !important/);
+const moduleInfoControlPanel = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-control-panel"))[0];
+assert.match(moduleInfoControlPanel.attributes.style, /height:56px !important/);
+assert.match(moduleInfoControlPanel.attributes.style, /position:relative !important/);
+assert.match(moduleInfoControlPanel.attributes.style, /flex-direction:row !important/);
+assert.match(moduleInfoControlPanel.attributes.style, /justify-content:space-between !important/);
+assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_navigation"))[0].attributes.style, /position:static !important/);
+assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("o_pager"))[0].attributes.style, /position:static !important/);
 assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-body"))[0].attributes.style, /max-width:none !important/);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_value")).map((node) => node.textContent)[0], "1");
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_limit")).map((node) => node.textContent)[0], "1");
@@ -6108,6 +6120,9 @@ const selects = findAll(groupField, (node) => node.tag === "select");
 assert.equal(selects.length, 2);
 const salesSelect = selects.find((node) => node.dataset.privilegeId === "100");
 assert.equal(salesSelect.value, "10");
+assert.match(salesSelect.attributes.style, /background:#fff !important/);
+assert.match(salesSelect.attributes.style, /color:#1f2933 !important/);
+assert.match(salesSelect.attributes.style, /width:360px !important/);
 assert.equal(findAll(salesSelect, (node) => node.tag === "option")[0].textContent, "No Sales");
 const managerOption = findAll(salesSelect, (node) => node.tag === "option").find((node) => node.dataset.groupId === "11");
 assert.equal(managerOption.textContent, "Manager");

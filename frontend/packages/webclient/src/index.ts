@@ -5685,29 +5685,32 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   const control = document.createElement("section");
   control.className = "o_control_panel gorp-module-info-control-panel";
   control.dataset.model = "ir.module.module";
-  control.setAttribute("style", "background:#262a36 !important;border-bottom:1px solid #3a3f4e !important;color:#f4f5f7 !important;height:56px !important;min-height:56px !important;max-height:56px !important;padding:0 16px !important;display:flex !important;align-items:center !important;gap:16px !important;overflow:visible !important;");
+  control.setAttribute("style", "position:relative !important;background:#262a36 !important;border-bottom:1px solid #3a3f4e !important;color:#f4f5f7 !important;height:56px !important;min-height:56px !important;max-height:56px !important;padding:0 16px !important;display:flex !important;flex-direction:row !important;align-items:center !important;justify-content:space-between !important;gap:16px !important;overflow:visible !important;");
   const top = document.createElement("div");
   top.className = "o_control_panel_navigation";
-  top.setAttribute("style", "display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;");
+  top.setAttribute("style", "position:static !important;inset:auto !important;transform:translateY(14px) !important;display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;height:34px !important;margin:0 !important;padding:0 !important;");
   const breadcrumb = document.createElement("ol");
   breadcrumb.className = "breadcrumb o_breadcrumb";
-  breadcrumb.setAttribute("style", "display:flex !important;align-items:center !important;gap:6px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;white-space:nowrap !important;");
+  breadcrumb.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:6px !important;height:34px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;white-space:nowrap !important;");
   const apps = document.createElement("li");
   apps.className = "breadcrumb-item";
+  apps.setAttribute("style", "position:static !important;display:flex !important;align-items:center !important;height:34px !important;margin:0 !important;padding:0 !important;");
   const appsButton = document.createElement("button");
   appsButton.type = "button";
   appsButton.className = "btn btn-link p-0 o_back_button";
   appsButton.dataset.moduleInfoBack = "apps";
+  appsButton.setAttribute("style", "position:static !important;height:26px !important;min-height:26px !important;margin:0 !important;padding:0 !important;border:0 !important;background:transparent !important;color:#f4f5f7 !important;line-height:26px !important;box-shadow:none !important;");
   appsButton.textContent = "Apps";
   apps.append(appsButton);
   const current = document.createElement("li");
   current.className = "breadcrumb-item active";
   current.setAttribute("aria-current", "page");
+  current.setAttribute("style", "position:static !important;display:flex !important;align-items:center !important;height:34px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;");
   current.textContent = item.displayName;
   breadcrumb.append(apps, current);
   const pager = document.createElement("div");
   pager.className = "o_pager";
-  pager.setAttribute("style", "display:flex !important;align-items:center !important;gap:4px !important;height:26px !important;color:#e4e4e4 !important;white-space:nowrap !important;");
+  pager.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:4px !important;height:34px !important;margin:0 !important;padding:0 !important;color:#e4e4e4 !important;white-space:nowrap !important;");
   const value = document.createElement("span");
   value.className = "o_pager_value";
   value.textContent = "1";
@@ -5721,21 +5724,24 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   previous.className = "o_pager_previous btn btn-secondary";
   previous.disabled = true;
   previous.setAttribute("aria-label", "Previous");
+  previous.setAttribute("style", "position:static !important;width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;margin:0 !important;padding:0 !important;display:grid !important;place-items:center !important;");
   previous.textContent = "Previous";
   const next = document.createElement("button");
   next.type = "button";
   next.className = "o_pager_next btn btn-secondary";
   next.disabled = true;
   next.setAttribute("aria-label", "Next");
+  next.setAttribute("style", "position:static !important;width:28px !important;height:28px !important;min-width:28px !important;min-height:28px !important;margin:0 !important;padding:0 !important;display:grid !important;place-items:center !important;");
   next.textContent = "Next";
   pager.append(value, sep, limit, previous, next);
   top.append(breadcrumb, pager);
   const bottom = document.createElement("div");
   bottom.className = "o_control_panel_main d-flex align-items-center justify-content-between";
-  bottom.setAttribute("style", "display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;min-height:26px !important;");
+  bottom.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;min-height:34px !important;margin:0 !important;padding:0 !important;");
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions";
-  actions.append(renderActionMenus({
+  actions.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;");
+  const menus = renderActionMenus({
     className: "gorp-form-action-menu",
     model: "ir.module.module",
     actionMenus: undefined,
@@ -5746,7 +5752,9 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
     requiresSelection: false,
     root: control,
     options: {}
-  }));
+  });
+  menus.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;");
+  actions.append(menus);
   actions.dataset.sourceAction = String(action.id ?? "");
   bottom.append(actions);
   control.append(top, bottom);
@@ -9286,6 +9294,7 @@ function renderReadonlyGroupFormControl(fieldName: string, value: unknown, value
   const input = document.createElement("input");
   input.className = "gorp-form-control o_input o_field_widget o_readonly_modifier";
   input.dataset.field = fieldName;
+  input.setAttribute("style", "width:181px !important;min-width:181px !important;max-width:181px !important;min-height:31px !important;background:#fff !important;color:#1f2933 !important;border:1px solid #d8dadd !important;border-radius:0 !important;padding:6px 8px !important;box-shadow:none !important;");
   input.readOnly = true;
   input.setAttribute("readonly", "readonly");
   if (fieldName === "privilege_id") {
@@ -12511,6 +12520,7 @@ function renderResUserPrivilegeRow(
   const select = document.createElement("select");
   select.className = "gorp-res-user-access-select o_input";
   select.dataset.privilegeId = String(privilege.id);
+  select.setAttribute("style", "width:360px !important;min-height:30px !important;background:#fff !important;color:#1f2933 !important;border:1px solid #d8dadd !important;border-radius:0 !important;padding:3px 24px 3px 0 !important;box-shadow:none !important;");
   const empty = document.createElement("option");
   empty.value = "";
   empty.textContent = privilege.placeholder;
