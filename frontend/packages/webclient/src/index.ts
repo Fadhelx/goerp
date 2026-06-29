@@ -16280,13 +16280,39 @@ function matchDomainCondition(record: Record<string, unknown>, condition: readon
       return matchLike(fieldValue, String(value ?? ""), op) !== not;
     case "any":
     case "not any":
-      return true;
+      return matchAnyDomain(fieldValue, value) !== not;
     case "child_of":
     case "parent_of":
       return matchHierarchicalDomain(record, String(field), fieldValue, value, op);
     default:
       throw new InvalidDomainError(`Unsupported domain operator: ${op}`);
   }
+}
+
+function matchAnyDomain(fieldValue: unknown, value: unknown): boolean {
+  const records = relationDomainRecords(fieldValue);
+  if (!records.length) return false;
+  const subdomain = relationSubdomain(value);
+  return records.some((record) => subdomain.contains(record));
+}
+
+function relationSubdomain(value: unknown): Domain {
+  if (value instanceof Domain) return value;
+  if (Array.isArray(value) || typeof value === "string") return new Domain(value as DomainRepr);
+  throw new InvalidDomainError(`Invalid any subdomain: ${String(value)}`);
+}
+
+function relationDomainRecords(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  const out: Record<string, unknown>[] = [];
+  for (const item of value) {
+    if (isRecord(item)) {
+      out.push(item);
+    } else if (Array.isArray(item) && item.length >= 3 && typeof item[0] === "number" && isRecord(item[2])) {
+      out.push(item[2]);
+    }
+  }
+  return out;
 }
 
 interface HierarchyDomainItem {

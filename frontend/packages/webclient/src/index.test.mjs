@@ -649,6 +649,26 @@ assert.equal(new Domain([["partner_id", "child_of", [30]]]).contains({ partner_i
 assert.equal(new Domain([["partner_id", "child_of", [30]]]).contains({ partner_id: [31, "Child"] }), false);
 assert.equal(new Domain([["id", "parent_of", { id: 31, parent_id: { id: 30, parent_id: { id: 10 } } }]]).contains({ id: 30 }), true);
 assert.equal(new Domain([["id", "parent_of", { id: 31, parent_id: { id: 30 } }]]).contains({ id: 40 }), false);
+assert.equal(new Domain([["line_ids", "any", [["state", "=", "done"], ["amount", ">", 10]]]]).contains({
+  line_ids: [{ state: "draft", amount: 50 }, { state: "done", amount: 20 }]
+}), true);
+assert.equal(new Domain([["line_ids", "any", ["|", ["state", "=", "done"], ["amount", ">", 10]]]]).contains({
+  line_ids: [{ state: "draft", amount: 11 }]
+}), true);
+assert.equal(new Domain([["line_ids", "any", [["state", "=", "done"]]]]).contains({
+  line_ids: [[1, 10, { state: "done" }]]
+}), true);
+assert.equal(new Domain([["line_ids", "any", [["state", "=", "done"]]]]).contains({
+  line_ids: [{ state: "draft" }]
+}), false);
+assert.equal(new Domain([["line_ids", "not any", [["state", "=", "done"]]]]).contains({
+  line_ids: [{ state: "draft" }]
+}), true);
+assert.equal(new Domain([["line_ids", "not any", [["state", "=", "done"]]]]).contains({
+  line_ids: [{ state: "done" }]
+}), false);
+assert.equal(new Domain([["line_ids", "not any", []]]).contains({ line_ids: [] }), true);
+assert.equal(new Domain([["line_ids", "any", []]]).contains({ line_ids: [] }), false);
 assert.throws(() => new Domain(["|", ["name", "=", "x"]]), InvalidDomainError);
 assert.equal(PyDate.create(2026, 6, 17).strftime("%Y-%m-%d"), "2026-06-17");
 assert.equal(PyDateTime.create(2026, 6, 17, 13, 4, 5).strftime("%Y-%m-%d %H:%M:%S"), "2026-06-17 13:04:05");
