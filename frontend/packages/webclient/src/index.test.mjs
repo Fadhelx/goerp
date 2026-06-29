@@ -647,8 +647,22 @@ assert.equal(new Domain([["id", "child_of", [30]]]).contains({ id: 31, parent_id
 assert.equal(new Domain([["id", "child_of", [30]]]).contains({ id: 31, parent_id: { id: 20 } }), false);
 assert.equal(new Domain([["partner_id", "child_of", [30]]]).contains({ partner_id: { id: 31, parent_id: [30, "Parent"] } }), true);
 assert.equal(new Domain([["partner_id", "child_of", [30]]]).contains({ partner_id: [31, "Child"] }), false);
+assert.equal(new Domain([["id", "not child_of", [30]]]).contains({ id: 31, parent_id: { id: 20 } }), true);
+assert.equal(new Domain([["id", "not child_of", [30]]]).contains({ id: 31, parent_id: { id: 30 } }), false);
 assert.equal(new Domain([["id", "parent_of", { id: 31, parent_id: { id: 30, parent_id: { id: 10 } } }]]).contains({ id: 30 }), true);
 assert.equal(new Domain([["id", "parent_of", { id: 31, parent_id: { id: 30 } }]]).contains({ id: 40 }), false);
+assert.equal(new Domain([["id", "not parent_of", { id: 31, parent_id: { id: 30 } }]]).contains({ id: 40 }), true);
+assert.equal(new Domain([["id", "not parent_of", { id: 31, parent_id: { id: 30 } }]]).contains({ id: 30 }), false);
+assert.equal(new Domain([["company_id", "=", 3]]).contains({ company_id: [3, "Main Company"] }), true);
+assert.equal(new Domain([["company_id", "!=", 3]]).contains({ company_id: [3, "Main Company"] }), false);
+assert.equal(new Domain([["company_id", "=", 3]]).contains({ company_id: { id: 3, display_name: "Main Company" } }), true);
+assert.equal(new Domain([["company_id", "in", [2, 3]]]).contains({ company_id: { id: 3, display_name: "Main Company" } }), true);
+assert.equal(new Domain([["company_id", "not in", [2, 3]]]).contains({ company_id: [3, "Main Company"] }), false);
+assert.equal(new Domain([["id", "in", [1, 2]]]).contains({ id: 2 }), true);
+assert.equal(new Domain([["tag_ids", "=", [7, 9]]]).contains({ tag_ids: [7, 8] }), false);
+assert.equal(new Domain([["tag_ids", "=", 7]]).contains({ tag_ids: [{ id: 7, name: "VIP" }, { id: 9, name: "New" }] }), true);
+assert.equal(new Domain([["tag_ids", "in", [8, 9]]]).contains({ tag_ids: [{ id: 7, name: "VIP" }, [9, "New"]] }), true);
+assert.equal(new Domain([["tag_ids", "!=", 7]]).contains({ tag_ids: [{ id: 7, name: "VIP" }] }), false);
 assert.equal(new Domain([["line_ids", "any", [["state", "=", "done"], ["amount", ">", 10]]]]).contains({
   line_ids: [{ state: "draft", amount: 50 }, { state: "done", amount: 20 }]
 }), true);

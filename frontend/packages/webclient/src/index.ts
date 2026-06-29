@@ -16248,13 +16248,13 @@ function matchDomainCondition(record: Record<string, unknown>, condition: readon
   switch (op) {
     case "=?":
       if (value === false || value === null) return true;
-      return pythonEquals(fieldValue, value);
+      return domainValuesEqual(fieldValue, value);
     case "=":
     case "==":
-      return pythonEquals(fieldValue, value);
+      return domainValuesEqual(fieldValue, value);
     case "!=":
     case "<>":
-      return !pythonEquals(fieldValue, value);
+      return !domainValuesEqual(fieldValue, value);
     case "<":
       return pythonNumber(fieldValue) < pythonNumber(value);
     case "<=":
@@ -16265,9 +16265,7 @@ function matchDomainCondition(record: Record<string, unknown>, condition: readon
       return pythonNumber(fieldValue) >= pythonNumber(value);
     case "in":
     case "not in": {
-      const values = Array.isArray(value) ? value : [value];
-      const fieldValues = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
-      return fieldValues.some((item) => values.some((candidate) => pythonEquals(item, candidate))) !== not;
+      return domainValueIn(fieldValue, value) !== not;
     }
     case "like":
     case "not like":
@@ -16282,11 +16280,50 @@ function matchDomainCondition(record: Record<string, unknown>, condition: readon
     case "not any":
       return matchAnyDomain(fieldValue, value) !== not;
     case "child_of":
+    case "not child_of":
     case "parent_of":
-      return matchHierarchicalDomain(record, String(field), fieldValue, value, op);
+    case "not parent_of": {
+      const hierarchyOperator = op.endsWith("child_of") ? "child_of" : "parent_of";
+      return matchHierarchicalDomain(record, String(field), fieldValue, value, hierarchyOperator) !== not;
+    }
     default:
       throw new InvalidDomainError(`Unsupported domain operator: ${op}`);
   }
+}
+
+function domainValuesEqual(left: unknown, right: unknown): boolean {
+  if (pythonEquals(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right) && !isMany2OneTuple(left) && !isMany2OneTuple(right)) return false;
+  const leftCandidates = domainComparisonCandidates(left);
+  const rightCandidates = domainComparisonCandidates(right);
+  return leftCandidates.some((leftValue) => rightCandidates.some((rightValue) => pythonEquals(leftValue, rightValue)));
+}
+
+function domainValueIn(fieldValue: unknown, value: unknown): boolean {
+  const values = Array.isArray(value) && !isMany2OneTuple(value) ? value : [value];
+  const candidates = values.flatMap(domainComparisonCandidates);
+  return domainComparisonCandidates(fieldValue).some((item) => candidates.some((candidate) => pythonEquals(item, candidate)));
+}
+
+function domainComparisonCandidates(value: unknown): unknown[] {
+  const out: unknown[] = [value];
+  const visit = (item: unknown): void => {
+    if (isMany2OneTuple(item)) {
+      out.push(item[0]);
+    } else if (isRecord(item) && item.id !== undefined && item.id !== null && item.id !== false) {
+      out.push(item.id);
+    } else if (Array.isArray(item)) {
+      for (const child of item) visit(child);
+    }
+  };
+  visit(value);
+  return out;
+}
+
+function isMany2OneTuple(value: unknown): value is readonly unknown[] {
+  if (!Array.isArray(value) || value.length < 2 || Array.isArray(value[0]) || isRecord(value[0])) return false;
+  const label = value[1];
+  return typeof label === "string" || label === false || label === null || label === undefined;
 }
 
 function matchAnyDomain(fieldValue: unknown, value: unknown): boolean {

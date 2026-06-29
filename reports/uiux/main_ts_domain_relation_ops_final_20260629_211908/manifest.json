@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-29T18:19:10.047Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-search-filter-click-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-filter-click-desktop.png",
+      "sha256": "c8cb5f92ff2539bdcccde37bc415e7b58c2f81915f896d1e3c2b165af06a0c7c",
+      "assertions": {
+        "facet_count": 1,
+        "selected_filter_count": 1,
+        "row_count": 7
+      },
+      "duration_ms": 708
+    }
+  ],
+  "duration_ms": 829
+}
