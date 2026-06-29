@@ -523,13 +523,13 @@
             <field name="name">ir.filters.list</field>
             <field name="model">ir.filters</field>
             <field name="type">list</field>
-            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="is_default"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
+            <field name="arch">&lt;list&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="user_id"/&gt;&lt;field name="user_ids"/&gt;&lt;field name="is_default"/&gt;&lt;field name="active"/&gt;&lt;/list&gt;</field>
         </record>
         <record id="view_ir_filters_form" model="ir.ui.view">
             <field name="name">ir.filters.form</field>
             <field name="model">ir.filters</field>
             <field name="type">form</field>
-            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="domain"/&gt;&lt;field name="context"/&gt;&lt;field name="sort"/&gt;&lt;field name="user_id"/&gt;&lt;field name="action_id"/&gt;&lt;field name="embedded_action_id"/&gt;&lt;field name="is_default"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
+            <field name="arch">&lt;form&gt;&lt;sheet&gt;&lt;group&gt;&lt;field name="name"/&gt;&lt;field name="model_id"/&gt;&lt;field name="domain"/&gt;&lt;field name="context"/&gt;&lt;field name="sort"/&gt;&lt;field name="user_id"/&gt;&lt;field name="user_ids"/&gt;&lt;field name="action_id"/&gt;&lt;field name="embedded_action_id"/&gt;&lt;field name="is_default"/&gt;&lt;field name="active"/&gt;&lt;/group&gt;&lt;/sheet&gt;&lt;/form&gt;</field>
         </record>
 
         <record id="view_res_lang_list" model="ir.ui.view">

@@ -23,6 +23,8 @@ var ErrAccessDenied = errors.New("access denied")
 
 const noAccessGroupID int64 = -1
 
+var bareDomainIdentifierRE = regexp.MustCompile(`\b(?:user(?:\.[A-Za-z_][A-Za-z0-9_]*)+|company_ids|company_id)\b`)
+
 type User struct {
 	ID                  int64
 	Login               string
@@ -247,6 +249,10 @@ func (e *Engine) CheckRecord(ctx record.Context, modelName string, op record.Ope
 func (e *Engine) AllowedByACL(userID int64, modelName string, op record.Operation) bool {
 	if userID == 1 {
 		return true
+	}
+	user, ok := e.Users[userID]
+	if !ok || !user.Active {
+		return false
 	}
 	groups := e.EffectiveGroupIDs(userID)
 	for _, acl := range e.ACLs {
@@ -881,12 +887,6 @@ func normalizeCompanyIDsPlusFalse(text string) string {
 }
 
 func quoteBareDomainIdentifiers(text string) string {
-	replacer := strings.NewReplacer(
-		"user.commercial_partner_id.id", "\"user.commercial_partner_id.id\"",
-		"user.ids", "\"user.ids\"",
-		"user.id", "\"user.id\"",
-		"company_ids", "\"company_ids\"",
-	)
 	var out strings.Builder
 	for i := 0; i < len(text); {
 		if text[i] == '"' {
@@ -910,7 +910,7 @@ func quoteBareDomainIdentifiers(text string) string {
 		for j < len(text) && text[j] != '"' {
 			j++
 		}
-		out.WriteString(replacer.Replace(text[i:j]))
+		out.WriteString(bareDomainIdentifierRE.ReplaceAllString(text[i:j], `"$0"`))
 		i = j
 	}
 	return out.String()
@@ -1193,19 +1193,29 @@ func resolveValue(user User, value any) any {
 	switch value {
 	case "user.id":
 		return user.ID
-	case "user.company_id":
+	case "user.company_id.id", "user.company_id":
 		return user.CompanyID
-	case "user.company_ids":
+	case "user.company_ids", "user.company_ids.ids":
 		return user.CompanyIDs
 	case "user.ids":
 		return []int64{user.ID}
-	case "user.partner_id":
+	case "user.partner_id", "user.partner_id.id":
 		return user.PartnerID
 	case "user.commercial_partner_id.id":
 		if user.CommercialPartnerID != 0 {
 			return user.CommercialPartnerID
 		}
 		return user.PartnerID
+	case "user.commercial_partner_id.ids", "user.partner_id.commercial_partner_id.ids":
+		return []int64{firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID)}
+	case "user.partner_id.commercial_partner_id.id":
+		return firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID)
+	case "user.group_ids.ids", "user.all_group_ids.ids":
+		return user.GroupIDs
+	case "user.employee_id.id", "user.employee_id.parent_id.id":
+		return int64(0)
+	case "user.employee_ids.ids":
+		return []int64{}
 	case "company_id":
 		return user.CompanyID
 	case "company_ids":
@@ -1219,6 +1229,15 @@ func resolveValue(user User, value any) any {
 	default:
 		return value
 	}
+}
+
+func firstNonZeroInt64(values ...int64) int64 {
+	for _, value := range values {
+		if value != 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func firstNonNil(values ...any) any {

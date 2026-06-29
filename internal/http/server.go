@@ -5496,6 +5496,24 @@ const webClientShellHTML = `<!doctype html>
 		flex-wrap: wrap;
 		margin: 8px 0;
 	}
+	.gorp-chatter-tabs,
+	.gorp-chatter-composer-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+	}
+	.gorp-chatter-tab.active {
+		font-weight: 700;
+	}
+	.gorp-chatter-input {
+		width: 100%;
+		min-height: 72px;
+		resize: vertical;
+	}
+	.gorp-chatter-status {
+		min-height: 18px;
+	}
 	.o-mail-Thread {
 		display: grid;
 		gap: 10px;
@@ -10118,8 +10136,8 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--text);
 	}
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) .o_control_panel {
-		min-height: 56px;
-		padding: 8px 16px !important;
+		min-height: 62px;
+		padding: 9px 18px !important;
 	}
 	main.o_web_client[data-theme="enterprise-like"] .o-control-panel h2,
 	main.o_web_client[data-theme="enterprise-like"] .o_control_panel h2,
@@ -11742,7 +11760,7 @@ const webClientShellHTML = `<!doctype html>
 		color: var(--text);
 	}
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) {
-		background: #1b1d26 !important;
+		background: #1b1d27 !important;
 		color: #e4e4e4 !important;
 	}
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) > .o_action_manager {
@@ -11752,6 +11770,14 @@ const webClientShellHTML = `<!doctype html>
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) .o_control_panel,
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) .o-control-panel {
 		color: #e4e4e4 !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_searchview_input.o_input::placeholder {
+		color: #d7d9e0 !important;
+		opacity: 1 !important;
+	}
+	main.o_web_client[data-theme="enterprise-like"] .o_user_avatar {
+		background: #714b67 !important;
+		color: #ffffff !important;
 	}
 	main.o_web_client[data-theme="enterprise-like"]:not([data-view="apps"]) .gorp-window-action[data-model="res.config.settings"] > .o_control_panel {
 		padding: 8px 16px 16px !important;
@@ -23974,7 +24000,7 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 	if err != nil || len(found.IDs()) == 0 {
 		return []any{}
 	}
-	rows, err := env.Model("ir.filters").Browse(found.IDs()...).Read("id", "name", "model_id", "domain", "context", "sort", "user_id", "action_id", "embedded_action_id", "is_default", "active")
+	rows, err := env.Model("ir.filters").Browse(found.IDs()...).Read("id", "name", "model_id", "domain", "context", "sort", "user_id", "user_ids", "action_id", "embedded_action_id", "is_default", "active")
 	if err != nil {
 		return []any{}
 	}
@@ -23984,7 +24010,8 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 	out := make([]any, 0, len(rows))
 	for _, row := range rows {
 		filterUserID := int64Value(row["user_id"])
-		if filterUserID != 0 && filterUserID != userID {
+		filterSharedUserIDs := int64Slice(row["user_ids"])
+		if filterUserID != 0 && filterUserID != userID && !containsHTTPInt64(filterSharedUserIDs, userID) {
 			continue
 		}
 		filterActionID := int64Value(row["action_id"])
@@ -24003,6 +24030,7 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 			"context":            firstNonEmptyHTTPString(stringValue(row["context"]), "{}"),
 			"sort":               firstNonEmptyHTTPString(stringValue(row["sort"]), "[]"),
 			"user_id":            falseIfZero(filterUserID),
+			"user_ids":           filterSharedUserIDs,
 			"action_id":          falseIfZero(filterActionID),
 			"embedded_action_id": falseIfZero(filterEmbeddedActionID),
 			"is_default":         truthyHTTPValue(row["is_default"]),

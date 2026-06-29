@@ -22,6 +22,7 @@ import {
   onWillPatch,
   onWillStart,
   onWillUnmount,
+  onWillUpdateProps,
   probeOfficialOwlRuntime,
   reactive,
   status,
@@ -30,6 +31,7 @@ import {
   useEffect,
   useEnv,
   useExternalListener,
+  useRef,
   useService,
   useServiceProtectMethodHandling,
   useState,
@@ -42,6 +44,7 @@ import {
 
 function createElement() {
   return {
+    attributes: {},
     dataset: {},
     innerHTML: "",
     parentNode: null,
@@ -55,6 +58,13 @@ function createElement() {
       this.children = this.children.filter((candidate) => candidate !== child);
       child.parentNode = null;
       return child;
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+      if (name === "data-ref") this.dataset.ref = String(value);
+    },
+    getAttribute(name) {
+      return this.attributes[name] ?? null;
     }
   };
 }
@@ -510,6 +520,76 @@ bus.on("ready", (event) => {
 });
 bus.trigger("ready", { ok: true });
 assert.deepEqual(detail, { ok: true });
+
+let onceCount = 0;
+bus.addEventListener("once", () => {
+  onceCount += 1;
+}, { once: true });
+bus.trigger("once");
+bus.trigger("once");
+assert.equal(onceCount, 1);
+
+const controller = new AbortController();
+let signalCount = 0;
+bus.addEventListener("signal", () => {
+  signalCount += 1;
+}, { signal: controller.signal });
+controller.abort();
+bus.trigger("signal");
+assert.equal(signalCount, 0);
+
+let objectListenerCount = 0;
+const objectListener = {
+  handleEvent(event) {
+    if (event.detail?.ok) objectListenerCount += 1;
+  }
+};
+bus.addEventListener("object", objectListener);
+bus.trigger("object", { ok: true });
+bus.removeEventListener("object", objectListener);
+bus.trigger("object", { ok: true });
+assert.equal(objectListenerCount, 1);
+
+let updatePropsSeen = null;
+class UpdatePropsDemo extends Component {
+  setup() {
+    onWillUpdateProps((nextProps) => {
+      updatePropsSeen = nextProps;
+    });
+  }
+}
+
+const updatePropsDemo = new UpdatePropsDemo({ value: "before" });
+updatePropsDemo.render();
+await updatePropsDemo.updateProps({ value: "after" });
+assert.deepEqual(updatePropsSeen, { value: "after" });
+assert.equal(updatePropsDemo.props.value, "after");
+
+let liveRef = null;
+class RefDemo extends Component {
+  setup() {
+    liveRef = useRef("target");
+  }
+
+  render() {
+    const root = createElement();
+    const child = createElement();
+    child.setAttribute("data-ref", "target");
+    root.appendChild(child);
+    this.el = root;
+    return root;
+  }
+}
+
+const refTarget = createElement();
+const refDemo = await mount(RefDemo, refTarget);
+const firstRefElement = liveRef.el;
+assert.equal(firstRefElement?.dataset.ref, "target");
+refDemo.patch();
+assert.equal(liveRef.el?.dataset.ref, "target");
+assert.notEqual(liveRef.el, firstRefElement);
+refDemo.unmount();
+assert.equal(liveRef.el, null);
 
 class AutoPatchDemo extends Component {
   static template = xml`<div></div>`;

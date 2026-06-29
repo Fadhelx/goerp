@@ -242,14 +242,16 @@ function settingsParityStyleElement(): HTMLElement {
     .gorp-settings-parity .o_setting_grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 !important; padding: 32px 72px 34px !important; }
     .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) !important; gap: 12px !important; min-height: 56px !important; padding: 0 24px 10px 0 !important; color: #e4e4e4 !important; border-left: 1px solid #3a3f4e !important; border-top: 0 !important; }
     .gorp-settings-parity .o_setting_left_pane { display: flex; justify-content: center; padding-top: 2px; }
-    .gorp-settings-parity .o_setting_right_pane { min-width: 0; }
-    .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7; font-weight: 600; }
+    .gorp-settings-parity .o_setting_right_pane { min-width: 0; color: #e4e4e4 !important; }
+    .gorp-settings-parity .o_setting_field, .gorp-settings-parity .o_setting_field label { color: #e4e4e4 !important; }
+    .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7 !important; font-weight: 600; }
     .gorp-settings-parity .text-muted { color: #aeb4c2 !important; }
     .gorp-settings-parity .o_setting_buttons { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 8px; }
     .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #8ddad8 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 700; }
     .gorp-settings-parity .o_setting_action::before, .gorp-settings-parity .o_setting_link::before { content: "➜"; margin-right: 6px; }
     .gorp-settings-parity .o_setting_action:hover, .gorp-settings-parity .o_setting_action:focus-visible { color: #8ddad8 !important; text-decoration: underline; }
-    .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59; color: #f4f5f7; border: 1px solid #5f6270; border-radius: 0; }
+    .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59 !important; color: #f4f5f7 !important; border: 1px solid #5f6270 !important; border-radius: 0; }
+    .gorp-settings-parity input.o_input::placeholder, .gorp-settings-parity .o_settings_search::placeholder { color: #d7d9e0 !important; opacity: 1 !important; }
     .gorp-settings-parity .gorp-settings-many2one { position: relative; display: inline-flex; align-items: stretch; min-width: 180px; }
     .gorp-settings-parity .gorp-settings-many2one input { padding-right: 28px; width: 100%; }
     .gorp-settings-parity .gorp-settings-many2one-toggle { position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border: 0; border-left: 1px solid #5f6270; background: transparent; color: #c7c9d1; }

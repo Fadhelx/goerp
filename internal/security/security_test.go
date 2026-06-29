@@ -113,6 +113,17 @@ func TestACL(t *testing.T) {
 	}
 }
 
+func TestAllowedByACLDeniesInactiveUsers(t *testing.T) {
+	engine := testEngine()
+	engine.Users[10] = User{ID: 10, Login: "demo", Active: false, GroupIDs: []int64{1}}
+	if engine.AllowedByACL(10, "res.partner", record.OpRead) {
+		t.Fatal("inactive user allowed by ACL")
+	}
+	if err := engine.Check(record.Context{UserID: 10}, "res.partner", record.OpRead, nil); !errors.Is(err, ErrAccessDenied) {
+		t.Fatalf("inactive user check = %v", err)
+	}
+}
+
 func TestRecordRules(t *testing.T) {
 	engine := testEngine()
 	engine.Rules = []Rule{
@@ -680,6 +691,10 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"[('user_id', 'in', user.ids)]",
 		"[('commercial_partner_id', '=', user.commercial_partner_id.id)]",
 		"[('id', 'child_of', user.commercial_partner_id.id)]",
+		"[('partner_id', '=', user.partner_id.id)]",
+		"[('company_id', '=', user.company_id.id)]",
+		"[('group_id', 'in', user.all_group_ids.ids)]",
+		"[('employee_id', 'in', user.employee_ids.ids)]",
 	}
 	for _, text := range tests {
 		if _, err := ParseDomainForce(text); err != nil {
@@ -708,7 +723,7 @@ func TestParseDomainForceSupportsOdoo19AnyDomains(t *testing.T) {
 }
 
 func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
-	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{1, 2}}
+	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{1, 2}, GroupIDs: []int64{7, 8}}
 	tests := []struct {
 		expr string
 		row  map[string]any
@@ -725,6 +740,9 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('user_id', 'in', user.ids)]", map[string]any{"user_id": int64(10)}},
 		{"[('commercial_partner_id', '=', user.commercial_partner_id.id)]", map[string]any{"commercial_partner_id": int64(30)}},
 		{"[('id', 'child_of', user.commercial_partner_id.id)]", map[string]any{"id": int64(31), "commercial_partner_id": int64(30)}},
+		{"[('partner_id', '=', user.partner_id.id)]", map[string]any{"partner_id": int64(20)}},
+		{"[('company_id', '=', user.company_id.id)]", map[string]any{"company_id": int64(1)}},
+		{"[('group_id', 'in', user.all_group_ids.ids)]", map[string]any{"group_id": int64(7)}},
 	}
 	for _, tt := range tests {
 		node, err := ParseDomainForce(tt.expr)
@@ -1008,6 +1026,8 @@ func TestLoadedOdoo19BaseACLAndRecordRules(t *testing.T) {
 	assertRecordRule(t, engine, adminID, "res.partner", map[string]any{"id": otherPartnerID, "company_id": int64(999), "partner_share": true}, false)
 	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false}, true)
 	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": employeeUserID}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID, "user_ids": []int64{employeeUserID}}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID, "user_ids": []int64{portalUserID}}, false)
 	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID}, false)
 }
 

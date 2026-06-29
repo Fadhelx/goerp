@@ -2,11 +2,19 @@ export type Env = Record<string, unknown>;
 export type Props = Record<string, unknown>;
 export type Template = string;
 export type ComponentStatus = "new" | "mounted" | "destroyed" | "cancelled";
-export type LifecycleCallback = () => void | Promise<void>;
+export type LifecycleCallback = (...args: unknown[]) => void | Promise<void>;
 export type ErrorCallback = (error: unknown) => void;
 export type Cleanup = () => void;
 export type ServiceAsyncMetadata = true | readonly string[];
 type ReactiveKey = PropertyKey | object;
+type EventBusListener = ((event: CustomEvent) => void) | { handleEvent(event: CustomEvent): void };
+type EventBusOptions = AddEventListenerOptions | boolean;
+interface EventBusListenerEntry {
+  listener: EventBusListener;
+  once: boolean;
+  signal?: AbortSignal;
+  abortCleanup?: () => void;
+}
 
 let currentComponent: Component | null = null;
 const rawObjects = new WeakSet<object>();
@@ -118,8 +126,9 @@ export class Component<P extends Props = Props> {
     await this.runHooks("willStart");
   }
 
-  async updateProps(_nextProps: Partial<P>): Promise<void> {
-    await this.runHooks("willUpdateProps");
+  async updateProps(nextProps: Partial<P>): Promise<void> {
+    await this.runHooks("willUpdateProps", nextProps);
+    Object.assign(this.props, nextProps);
   }
 
   patch(): HTMLElement {
@@ -178,20 +187,20 @@ export class Component<P extends Props = Props> {
     this.setupDone = true;
   }
 
-  private async runHooks(name: string): Promise<void> {
+  private async runHooks(name: string, ...args: unknown[]): Promise<void> {
     for (const hook of this.hooks[name] ?? []) {
       try {
-        await hook();
+        await hook(...args);
       } catch (error) {
         this.handleError(error);
       }
     }
   }
 
-  private runSyncHooks(name: string): void {
+  private runSyncHooks(name: string, ...args: unknown[]): void {
     for (const hook of this.hooks[name] ?? []) {
       try {
-        void hook();
+        void hook(...args);
       } catch (error) {
         this.handleError(error);
       }
@@ -748,7 +757,14 @@ function clearReactiveSubscriptions(callback: () => void): void {
 }
 
 export function useRef<T = HTMLElement>(name: string): { name: string; el: T | null } {
-  return { name, el: null };
+  const component = currentComponent;
+  if (!component) return { name, el: null };
+  return {
+    name,
+    get el() {
+      return findRefElement(component.el, name) as T | null;
+    }
+  };
 }
 
 export function useComponent<C extends Component = Component>(): C {
@@ -873,30 +889,52 @@ export function status(component: Component): ComponentStatus {
 }
 
 export class EventBus {
-  private readonly listeners = new Map<string, Set<(event: CustomEvent) => void>>();
+  private readonly listeners = new Map<string, Set<EventBusListenerEntry>>();
 
-  addEventListener(type: string, listener: (event: CustomEvent) => void): void {
-    this.listeners.get(type)?.add(listener) ?? this.listeners.set(type, new Set([listener]));
+  addEventListener(type: string, listener: EventBusListener, options: EventBusOptions = false): void {
+    if (eventBusSignal(options)?.aborted) return;
+    const listeners = this.listeners.get(type) ?? new Set<EventBusListenerEntry>();
+    if (!this.listeners.has(type)) this.listeners.set(type, listeners);
+    if (findEventBusEntry(listeners, listener)) return;
+    const entry: EventBusListenerEntry = {
+      listener,
+      once: eventBusOnce(options),
+      signal: eventBusSignal(options)
+    };
+    if (entry.signal) {
+      const cleanup = () => this.removeEventListener(type, listener);
+      entry.abortCleanup = cleanup;
+      entry.signal.addEventListener("abort", cleanup, { once: true });
+    }
+    listeners.add(entry);
   }
 
-  removeEventListener(type: string, listener: (event: CustomEvent) => void): void {
-    this.listeners.get(type)?.delete(listener);
+  removeEventListener(type: string, listener: EventBusListener): void {
+    const listeners = this.listeners.get(type);
+    const entry = listeners ? findEventBusEntry(listeners, listener) : undefined;
+    if (!listeners || !entry) return;
+    listeners.delete(entry);
+    if (entry.signal && entry.abortCleanup) entry.signal.removeEventListener("abort", entry.abortCleanup);
+    if (!listeners.size) this.listeners.delete(type);
   }
 
   dispatchEvent(event: CustomEvent): boolean {
-    for (const listener of this.listeners.get(event.type) ?? []) listener(event);
-    return true;
+    for (const entry of Array.from(this.listeners.get(event.type) ?? [])) {
+      callEventBusListener(entry.listener, event);
+      if (entry.once) this.removeEventListener(event.type, entry.listener);
+    }
+    return !event.defaultPrevented;
   }
 
   trigger(type: string, detail?: unknown): void {
     this.dispatchEvent(makeCustomEvent(type, detail));
   }
 
-  on(type: string, listener: (event: CustomEvent) => void): void {
-    this.addEventListener(type, listener);
+  on(type: string, listener: EventBusListener, options: EventBusOptions = false): void {
+    this.addEventListener(type, listener, options);
   }
 
-  off(type: string, listener: (event: CustomEvent) => void): void {
+  off(type: string, listener: EventBusListener): void {
     this.removeEventListener(type, listener);
   }
 }
@@ -944,6 +982,42 @@ function isMarkup(value: unknown): value is Markup {
 function addLifecycleHook(name: string, callback: LifecycleCallback): void {
   if (!currentComponent) throw new Error(`${name} hook must be registered during setup`);
   currentComponent.addHook(name, callback);
+}
+
+function findRefElement<T extends HTMLElement = HTMLElement>(root: HTMLElement | null, name: string): T | null {
+  if (!root) return null;
+  if (elementHasRef(root, name)) return root as T;
+  const query = `[t-ref="${cssString(name)}"], [data-ref="${cssString(name)}"]`;
+  const found = typeof root.querySelector === "function" ? root.querySelector(query) : null;
+  if (found) return found as T;
+  return findRefElementInChildren(root, name) as T | null;
+}
+
+function findRefElementInChildren(root: unknown, name: string): HTMLElement | null {
+  const children = Array.from((root as { children?: Iterable<unknown> }).children ?? []);
+  for (const child of children) {
+    if (isHTMLElementLike(child) && elementHasRef(child, name)) return child;
+    const nested = findRefElementInChildren(child, name);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function elementHasRef(element: HTMLElement, name: string): boolean {
+  const dataset = (element as HTMLElement & { dataset?: Record<string, string> }).dataset;
+  if (dataset?.ref === name) return true;
+  if (typeof element.getAttribute === "function") {
+    return element.getAttribute("t-ref") === name || element.getAttribute("data-ref") === name;
+  }
+  return false;
+}
+
+function isHTMLElementLike(value: unknown): value is HTMLElement {
+  return typeof value === "object" && value !== null;
+}
+
+function cssString(value: string): string {
+  return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function withCurrent<T>(component: Component, callback: () => T): T {
@@ -1021,6 +1095,29 @@ function protectServiceMethod(component: Component, fn: (...args: unknown[]) => 
     withControls.cancel = original.cancel;
     return withControls;
   };
+}
+
+function findEventBusEntry(listeners: Set<EventBusListenerEntry>, listener: EventBusListener): EventBusListenerEntry | undefined {
+  for (const entry of listeners) {
+    if (entry.listener === listener) return entry;
+  }
+  return undefined;
+}
+
+function eventBusOnce(options: EventBusOptions): boolean {
+  return typeof options === "object" && options !== null && options.once === true;
+}
+
+function eventBusSignal(options: EventBusOptions): AbortSignal | undefined {
+  return typeof options === "object" && options !== null ? options.signal : undefined;
+}
+
+function callEventBusListener(listener: EventBusListener, event: CustomEvent): void {
+  if (typeof listener === "function") {
+    listener(event);
+    return;
+  }
+  listener.handleEvent(event);
 }
 
 function makeCustomEvent(type: string, detail: unknown): CustomEvent {

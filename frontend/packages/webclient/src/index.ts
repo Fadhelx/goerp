@@ -2288,9 +2288,14 @@ function applyUserPreferencesChrome(form: HTMLElement): void {
 function applyAdminFormChrome(form: HTMLElement): void {
   form.dataset.enterpriseDark = "true";
   const body = form.querySelector?.(".gorp-form-body.o_form_sheet_bg") as HTMLElement | null;
-  body?.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;"));
+  const serverActionForm = form.dataset.model === "ir.actions.server";
+  body?.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), serverActionForm
+    ? "background:#1b1d26 !important;color:#e4e4e4 !important;padding:0 !important;margin:0 !important;"
+    : "background:#1b1d26 !important;color:#e4e4e4 !important;"));
   const sheet = form.querySelector?.(".gorp-form-sheet.o_form_sheet") as HTMLElement | null;
-  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), serverActionForm
+    ? "width:100% !important;max-width:none !important;box-sizing:border-box !important;margin:0 !important;background:#282b36 !important;color:#e4e4e4 !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;"
+    : "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
   for (const group of Array.from(form.querySelectorAll?.(".gorp-form-fields.record-grid") ?? [])) {
     const element = group as HTMLElement;
     const columns = form.dataset.model === "res.groups" ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))";
@@ -2304,6 +2309,10 @@ function applyAdminFormChrome(form: HTMLElement): void {
     }
     if (element.dataset.field === "code") {
       element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "display:block !important;width:100% !important;max-width:none !important;margin:0 !important;background:#282b36 !important;color:#f4f5f7 !important;"));
+      continue;
+    }
+    if (form.dataset.model === "ir.actions.server" && element.dataset.field === "active") {
+      element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "min-height:34px !important;margin:0 !important;max-width:100% !important;background:transparent !important;"));
       continue;
     }
     const labelWidth = form.dataset.model === "res.groups" ? "166px" : "70px";
@@ -2347,7 +2356,7 @@ function applyAdminFormChrome(form: HTMLElement): void {
     (inner as HTMLElement).setAttribute("style", mergeInlineStyle((inner as HTMLElement).getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:0 !important;box-shadow:none !important;padding:0 !important;"));
   }
   for (const code of Array.from(form.querySelectorAll?.(".gorp-code-viewer, .gorp-code-editor") ?? [])) {
-    (code as HTMLElement).setAttribute("style", mergeInlineStyle((code as HTMLElement).getAttribute("style"), "display:block !important;width:100% !important;min-height:294px !important;background:#282b36 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+    (code as HTMLElement).setAttribute("style", mergeInlineStyle((code as HTMLElement).getAttribute("style"), "display:block !important;width:100% !important;min-height:42px !important;background:#282b36 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
   }
   const smartBar = form.querySelector?.(".gorp-access-smart-buttons") as HTMLElement | null;
   smartBar?.setAttribute("style", mergeInlineStyle(smartBar.getAttribute("style"), "display:flex !important;justify-content:center !important;gap:0 !important;min-height:42px !important;margin:0 !important;padding:0 16px 8px !important;background:#1b1d26 !important;color:#e4e4e4 !important;"));
@@ -3600,7 +3609,7 @@ function applyDarkListShellChrome(shell: HTMLElement, table: HTMLElement, model:
 }
 
 function applyDarkListHeaderChrome(cell: HTMLElement): void {
-  cell.setAttribute("style", mergeInlineStyle(cell.getAttribute("style"), "height:42px !important;background:#1b1d26 !important;color:#f4f5f7 !important;border-bottom:1px solid #3a3f4e !important;font-weight:700 !important;"));
+  cell.setAttribute("style", mergeInlineStyle(cell.getAttribute("style"), "height:42px !important;background:#1b1d27 !important;color:#f4f5f7 !important;border-bottom:1px solid #3a3f4e !important;font-weight:700 !important;"));
 }
 
 function applyDarkListHeaderButtonChrome(button: HTMLElement): void {
@@ -8444,11 +8453,15 @@ function renderFormView(
   }
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
-  if (usesDarkActionSurface(model, "form")) body.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#1b1d26 !important;color:#e4e4e4 !important;"));
+  if (usesDarkActionSurface(model, "form")) body.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), serverActionForm
+    ? "background:#1b1d26 !important;color:#e4e4e4 !important;padding:0 !important;margin:0 !important;"
+    : "background:#1b1d26 !important;color:#e4e4e4 !important;"));
   if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
-  if (usesDarkActionSurface(model, "form")) sheet.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  if (usesDarkActionSurface(model, "form")) sheet.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), serverActionForm
+    ? "width:100% !important;max-width:none !important;box-sizing:border-box !important;margin:0 !important;background:#282b36 !important;color:#e4e4e4 !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;"
+    : "background:#282b36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
   if (scheduledActionForm) sheet.append(renderScheduledActionRunButton(recordValues, form));
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
@@ -9328,6 +9341,10 @@ function renderReadonlyFieldValue(
   }
   if (displayModel === "ir.actions.server" && node.name === "model_id" && !many2OneDisplayData(value).displayName) {
     const fallback = humanReadableModelName(firstText(evalContext.model_name, evalContext.model) || "") || scheduledActionModelLabel(evalContext);
+    const fallbackID = numberRecordID(evalContext.model_id);
+    if (fallback && fallbackID !== undefined) {
+      return renderMany2OneLinkValue(node.name, "ir.model", { id: fallbackID, displayName: fallback }, form, options);
+    }
     if (fallback) {
       const output = document.createElement("output");
       output.className = "gorp-field-value o_field_widget o_readonly_modifier";
@@ -10542,23 +10559,94 @@ function renderChatterContainer(model: string, recordID: number | undefined, opt
   header.textContent = "Chatter";
   const composer = document.createElement("div");
   composer.className = "gorp-chatter-composer o-mail-Composer";
+  let composerMode: "message" | "note" = "message";
+  const tabRow = document.createElement("div");
+  tabRow.className = "gorp-chatter-tabs";
+  const modeButtons: HTMLButtonElement[] = [];
   for (const label of ["Send message", "Log note", "Activities"]) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "gorp-chatter-tab";
     button.dataset.chatterAction = label.toLowerCase().replace(/\s+/g, "-");
     button.textContent = label;
-    composer.append(button);
+    if (label === "Send message") button.className = "gorp-chatter-tab active";
+    button.addEventListener("click", () => {
+      if (label === "Activities") return;
+      composerMode = label === "Log note" ? "note" : "message";
+      for (const item of modeButtons) item.className = item === button ? "gorp-chatter-tab active" : "gorp-chatter-tab";
+    });
+    modeButtons.push(button);
+    tabRow.append(button);
   }
+  const textarea = document.createElement("textarea");
+  textarea.className = "gorp-chatter-input o-mail-Composer-input o_input";
+  textarea.placeholder = "Write a message...";
+  textarea.rows = 3;
+  const composerActions = document.createElement("div");
+  composerActions.className = "gorp-chatter-composer-actions";
+  const submit = document.createElement("button");
+  submit.type = "button";
+  submit.className = "gorp-chatter-submit btn btn-primary";
+  submit.textContent = "Send";
+  const status = document.createElement("span");
+  status.className = "gorp-chatter-status text-muted";
+  status.setAttribute("aria-live", "polite");
   const thread = document.createElement("div");
   thread.className = "gorp-chatter-thread o-mail-Thread";
   thread.dataset.chatterThread = "true";
+  const updateSubmitState = () => {
+    submit.disabled = recordID === undefined || !options.services?.mail || textarea.value.trim() === "";
+  };
+  textarea.addEventListener("input", updateSubmitState);
+  submit.addEventListener("click", () => {
+    void submitChatterComposer({ chatter, thread, textarea, submit, status, mode: composerMode, model, recordID, options });
+  });
+  updateSubmitState();
+  composerActions.append(submit, status);
+  composer.append(tabRow, textarea, composerActions);
   chatter.append(header, composer, thread);
   if (recordID !== undefined && options.services?.mail) {
     thread.textContent = "Loading...";
     void loadChatterThread(thread, model, recordID, options);
   }
   return chatter;
+}
+
+async function submitChatterComposer(args: {
+  chatter: HTMLElement;
+  thread: HTMLElement;
+  textarea: HTMLTextAreaElement;
+  submit: HTMLButtonElement;
+  status: HTMLElement;
+  mode: "message" | "note";
+  model: string;
+  recordID: number | undefined;
+  options: RenderWindowActionOptions;
+}): Promise<void> {
+  const body = args.textarea.value.trim();
+  if (!body || args.recordID === undefined || !args.options.services?.mail) return;
+  args.submit.disabled = true;
+  args.status.textContent = "Posting...";
+  try {
+    const payload = await args.options.services.mail.postMessage(
+      { thread_model: args.model, thread_id: args.recordID },
+      {
+        body,
+        body_is_html: false,
+        message_type: "comment",
+        subtype_xmlid: args.mode === "note" ? "mail.mt_note" : "mail.mt_comment"
+      },
+      { context: args.options.context, access: chatterAccessParams(args.options.context) }
+    );
+    args.textarea.value = "";
+    args.status.textContent = "Posted";
+    applyMailRecordInsertToChatter(args.chatter, payload);
+    await loadChatterThread(args.thread, args.model, args.recordID, args.options);
+  } catch {
+    args.status.textContent = "Could not post message";
+  } finally {
+    args.submit.disabled = args.recordID === undefined || !args.options.services?.mail || args.textarea.value.trim() === "";
+  }
 }
 
 async function loadChatterThread(

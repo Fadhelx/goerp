@@ -4295,6 +4295,8 @@ assert.equal(decoratedRows.length, 1);
 assert.equal(decoratedRows[0].dataset.field, undefined);
 
 const delegationChatterFetches = [];
+const delegationChatterPosts = [];
+let delegationPostedMessage = null;
 const delegationFormWidgetWindow = renderWindowAction({
   type: "ir.actions.act_window",
   action: { name: "Delegation" },
@@ -4321,20 +4323,34 @@ const delegationFormWidgetWindow = renderWindowAction({
     mail: {
       chatterFetch(thread, fetchParams, access) {
         delegationChatterFetches.push({ thread, fetchParams, access });
+        const messages = [{
+          id: 44,
+          author_id: { id: 8, name: "Marc Demo" },
+          author_avatar_url: "/mail/avatar/mail.message/44/author_avatar/50x50?access_token=thread-token",
+          body: ["markup", "<p>Approved<br/>Now</p>"],
+          published_date_str: "2026-06-21 09:30:00",
+          attachment_ids: [{ id: 7, filename: "approval.pdf" }],
+          reactions: [{ content: "ok", count: 2 }]
+        }];
+        if (delegationPostedMessage) messages.push(delegationPostedMessage);
         return Promise.resolve({
-          messages: [44],
+          messages: messages.map((message) => message.id),
           data: {
-            "mail.message": [{
-              id: 44,
-              author_id: { id: 8, name: "Marc Demo" },
-              author_avatar_url: "/mail/avatar/mail.message/44/author_avatar/50x50?access_token=thread-token",
-              body: ["markup", "<p>Approved<br/>Now</p>"],
-              published_date_str: "2026-06-21 09:30:00",
-              attachment_ids: [{ id: 7, filename: "approval.pdf" }],
-              reactions: [{ content: "ok", count: 2 }]
-            }]
+            "mail.message": messages
           }
         });
+      },
+      postMessage(thread, postData, options) {
+        delegationChatterPosts.push({ thread, postData, options });
+        delegationPostedMessage = {
+          id: 47,
+          model: "delegation",
+          res_id: 6,
+          body: postData.body,
+          author_id: { id: 9, name: "Mitchell Admin" },
+          date: "2026-06-21 10:00:00"
+        };
+        return Promise.resolve({ store_data: { "mail.message": [delegationPostedMessage] } });
       }
     }
   }
@@ -4360,6 +4376,28 @@ assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").
 assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent.includes("Approved"));
 assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-attachment o-mail-Attachment")[0].textContent, "approval.pdf");
 assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-reaction o-mail-Reaction")[0].textContent, "ok 2");
+const delegationNoteTab = findAll(delegationChatter, (node) => node.dataset?.chatterAction === "log-note")[0];
+const delegationComposerInput = findAll(delegationChatter, (node) => String(node.className ?? "").includes("gorp-chatter-input"))[0];
+const delegationComposerSubmit = findAll(delegationChatter, (node) => String(node.className ?? "").includes("gorp-chatter-submit"))[0];
+assert.equal(delegationComposerSubmit.disabled, true);
+delegationNoteTab.dispatchEvent(new TestEvent("click"));
+delegationComposerInput.value = "Composer note";
+delegationComposerInput.dispatchEvent(new TestEvent("input"));
+assert.equal(delegationComposerSubmit.disabled, false);
+delegationComposerSubmit.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+await Promise.resolve();
+await Promise.resolve();
+assert.deepEqual(delegationChatterPosts[0], {
+  thread: { thread_model: "delegation", thread_id: 6 },
+  postData: { body: "Composer note", body_is_html: false, message_type: "comment", subtype_xmlid: "mail.mt_note" },
+  options: { context: { access_token: "thread-token", hash: "thread-hash", pid: 12 }, access: { token: "thread-token", hash: "thread-hash", pid: 12 } }
+});
+assert.equal(delegationComposerInput.value, "");
+assert.equal(findAll(delegationChatter, (node) => String(node.className ?? "").includes("gorp-chatter-status"))[0].textContent, "Posted");
+const postedDelegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message"));
+assert.equal(postedDelegationMessages.at(-1).dataset.messageId, "47");
+assert.equal(findAll(postedDelegationMessages.at(-1), (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Composer note");
 assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
   "mail.message": [{
     id: 45,
@@ -4371,9 +4409,9 @@ assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
   }]
 }), 1);
 let liveDelegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message"));
-assert.equal(liveDelegationMessages.length, 2);
-assert.equal(liveDelegationMessages[1].dataset.messageId, "45");
-assert.equal(findAll(liveDelegationMessages[1], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Live update");
+assert.equal(liveDelegationMessages.length, 3);
+assert.equal(liveDelegationMessages[2].dataset.messageId, "45");
+assert.equal(findAll(liveDelegationMessages[2], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Live update");
 assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
   store_data: {
     "mail.message": [{
@@ -4386,12 +4424,12 @@ assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
   }
 }), 1);
 liveDelegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message"));
-assert.equal(liveDelegationMessages.length, 2);
-assert.equal(findAll(liveDelegationMessages[1], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Updated live update");
+assert.equal(liveDelegationMessages.length, 3);
+assert.equal(findAll(liveDelegationMessages[2], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Updated live update");
 assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
   "mail.message": [{ id: 46, model: "delegation", res_id: 999, body: "<p>Wrong record</p>" }]
 }), 0);
-assert.equal(findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message")).length, 2);
+assert.equal(findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message")).length, 3);
 
 const invalidDirectWindowRequests = [];
 const invalidDirectWindowServices = createWebClientServices({

@@ -92,6 +92,11 @@
             <field name="name">Scheduled Action</field>
         </record>
 
+        <record id="model_ir_autovacuum" model="ir.model">
+            <field name="model">ir.autovacuum</field>
+            <field name="name">Automatic Vacuum</field>
+        </record>
+
         <record id="res_config_settings_view_form" model="ir.ui.view">
             <field name="name">res.config.settings.view.form</field>
             <field name="model">res.config.settings</field>

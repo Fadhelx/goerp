@@ -8,6 +8,7 @@
             <field name="nextcall">1970-01-01 00:00:00</field>
             <field name="failure_count" eval="0"/>
             <field name="priority" eval="3"/>
+            <field name="model_id" ref="model_ir_autovacuum"/>
             <field name="state">code</field>
             <field name="code">model._run_vacuum_cleaner()</field>
             <field name="action_name">base.autovacuum</field>
