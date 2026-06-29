@@ -2736,6 +2736,74 @@ assert.deepEqual(serverActionCustomFilterCalls[5].action.__search_facets.map((fa
   ["custom-create_date-2026-06-29t10-30", "text", "create_date", ">", "Created On", ["2026-06-29T10:30"], "2026-06-29T10:30"]
 ]);
 
+const relationCustomFilterCalls = [];
+const relationCustomFilterWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { id: 75, name: "Scheduled Actions" },
+  activeView: "list",
+  resModel: "ir.cron",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "name" },
+      model_id: { type: "many2one", relation: "ir.model", string: "model_id" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="model_id"/></list>`,
+        id: 75
+      }
+    }
+  },
+  records: [
+    { id: 41, name: "Base: Auto-vacuum internal data", model_id: [11, "ir.autovacuum"] },
+    { id: 42, name: "Base: Portal Users Deletion", model_id: { id: 12, display_name: "res.users" } }
+  ],
+  length: 2,
+  search: {
+    state: { query: "", facets: [], domain: [], context: {}, groupBy: [] },
+    suggestions: [],
+    filters: [],
+    groupBys: [],
+    favorites: []
+  }
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        relationCustomFilterCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(relationCustomFilterWindow, (node) => String(node.className ?? "").includes("o_searchview_dropdown_toggler"))[0].dispatchEvent(new TestEvent("click"));
+findAll(relationCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const relationCustomFilterDialog = findAll(relationCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+const relationCustomFilterField = findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterField === "true")[0];
+relationCustomFilterField.value = "model_id";
+relationCustomFilterField.dispatchEvent(new TestEvent("change"));
+const relationCustomFilterOperator = findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const relationCustomFilterValue = findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+assert.equal(relationCustomFilterValue.tag, "select");
+assert.equal(relationCustomFilterValue.dataset.customFilterValueType, "many2one");
+assert.deepEqual(findAll(relationCustomFilterOperator, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["=", "is"], ["!=", "is not"]]);
+assert.deepEqual(findAll(relationCustomFilterValue, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["11", "Automatic Vacuum"], ["12", "Users"]]);
+relationCustomFilterValue.value = "11";
+findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(relationCustomFilterCalls[0].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.value
+]), [
+  ["custom-model_id-11", "text", "model_id", "=", "Model", ["Automatic Vacuum"], 11]
+]);
+
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({
   type: "ir.actions.act_window",

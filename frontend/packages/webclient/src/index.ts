@@ -3232,6 +3232,7 @@ interface CustomFilterFieldOption {
   name: string;
   label: string;
   type: string;
+  relation: string;
   choices: Array<[string, string]>;
 }
 
@@ -3463,11 +3464,14 @@ function customFilterFieldOptions(result: WindowActionResult): CustomFilterField
     const key = label.toLowerCase();
     if (seenLabels.has(key)) continue;
     seenLabels.add(key);
+    const type = fieldTypeValue(description);
+    const relation = fieldRelationValue(description);
     options.push({
       name,
       label,
-      type: fieldTypeValue(description),
-      choices: selectionOptionsForField(description, result.resModel, name)
+      type,
+      relation,
+      choices: type === "many2one" ? customFilterMany2OneChoices(result, name, relation) : selectionOptionsForField(description, result.resModel, name)
     });
   }
   return options;
@@ -3525,7 +3529,7 @@ function customFilterFieldByName(fields: readonly CustomFilterFieldOption[], fie
 
 function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFilterOperatorOption[] {
   const type = field?.type ?? "";
-  if (type === "boolean" || type === "selection") {
+  if (type === "boolean" || type === "selection" || (type === "many2one" && !!field?.choices.length)) {
     return [
       { value: "=", label: "is" },
       { value: "!=", label: "is not" }
@@ -3559,6 +3563,19 @@ function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFil
   ];
 }
 
+function customFilterMany2OneChoices(result: WindowActionResult, fieldName: string, relation: string): Array<[string, string]> {
+  const choices: Array<[string, string]> = [];
+  const seen = new Set<number>();
+  for (const record of result.records ?? []) {
+    const rawData = relation ? relationMany2OneDisplayData(relation, record[fieldName]) : many2OneDisplayData(record[fieldName]);
+    const data = relation ? modelRelationDisplayData(fieldName, relation, rawData, record) : rawData;
+    if (data.id === undefined || seen.has(data.id) || !data.displayName.trim()) continue;
+    seen.add(data.id);
+    choices.push([String(data.id), data.displayName]);
+  }
+  return choices;
+}
+
 function renderCustomFilterValueControl(field: CustomFilterFieldOption): HTMLInputElement | HTMLSelectElement {
   if (field.type === "boolean") {
     const select = document.createElement("select");
@@ -3572,7 +3589,7 @@ function renderCustomFilterValueControl(field: CustomFilterFieldOption): HTMLInp
     select.value = "true";
     return select;
   }
-  if (field.type === "selection" && field.choices.length) {
+  if ((field.type === "selection" || field.type === "many2one") && field.choices.length) {
     const select = document.createElement("select");
     decorateCustomFilterValueControl(select, field);
     for (const [value, label] of field.choices) {
@@ -3680,6 +3697,10 @@ function customFilterFacetID(field: string, operator: string, value: string): st
 function customFilterValue(fieldType: string, operator: string, value: string): unknown {
   if (fieldType === "boolean" && (operator === "=" || operator === "!=")) {
     return ["1", "true", "yes", "y"].includes(value.toLowerCase());
+  }
+  if (fieldType === "many2one" && (operator === "=" || operator === "!=")) {
+    const id = Number(value);
+    if (Number.isInteger(id)) return id;
   }
   if ((fieldType === "integer" || fieldType === "float" || fieldType === "monetary") && ["=", "!=", ">", "<", ">=", "<="].includes(operator)) {
     const numeric = Number(value);
