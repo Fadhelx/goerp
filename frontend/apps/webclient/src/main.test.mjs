@@ -456,8 +456,8 @@ const referenceCatalog = mod.renderAppsCatalogView({
 });
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && allText(node).includes("Manage securities, transactions, and cap tables.")).length, 1);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "mrp" && allText(node).includes("Manufacturing Orders & BOMs")).length, 1);
-assert.equal(findAll(referenceCatalog, (node) => String(node.className).includes("gorp-apps-catalog-card") && String(node.className).includes("o_kanban_record")).length, 83);
-assert.equal(findAll(referenceCatalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon") && node.dataset?.generatedIcon === "clean-room").length, 83);
+assert.equal(findAll(referenceCatalog, (node) => String(node.className).includes("gorp-apps-catalog-card") && String(node.className).includes("o_kanban_record")).length, 77);
+assert.equal(findAll(referenceCatalog, (node) => node.tag === "img" && String(node.className).includes("o_module_icon") && node.dataset?.generatedIcon === "clean-room").length, 77);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "equity" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "equity" && node.textContent === "Module Info"), true);
 assert.equal(findAll(referenceCatalog, (node) => node.dataset?.moduleName === "sale_management" && String(node.className).includes("gorp-apps-catalog-card"))[0].children.some((node) => node.dataset?.moduleInfo === "sale_management" && node.textContent === "Learn More"), true);
 const virtualSalesInstall = findAll(referenceCatalog, (node) => node.dataset?.moduleName === "sale_management" && String(node.className).includes("gorp-apps-catalog-card"))[0].children

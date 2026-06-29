@@ -63,9 +63,11 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   let setNavbarHomeMenuBackMode: (enabled: boolean) => void = () => {};
   let activeBrandApp: HomeMenuApp | undefined;
   let previousActionChildren: HTMLElement[] = [];
+  let syncLauncherSystrayControls: (active: boolean) => void = () => {};
   const applyMenuContext = (app: HomeMenuApp) => {
     previousActionChildren = [];
     setShellView("action");
+    syncLauncherSystrayControls(false);
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(false);
     setMobileMenuOpen(false);
@@ -89,6 +91,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   const renderRootApps = () => {
     previousActionChildren = [];
     setShellView("apps", "root");
+    syncLauncherSystrayControls(true);
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(true);
     setMobileMenuOpen(false);
@@ -105,6 +108,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
       previousActionChildren = Array.from(action.children) as HTMLElement[];
     }
     setShellView("apps", "overlay");
+    syncLauncherSystrayControls(false);
     setNavbarHomeMenuBackMode(true);
     setHomeMenuBackground(true);
     setMobileMenuOpen(false);
@@ -116,6 +120,7 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
   };
   const restoreActionFromOverlayApps = () => {
     setShellView("action");
+    syncLauncherSystrayControls(false);
     setNavbarHomeMenuBackMode(false);
     setHomeMenuBackground(false);
     setMobileMenuOpen(false);
@@ -153,6 +158,17 @@ export function createWebClientShell(options: WebClientShellOptions): RenderedWe
       options.onSystrayAction?.(systrayAction, action);
     }
   });
+  syncLauncherSystrayControls = (active: boolean) => {
+    const debug = findDescendantByClass(navbar, "o_debug_manager");
+    if (debug) debug.setAttribute("role", active ? "menuitem" : "none");
+    for (const key of ["messages", "activities"]) {
+      const item = findElementByDataset(navbar, "systrayKey", key);
+      if (!item) continue;
+      item.hidden = active;
+      item.dataset.launcherHidden = active ? "true" : "false";
+      item.setAttribute("style", active ? "display: none !important;" : "");
+    }
+  };
   setNavbarActive = navbar.setActiveApp;
   setNavbarApps = navbar.setApps;
   setNavbarHomeMenuBackMode = navbar.setHomeMenuBackMode;
@@ -246,7 +262,50 @@ function appsCatalogNavbarSections(app: HomeMenuApp): NavbarApp[] {
 
 function normalizeSettingsNavbarSections(app: HomeMenuApp, sections: readonly NavbarApp[]): NavbarApp[] {
   if (cleanAppName(app.name).toLowerCase() !== "settings") return [...sections];
-  return sections.map((section) => cleanAppName(section.name) === "Technical" ? normalizeTechnicalNavbarSection(section) : section);
+  return sections.map((section) => {
+    const name = cleanAppName(section.name);
+    if (name === "Technical") return normalizeTechnicalNavbarSection(section);
+    if (name === "Users & Companies") return normalizeUsersCompaniesNavbarSection(section, sections);
+    return section;
+  });
+}
+
+function normalizeUsersCompaniesNavbarSection(section: NavbarApp, sections: readonly NavbarApp[]): NavbarApp {
+  const children = [...(section.children ?? [])];
+  if (children.some((child) => cleanAppName(child.name) === "Privileges")) return { ...section, children };
+  const privileges = findNavbarEntryByName(sections, "Privileges");
+  const privilegesEntry = privileges ? { ...privileges, name: "Privileges" } : { id: "settings-privileges", name: "Privileges", action: true };
+  const companyIndex = children.findIndex((child) => cleanAppName(child.name) === "Companies");
+  if (companyIndex >= 0) children.splice(companyIndex, 0, privilegesEntry);
+  else children.push(privilegesEntry);
+  return { ...section, children };
+}
+
+function findNavbarEntryByName(entries: readonly NavbarApp[], name: string): NavbarApp | null {
+  for (const entry of entries) {
+    if (cleanAppName(entry.name) === name) return entry;
+    const child = findNavbarEntryByName(entry.children ?? [], name);
+    if (child) return child;
+  }
+  return null;
+}
+
+function findElementByDataset(root: HTMLElement, key: string, value: string): HTMLElement | null {
+  if (root.dataset?.[key] === value) return root;
+  for (const child of Array.from(root.children ?? [])) {
+    const found = findElementByDataset(child as HTMLElement, key, value);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findDescendantByClass(root: HTMLElement, className: string): HTMLElement | null {
+  if (String(root.className ?? "").split(/\s+/).includes(className)) return root;
+  for (const child of Array.from(root.children ?? [])) {
+    const found = findDescendantByClass(child as HTMLElement, className);
+    if (found) return found;
+  }
+  return null;
 }
 
 const TECHNICAL_GROUP_ORDER = [

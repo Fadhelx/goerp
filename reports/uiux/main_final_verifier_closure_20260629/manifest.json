@@ -1,0 +1,870 @@
+{
+  "generated_at": "2026-06-29T00:11:09.326Z",
+  "base_url": "http://127.0.0.1:8075/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "launcher-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "launcher-desktop.png",
+      "sha256": "9dd07346b771df4991e65435fc95dbe8f3e18c98683cfb4ea8d3e980acc53a01",
+      "assertions": {
+        "app_count": 2,
+        "systray_count": 7,
+        "launcher_chrome": {
+          "navbar_height_px": 46,
+          "navbar_contract": true,
+          "home_background_class": true,
+          "legacy_card_count": 0,
+          "draggable_count": 2,
+          "hidden_search_count": 1,
+          "menu_sections_contract": true,
+          "mobile_toggle_contract": true,
+          "app_tag": "A",
+          "app_href": "#menu_id=73&action=16",
+          "hidden_search_role": "combobox",
+          "navbar_bg": "rgba(0, 0, 0, 0)",
+          "launcher_top_px": 0,
+          "launcher_bg_color": "rgb(0, 5, 17)",
+          "launcher_bg_image": "radial-gradient(at 50% 120%, rgba(0, 5, 17, 0.88) 0%, rgba(0, 5, 17, 0.6) 36%, rgba(0, 5, 17, 0.14) 66%, rgba(0, 5, 17, 0) 100%), radial-gradient(at 18% 20%, rgba(10, 38, 52, 0.98) 0%, rgba(8, 34, 48, 0.86) 32%, rgba(4, 12, 25, 0.68) 68%, rgba(4, 12, 25, 0) 100%), radial-gradient(circle at 31% 18%, rgba(46, 78, 96, 0.72) 0%, rgba(23, 47, 66, 0.36) 30%, rgba(0, 5, 17, 0) 58%), radial-gradient(circle at 83% 52%, rgba(40, 32, 75, 0.58) 0%, rgba(14, 10, 35, 0.32) 34%, rgba(0, 5, 17, 0) 62%), url(\"http://127.0.0.1:8075/web_enterprise/static/img/background-dark.jpg?v=cleanroom-20260628b\")",
+          "launcher_box_shadow": "none",
+          "search_height_px": 0,
+          "search_margin_bottom_px": 0,
+          "banner_visible": true,
+          "banner_count": 1,
+          "banner_text": "You will be able to register your database once you have installed your first app.Dismiss",
+          "banner_close_text": "Dismiss",
+          "banner_close_visible": true,
+          "banner_top_px": 70,
+          "banner_width_px": 818,
+          "launcher_mail_activity_visible_count": 0,
+          "developer_tools_count": 1,
+          "studio_count": 1,
+          "user_name_display": "block",
+          "database_badge_text": "gorp",
+          "database_badge_count": 1,
+          "app_card_left_px": 274,
+          "app_card_top_px": 171,
+          "app_card_width_px": 136,
+          "app_card_height_px": 115,
+          "app_card_bg": "rgba(0, 0, 0, 0)",
+          "app_card_border_color": "rgba(0, 0, 0, 0)",
+          "app_card_border_radius_px": 6,
+          "app_icon_width_px": 70,
+          "app_icon_height_px": 70,
+          "app_icon_radius_px": 4,
+          "app_icon_text": "",
+          "launcher_icons": [
+            {
+              "key": "apps",
+              "kind": "apps",
+              "token": "apps",
+              "generated": "clean-room",
+              "src_prefix": "data:image/svg+xml,%3Csvg%20xmln",
+              "before_bg": "none",
+              "after_bg": "none"
+            },
+            {
+              "key": "settings",
+              "kind": "settings",
+              "token": "settings",
+              "generated": "clean-room",
+              "src_prefix": "data:image/svg+xml,%3Csvg%20xmln",
+              "before_bg": "none",
+              "after_bg": "none"
+            }
+          ]
+        }
+      },
+      "duration_ms": 6599
+    },
+    {
+      "name": "default-navbar-technical-dropdown-open-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-navbar-technical-dropdown-open-desktop.png",
+      "sha256": "134bcf5ca793f3ad82666f697c1d3b2325cbc3afbe259b65c2fe50ca62f8dad2",
+      "assertions": {
+        "button_text": "Technical",
+        "expanded": "true",
+        "menu_visible": true,
+        "menu_left": 538,
+        "menu_top": 46,
+        "hit_test_x": 562,
+        "hit_test_y": 70,
+        "dropdown_on_top": true,
+        "top_element": "SPAN.dropdown-header.o_navbar_dropdown_header",
+        "headers": [
+          "Email",
+          "Actions",
+          "IAP",
+          "User Interface",
+          "Database Structure",
+          "Automation",
+          "Reporting",
+          "Sequences & Identifiers",
+          "Parameters",
+          "Security"
+        ],
+        "items": [
+          "Outgoing Mail Servers",
+          "Actions",
+          "Reports",
+          "Window Actions",
+          "Client Actions",
+          "Server Actions",
+          "Embedded Actions",
+          "Configuration Wizards",
+          "User-defined Defaults",
+          "IAP Accounts",
+          "Menu Items",
+          "Views",
+          "Customized Views",
+          "User-defined Filters",
+          "Tours",
+          "Decimal Accuracy",
+          "Assets",
+          "Models",
+          "Fields",
+          "Fields Selection",
+          "Model Constraints",
+          "ManyToMany Relations",
+          "Attachments",
+          "Logging",
+          "Profiling",
+          "Scheduled Actions",
+          "Scheduled Actions Triggers",
+          "Paper Format",
+          "Reports",
+          "External Identifiers",
+          "Sequences",
+          "System Parameters",
+          "Record Rules",
+          "Access Rights",
+          "User Devices"
+        ],
+        "visibleLabels": [
+          "Email",
+          "Outgoing Mail Servers",
+          "Actions",
+          "Actions",
+          "Reports",
+          "Window Actions",
+          "Client Actions",
+          "Server Actions",
+          "Embedded Actions",
+          "Configuration Wizards",
+          "User-defined Defaults",
+          "IAP",
+          "IAP Accounts",
+          "User Interface",
+          "Menu Items",
+          "Views",
+          "Customized Views",
+          "User-defined Filters",
+          "Tours",
+          "Database Structure",
+          "Decimal Accuracy",
+          "Assets",
+          "Models",
+          "Fields",
+          "Fields Selection",
+          "Model Constraints",
+          "ManyToMany Relations",
+          "Attachments",
+          "Logging",
+          "Profiling",
+          "Automation",
+          "Scheduled Actions",
+          "Scheduled Actions Triggers",
+          "Reporting",
+          "Paper Format",
+          "Reports",
+          "Sequences & Identifiers",
+          "External Identifiers",
+          "Sequences",
+          "Parameters",
+          "System Parameters",
+          "Security",
+          "Record Rules",
+          "Access Rights",
+          "User Devices"
+        ],
+        "has_grouped_sections": true,
+        "has_admin_items": true,
+        "reference_order": true,
+        "hidden_custom_first_page": true
+      },
+      "duration_ms": 333
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "a0df40679a726490da0717c8cb28d65299bc54ece51cdecae0beb8bf8a84e8e0",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "settings_targets": {
+          "count": 18,
+          "ids": [
+            "users",
+            "languages",
+            "company_records",
+            "companies",
+            "groups",
+            "server_actions",
+            "scheduled_actions",
+            "automation_rules",
+            "views",
+            "models",
+            "fields",
+            "access_rights",
+            "record_rules",
+            "mail_servers",
+            "fetchmail_servers",
+            "email_templates",
+            "apps",
+            "ai"
+          ],
+          "models": {
+            "users": "res.users",
+            "languages": "res.lang",
+            "company_records": "res.company",
+            "companies": "res.company",
+            "groups": "res.groups",
+            "server_actions": "ir.actions.server",
+            "scheduled_actions": "ir.cron",
+            "automation_rules": "base.automation",
+            "views": "ir.ui.view",
+            "models": "ir.model",
+            "fields": "ir.model.fields",
+            "access_rights": "ir.model.access",
+            "record_rules": "ir.rule",
+            "mail_servers": "ir.mail_server",
+            "fetchmail_servers": "fetchmail.server",
+            "email_templates": "mail.template",
+            "apps": "ir.module.module",
+            "ai": "ir.module.module"
+          },
+          "labels": {
+            "users": "Manage Users",
+            "languages": "Languages",
+            "company_records": "Manage Companies",
+            "companies": "Manage Companies",
+            "groups": "Manage Groups",
+            "server_actions": "Server Actions",
+            "scheduled_actions": "Scheduled Actions",
+            "automation_rules": "Automation Rules",
+            "views": "Views",
+            "models": "Models",
+            "fields": "Fields",
+            "access_rights": "Access Rights",
+            "record_rules": "Record Rules",
+            "mail_servers": "Outgoing Mail Servers",
+            "fetchmail_servers": "Incoming Mail Servers",
+            "email_templates": "Email Templates",
+            "apps": "Apps",
+            "ai": "AI Apps"
+          },
+          "gridCount": 5,
+          "actionBoxCount": 18,
+          "inviteCount": 1,
+          "appTabs": [
+            "General Settings"
+          ],
+          "blockTitles": [
+            "Users",
+            "Languages",
+            "Companies",
+            "Contacts",
+            "Technical"
+          ],
+          "missing": []
+        },
+        "settings_chrome": {
+          "cp_search_count": 1,
+          "internal_search_count": 0,
+          "view_switcher_count": 0,
+          "control_height": 59,
+          "search_top": 55,
+          "settings_top": 105
+        },
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(38, 42, 54)",
+          "launcher_width": 36,
+          "launcher_dot": "rgb(135, 90, 123)",
+          "systray_count": 6
+        },
+        "visible_setting_count": 20,
+        "visible_label_count": 29,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 310
+    },
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "89aee8ee2e58e80f52ed0bad320f86c8a3bd64a54042db76246613151bd02b2b",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 7,
+          "chips": [
+            "Top-level actions"
+          ],
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "64",
+            "scheduled_action": true
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 1,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Mail Server"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 489,
+          "input_width": 489
+        },
+        "relation_x2many_initial_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "expanded": "true",
+          "active_descendant": "x2m-group_ids-option-0",
+          "active_index": "0",
+          "active_count": 1,
+          "button_count": 11,
+          "option_count": 8,
+          "labels": [
+            "Role / User",
+            "Email Marketing / User",
+            "Default access for new users",
+            "OI Base / User",
+            "Workflow / User",
+            "Delegation / User",
+            "Workflow Advance / User",
+            "Login As / User"
+          ]
+        },
+        "relation_x2many_keyboard_state": {
+          "active_descendant": "x2m-group_ids-option-1",
+          "active_index": "1",
+          "active_count": 1,
+          "button_count": 11
+        },
+        "relation_dropdown_final_state": {
+          "many2one_open": true,
+          "x2many_open": false,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "option_count": 9,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        }
+      },
+      "duration_ms": 1595
+    },
+    {
+      "name": "default-groups-form-notebook-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-form-notebook-desktop.png",
+      "sha256": "8ac9ee6b780615d0014c64c891c1fa4dcba53ee1d2c7bd28f8dfa83d189da95b",
+      "assertions": {
+        "action_card_count": 1,
+        "list_count": 1,
+        "row_count": 13,
+        "list_state": {
+          "headers": [
+            "Privilege",
+            "Name"
+          ],
+          "text": "PrivilegeNameContactCreationExportAllowedAccess RightsBypass HTML Field SanitizeDefault access for new usersMulti CompaniesMulti CurrenciesRole / AdministratorRole / PortalRole / PublicRole / UserTechnical DocumentationTechnical Features"
+        },
+        "form_count": 1,
+        "notebook_count": 1,
+        "tab_count": 7,
+        "notebook_id": "notebook-0",
+        "tab_labels": [
+          "Users",
+          "Inherited",
+          "Menus",
+          "Views",
+          "Access Rights",
+          "Record Rules",
+          "Notes"
+        ],
+        "selected_tabs": [
+          "true",
+          "false",
+          "false",
+          "false",
+          "false",
+          "false",
+          "false"
+        ],
+        "visible_pages": 1,
+        "form_text": "Role / Administrator1 UsersGroup NamePrivilegeShare GroupAPI Keys maximum duration daysUsersInheritedMenusViewsAccess RightsRecord RulesNotesUsersNameLoginRoleAdministratoradminAdministratorAdd a lineInheritedMenus2ViewsAccess Rights4Record RulesNotesAccess to the settings to configure the apps",
+        "smart_buttons": [
+          "1 Users"
+        ],
+        "action_width": 1366,
+        "sheet_width": 1334,
+        "users_grid_count": 1,
+        "users_headers": [
+          "Name",
+          "Login",
+          "Role"
+        ],
+        "users_rows": [
+          [
+            "Administrator",
+            "admin",
+            "Administrator"
+          ],
+          [
+            "Add a line"
+          ]
+        ],
+        "users_add_line": "Add a line",
+        "users_blank_rows": 6,
+        "labels": [
+          "Group Name",
+          "Privilege",
+          "Share Group",
+          "API Keys maximum duration days",
+          "Users",
+          "Inherited",
+          "Menus",
+          "Views",
+          "Access Rights",
+          "Record Rules",
+          "Notes"
+        ],
+        "api_key_duration": "0.00",
+        "pager_value": "8",
+        "pager_limit": "13",
+        "pager_previous_disabled": false,
+        "pager_next_disabled": false,
+        "action_menu_count": 1
+      },
+      "duration_ms": 580
+    },
+    {
+      "name": "default-apps-catalog-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-parity-desktop.png",
+      "sha256": "3214df2fe0f4646e3768a3a78b6913cd143650c3c2674e053572e05705d8e26d",
+      "assertions": {
+        "card_count": 77,
+        "window_count": 1,
+        "catalog_total": "77",
+        "catalog_visible_count": "77",
+        "renderer_count": 1,
+        "brand": "Apps",
+        "navbar_sections": [
+          "Apps"
+        ],
+        "pager": "1-77 / 77<>",
+        "create_button_count": 0,
+        "top_actions": [
+          "Update Apps List",
+          "Apply Scheduled Upgrades",
+          "Import Module"
+        ],
+        "sidebar_count": 1,
+        "sidebar_labels": [
+          "All",
+          "Official Apps",
+          "Industries",
+          "All",
+          "Sales",
+          "Website",
+          "Services",
+          "Accounting",
+          "Supply Chain",
+          "Productivity",
+          "Marketing",
+          "Human Resources",
+          "Shipping Connectors",
+          "ESG",
+          "Customizations",
+          "Administration",
+          "Technical"
+        ],
+        "first_cards": [
+          "Sales",
+          "Restaurant",
+          "Invoicing",
+          "CRM",
+          "Website",
+          "Inventory",
+          "Accounting",
+          "Equity",
+          "Purchase",
+          "Point of Sale",
+          "Project",
+          "eCommerce",
+          "Manufacturing",
+          "Email Marketing",
+          "Timesheets",
+          "Expenses",
+          "Studio",
+          "Documents",
+          "Time Off",
+          "Recruitment",
+          "Employees",
+          "AI",
+          "Data Recycle",
+          "Databases"
+        ],
+        "first_card_actions": [
+          "Activate",
+          "Learn More"
+        ],
+        "first_card_technical_code": "sale_management",
+        "first_card_image_count": 1,
+        "first_card_text": "Salessale_managementuninstalledActivateLearn More⋮",
+        "first_card_width": 355,
+        "first_card_height": 94,
+        "first_card_display": "flex",
+        "second_card_top_delta": 0,
+        "first_icon_width": 50,
+        "first_icon_height": 50,
+        "visible_card_count": 24,
+        "generic_field_count": 0,
+        "module_card_count": 77,
+        "module_state_count": 77,
+        "install_button_count": 77,
+        "activate_button_count": 74,
+        "learn_more_count": 76,
+        "info_button_count": 77,
+        "generated_icon_count": 77
+      },
+      "duration_ms": 454
+    },
+    {
+      "name": "default-apps-catalog-detail-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-apps-catalog-detail-desktop.png",
+      "sha256": "ec582c5d5473d71981c2ffdaf417ddff6f9c3e284245f73019df777b58318e58",
+      "assertions": {
+        "module": "equity",
+        "card_count": 1,
+        "form_count": 1,
+        "tab_count": 2,
+        "state": {
+          "breadcrumb": [
+            "Apps",
+            "Equity"
+          ],
+          "tabs": [
+            "Information",
+            "Technical Data"
+          ],
+          "author": "By Odoo S.A.",
+          "activate_count": 1,
+          "control_panel_height": 56,
+          "dialog_count": 0,
+          "icon_count": 1,
+          "information_labels": [
+            "Category",
+            "Technical Name",
+            "License",
+            "Latest Version"
+          ],
+          "information_values": [
+            "Invoicing",
+            "equity",
+            "LGPL Version 3",
+            "19.0.1.0"
+          ],
+          "text": "EquityManage securities, transactions, and cap tables.By Odoo S.A.InformationTechnical DataCategory?InvoicingTechnical Name?equityLicense?LGPL Version 3Latest Version?19.0.1.0Demo Data?Application?Status?Not InstalledDEPENDENCIESNameStatusportalNot InstalledEXCLUSIONSNameStatus"
+        },
+        "technical_state": {
+          "selected_tab": "Technical Data",
+          "labels": [
+            "Demo Data",
+            "Application",
+            "Status"
+          ],
+          "checkbox_state": [
+            {
+              "field": "demo-data",
+              "checked": false,
+              "disabled": true
+            },
+            {
+              "field": "application",
+              "checked": true,
+              "disabled": true
+            }
+          ],
+          "table_titles": [
+            "DEPENDENCIES",
+            "EXCLUSIONS"
+          ],
+          "dependency_rows": [
+            "portalNot Installed"
+          ],
+          "exclusion_table_count": 1,
+          "text": "Demo Data?Application?Status?Not InstalledDEPENDENCIESNameStatusportalNot InstalledEXCLUSIONSNameStatus"
+        }
+      },
+      "duration_ms": 706
+    },
+    {
+      "name": "default-users-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-list-parity-desktop.png",
+      "sha256": "cc16db3286f7cd7a7666e9c7fa269e23325c8bbff59b583813e9b45153914906",
+      "assertions": {
+        "headers": [
+          "Name",
+          "Login",
+          "Role"
+        ],
+        "row_count": 1,
+        "pager": "1-1 / 1<>",
+        "chips": [
+          "Internal Users"
+        ],
+        "role_badge": "Administrator",
+        "avatar_count": 1,
+        "avatar_header_text": "",
+        "avatar_header_label": "",
+        "avatar_cell_label": "Binary file",
+        "avatar_image_label": "Binary file",
+        "text": "NameLoginRoleAAdministratoradminAdministrator"
+      },
+      "duration_ms": 394
+    },
+    {
+      "name": "default-groups-list-parity-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-groups-list-parity-desktop.png",
+      "sha256": "581de551ac406a71181430be3990537e988382d2e90bd0ae394128ad814f6e05",
+      "assertions": {
+        "headers": [
+          "Privilege",
+          "Name"
+        ],
+        "row_count": 13,
+        "pager": "1-13 / 13<>",
+        "chips": [
+          "Internal Groups"
+        ],
+        "text": "PrivilegeNameContactCreationExportAllowedAccess RightsBypass HTML Field SanitizeDefault access for new usersMulti CompaniesMulti CurrenciesRole / AdministratorRole / PortalRole / PublicRole / UserTechnical DocumentationTechnical Features"
+      },
+      "duration_ms": 397
+    },
+    {
+      "name": "default-users-flow-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-users-flow-desktop.png",
+      "sha256": "66f0b295202361c7b6397ac763ead173078959a27dd2c1e3b4b161add2b65d39",
+      "assertions": {
+        "list_rows": 2,
+        "list_state": {
+          "headers": [
+            "Name",
+            "Login",
+            "Role"
+          ],
+          "text": "NameLoginRoleAAdministratoradminAdministrator",
+          "role_badge": "Administrator",
+          "avatar_count": 1,
+          "avatar_header_text": "",
+          "avatar_header_label": "",
+          "avatar_cell_label": "Binary file",
+          "avatar_image_label": "Binary file"
+        },
+        "form_state": {
+          "has_form": true,
+          "labels": [
+            "Company",
+            "Company"
+          ],
+          "access_notebook": "notebook-access_notebook",
+          "access_tabs": [
+            "Access Rights",
+            "Preferences",
+            "Calendar",
+            "Security"
+          ],
+          "has_access_notebook": true,
+          "has_group_widget": true,
+          "group_widget_role": "group_system",
+          "access_sections": [
+            "Roles",
+            "Master Data",
+            "Extra Rights"
+          ],
+          "role_radios": [
+            "group_user",
+            "group_system"
+          ],
+          "role_options": [
+            "User",
+            "Administrator"
+          ],
+          "access_select_count": 3,
+          "master_data_rows": 3,
+          "master_data_values": [
+            {
+              "label": "Email Marketing",
+              "value": "No"
+            },
+            {
+              "label": "Contact",
+              "value": "Creation"
+            },
+            {
+              "label": "Export",
+              "value": "Allowed"
+            }
+          ],
+          "extra_right_rows": 32,
+          "boxed_access_chrome": false,
+          "access_width_ratio": 0.95,
+          "has_identity_block": true,
+          "add_photo": "Add Photo",
+          "identity_lines": [
+            {
+              "field": "login",
+              "text": "admin",
+              "label": "Login",
+              "icon": "oi oi-person"
+            },
+            {
+              "field": "email",
+              "text": "Email",
+              "label": "Email",
+              "icon": "oi oi-envelope-closed"
+            },
+            {
+              "field": "phone",
+              "text": "Phone",
+              "label": "Phone",
+              "icon": "oi oi-phone"
+            }
+          ],
+          "vertical_identity_labels": [],
+          "action_menu_count": 1,
+          "identity_title": "Administrator",
+          "related_partner": "My Company",
+          "smart_buttons": [
+            "8 Groups",
+            "138 Access Rights",
+            "25 Record Rules"
+          ],
+          "has_identity_value": true
+        }
+      },
+      "duration_ms": 562
+    }
+  ],
+  "duration_ms": 12075
+}

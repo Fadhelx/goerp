@@ -1936,13 +1936,7 @@ const referenceAppsCatalogDefinitions: readonly AppsCatalogReferenceModule[] = [
   referenceApp(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
   referenceApp(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
   referenceApp(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
-  referenceApp(77, "ESG", "sustainability", "ESG", "Sustainability reporting"),
-  referenceApp(78, "Approvals", "approvals", "Productivity", "Request approvals and track decisions"),
-  referenceApp(79, "VoIP", "voip", "Productivity", "Make calls from the browser"),
-  referenceApp(80, "Data Cleaning", "data_cleaning", "Technical", "Detect duplicates and clean records"),
-  referenceApp(81, "Product Configurator", "product_configurator", "Sales", "Configure product variants during sales"),
-  referenceApp(82, "WhatsApp", "whatsapp", "Marketing", "Send WhatsApp business messages"),
-  referenceApp(83, "Google Calendar", "google_calendar", "Productivity", "Synchronize meetings with Google Calendar")
+  referenceApp(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
 ];
 
 function referenceApp(

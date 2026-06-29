@@ -2733,6 +2733,267 @@ assert.deepEqual(groupsUsersRows.map((row) => findAll(row, (node) => node.tag ==
 assert.equal(findAll(groupsUsersGrid, (node) => String(node.className ?? "").includes("gorp-groups-users-add") && node.textContent === "Add a line").length, 1);
 assert.ok(findAll(groupsUsersGrid, (node) => String(node.className ?? "").includes("gorp-groups-users-blank-row")).length >= 4);
 
+const roleAdministratorFallbackWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups" },
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      privilege_id: { type: "many2one", relation: "res.groups.privilege", string: "Privilege" },
+      api_key_duration: { type: "integer", string: "API Keys maximum duration days" },
+      user_ids: { type: "one2many", relation: "res.users", string: "Users" },
+      users_count: { type: "integer", string: "Users" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><group><field name="name"/><field name="privilege_id"/><field name="api_key_duration"/></group><notebook><page string="Users"><field name="user_ids"/></page></notebook></sheet></form>`,
+        id: 75
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 8,
+    name: "Administrator",
+    privilege_id: [3, "Role"],
+    api_key_duration: 0,
+    user_ids: [],
+    users_count: 1
+  }
+});
+const roleAdministratorFallbackRows = findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").includes("gorp-groups-users-row"));
+assert.deepEqual(roleAdministratorFallbackRows.map((row) => findAll(row, (node) => node.tag === "td").map((cell) => cell.textContent)), [
+  ["Administrator", "admin", "Administrator"]
+]);
+assert.equal(findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label") && node.textContent === "Group Name").length, 1);
+assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "api_key_duration" && node.value === "0.00").length, 1);
+assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "privilege_id" && node.attributes?.role === "combobox" && node.value === "Role").length, 1);
+
+const groupsListParityWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups", limit: 80 },
+  activeView: "list",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      privilege_id: { type: "many2one", relation: "res.groups.privilege", string: "Privilege" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="privilege_id"/><field name="name"/></list>`,
+        id: 77
+      }
+    }
+  },
+  records: [
+    { id: 10, name: "Creation", privilege_id: [1, "Contact"] },
+    { id: 11, name: "Allowed", privilege_id: [2, "Export"] },
+    { id: 12, name: "Access Rights", privilege_id: false },
+    { id: 13, name: "Administrator", privilege_id: [3, "Role"] }
+  ],
+  length: 4,
+  offset: 0,
+  countLimited: false
+});
+const groupsListRows = findAll(groupsListParityWindow, (node) => node.tag === "tr" && String(node.className ?? "").includes("o_data_row"));
+assert.deepEqual(groupsListRows.map((row) => row.attributes?.["aria-label"]), [
+  "Contact / Creation",
+  "Export / Allowed",
+  "Access Rights",
+  "Role / Administrator"
+]);
+const visibleCellText = (cell) => findAll(cell, (node) =>
+  (node.tag === "output" || node.tag === "span") &&
+  node.attributes?.["aria-hidden"] !== "true" &&
+  String(node.textContent ?? "").trim()
+).map((node) => node.textContent).join("");
+const dataCells = (row) => findAll(row, (node) => node.tag === "td" && node.dataset?.field !== undefined);
+assert.deepEqual(groupsListRows.map((row) => dataCells(row).map(visibleCellText)), [
+  ["Contact", "Creation"],
+  ["Export", "Allowed"],
+  ["", "Access Rights"],
+  ["", "Role / Administrator"]
+]);
+
+const groupsPagerRecords = Array.from({ length: 13 }, (_, index) => ({
+  id: 100 + index,
+  name: index === 0 ? "Administrator" : `Group ${index + 1}`,
+  privilege_id: index === 0 ? [3, "Role"] : false
+}));
+const groupOpenCalls = [];
+const groupsListPagerWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups", res_model: "res.groups", limit: 80 },
+  activeView: "list",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      privilege_id: { type: "many2one", relation: "res.groups.privilege", string: "Privilege" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="privilege_id"/><field name="name"/></list>`,
+        id: 771
+      },
+      form: {
+        arch: `<form><sheet><group><field name="name"/><field name="privilege_id"/></group></sheet></form>`,
+        id: 772
+      }
+    }
+  },
+  records: groupsPagerRecords,
+  length: 13,
+  offset: 0,
+  countLimited: false
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        groupOpenCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+findAll(groupsListPagerWindow, (node) => node.tag === "tr" && node.dataset?.id === "100")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(groupOpenCalls[0].action.__pager_total, 13);
+assert.equal(groupOpenCalls[0].action.__pager_offset, 0);
+assert.deepEqual(groupOpenCalls[0].action.__pager_ids, groupsPagerRecords.map((record) => record.id));
+const groupPagerNavigationCalls = [];
+const groupsFormPagerWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: groupOpenCalls[0].action,
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: groupsListPagerWindow.__result?.viewDescriptions ?? {
+    fields: {
+      name: { type: "char", string: "Name" },
+      privilege_id: { type: "many2one", relation: "res.groups.privilege", string: "Privilege" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><group><field name="name"/><field name="privilege_id"/></group></sheet></form>`,
+        id: 772
+      }
+    }
+  },
+  records: [groupsPagerRecords[0]],
+  length: 1,
+  offset: 0,
+  countLimited: false
+}, {
+  services: {
+    action: {
+      doAction(action, options) {
+        groupPagerNavigationCalls.push({ action, options });
+        return Promise.resolve({});
+      }
+    }
+  }
+});
+assert.equal(findAll(groupsFormPagerWindow, (node) => String(node.className ?? "").includes("o_pager_value"))[0].textContent, "1");
+assert.equal(findAll(groupsFormPagerWindow, (node) => String(node.className ?? "").includes("o_pager_limit"))[0].textContent, "13");
+assert.equal(findAll(groupsFormPagerWindow, (node) => String(node.className ?? "").includes("o_pager_previous"))[0].disabled, true);
+const groupsFormNext = findAll(groupsFormPagerWindow, (node) => String(node.className ?? "").includes("o_pager_next"))[0];
+assert.equal(groupsFormNext.disabled, false);
+groupsFormNext.dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(groupPagerNavigationCalls[0].action.res_id, 101);
+assert.equal(groupPagerNavigationCalls[0].action.__pager_offset, 1);
+
+const usersListParityWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Users", limit: 80 },
+  activeView: "list",
+  resModel: "res.users",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      login: { type: "char", string: "Login" },
+      role: { type: "char", string: "Role" }
+    },
+    relatedModels: {},
+    views: {
+      list: {
+        arch: `<list><field name="name"/><field name="login"/><field name="role"/></list>`,
+        id: 78
+      }
+    }
+  },
+  records: [{ id: 1, name: "Administrator", login: "admin", role: "admin" }],
+  length: 1,
+  offset: 0,
+  countLimited: false
+});
+const usersListRows = findAll(usersListParityWindow, (node) => node.tag === "tr" && String(node.className ?? "").includes("o_data_row"));
+assert.equal(usersListRows[0].attributes?.["aria-label"], "Administrator / admin / Administrator");
+assert.equal(findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-user-avatar") && node.attributes?.["aria-hidden"] === "true").length, 1);
+assert.equal(findAll(usersListParityWindow, (node) => String(node.className ?? "").includes("gorp-user-list-avatar-cell") && node.attributes?.role === "img" && node.attributes?.["aria-label"] === "Binary file").length, 1);
+assert.equal(findAll(usersListParityWindow, (node) => node.tag === "th" && node.dataset?.name === "avatar_128")[0].textContent, "");
+assert.equal(findAll(usersListParityWindow, (node) => node.tag === "th" && node.dataset?.name === "avatar_128")[0].attributes?.["aria-label"], undefined);
+assert.deepEqual(dataCells(usersListRows[0]).map(visibleCellText), ["", "Administrator", "admin", "Administrator"]);
+
+const privilegeDropdownCalls = [];
+const privilegeDropdownWindow = renderWindowAction({
+  type: "ir.actions.act_window",
+  action: { name: "Groups" },
+  activeView: "form",
+  resModel: "res.groups",
+  viewDescriptions: {
+    fields: {
+      name: { type: "char", string: "Name" },
+      privilege_id: { type: "many2one", relation: "res.groups.privilege", string: "Privilege" }
+    },
+    relatedModels: {},
+    views: {
+      form: {
+        arch: `<form><sheet><group><field name="name"/><field name="privilege_id"/></group></sheet></form>`,
+        id: 76
+      }
+    }
+  },
+  records: [],
+  length: 0
+}, {
+  values: {
+    id: 9,
+    name: "Contact Manager",
+    privilege_id: [2, "Contact"]
+  },
+  services: {
+    orm: {
+      call(model, method, args, kwargs) {
+        privilegeDropdownCalls.push({ model, method, args, kwargs });
+        return Promise.resolve([[10, "Email Marketing"], [20, "Export"], [2, "Contact"]]);
+      }
+    }
+  }
+});
+findAll(privilegeDropdownWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
+const privilegeEditor = findAll(privilegeDropdownWindow, (node) => String(node.className ?? "").includes("gorp-many2one-editor") && node.dataset?.field === "privilege_id")[0];
+assert.equal(privilegeEditor.dataset.forceSearchMore, "true");
+findAll(privilegeEditor, (node) => String(node.className ?? "").includes("gorp-many2one-dropdown-toggle"))[0].dispatchEvent(new TestEvent("click"));
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(privilegeDropdownCalls[0], {
+  model: "res.groups.privilege",
+  method: "name_search",
+  args: [],
+  kwargs: { name: "", domain: [], operator: "ilike", limit: 8, context: {} }
+});
+assert.deepEqual(findAll(privilegeEditor, (node) => String(node.className ?? "").includes("gorp-many2one-option")).map((node) => node.textContent), ["Contact", "Export"]);
+assert.equal(findAll(privilegeEditor, (node) => String(node.className ?? "").includes("gorp-many2one-search-more")).map((node) => node.textContent)[0], "Search more...");
+
 function renderX2ManyOnlyWindow(fieldType, value) {
   return renderWindowAction({
     type: "ir.actions.act_window",
@@ -3881,14 +4142,16 @@ const referenceAppsCatalogWindow = renderWindowAction({
 }, { context: { search_default_app: 1 } });
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => node.dataset?.createAction === "true").length, 0);
 const referenceAppsCatalog = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog"))[0];
-assert.equal(referenceAppsCatalog.dataset.catalogTotal, "83");
-assert.equal(referenceAppsCatalog.dataset.visibleCount, "83");
+assert.equal(referenceAppsCatalog.dataset.catalogTotal, "77");
+assert.equal(referenceAppsCatalog.dataset.visibleCount, "77");
 const referenceAppsCards = findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-apps-catalog-card"));
-assert.equal(referenceAppsCards.length, 83);
+assert.equal(referenceAppsCards.length, 77);
 assert.equal(referenceAppsCards[0].dataset.moduleName, "sale_management");
 assert.equal(referenceAppsCards[0].dataset.appName, "Sales");
 assert.equal(referenceAppsCards[0].dataset.virtualModule, "true");
 assert.equal(findAll(referenceAppsCards[0], (node) => String(node.className ?? "").split(/\s+/).includes("o_kanban_record_field")).length, 0);
+assert.equal(findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_icon_container") && node.dataset?.moduleImage === "sale_management").length, 1);
+assert.equal(findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_technical_name") && node.dataset?.moduleTechnicalName === "sale_management").map((node) => node.textContent)[0], "sale_management");
 assert.deepEqual(
   findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_install_button") || String(node.className ?? "").includes("o_module_info_button")).map((node) => node.textContent),
   ["Activate", "Learn More"]
@@ -3897,6 +4160,49 @@ assert.equal(findAll(referenceAppsCards[0], (node) => node.dataset?.generatedIco
 assert.deepEqual(
   findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_search_panel_label")).map((node) => node.textContent).slice(0, 7),
   ["All", "Official Apps", "Industries", "All", "Sales", "Website", "Services"]
+);
+assert.deepEqual(
+  findAll(referenceAppsCatalogWindow, (node) => node.dataset?.catalogAction).map((node) => node.textContent),
+  ["Update Apps List", "Apply Scheduled Upgrades", "Import Module"]
+);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_search_panel_label") && node.textContent === "Technical").length, 1);
+findAll(referenceAppsCards[0], (node) => String(node.className ?? "").includes("o_module_info_button"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(referenceAppsCatalogWindow.dataset.view, "form");
+assert.equal(referenceAppsCatalogWindow.dataset.moduleInfoAction, "sale_management");
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-dialog-window-action")).length, 0);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_control_panel") && node.dataset?.model === "ir.module.module").length, 1);
+assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-control-panel"))[0].attributes.style, /height:56px !important/);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_value")).map((node) => node.textContent)[0], "1");
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_limit")).map((node) => node.textContent)[0], "1");
+assert.deepEqual(
+  findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent),
+  ["Information", "Technical Data"]
+);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_module_author") && node.textContent === "By Odoo S.A.").length, 1);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-icon") && node.alt === "Binary file").length, 1);
+const moduleInfoLabelText = (node) => String(node.textContent ?? "").replace(/\?$/, "");
+const moduleInfoInformationPage = findAll(referenceAppsCatalogWindow, (node) => node.dataset?.page === "information" && String(node.className ?? "").includes("gorp-form-notebook-page"))[0];
+assert.deepEqual(
+  findAll(moduleInfoInformationPage, (node) => String(node.className ?? "").includes("o_form_label")).map(moduleInfoLabelText),
+  ["Category", "Technical Name", "License", "Latest Version"]
+);
+assert.deepEqual(
+  findAll(moduleInfoInformationPage, (node) => String(node.className ?? "").includes("o_field_widget")).map((node) => node.textContent),
+  ["Sales", "sale_management", "LGPL Version 3", "19.0.1.0"]
+);
+findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab") && node.textContent === "Technical Data")[0].dispatchEvent(new TestEvent("click"));
+const moduleInfoTechnicalPage = findAll(referenceAppsCatalogWindow, (node) => node.dataset?.page === "technical-data" && String(node.className ?? "").includes("gorp-form-notebook-page"))[0];
+const moduleTechnicalLabels = findAll(moduleInfoTechnicalPage, (node) => String(node.className ?? "").includes("o_form_label")).map(moduleInfoLabelText);
+for (const label of ["Demo Data", "Application", "Status"]) {
+  assert.ok(moduleTechnicalLabels.includes(label), `missing Module Info technical label ${label}`);
+}
+assert.equal(findAll(moduleInfoTechnicalPage, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.field === "demo-data" && node.checked === false && node.disabled === true).length, 1);
+assert.equal(findAll(moduleInfoTechnicalPage, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.field === "application" && node.checked === true && node.disabled === true).length, 1);
+assert.equal(findAll(moduleInfoTechnicalPage, (node) => node.dataset?.moduleInfoTable === "dependencies").length, 1);
+assert.equal(findAll(moduleInfoTechnicalPage, (node) => node.dataset?.moduleInfoTable === "exclusions").length, 1);
+assert.deepEqual(
+  findAll(moduleInfoTechnicalPage, (node) => String(node.className ?? "").includes("gorp-module-info-relation-title")).map((node) => node.textContent),
+  ["DEPENDENCIES", "EXCLUSIONS"]
 );
 
 const delegationWidgetWindow = renderWindowAction({
@@ -6001,7 +6307,7 @@ const usersListWindow = renderWindowAction(usersListResult);
 const usersListTable = findAll(usersListWindow, (node) => String(node.className ?? "").includes("gorp-list-view"))[0];
 assert.equal(findAll(usersListTable, (node) => node.tag === "th" && String(node.className ?? "").includes("o_list_record_selector")).length, 1);
 assert.equal(findAll(usersListTable.children[1].children[0].children[0], (node) => node.tag === "input" && node.type === "checkbox").length, 1);
-assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Role"]);
+assert.deepEqual(findAll(usersListTable, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["", "Name", "Login", "Role"]);
 assert.deepEqual(findAll(usersListTable.children[1].children[0], (node) => node.tag === "output").map((node) => node.textContent), ["Administrator", "admin"]);
 assert.equal(findAll(usersListTable.children[1].children[0], (node) => String(node.className ?? "").includes("gorp-user-role-badge"))[0].textContent, "Administrator");
 
@@ -6050,18 +6356,28 @@ assert.deepEqual(usersWebRead.params.kwargs.specification.partner_id, { fields: 
 const usersFormWindow = renderWindowAction(usersFormResult);
 let usersForm = usersFormWindow.children[1];
 assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-sheet")).length, 1);
-assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Name", "Login", "Email", "Company", "Role"]);
+assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-user-add-photo") && node.textContent === "Add Photo").length, 1);
+const usersIdentityValue = (root, field) => findAll(
+  findAll(root, (node) => String(node.className ?? "").includes("gorp-user-identity-inline") && node.dataset?.field === field)[0],
+  (node) => node.tag === "input"
+).map((node) => node.value || node.placeholder)[0];
+assert.equal(usersIdentityValue(usersForm, "login"), "admin");
+assert.equal(usersIdentityValue(usersForm, "email"), "admin@example.test");
+assert.equal(usersIdentityValue(usersForm, "phone"), "Phone");
+assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-user-identity-inline") && findAll(node, (child) => child.tag === "i" && String(child.className ?? "").startsWith("oi ")).length === 1).length, 3);
+assert.deepEqual(findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 5), ["Company", "Role", "Active", "Notification", "Email Signature"]);
 const usersAccessNotebook = findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(usersAccessNotebook);
 assert.deepEqual(findAll(usersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);
 assert.equal(findAll(usersAccessNotebook, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
 const usersMainFields = findAll(usersForm, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-fields"))[0];
 assert.equal(usersMainFields.children.some((node) => String(node.className ?? "").includes("gorp-res-user-group-ids")), false);
-assert.equal(findAll(usersForm, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
+assert.equal(usersMainFields.children.some((node) => node.dataset?.field === "name"), false);
+assert.equal(findAll(usersForm, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
 findAll(usersFormWindow, (node) => node.dataset?.formAction === "edit")[0].dispatchEvent(new TestEvent("click"));
 usersForm = usersFormWindow.children[1];
-assert.equal(findAll(usersForm, (node) => node.tag === "input" && node.dataset?.field === "login")[0].value, "admin");
-assert.equal(findAll(usersForm, (node) => node.tag === "input" && node.dataset?.field === "email")[0].value, "admin@example.test");
+assert.equal(usersIdentityValue(usersForm, "login"), "admin");
+assert.equal(usersIdentityValue(usersForm, "email"), "admin@example.test");
 assert.equal(findAll(usersForm, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights").length, 1);
 
 const usersBadArchRequests = [];
@@ -6121,7 +6437,7 @@ const badUsersListResult = await usersBadArchServices.action.doAction({
 const badUsersSearchRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_search_read");
 assert.deepEqual(Object.keys(badUsersSearchRead.params.kwargs.specification), ["name", "login", "role"]);
 const badUsersListWindow = renderWindowAction(badUsersListResult);
-assert.deepEqual(findAll(badUsersListWindow, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["Name", "Login", "Role"]);
+assert.deepEqual(findAll(badUsersListWindow, (node) => String(node.className ?? "").includes("o_list_header_button")).map((node) => node.textContent), ["", "Name", "Login", "Role"]);
 assert.equal(findAll(badUsersListWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
 const badUsersFormResult = await usersBadArchServices.action.doAction({
   type: "ir.actions.act_window",
@@ -6134,12 +6450,12 @@ const badUsersFormResult = await usersBadArchServices.action.doAction({
 const badUsersWebRead = usersBadArchRequests.find((request) => request.route === "/web/dataset/call_kw/res.users/web_read");
 assert.deepEqual(Object.keys(badUsersWebRead.params.kwargs.specification), ["name", "login", "email", "company_id", "role", "group_ids", "all_group_ids", "view_group_hierarchy", "active", "notification_type", "signature", "partner_id"]);
 const badUsersFormWindow = renderWindowAction(badUsersFormResult);
-assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Name", "Login", "Email", "Company"]);
+assert.deepEqual(findAll(badUsersFormWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_form_label")).map((node) => node.textContent).slice(0, 4), ["Company", "Role", "Active", "Notification"]);
 const badUsersAccessNotebook = findAll(badUsersFormWindow, (node) => String(node.className ?? "").includes("gorp-form-notebook") && node.dataset?.notebook === "res-users-access-rights")[0];
 assert.ok(badUsersAccessNotebook);
 assert.deepEqual(findAll(badUsersAccessNotebook, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-form-notebook-tab")).map((node) => node.textContent), ["Access Rights"]);
 assert.equal(findAll(badUsersAccessNotebook, (node) => String(node.className ?? "").includes("gorp-res-user-group-ids")).length, 1);
-assert.equal(findAll(badUsersFormWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 2);
+assert.equal(findAll(badUsersFormWindow, (node) => node.tag === "output" && node.textContent === "Administrator").length, 1);
 
 assert.equal(windowActionRequests[0].route, "/web/action/load");
 assert.deepEqual(windowActionRequests[0].params.context, { active_id: 42, active_ids: [1, 2], lang: "en_US", from_context: 7 });

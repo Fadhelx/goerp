@@ -36,8 +36,8 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   const registrationClose = document.createElement("button");
   registrationClose.type = "button";
   registrationClose.className = "o_home_menu_registration_close";
-  registrationClose.setAttribute("aria-label", "Close");
-  registrationClose.textContent = "\u00d7";
+  registrationClose.setAttribute("aria-label", "Dismiss");
+  registrationClose.textContent = "Dismiss";
   registrationClose.addEventListener("click", () => {
     registrationBanner.hidden = true;
     registrationBanner.dataset.dismissed = "true";
@@ -58,7 +58,7 @@ export function renderHomeMenu(payload: HomeMenuPayload, options: HomeMenuRender
   searchWrap.append(search);
 
   const grid = document.createElement("div");
-  grid.className = "o_apps row user-select-none mt-5 mx-0";
+  grid.className = "o_apps row user-select-none mt-3 mx-0";
   grid.setAttribute("role", "listbox");
 
   const setSearchActive = (active: boolean) => {

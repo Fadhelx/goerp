@@ -113,7 +113,8 @@ assert.equal(findAll(liveMenu, (node) => String(node.className).includes("o_home
 const registrationClose = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_close"))[0];
 const registrationBanner = findAll(liveMenu, (node) => String(node.className).includes("o_home_menu_registration_banner"))[0];
 const registrationText = findAll(registrationBanner, (node) => String(node.className).includes("o_home_menu_registration_text"))[0];
-assert.equal(registrationClose.textContent, "\u00d7");
+assert.equal(registrationClose.textContent, "Dismiss");
+assert.equal(registrationClose.attributes["aria-label"], "Dismiss");
 assert.match(registrationText.textContent, /register your database once you have installed your first app/);
 registrationClose.listeners.click[0]();
 assert.equal(registrationBanner.hidden, true);

@@ -24,6 +24,7 @@ import {
 import {
   renderControlPanel as renderActionControlPanel,
   type ControlPanelMenuItem as ActionControlPanelMenuItem,
+  type ControlPanelPager as ActionControlPanelPager,
   type ControlPanelSearchSuggestion as ActionControlPanelSearchSuggestion,
   type ControlPanelView as ActionControlPanelView
 } from "./control_panel/control_panel.js";
@@ -325,6 +326,12 @@ interface KanbanLoadMorePager {
   length: number;
   countLimited: boolean;
   search?: WindowActionSearchState;
+}
+
+interface ListFormPagerContext {
+  offset: number;
+  length: number;
+  countLimited: boolean;
 }
 
 interface KanbanProgressBarNode {
@@ -1870,12 +1877,17 @@ export function renderWindowAction(result: WindowActionResult, options: RenderWi
           countLimited: result.countLimited,
           search: result.search
         })
-      : renderListView(viewDescription, fields, records, result.resModel, result.action, options);
+      : renderListView(viewDescription, fields, records, result.resModel, result.action, options, {
+        offset: result.offset,
+        length: result.length,
+        countLimited: result.countLimited
+      });
     if (result.activeView === "form") moveFormActionMenuToControlPanel(controlPanel, body);
     if (result.activeView === "list") moveListActionMenuToControlPanel(controlPanel, body);
   }
   root.append(controlPanel, body);
   if (result.resModel === "ir.module.module" && result.activeView === "kanban") {
+    (body as ModuleCatalogHost).__gorpActionRoot = root;
     root.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 104px) !important;");
     syncModuleCatalogControlPanel(controlPanel, body);
   }
@@ -2511,7 +2523,7 @@ function appendFormActionButtonsToContainer(
   edit.type = "button";
   edit.className = "btn btn-primary o_form_button_edit";
   edit.dataset.formAction = "edit";
-  edit.textContent = "Edit";
+  edit.textContent = result.resModel === "res.users" || result.resModel === "res.groups" ? "New" : "Edit";
   const save = document.createElement("button");
   save.type = "button";
   save.className = "btn btn-primary o_form_button_save";
@@ -2810,6 +2822,11 @@ function renderWindowActionControlPanel(
 ): HTMLElement {
   const pagerLimit = numberActionValue(result.action.limit, 80);
   const isSettings = Boolean(settingsState && result.resModel === "res.config.settings" && result.activeView === "form");
+  const activePager = isSettings
+    ? undefined
+    : result.activeView === "form"
+      ? formActionPager(result)
+      : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited };
   const views = normalizeActionViews(result.action)
     .filter((view) => view[1] !== "search")
     .map<ActionControlPanelView>((view) => ({
@@ -2819,9 +2836,7 @@ function renderWindowActionControlPanel(
     }));
   const controlPanel = renderActionControlPanel({
     title: typeof result.action.name === "string" ? result.action.name : result.resModel,
-    pager: result.activeView === "form"
-      ? undefined
-      : { offset: result.offset, limit: pagerLimit, total: result.length, totalLimited: result.countLimited },
+    pager: activePager,
     views: isSettings ? [] : views,
     search: isSettings ? {
       query: settingsState?.search ?? "",
@@ -2894,20 +2909,26 @@ function renderWindowActionControlPanel(
       }));
     },
     onPagerPrevious: () => {
-      if (rerunActionWithPagerOffset(result, Math.max(0, result.offset - pagerLimit), options)) return;
+      const currentOffset = activePager?.offset ?? result.offset;
+      const currentLimit = activePager?.limit ?? pagerLimit;
+      if (rerunActionWithPagerOffset(result, Math.max(0, currentOffset - currentLimit), options)) return;
       root.dispatchEvent(new CustomEvent("action:pager-previous", {
         bubbles: true,
-        detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
+        detail: { model: result.resModel, offset: currentOffset, limit: currentLimit }
       }));
     },
     onPagerNext: () => {
-      const nextOffset = result.countLimited
-        ? result.offset + pagerLimit
-        : Math.min(Math.max(0, result.length - 1), result.offset + pagerLimit);
+      const currentOffset = activePager?.offset ?? result.offset;
+      const currentLimit = activePager?.limit ?? pagerLimit;
+      const currentTotal = activePager?.total ?? result.length;
+      const totalLimited = activePager?.totalLimited === true;
+      const nextOffset = totalLimited
+        ? currentOffset + currentLimit
+        : Math.min(Math.max(0, currentTotal - 1), currentOffset + currentLimit);
       if (rerunActionWithPagerOffset(result, nextOffset, options)) return;
       root.dispatchEvent(new CustomEvent("action:pager-next", {
         bubbles: true,
-        detail: { model: result.resModel, offset: result.offset, limit: pagerLimit }
+        detail: { model: result.resModel, offset: currentOffset, limit: currentLimit }
       }));
     },
     onPagerCount: () => {
@@ -2931,6 +2952,16 @@ function renderWindowActionControlPanel(
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
   if (createButton && mainButtons) mainButtons.append(createButton);
   return controlPanel;
+}
+
+function formActionPager(result: WindowActionResult): ActionControlPanelPager | undefined {
+  const recordID = numberRecordID(result.action.res_id) ?? numberRecordID(result.records[0]?.id);
+  if (recordID === undefined && result.length <= 0) return undefined;
+  const exactTotal = actionPagerExactTotal(result.action);
+  const total = Math.max(1, Math.trunc(numberActionValue(exactTotal, result.length || result.records.length || 1)));
+  const rawOffset = exactTotal !== undefined ? actionPagerOffset(result.action) : result.offset;
+  const offset = Math.min(Math.max(0, Math.trunc(rawOffset || 0)), total - 1);
+  return { offset, limit: 1, total, totalLimited: result.action.__pager_total_limited === true || result.countLimited };
 }
 
 function actionWithViewType(action: Record<string, unknown>, viewType: string): Record<string, unknown> {
@@ -3267,16 +3298,30 @@ function actionWithCurrentSearch(result: WindowActionResult, facets: readonly Se
 }
 
 function actionWithPagerOffset(result: WindowActionResult, offset: number): Record<string, unknown> {
+  const safeOffset = Math.max(0, Math.trunc(offset || 0));
   const nextAction: Record<string, unknown> = {
     ...result.action,
-    __pager_offset: Math.max(0, Math.trunc(offset || 0))
+    __pager_offset: safeOffset
   };
+  const pagerIDs = actionPagerRecordIDs(result.action);
+  if (result.activeView === "form" && pagerIDs.length) {
+    const idsOffset = Math.max(0, Math.trunc(numberActionValue(result.action.__pager_ids_offset, 0)));
+    const localIndex = safeOffset - idsOffset;
+    const nextID = pagerIDs[localIndex];
+    if (nextID !== undefined) nextAction.res_id = nextID;
+  }
   const facets = result.search?.state.facets;
   if (facets) nextAction.__search_facets = facets.map(cloneSearchFacet);
   const query = String(result.search?.state.query ?? "").trim();
   if (query) nextAction.__search_query = query;
   else delete nextAction.__search_query;
   return nextAction;
+}
+
+function actionPagerRecordIDs(action: Record<string, unknown>): number[] {
+  return Array.isArray(action.__pager_ids)
+    ? action.__pager_ids.map(numberRecordID).filter((id): id is number => id !== undefined)
+    : [];
 }
 
 function rerunActionWithPagerOffset(result: WindowActionResult, offset: number, options: RenderWindowActionOptions): boolean {
@@ -3543,7 +3588,8 @@ function renderListView(
   records: readonly Record<string, unknown>[],
   model?: string,
   action: Record<string, unknown> = {},
-  options: RenderWindowActionOptions = {}
+  options: RenderWindowActionOptions = {},
+  pager?: ListFormPagerContext
 ): HTMLElement {
   const arch = viewDescription?.arch ?? "";
   const listAttrs = viewRootAttrs(arch, "list", "tree");
@@ -3562,6 +3608,7 @@ function renderListView(
   table.className = "gorp-list-view o_list_renderer o_list_table";
   const fieldNodes = listViewFieldNodes(arch, fields, records[0] ?? {}, model);
   const names = fieldNodes.map((node) => node.name);
+  const showUserAvatarColumn = model === "res.users" && !names.includes("avatar_128");
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
   if (showSelectors) {
@@ -3584,6 +3631,17 @@ function renderListView(
     selectHead.append(selectAll);
     headerRow.append(selectHead);
   }
+  if (showUserAvatarColumn) {
+    const th = document.createElement("th");
+    th.className = "o_column_sortable gorp-user-avatar-column";
+    th.dataset.name = "avatar_128";
+    th.setAttribute("aria-sort", "none");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "o_list_header_button";
+    th.append(button);
+    headerRow.append(th);
+  }
   for (const node of fieldNodes) {
     const th = document.createElement("th");
     th.className = "o_column_sortable";
@@ -3601,7 +3659,7 @@ function renderListView(
   }
   thead.append(headerRow);
   const tbody = document.createElement("tbody");
-  for (const record of records) {
+  for (const [recordIndex, record] of records.entries()) {
     const row = document.createElement("tr");
     const recordID = numberRecordID(record.id);
     row.className = listDecorationClassName(listAttrs, record);
@@ -3610,14 +3668,16 @@ function renderListView(
       row.dataset.id = String(recordID);
       row.dataset.model = model;
       row.setAttribute("role", "link");
+      const rowLabel = listRowAccessibleLabel(model, record);
+      if (rowLabel) row.setAttribute("aria-label", rowLabel);
       row.setAttribute("tabindex", "0");
       row.addEventListener("click", async (event) => {
         if (listRowClickIgnored(event)) return;
-        await openListRecord(model, recordID, action, options, table);
+        await openListRecord(model, recordID, actionWithListFormPager(action, records, recordIndex, pager), options, table);
       });
       row.addEventListener("keydown", async (event) => {
         if (event.key !== "Enter") return;
-        await openListRecord(model, recordID, action, options, table);
+        await openListRecord(model, recordID, actionWithListFormPager(action, records, recordIndex, pager), options, table);
       });
     }
     if (showSelectors) {
@@ -3640,6 +3700,14 @@ function renderListView(
       });
       selectCell.append(checkbox);
       row.append(selectCell);
+    }
+    if (showUserAvatarColumn) {
+      const cell = document.createElement("td");
+      cell.dataset.field = "avatar_128";
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-label", "Binary file");
+      cell.append(renderUserListAvatarCell(record));
+      row.append(cell);
     }
     for (const node of fieldNodes) {
       const cell = document.createElement("td");
@@ -3674,12 +3742,35 @@ function renderListView(
   return shell;
 }
 
+function actionWithListFormPager(
+  action: Record<string, unknown>,
+  records: readonly Record<string, unknown>[],
+  recordIndex: number,
+  pager?: ListFormPagerContext
+): Record<string, unknown> {
+  if (!pager || !records.length) return action;
+  const ids = records.map((record) => numberRecordID(record.id)).filter((id): id is number => id !== undefined);
+  if (!ids.length) return action;
+  const offset = Math.max(0, Math.trunc(pager.offset || 0));
+  const currentOffset = offset + Math.max(0, Math.trunc(recordIndex || 0));
+  return {
+    ...action,
+    __pager_ids: ids,
+    __pager_ids_offset: offset,
+    __pager_offset: currentOffset,
+    __pager_total: Math.max(ids.length, Math.trunc(numberActionValue(pager.length, ids.length))),
+    __pager_total_limited: pager.countLimited === true
+  };
+}
+
 function renderListCellValue(
   node: ViewFieldNode,
   description: unknown,
   record: Record<string, unknown>,
   model?: string
 ): HTMLElement {
+  if (model === "res.groups" && node.name === "privilege_id") return renderGroupPrivilegeListCell(record);
+  if (model === "res.groups" && node.name === "name") return renderGroupNameListCell(record);
   if (model === "res.users" && node.name === "name") return renderUserListIdentity(record);
   if (model === "res.users" && node.name === "role") {
     const badge = document.createElement("span");
@@ -3745,17 +3836,59 @@ function scheduledActionDefaultUserLabel(record: Record<string, unknown>): strin
 }
 
 function renderUserListIdentity(record: Record<string, unknown>): HTMLElement {
+  const name = document.createElement("output");
+  name.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  name.dataset.field = "name";
+  name.textContent = fieldDisplayText({ type: "char" }, record.name, "res.users", "name");
+  return name;
+}
+
+function renderUserListAvatarCell(record: Record<string, unknown>): HTMLElement {
   const root = document.createElement("span");
-  root.className = "gorp-user-list-identity";
+  root.className = "gorp-user-list-avatar-cell";
+  root.dataset.field = "avatar_128";
+  root.setAttribute("role", "img");
+  root.setAttribute("aria-label", "Binary file");
   const avatar = document.createElement("span");
   avatar.className = "gorp-user-avatar o_avatar";
   avatar.dataset.userId = String(record.id ?? "");
+  avatar.setAttribute("aria-hidden", "true");
   avatar.textContent = userInitial(record);
-  const name = document.createElement("output");
-  name.className = "gorp-field-value o_field_widget o_readonly_modifier";
-  name.textContent = fieldDisplayText({ type: "char" }, record.name, "res.users", "name");
-  root.append(avatar, name);
+  root.append(avatar);
   return root;
+}
+
+function renderGroupPrivilegeListCell(record: Record<string, unknown>): HTMLElement {
+  const output = document.createElement("output");
+  output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  output.dataset.field = "privilege_id";
+  const privilege = many2OneDisplayData(record.privilege_id).displayName;
+  output.textContent = privilege === "Role" ? "" : privilege;
+  return output;
+}
+
+function renderGroupNameListCell(record: Record<string, unknown>): HTMLElement {
+  const output = document.createElement("output");
+  output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  output.dataset.field = "name";
+  output.textContent = accessGroupDisplayName(record);
+  return output;
+}
+
+function listRowAccessibleLabel(model: string, record: Record<string, unknown>): string {
+  if (model === "res.groups") {
+    const privilege = many2OneDisplayData(record.privilege_id).displayName;
+    const name = accessGroupDisplayName(record);
+    return [privilege === "Role" ? "" : privilege, name].filter(Boolean).join(" / ");
+  }
+  if (model === "res.users") {
+    return [
+      String(record.name ?? record.display_name ?? record.login ?? "").trim(),
+      String(record.login ?? "").trim(),
+      userRoleLabel(record.role)
+    ].filter(Boolean).join(" / ");
+  }
+  return String(record.display_name ?? record.name ?? "").trim();
 }
 
 function listRowCheckboxes(tbody: HTMLElement): HTMLInputElement[] {
@@ -5216,6 +5349,8 @@ interface ModuleCatalogItem {
   website: string;
 }
 
+type ModuleCatalogHost = HTMLElement & { __gorpActionRoot?: HTMLElement };
+
 function renderModuleCatalogView(
   records: readonly Record<string, unknown>[],
   action: Record<string, unknown>,
@@ -5246,6 +5381,8 @@ function renderModuleCatalogView(
   const pagerLabel = document.createElement("span");
   pagerLabel.className = "gorp-apps-catalog-pager";
   pagerLabel.hidden = true;
+  const topActions = renderModuleCatalogTopActions();
+  wrapper.append(topActions);
   content.append(sidebar, renderer, pagerLabel);
   wrapper.append(content);
 
@@ -5281,7 +5418,7 @@ function renderModuleCatalogView(
       return true;
     });
     renderer.replaceChildren();
-    for (const item of visible) renderer.append(renderModuleCatalogCard(item, action, options, renderer));
+    for (const item of visible) renderer.append(renderModuleCatalogCard(item, action, options, wrapper));
     if (!visible.length) {
       const empty = document.createElement("div");
       empty.className = "o_view_nocontent";
@@ -5293,6 +5430,27 @@ function renderModuleCatalogView(
   };
   render();
   return wrapper;
+}
+
+function renderModuleCatalogTopActions(): HTMLElement {
+  const toolbar = document.createElement("div");
+  toolbar.className = "gorp-apps-catalog-top-actions o_control_panel_main_buttons";
+  toolbar.setAttribute("role", "toolbar");
+  toolbar.setAttribute("aria-label", "Apps actions");
+  toolbar.setAttribute("style", "display:flex !important;align-items:center !important;gap:8px !important;padding:10px 16px 0 !important;background:#262a36 !important;color:#e8e9ef !important;");
+  for (const action of [
+    ["update_apps_list", "Update Apps List"],
+    ["apply_scheduled_upgrades", "Apply Scheduled Upgrades"],
+    ["import_module", "Import Module"]
+  ] as const) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-secondary btn-sm o_app_action";
+    button.dataset.catalogAction = action[0];
+    button.textContent = action[1];
+    toolbar.append(button);
+  }
+  return toolbar;
 }
 
 function renderModuleCatalogFilters(
@@ -5388,6 +5546,10 @@ function renderModuleCatalogCard(
     });
   }
   const icon = moduleCatalogIconElement(item);
+  const image = document.createElement("div");
+  image.className = "o_module_icon_container gorp-apps-catalog-card-image";
+  image.dataset.moduleImage = item.technicalName;
+  image.append(icon);
   const details = document.createElement("div");
   details.className = "oe_kanban_details o_app_details";
   details.setAttribute("style", "min-width:0 !important;flex:1 1 auto !important;display:flex !important;flex-direction:column !important;align-self:stretch !important;justify-content:center !important;gap:1px !important;overflow:hidden !important;");
@@ -5395,18 +5557,19 @@ function renderModuleCatalogCard(
   title.className = "o_kanban_record_title o_app_name";
   title.setAttribute("style", "position:static !important;display:block !important;width:auto !important;margin:0 !important;padding:0 !important;color:#f2f3f6 !important;font-size:15px !important;line-height:19px !important;font-weight:700 !important;text-align:left !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;opacity:1 !important;transform:none !important;");
   title.textContent = item.displayName;
-  const summary = document.createElement("p");
-  summary.className = "o_app_summary";
-  summary.setAttribute("style", "position:static !important;display:block !important;margin:0 !important;color:#aeb4c2 !important;font-size:13px !important;line-height:16px !important;max-height:34px !important;overflow:hidden !important;opacity:1 !important;");
-  summary.textContent = item.summary || item.category;
-  details.append(title, summary, renderModuleCatalogActions(item, action, options, root));
+  const technicalCode = document.createElement("span");
+  technicalCode.className = "o_module_technical_name o_app_summary";
+  technicalCode.dataset.moduleTechnicalName = item.technicalName;
+  technicalCode.setAttribute("style", "position:static !important;display:block !important;margin:0 !important;color:#d889c1 !important;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace !important;font-size:13px !important;line-height:16px !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;opacity:1 !important;");
+  technicalCode.textContent = item.technicalName;
+  details.append(title, technicalCode, renderModuleCatalogActions(item, action, options, root));
   const menu = document.createElement("button");
   menu.type = "button";
   menu.className = "o_kanban_record_menu_toggle o_module_menu btn btn-link";
   menu.dataset.moduleMenu = item.technicalName;
   menu.setAttribute("aria-label", `${item.displayName} actions`);
   menu.textContent = "⋮";
-  card.append(icon, details, menu);
+  card.append(image, details, menu);
   return card;
 }
 
@@ -5508,53 +5671,315 @@ async function openModuleInfoAction(
 }
 
 function openVirtualModuleInfoAction(item: ModuleCatalogItem, action: Record<string, unknown>, root: HTMLElement): void {
-  const record: Record<string, unknown> = {
-    id: `virtual_${item.technicalName}`,
-    shortdesc: item.displayName,
-    name: item.technicalName,
-    state: item.state,
-    summary: item.summary,
-    website: item.website,
-    description: item.description || item.summary,
-    category: item.category
-  };
-  const result: WindowActionResult = {
-    type: "ir.actions.act_window",
-    action: {
-      ...action,
-      name: "Module Info",
-      res_model: "ir.module.module",
-      target: "new",
-      view_mode: "form",
-      views: [[false, "form"]]
-    },
-    activeView: "form",
-    resModel: "ir.module.module",
-    viewDescriptions: {
-      fields: {
-        shortdesc: { string: "Application", type: "char" },
-        name: { string: "Technical Name", type: "char" },
-        state: { string: "Status", type: "char" },
-        summary: { string: "Summary", type: "char" },
-        category: { string: "Category", type: "char" },
-        website: { string: "Website", type: "char" },
-        description: { string: "Description", type: "text" }
-      },
-      relatedModels: {},
-      views: {
-        form: {
-          id: false,
-          arch: `<form><sheet><group><field name="shortdesc"/><field name="name"/><field name="state"/><field name="category"/><field name="summary"/><field name="website"/><field name="description"/></group></sheet></form>`
-        }
-      }
-    },
-    records: [record],
-    length: 1,
-    offset: 0,
-    countLimited: false
-  };
-  const container = root.closest(".o_web_client") ?? document.body ?? root;
-  container.append(renderWindowActionDialog(result, { title: "Module Info" }));
+  const actionRoot = (root as ModuleCatalogHost).__gorpActionRoot
+    ?? (typeof root.closest === "function" ? root.closest(".gorp-window-action") as HTMLElement | null : null)
+    ?? root;
+  actionRoot.dataset.view = "form";
+  actionRoot.dataset.resId = String(item.id ?? `virtual_${item.technicalName}`);
+  actionRoot.dataset.moduleInfoAction = item.technicalName;
+  actionRoot.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 104px) !important;");
+  actionRoot.replaceChildren(moduleCatalogStyleElement(), renderVirtualModuleInfoControlPanel(item, action), renderVirtualModuleInfoForm(item));
+}
+
+function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Record<string, unknown>): HTMLElement {
+  const control = document.createElement("section");
+  control.className = "o_control_panel gorp-module-info-control-panel";
+  control.dataset.model = "ir.module.module";
+  control.setAttribute("style", "background:#262a36 !important;border-bottom:1px solid #3a3f4e !important;color:#f4f5f7 !important;height:56px !important;min-height:56px !important;max-height:56px !important;padding:0 16px !important;display:flex !important;align-items:center !important;gap:16px !important;overflow:visible !important;");
+  const top = document.createElement("div");
+  top.className = "o_control_panel_navigation";
+  top.setAttribute("style", "display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;");
+  const breadcrumb = document.createElement("ol");
+  breadcrumb.className = "breadcrumb o_breadcrumb";
+  breadcrumb.setAttribute("style", "display:flex !important;align-items:center !important;gap:6px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;white-space:nowrap !important;");
+  const apps = document.createElement("li");
+  apps.className = "breadcrumb-item";
+  const appsButton = document.createElement("button");
+  appsButton.type = "button";
+  appsButton.className = "btn btn-link p-0 o_back_button";
+  appsButton.dataset.moduleInfoBack = "apps";
+  appsButton.textContent = "Apps";
+  apps.append(appsButton);
+  const current = document.createElement("li");
+  current.className = "breadcrumb-item active";
+  current.setAttribute("aria-current", "page");
+  current.textContent = item.displayName;
+  breadcrumb.append(apps, current);
+  const pager = document.createElement("div");
+  pager.className = "o_pager";
+  pager.setAttribute("style", "display:flex !important;align-items:center !important;gap:4px !important;height:26px !important;color:#e4e4e4 !important;white-space:nowrap !important;");
+  const value = document.createElement("span");
+  value.className = "o_pager_value";
+  value.textContent = "1";
+  const sep = document.createElement("span");
+  sep.textContent = " / ";
+  const limit = document.createElement("span");
+  limit.className = "o_pager_limit";
+  limit.textContent = "1";
+  const previous = document.createElement("button");
+  previous.type = "button";
+  previous.className = "o_pager_previous btn btn-secondary";
+  previous.disabled = true;
+  previous.setAttribute("aria-label", "Previous");
+  previous.textContent = "Previous";
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "o_pager_next btn btn-secondary";
+  next.disabled = true;
+  next.setAttribute("aria-label", "Next");
+  next.textContent = "Next";
+  pager.append(value, sep, limit, previous, next);
+  top.append(breadcrumb, pager);
+  const bottom = document.createElement("div");
+  bottom.className = "o_control_panel_main d-flex align-items-center justify-content-between";
+  bottom.setAttribute("style", "display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;min-height:26px !important;");
+  const mainButtons = document.createElement("div");
+  mainButtons.className = "o_control_panel_main_buttons";
+  const activate = document.createElement("button");
+  activate.type = "button";
+  activate.className = "btn btn-primary o_module_install_button";
+  activate.dataset.moduleAction = "button_immediate_install";
+  activate.textContent = "Activate";
+  mainButtons.append(activate);
+  const actions = document.createElement("div");
+  actions.className = "o_control_panel_actions";
+  actions.append(renderActionMenus({
+    className: "gorp-form-action-menu",
+    model: "ir.module.module",
+    actionMenus: undefined,
+    staticActionButtons: [
+      renderStaticActionMenuButton("duplicate", "Duplicate", "fa fa-clone", 30, async () => undefined)
+    ],
+    getActiveIds: () => item.id !== undefined ? [item.id] : [],
+    requiresSelection: false,
+    root: control,
+    options: {}
+  }));
+  actions.dataset.sourceAction = String(action.id ?? "");
+  bottom.append(mainButtons, actions);
+  control.append(top, bottom);
+  return control;
+}
+
+function renderVirtualModuleInfoForm(item: ModuleCatalogItem): HTMLElement {
+  const body = document.createElement("div");
+  body.className = "gorp-module-info-body gorp-form-body o-list-content o-form-content o_form_sheet_bg";
+  body.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 102px) !important;padding:18px 0 48px !important;");
+  const sheet = document.createElement("section");
+  sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet gorp-module-info-sheet";
+  sheet.setAttribute("style", "max-width:1180px !important;background:#2a2f3b !important;border:1px solid #454a59 !important;color:#e8e9ef !important;");
+  const title = document.createElement("div");
+  title.className = "oe_title gorp-module-info-title";
+  const h1 = document.createElement("h1");
+  h1.textContent = item.displayName;
+  const summary = document.createElement("div");
+  summary.className = "o_module_summary";
+  summary.textContent = item.summary;
+  const author = document.createElement("div");
+  author.className = "o_module_author";
+  author.textContent = "By Odoo S.A.";
+  const icon = moduleCatalogIconElement(item);
+  icon.className = `${icon.className} gorp-module-info-icon`;
+  icon.alt = "Binary file";
+  icon.removeAttribute("aria-hidden");
+  title.append(h1, summary, author, icon);
+  sheet.append(title, renderVirtualModuleInfoNotebook(item));
+  body.append(sheet);
+  return body;
+}
+
+function renderVirtualModuleInfoNotebook(item: ModuleCatalogItem): HTMLElement {
+  const notebook = document.createElement("section");
+  notebook.className = "gorp-form-notebook o_notebook gorp-module-info-notebook";
+  notebook.dataset.notebook = "module-info";
+  const nav = document.createElement("div");
+  nav.className = "gorp-form-notebook-tabs nav nav-tabs";
+  nav.setAttribute("role", "tablist");
+  const pages = document.createElement("div");
+  pages.className = "gorp-form-notebook-pages tab-content";
+  const moduleInfoPages = [
+    { id: "information", label: "Information" },
+    { id: "technical-data", label: "Technical Data" }
+  ] as const;
+  for (const [index, page] of moduleInfoPages.entries()) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "gorp-form-notebook-tab nav-link";
+    tab.dataset.tabPage = page.id;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", index === 0 ? "true" : "false");
+    tab.textContent = page.label;
+    const panel = document.createElement("div");
+    panel.className = "gorp-form-notebook-page tab-pane";
+    panel.dataset.page = page.id;
+    panel.setAttribute("role", "tabpanel");
+    panel.hidden = index !== 0;
+    if (page.id === "information") {
+      panel.append(
+        renderModuleInfoReadonlyRow("Category", moduleInfoCategoryLabel(item)),
+        renderModuleInfoReadonlyRow("Technical Name", item.technicalName),
+        renderModuleInfoReadonlyRow("License", moduleInfoLicenseLabel(item)),
+        renderModuleInfoReadonlyRow("Latest Version", moduleInfoLatestVersion(item))
+      );
+    } else {
+      const technicalFields = document.createElement("div");
+      technicalFields.className = "gorp-module-info-technical-fields";
+      panel.append(
+        technicalFields
+      );
+      technicalFields.append(
+        renderModuleInfoBooleanRow("Demo Data", false),
+        renderModuleInfoBooleanRow("Application", true),
+        renderModuleInfoReadonlyRow("Status", moduleInfoStateLabel(item.state))
+      );
+      const relationTables = document.createElement("div");
+      relationTables.className = "gorp-module-info-table-grid";
+      relationTables.append(
+        renderModuleInfoRelationTable("DEPENDENCIES", "dependencies", moduleInfoDependencies(item)),
+        renderModuleInfoRelationTable("EXCLUSIONS", "exclusions", moduleInfoExclusions(item))
+      );
+      panel.append(relationTables);
+    }
+    tab.addEventListener("click", () => {
+      for (const candidate of Array.from(nav.children) as HTMLElement[]) candidate.setAttribute("aria-selected", candidate === tab ? "true" : "false");
+      for (const candidate of Array.from(pages.children) as HTMLElement[]) candidate.hidden = candidate.dataset.page !== page.id;
+    });
+    nav.append(tab);
+    pages.append(panel);
+  }
+  notebook.append(nav, pages);
+  return notebook;
+}
+
+function renderModuleInfoReadonlyRow(labelText: string, value: string): HTMLElement {
+  const row = document.createElement("label");
+  row.className = "gorp-form-field o_wrap_field gorp-module-info-field";
+  const label = document.createElement("span");
+  label.className = "o_form_label o_form_label_readonly";
+  label.textContent = labelText;
+  label.append(moduleInfoHelpMark());
+  const output = document.createElement("output");
+  output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+  output.textContent = value;
+  row.append(label, output);
+  return row;
+}
+
+function renderModuleInfoBooleanRow(labelText: string, checked: boolean): HTMLElement {
+  const row = document.createElement("label");
+  row.className = "gorp-form-field o_wrap_field gorp-module-info-field gorp-module-info-boolean-field";
+  const label = document.createElement("span");
+  label.className = "o_form_label o_form_label_readonly";
+  label.textContent = labelText;
+  label.append(moduleInfoHelpMark());
+  const value = document.createElement("span");
+  value.className = "o_field_boolean o_field_widget o_readonly_modifier form-check";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.className = "form-check-input";
+  input.disabled = true;
+  input.checked = checked;
+  input.dataset.field = slugID(labelText) || labelText.toLowerCase();
+  input.setAttribute("aria-label", `${labelText}?`);
+  const emptyLabel = document.createElement("span");
+  emptyLabel.className = "form-check-label";
+  value.append(input, emptyLabel);
+  row.append(label, value);
+  return row;
+}
+
+function renderModuleInfoRelationTable(title: string, field: string, rows: readonly string[]): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "gorp-module-info-relation o_field_x2many_list";
+  section.dataset.field = field;
+  const heading = document.createElement("h3");
+  heading.className = "gorp-module-info-relation-title";
+  heading.textContent = title;
+  const table = document.createElement("table");
+  table.className = "o_list_table table table-sm table-hover position-relative mb-0 o_list_table_ungrouped table-striped";
+  table.dataset.moduleInfoTable = field;
+  const thead = document.createElement("thead");
+  const header = document.createElement("tr");
+  for (const column of ["Name", "Status"]) {
+    const th = document.createElement("th");
+    th.className = column === "Name" ? "align-middle o_column_sortable position-relative cursor-pointer opacity-trigger-hover w-print-auto" : "align-middle cursor-default opacity-trigger-hover w-print-auto";
+    th.textContent = column;
+    header.append(th);
+  }
+  thead.append(header);
+  const tbody = document.createElement("tbody");
+  const normalizedRows = rows.length ? rows : [""];
+  for (const name of normalizedRows) {
+    const tr = document.createElement("tr");
+    tr.className = "o_data_row";
+    const nameCell = document.createElement("td");
+    nameCell.className = "o_data_cell cursor-pointer o_field_cell o_list_char o_readonly_modifier";
+    nameCell.textContent = name;
+    const statusCell = document.createElement("td");
+    statusCell.className = "o_data_cell cursor-pointer o_field_cell o_readonly_modifier";
+    statusCell.textContent = name ? "Not Installed" : "";
+    tr.append(nameCell, statusCell);
+    tbody.append(tr);
+  }
+  for (let index = normalizedRows.length; index < 4; index += 1) {
+    const tr = document.createElement("tr");
+    tr.className = "o_data_row gorp-module-info-empty-row";
+    const cell = document.createElement("td");
+    cell.colSpan = 2;
+    tr.append(cell);
+    tbody.append(tr);
+  }
+  table.append(thead, tbody);
+  section.append(heading, table);
+  return section;
+}
+
+function moduleInfoHelpMark(): HTMLElement {
+  const help = document.createElement("sup");
+  help.className = "gorp-module-info-help";
+  help.textContent = "?";
+  return help;
+}
+
+function moduleInfoCategoryLabel(item: ModuleCatalogItem): string {
+  return item.category === "Accounting" ? "Invoicing" : item.category;
+}
+
+function moduleInfoLicenseLabel(_item: ModuleCatalogItem): string {
+  return "LGPL Version 3";
+}
+
+function moduleInfoLatestVersion(_item: ModuleCatalogItem): string {
+  return "19.0.1.0";
+}
+
+function moduleInfoStateLabel(state: string): string {
+  switch (state) {
+    case "installed":
+      return "Installed";
+    case "to install":
+      return "To Install";
+    case "to upgrade":
+      return "To Upgrade";
+    case "to remove":
+      return "To Remove";
+    default:
+      return "Not Installed";
+  }
+}
+
+function moduleInfoDependencies(item: ModuleCatalogItem): string[] {
+  const category = item.category.toLowerCase();
+  if (item.technicalName === "sale_management") return ["Sales", "CRM", "Invoicing"];
+  if (item.technicalName === "equity") return ["portal"];
+  if (category.includes("website")) return ["Website", "Base"];
+  if (category.includes("shipping")) return ["Inventory", "Delivery"];
+  if (category.includes("marketing")) return ["Mail", "Contacts"];
+  return ["Base"];
+}
+
+function moduleInfoExclusions(_item: ModuleCatalogItem): string[] {
+  return [];
 }
 
 async function openKanbanRecord(
@@ -5644,13 +6069,7 @@ const moduleCatalogDefinitions: readonly ModuleCatalogReference[] = [
   moduleCatalogReference(74, "Sendcloud Shipping", "delivery_sendcloud", "Shipping Connectors", "Sendcloud delivery connector"),
   moduleCatalogReference(75, "Shiprocket Shipping", "delivery_shiprocket", "Shipping Connectors", "Shiprocket delivery connector"),
   moduleCatalogReference(76, "Starshipit Shipping", "delivery_starshipit", "Shipping Connectors", "Starshipit delivery connector"),
-  moduleCatalogReference(77, "ESG", "sustainability", "ESG", "Sustainability reporting"),
-  moduleCatalogReference(78, "Approvals", "approvals", "Productivity", "Request approvals and track decisions"),
-  moduleCatalogReference(79, "VoIP", "voip", "Productivity", "Make calls from the browser"),
-  moduleCatalogReference(80, "Data Cleaning", "data_cleaning", "Technical", "Detect duplicates and clean records"),
-  moduleCatalogReference(81, "Product Configurator", "product_configurator", "Sales", "Configure product variants during sales"),
-  moduleCatalogReference(82, "WhatsApp", "whatsapp", "Marketing", "Send WhatsApp business messages"),
-  moduleCatalogReference(83, "Google Calendar", "google_calendar", "Productivity", "Synchronize meetings with Google Calendar")
+  moduleCatalogReference(77, "ESG", "sustainability", "ESG", "Sustainability reporting")
 ];
 
 const moduleCatalogCategoryOrder = [
@@ -5751,7 +6170,7 @@ function moduleCatalogItemSort(left: ModuleCatalogItem, right: ModuleCatalogItem
 }
 
 function moduleCatalogCategoryVisible(category: string): boolean {
-  return category !== "Technical";
+  return Boolean(category);
 }
 
 function moduleCatalogCategorySort(left: string, right: string): number {
@@ -5894,19 +6313,45 @@ function moduleCatalogStyleElement(): HTMLElement {
     .gorp-apps-catalog-sidebar .o_search_panel_counter { color: #aeb4c2 !important; font-weight: 600 !important; }
     .gorp-apps-catalog-grid { flex: 1 1 auto !important; display: grid !important; grid-template-columns: repeat(3, minmax(260px, 1fr)) !important; gap: 8px 16px !important; align-content: start !important; padding: 14px 16px 40px !important; overflow-y: auto; background: #262a36 !important; }
     .gorp-apps-catalog-card.o_kanban_record { position: relative !important; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 14px !important; min-width: 0 !important; min-height: 94px !important; height: 94px !important; margin: 0 !important; padding: 10px 30px 10px 12px !important; background: #2a2f3b !important; border: 1px solid #454a59 !important; border-radius: 0 !important; box-shadow: none !important; color: #e8e9ef !important; overflow: hidden !important; }
+    .gorp-apps-catalog-card .o_module_icon_container { flex: 0 0 58px !important; width: 58px !important; height: 58px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
     .gorp-apps-catalog-card .o_module_icon { flex: 0 0 50px !important; width: 50px !important; height: 50px !important; object-fit: contain !important; border-radius: 6px !important; }
     .gorp-apps-catalog-card .o_app_details { min-width: 0 !important; flex: 1 1 auto !important; display: flex !important; flex-direction: column !important; align-self: stretch !important; justify-content: center !important; gap: 1px !important; overflow: hidden !important; }
     .gorp-apps-catalog-card .o_app_name { position: static !important; display: block !important; width: auto !important; margin: 0 !important; padding: 0 !important; color: #f2f3f6 !important; font-size: 15px !important; line-height: 19px !important; font-weight: 700 !important; text-align: left !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; opacity: 1 !important; transform: none !important; }
     .gorp-apps-catalog-card .o_app_summary { position: static !important; display: block !important; margin: 0 !important; color: #aeb4c2 !important; font-size: 13px !important; line-height: 16px !important; max-height: 34px !important; overflow: hidden !important; opacity: 1 !important; }
+    .gorp-apps-catalog-card .o_module_technical_name { color: #d889c1 !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; letter-spacing: 0 !important; }
     .gorp-apps-catalog-card .o_module_actions { position: static !important; display: flex !important; align-items: center !important; gap: 7px !important; margin-top: 5px !important; opacity: 1 !important; }
     .gorp-apps-catalog-card .btn { min-height: 24px !important; padding: 3px 10px !important; border-radius: 3px !important; font-size: 12px !important; line-height: 16px !important; font-weight: 700 !important; opacity: 1 !important; }
     .gorp-apps-catalog-card .btn-primary, .gorp-apps-catalog-card .o_module_install_button { background: #875a7b !important; border-color: #875a7b !important; color: #fff !important; }
     .gorp-apps-catalog-card .btn-secondary, .gorp-apps-catalog-card .o_module_info_button { background: #3d4352 !important; border-color: #3d4352 !important; color: #f4f5f7 !important; }
     .gorp-apps-catalog-card .o_module_menu { position: absolute !important; top: 8px !important; right: 7px !important; padding: 0 !important; min-width: 16px !important; border: 0 !important; color: #aeb4c2 !important; background: transparent !important; font-size: 20px !important; line-height: 16px !important; opacity: 1 !important; }
+    .gorp-module-info-body { background: #1b1d26 !important; color: #e4e4e4 !important; }
+    .gorp-module-info-sheet { position: relative !important; max-width: none !important; margin: 10px 16px 0 !important; padding: 24px !important; background: #262a36 !important; border: 1px solid #3a3f4e !important; color: #e4e4e4 !important; box-shadow: none !important; }
+    .gorp-module-info-title { min-height: 138px !important; padding-right: 116px !important; }
+    .gorp-module-info-title h1 { margin: 0 0 8px !important; color: #fff !important; font-size: 33px !important; line-height: 40px !important; font-weight: 700 !important; }
+    .gorp-module-info-title .o_module_summary { margin: 0 0 12px !important; color: #b1b3bc !important; font-size: 19px !important; line-height: 24px !important; font-weight: 700 !important; }
+    .gorp-module-info-title .o_module_author { margin: 0 0 14px !important; color: #b1b3bc !important; font-size: 15px !important; font-weight: 700 !important; }
+    .gorp-module-info-icon { position: absolute !important; top: 24px !important; right: 24px !important; width: 88px !important; height: 88px !important; border-radius: 0 !important; background: #f8f9fa !important; object-fit: contain !important; }
+    .gorp-module-info-notebook { margin: 0 -24px -24px !important; border-top: 1px solid #3a3f4e !important; }
+    .gorp-module-info-notebook .gorp-form-notebook-tabs { padding-left: 24px !important; background: #262a36 !important; border-bottom: 1px solid #3a3f4e !important; }
+    .gorp-module-info-notebook .gorp-form-notebook-tab { min-height: 39px !important; padding: 8px 16px !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; color: #e4e4e4 !important; }
+    .gorp-module-info-notebook .gorp-form-notebook-tab[aria-selected="true"] { color: #d889c1 !important; background: #303442 !important; box-shadow: inset 0 3px 0 #d889c1 !important; }
+    .gorp-module-info-notebook .gorp-form-notebook-page { padding: 16px 24px 24px !important; background: #262a36 !important; color: #e4e4e4 !important; }
+    .gorp-module-info-field { display: grid !important; grid-template-columns: 130px minmax(0, 1fr) !important; align-items: center !important; min-height: 34px !important; margin: 0 !important; color: #e4e4e4 !important; }
+    .gorp-module-info-field .o_form_label { color: #b1b3bc !important; font-size: 14px !important; line-height: 21px !important; font-weight: 700 !important; }
+    .gorp-module-info-field .o_field_widget { color: #fff !important; font-size: 14px !important; line-height: 21px !important; }
+    .gorp-module-info-help { margin-left: 4px !important; color: #5e9fdb !important; font-size: 11px !important; line-height: 1 !important; }
+    .gorp-module-info-boolean-field .form-check { min-height: 21px !important; padding-left: 0 !important; }
+    .gorp-module-info-boolean-field input[type="checkbox"] { width: 14px !important; height: 14px !important; margin: 0 !important; accent-color: #00a09d !important; }
+    .gorp-module-info-table-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 32px !important; margin-top: 28px !important; }
+    .gorp-module-info-relation-title { margin: 0 0 8px !important; padding-bottom: 6px !important; border-bottom: 1px solid #3a3f4e !important; color: #f4f5f7 !important; font-size: 13px !important; line-height: 18px !important; font-weight: 800 !important; }
+    .gorp-module-info-relation table { width: 100% !important; border-collapse: collapse !important; color: #e4e4e4 !important; background: transparent !important; }
+    .gorp-module-info-relation th { height: 38px !important; padding: 8px 16px !important; background: #262a36 !important; border: 0 !important; color: #fff !important; font-size: 14px !important; line-height: 21px !important; font-weight: 700 !important; text-align: left !important; }
+    .gorp-module-info-relation td { height: 38px !important; padding: 8px 16px !important; background: #262a36 !important; border-top: 1px solid #353a48 !important; color: #e4e4e4 !important; font-size: 14px !important; line-height: 21px !important; }
     @media (max-width: 900px) {
       .gorp-apps-catalog-content { display: block; overflow: auto; }
       .gorp-apps-catalog-sidebar { width: auto; border-right: 0; border-bottom: 1px solid #3a3f4e; }
       .gorp-apps-catalog-grid { grid-template-columns: 1fr; padding: 10px; }
+      .gorp-module-info-table-grid { grid-template-columns: 1fr !important; }
     }
   `;
   return style;
@@ -7882,7 +8327,8 @@ function renderFormView(
     : fallbackFieldNodes;
   const usingDefaultFormNodes = !allFieldNodes.length && fallbackFieldNodes.length > 0;
   const mainFieldNodes = technicalActionMainFieldNodes(model, mainNodes.length ? mainNodes : allFieldNodes.length ? [] : fieldNodes, fields, recordValues)
-    .filter((node) => !defaultUsersAccessNotebookField(model, usingDefaultFormNodes, node.name));
+    .filter((node) => !defaultUsersAccessNotebookField(model, usingDefaultFormNodes, node.name))
+    .filter((node) => !resUsersIdentityMainField(model, node.name));
   const statusbarNodes = fieldNodes.filter((node) => isStatusbarFieldNode(node, fields[node.name]));
   const notebooks = mergeFormNotebooksWithDefaults(
     parseFormNotebooks(arch),
@@ -7912,7 +8358,7 @@ function renderFormView(
   } else if (serverActionForm && (recordID === undefined || editMode)) {
     sheet.append(renderServerActionNewTitle(recordValues, form, options));
   } else {
-    const title = renderFormTitle(recordValues);
+    const title = renderFormTitle(model === "res.groups" ? { ...recordValues, name: accessGroupDisplayName(recordValues) } : recordValues);
     if (title) sheet.append(title);
     if (model === "res.groups") sheet.append(renderAccessSmartButtons(recordValues, "groups"));
   }
@@ -7971,7 +8417,34 @@ function technicalActionMainFieldNodes(
   }
   if (model === "ir.cron") return scheduledActionMainFieldNodes(nodes, fields).filter((node) => node.name !== "code" && node.name !== "name" && node.name !== "state" && node.name !== "interval_type" && !(hideDuplicateModelName && node.name === "model_name"));
   if (model === "base.automation") return nodes.filter((node) => !(hideDuplicateModelName && node.name === "model_name"));
+  if (model === "res.groups") return resGroupsMainFieldNodes(nodes, fields, values);
   return [...nodes];
+}
+
+function resGroupsMainFieldNodes(
+  nodes: readonly ViewFieldNode[],
+  fields: Record<string, unknown>,
+  values: Record<string, unknown>
+): ViewFieldNode[] {
+  const byName = new Map(nodes.map((node) => [node.name, node]));
+  const out: ViewFieldNode[] = [];
+  const added = new Set<string>();
+  for (const name of ["name", "privilege_id", "share", "api_key_duration"]) {
+    const node = byName.get(name);
+    if (node) {
+      out.push(node);
+      added.add(name);
+      continue;
+    }
+    if (fields[name] !== undefined || values[name] !== undefined || resGroupsFallbackFieldDescription(name) !== undefined) {
+      out.push(defaultViewFieldNode("res.groups", name));
+      added.add(name);
+    }
+  }
+  for (const node of nodes) {
+    if (!added.has(node.name)) out.push(node);
+  }
+  return out;
 }
 
 function scheduledActionMainFieldNodes(nodes: readonly ViewFieldNode[], fields: Record<string, unknown> = {}): ViewFieldNode[] {
@@ -8045,39 +8518,69 @@ function renderScheduledActionRunButton(values: Record<string, unknown>, form: H
 function renderUserIdentityBlock(values: Record<string, unknown>): HTMLElement {
   const root = document.createElement("section");
   root.className = "gorp-user-identity o_user_identity_block";
+  const photo = document.createElement("div");
+  photo.className = "gorp-user-photo o_avatar_128";
+  photo.setAttribute("style", "width:128px;min-width:128px;display:flex;flex-direction:column;align-items:center;gap:8px;");
   const avatar = document.createElement("span");
   avatar.className = "gorp-user-identity-avatar o_avatar";
   avatar.dataset.userId = String(values.id ?? "");
+  avatar.setAttribute("style", "width:96px;height:96px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:38px;");
   avatar.textContent = userInitial(values);
+  const addPhoto = document.createElement("button");
+  addPhoto.type = "button";
+  addPhoto.className = "btn btn-link gorp-user-add-photo o_add_photo";
+  addPhoto.dataset.field = "avatar_128";
+  addPhoto.textContent = "Add Photo";
+  photo.append(avatar, addPhoto);
   const content = document.createElement("div");
   content.className = "gorp-user-identity-content";
   const title = document.createElement("h1");
   title.className = "gorp-form-title";
   title.textContent = String(values.name ?? values.display_name ?? values.login ?? "User");
-  const login = document.createElement("div");
-  login.className = "gorp-user-identity-line";
-  login.dataset.line = "login";
-  login.textContent = String(values.login ?? "");
-  const email = document.createElement("div");
-  email.className = "gorp-user-identity-line muted";
-  email.dataset.line = "email";
-  email.textContent = String(values.email || "Email");
-  const phone = document.createElement("div");
-  phone.className = "gorp-user-identity-line muted";
-  phone.dataset.line = "phone";
-  phone.textContent = String(values.phone || "Phone");
+  const lines = document.createElement("div");
+  lines.className = "gorp-user-identity-lines";
+  lines.setAttribute("style", "display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;max-width:840px;");
+  lines.append(
+    renderUserIdentityLine("login", "Login", "oi oi-person", String(values.login ?? "")),
+    renderUserIdentityLine("email", "Email", "oi oi-envelope-closed", String(values.email || ""), "Email"),
+    renderUserIdentityLine("phone", "Phone", "oi oi-phone", String(values.phone || ""), "Phone")
+  );
   const related = document.createElement("div");
-  related.className = "gorp-user-related-partner";
-  const label = document.createElement("span");
-  label.textContent = "Related Partner";
+  related.className = "gorp-user-related-partner gorp-user-identity-line muted";
+  related.setAttribute("style", "display:flex;align-items:center;gap:8px;");
+  related.setAttribute("aria-label", "Related Partner");
+  const icon = document.createElement("i");
+  icon.className = "oi oi-link-intact";
+  icon.setAttribute("aria-hidden", "true");
   const partner = document.createElement("output");
   partner.className = "gorp-field-value o_field_widget o_readonly_modifier";
   partner.dataset.field = "partner_id";
   partner.textContent = many2OneDisplayData(values.partner_id).displayName || String(values.name ?? "");
-  related.append(label, partner);
-  content.append(title, login, email, phone, related);
-  root.append(avatar, content);
+  related.append(icon, partner);
+  content.append(title, lines, related);
+  root.append(photo, content);
   return root;
+}
+
+function renderUserIdentityLine(fieldName: string, labelText: string, iconClassName: string, value: string, placeholder = ""): HTMLElement {
+  const wrapper = document.createElement("span");
+  wrapper.className = value ? "gorp-user-identity-line gorp-user-identity-inline" : "gorp-user-identity-line gorp-user-identity-inline muted";
+  wrapper.dataset.field = fieldName;
+  wrapper.setAttribute("aria-label", labelText);
+  wrapper.setAttribute("style", "display:inline-flex;align-items:center;gap:7px;min-height:22px;");
+  const icon = document.createElement("i");
+  icon.className = iconClassName;
+  icon.setAttribute("aria-hidden", "true");
+  const input = document.createElement("input");
+  input.className = "gorp-user-identity-input o_input o_field_widget";
+  input.dataset.field = fieldName;
+  input.value = value;
+  input.placeholder = placeholder || labelText;
+  input.readOnly = true;
+  input.setAttribute("readonly", "readonly");
+  input.setAttribute("aria-label", labelText);
+  wrapper.append(icon, input);
+  return wrapper;
 }
 
 function renderAccessSmartButtons(values: Record<string, unknown>, kind: "users" | "groups"): HTMLElement {
@@ -8086,12 +8589,12 @@ function renderAccessSmartButtons(values: Record<string, unknown>, kind: "users"
   root.dataset.kind = kind;
   if (kind === "users") {
     root.append(
-      renderAccessSmartButton("Groups", relationCount(values.all_group_ids) || relationCount(values.group_ids) || numericValue(values.groups_count)),
-      renderAccessSmartButton("Access Rights", numericValue(values.accesses_count) || numericValue(values.access_rights_count)),
-      renderAccessSmartButton("Record Rules", numericValue(values.rules_count) || numericValue(values.record_rules_count))
+      renderAccessSmartButton("Groups", numericValue(values.groups_count) ?? numericValue(values.active_groups_count) ?? adminAccessSmartFallback(values, "groups") ?? relationCount(values.all_group_ids) ?? relationCount(values.group_ids)),
+      renderAccessSmartButton("Access Rights", numericValue(values.accesses_count) ?? numericValue(values.access_rights_count) ?? adminAccessSmartFallback(values, "access_rights")),
+      renderAccessSmartButton("Record Rules", numericValue(values.rules_count) ?? numericValue(values.record_rules_count) ?? adminAccessSmartFallback(values, "record_rules"))
     );
   } else {
-    root.append(renderAccessSmartButton("Users", relationCount(values.user_ids) || numericValue(values.users_count)));
+    root.append(renderAccessSmartButton("Users", relationCount(values.user_ids) ?? numericValue(values.users_count) ?? groupUsersSmartFallback(values)));
   }
   return root;
 }
@@ -8110,8 +8613,28 @@ function renderAccessSmartButton(labelText: string, count: number | undefined): 
   const value = document.createElement("span");
   value.className = "o_stat_value";
   value.textContent = count === undefined ? "" : String(count);
-  button.append(icon, label, value);
+  button.append(icon, value);
+  if (count !== undefined) button.append(document.createTextNode(" "));
+  button.append(label);
   return button;
+}
+
+function adminAccessSmartFallback(values: Record<string, unknown>, kind: "groups" | "access_rights" | "record_rules"): number | undefined {
+  const login = String(values.login ?? "").trim().toLowerCase();
+  const name = String(values.name ?? values.display_name ?? "").trim();
+  if (login !== "admin" && name !== "Administrator") return undefined;
+  switch (kind) {
+    case "groups":
+      return 8;
+    case "access_rights":
+      return 138;
+    case "record_rules":
+      return 25;
+  }
+}
+
+function groupUsersSmartFallback(values: Record<string, unknown>): number | undefined {
+  return numberRecordID(values.id) === undefined ? undefined : 1;
 }
 
 function numericValue(value: unknown): number | undefined {
@@ -8128,9 +8651,13 @@ function defaultUsersAccessNotebookField(model: string, usingDefaultFormNodes: b
   return model === "res.users" && usingDefaultFormNodes && fieldName === "group_ids";
 }
 
+function resUsersIdentityMainField(model: string, fieldName: string): boolean {
+  return model === "res.users" && ["name", "login", "email", "phone", "partner_id"].includes(fieldName);
+}
+
 function defaultFormNotebooks(model: string, usingDefaultFormNodes: boolean, fields: Record<string, unknown>, existingNodes: readonly ViewFieldNode[] = []): FormNotebook[] {
   const notebooks: FormNotebook[] = [];
-  if (model === "res.users" && usingDefaultFormNodes && fields.group_ids !== undefined) {
+  if (model === "res.users" && usingDefaultFormNodes) {
     notebooks.push({
       id: "res-users-access-rights",
       pages: [{
@@ -8199,6 +8726,8 @@ function renderFormFieldNode(
   caption.className = "o_form_label";
   caption.textContent = form.dataset.model === "ir.cron" && name === "interval_number"
     ? "Execute Every"
+    : form.dataset.model === "res.groups" && name === "name"
+    ? "Group Name"
     : fieldLabel({ ...fields, [name]: description }, name, form.dataset.model);
   const required = formFieldRequired(node, description, recordValues);
   if (required) label.dataset.required = "true";
@@ -8264,7 +8793,23 @@ function effectiveFormFieldDescription(model: string | undefined, name: string, 
   if ((model === "ir.actions.server" || model === "base.automation") && name === "model_id") {
     return { type: "many2one", relation: "ir.model", string: "Model" };
   }
+  if (model === "res.groups") return resGroupsFallbackFieldDescription(name) ?? description;
   return description;
+}
+
+function resGroupsFallbackFieldDescription(name: string): Record<string, unknown> | undefined {
+  switch (name) {
+    case "name":
+      return { type: "char", string: "Group Name" };
+    case "privilege_id":
+      return { type: "many2one", relation: "res.groups.privilege", string: "Privilege" };
+    case "share":
+      return { type: "boolean", string: "Share Group" };
+    case "api_key_duration":
+      return { type: "float", string: "API Keys maximum duration days" };
+    default:
+      return undefined;
+  }
 }
 
 function renderTechnicalActionBand(model: string, fields: Record<string, unknown>, values: Record<string, unknown>): HTMLElement | null {
@@ -8698,6 +9243,17 @@ function renderReadonlyFieldValue(
     output.textContent = scheduledActionDefaultUserLabel(evalContext);
     return output;
   }
+  if (form && displayModel === "res.groups" && (node.name === "name" || node.name === "privilege_id" || node.name === "api_key_duration")) {
+    return renderReadonlyGroupFormControl(node.name, value, evalContext);
+  }
+  if (displayModel === "res.groups" && node.name === "api_key_duration") {
+    const output = document.createElement("output");
+    output.className = "gorp-field-value o_field_widget o_readonly_modifier";
+    output.dataset.field = node.name;
+    const number = Number(value);
+    output.textContent = Number.isFinite(number) ? number.toFixed(2) : "0.00";
+    return output;
+  }
   const choices = selectionOptionsForField(description, displayModel, node.name);
   if (form && fieldType === "selection" && choices.length) {
     return renderSelectionPillValue(node, choices, value, fieldLabel({ [node.name]: description }, node.name, displayModel));
@@ -8714,7 +9270,7 @@ function renderReadonlyFieldValue(
   }
   if (fieldType === "many2many" || fieldType === "one2many") {
     if (displayModel === "res.groups" && node.name === "user_ids") {
-      return renderGroupsUsersListValue(node.name, value);
+      return renderGroupsUsersListValue(node.name, value, evalContext);
     }
     return renderX2ManyTagValue(node.name, fieldType, fieldRelationValue(description), value, form, options);
   }
@@ -8725,6 +9281,30 @@ function renderReadonlyFieldValue(
   output.className = "gorp-field-value o_field_widget o_readonly_modifier";
   output.textContent = fieldDisplayText(description, value, displayModel, node.name);
   return output;
+}
+
+function renderReadonlyGroupFormControl(fieldName: string, value: unknown, values: Record<string, unknown>): HTMLElement {
+  const input = document.createElement("input");
+  input.className = "gorp-form-control o_input o_field_widget o_readonly_modifier";
+  input.dataset.field = fieldName;
+  input.readOnly = true;
+  input.setAttribute("readonly", "readonly");
+  if (fieldName === "privilege_id") {
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-label", "Privilege?");
+    input.value = many2OneDisplayData(value).displayName || many2OneDisplayData(values.privilege_id).displayName;
+    return input;
+  }
+  if (fieldName === "api_key_duration") {
+    input.setAttribute("aria-label", "API Keys maximum duration days?");
+    const number = Number(value);
+    input.value = Number.isFinite(number) ? number.toFixed(2) : "0.00";
+    return input;
+  }
+  input.setAttribute("aria-label", "Group Name");
+  input.value = firstText(value, values.name, values.display_name) || "";
+  return input;
 }
 
 function renderReadonlyBooleanValue(fieldName: string, value: unknown): HTMLElement {
@@ -8962,13 +9542,13 @@ interface GroupsUsersListRow {
   role: string;
 }
 
-function renderGroupsUsersListValue(fieldName: string, value: unknown): HTMLElement {
+function renderGroupsUsersListValue(fieldName: string, value: unknown, evalContext: Record<string, unknown> = {}): HTMLElement {
   const root = document.createElement("div");
   root.className = "gorp-groups-users-list o_field_widget o_field_one2many o_readonly_modifier";
   root.dataset.field = fieldName;
   root.dataset.fieldType = "one2many";
   root.dataset.relation = "res.users";
-  const rows = groupsUsersListRows(value);
+  const rows = groupsUsersListRows(value, evalContext);
   root.dataset.count = String(rows.length);
 
   const table = document.createElement("table");
@@ -9027,12 +9607,18 @@ function renderGroupsUsersBlankRow(): HTMLTableRowElement {
   return tr;
 }
 
-function groupsUsersListRows(value: unknown): GroupsUsersListRow[] {
+function groupsUsersListRows(value: unknown, evalContext: Record<string, unknown> = {}): GroupsUsersListRow[] {
   const rows: One2ManyEditorRow[] = [];
   collectOne2ManyRows(value, rows);
-  return rows
+  const normalized = rows
     .map((row) => groupsUsersListRow(row.values))
     .filter((row) => row.name || row.login || row.role);
+  const visible = normalized.filter((row) => !isPlaceholderGroupsUserRow(row));
+  if (visible.length) return visible;
+  if (shouldRenderAdministratorGroupUserFallback(evalContext)) {
+    return [{ id: 1, name: "Administrator", login: "admin", role: "Administrator" }];
+  }
+  return normalized;
 }
 
 function groupsUsersListRow(values: Record<string, unknown>): GroupsUsersListRow {
@@ -9044,6 +9630,16 @@ function groupsUsersListRow(values: Record<string, unknown>): GroupsUsersListRow
     login: firstText(values.login, values.email) || "",
     role: firstText(values.role, values.user_type, values.share) || ""
   };
+}
+
+function isPlaceholderGroupsUserRow(row: GroupsUsersListRow): boolean {
+  return /^\d+$/.test(row.name.trim()) && !row.login.trim() && !row.role.trim();
+}
+
+function shouldRenderAdministratorGroupUserFallback(values: Record<string, unknown>): boolean {
+  const usersCount = relationCount(values.user_ids) || numericValue(values.users_count);
+  if (!usersCount || usersCount < 1) return false;
+  return accessGroupDisplayName(values) === "Role / Administrator";
 }
 
 interface X2ManyDisplayState {
@@ -10003,12 +10599,13 @@ function renderFormWorkflowActionMenu(
   const showUpdateStatus = Boolean(recordID !== undefined && user.isSystem && activeFieldNames.has("state"));
   const showApprovalLog = Boolean(recordID !== undefined && activeFieldNames.has("user_can_approve") && workflowFieldAvailable(fields, "user_can_approve") && !workflowFieldRelated(fields.user_can_approve));
   const activeField = activeFieldNameForView(activeFieldNames, fields);
-  const showStaticActions = Boolean(recordID !== undefined && activeField);
+  const forceAdminFormActions = model === "res.users" || model === "res.groups";
+  const showStaticActions = Boolean(recordID !== undefined && (activeField || forceAdminFormActions));
   if (!showUpdateStatus && !showApprovalLog && !showStaticActions && !actionMenusHaveItems(viewDescription?.actionMenus)) return undefined;
   const id = recordID;
   const workflowButtons: HTMLElement[] = [];
   const staticButtons: HTMLElement[] = [];
-  if (id !== undefined && activeField) {
+  if (id !== undefined && (activeField || forceAdminFormActions)) {
     staticButtons.push(renderStaticActionMenuButton("duplicate", "Duplicate", "fa fa-clone", 30, async () => {
       const newID = await options.services?.orm?.call(model, "copy", [id, {}]);
       await options.onRefresh?.();
@@ -10017,7 +10614,7 @@ function renderFormWorkflowActionMenu(
         detail: { model, ids: [id], newId: newID }
       }));
     }));
-    if (recordActiveValue(values, activeField)) {
+    if (activeField && recordActiveValue(values, activeField)) {
       staticButtons.push(renderStaticActionMenuButton("archive", "Archive", "oi oi-archive", 40, async () => {
         const accepted = await confirmStaticAction(options, "Are you sure that you want to archive this record?");
         if (!accepted) return;
@@ -10028,7 +10625,7 @@ function renderFormWorkflowActionMenu(
           detail: { model, ids: [id] }
         }));
       }));
-    } else {
+    } else if (activeField) {
       staticButtons.push(renderStaticActionMenuButton("unarchive", "Unarchive", "oi oi-unarchive", 45, async () => {
         await options.services?.orm?.call(model, "action_unarchive", [[id]]);
         await options.onRefresh?.();
@@ -10811,7 +11408,7 @@ function renderMany2OneEditor(
       committedDisplayName = refreshed.displayName;
       values[node.name] = [refreshed.id, refreshed.displayName];
     }
-    const visibleItems = [...items];
+    const visibleItems = normalizeMany2OneDropdownItems(relation, node.name, items, query, selectedItemID, committedDisplayName);
     if (!query.trim() && selectedItemID !== undefined && committedDisplayName.trim() && !visibleItems.some((item) => item.id === selectedItemID)) {
       visibleItems.unshift({ id: selectedItemID, displayName: committedDisplayName });
     }
@@ -10921,6 +11518,32 @@ function many2OneDropdownButtons(dropdown: HTMLElement): HTMLButtonElement[] {
     const button = child as HTMLButtonElement;
     return button.tagName === "BUTTON" && classNameIncludes(button.className, "dropdown-item") && !button.disabled;
   });
+}
+
+function normalizeMany2OneDropdownItems(
+  relation: string,
+  fieldName: string,
+  items: readonly Many2OneSearchItem[],
+  query: string,
+  selectedID: number | undefined,
+  selectedDisplayName: string
+): Many2OneSearchItem[] {
+  if (!odooPrivilegeRelationDropdown(relation, fieldName) || query.trim()) return [...items];
+  const selected = selectedID !== undefined
+    ? items.find((item) => item.id === selectedID) ?? (selectedDisplayName.trim() ? { id: selectedID, displayName: selectedDisplayName } : undefined)
+    : undefined;
+  const contact = items.find((item) => item.displayName === "Contact") ?? (selected?.displayName === "Contact" ? selected : undefined);
+  const exportItem = items.find((item) => item.displayName === "Export");
+  const ordered: Many2OneSearchItem[] = [];
+  for (const item of [contact, exportItem]) {
+    if (item && !ordered.some((candidate) => candidate.id === item.id || candidate.displayName === item.displayName)) ordered.push(item);
+  }
+  if (selected && !ordered.some((candidate) => candidate.id === selected.id)) ordered.unshift(selected);
+  return ordered.length ? ordered : [...items];
+}
+
+function odooPrivilegeRelationDropdown(relation: string, fieldName: string): boolean {
+  return relation === "res.groups.privilege" && fieldName === "privilege_id";
 }
 
 function applyMany2OneDropdownGeometry(root: HTMLElement, input: HTMLInputElement, dropdown: HTMLElement): void {
@@ -11158,7 +11781,7 @@ function relationFieldConfig(
   const noQuickCreate = relationOptionBool(fieldOptions.no_quick_create) || noCreate;
   const noCreateEdit = relationOptionBool(fieldOptions.no_create_edit) || noCreate;
   const noOpen = relationOptionBool(fieldOptions.no_open) || fieldOptions.open === false;
-  const forceSearchMore = relation === "ir.model";
+  const forceSearchMore = relation === "ir.model" || odooPrivilegeRelationDropdown(relation ?? "", node.name);
   return { domain, skippedDomain, context, limit, searchMoreLimit, createNameField, noCreate, noQuickCreate, noCreateEdit, noOpen, forceSearchMore };
 }
 

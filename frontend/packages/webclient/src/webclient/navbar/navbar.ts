@@ -94,6 +94,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   header.className = "o_navbar";
   const mainNavbar = document.createElement("nav");
   mainNavbar.className = "o_main_navbar d-print-none";
+  mainNavbar.setAttribute("style", "height:46px !important;min-height:46px !important;max-height:46px !important;padding:10px 0 !important;box-sizing:border-box !important;color:#e4e4e4 !important;");
   let setMobileMenuExpanded = (_expanded: boolean) => {};
   const appButtons = new Map<string, HTMLElement>();
   const appButtonEntries = new Map<string, NavbarApp>();
@@ -108,6 +109,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
   const launcher = document.createElement("button");
   launcher.type = "button";
   launcher.className = "o_menu_toggle o-launcher-button border-0";
+  applyNavbarControlChrome(launcher);
   launcher.dataset.view = "apps";
   launcher.setAttribute("aria-label", "Apps");
   launcher.setAttribute("accesskey", "h");
@@ -144,6 +146,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       button.type = "button";
       button.textContent = app.name;
       button.className = app.children?.length ? "o_nav_entry o_nav_dropdown_toggle dropdown-toggle" : "o_nav_entry";
+      applyNavbarControlChrome(button);
       button.dataset.menuId = String(app.id);
       button.title = app.name;
       appButtons.set(String(app.id), button);
@@ -159,22 +162,22 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
         nav.append(button);
       }
     }
+    enforceNavbarControlChrome(nav);
   }
 
   const systray = document.createElement("div");
   systray.className = "o-menu-systray o_menu_systray d-flex flex-shrink-0 ms-auto bg-inherit";
   systray.setAttribute("role", "menu");
   systray.setAttribute("aria-label", "Systray");
-  if (options.debug) {
-    appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
-    appendDropdown(systray, renderDebugToolsItem(), renderSystrayMenu("debug-tools", debugToolsMenuItems(), options.onSystrayAction));
-  }
+  appendDropdown(systray, renderDebugItem(), renderSystrayMenu("debug", debugMenuItems(), options.onSystrayAction));
+  systray.append(renderStudioItem(options.onSystrayAction));
   for (const item of defaultSystrayItems(options.systray?.store)) appendDropdown(systray, renderSystrayItem(item), renderSystrayMenu(item.key, item.menuItems ?? [item.label], options.onSystrayAction));
   appendDropdown(systray, renderCompanySwitcher(options.companyName ?? "My Company"), renderCompanySwitcherMenu(options.systray, options.companyName ?? "My Company", options.onSystrayAction));
   appendDropdown(systray, renderUserMenu(options.userName ?? "Administrator", options.databaseName), renderSystrayMenu("user", userMenuItems(), options.onSystrayAction));
 
   mainNavbar.append(brand, mobileMenu, nav, systray);
   header.append(mainNavbar);
+  enforceNavbarControlChrome(mainNavbar);
   bindSystrayAutoClose(header, closeDropdowns);
   header.setActiveApp = setActiveApp;
   header.setApps = setApps;
@@ -220,6 +223,7 @@ export function renderNavbar(options: NavbarOptions = {}): RenderedNavbar {
       button.className = classes.join(" ");
       setPageCurrent(button, active);
     }
+    enforceNavbarControlChrome(mainNavbar);
   }
 
   function renderNavbarDropdownMenu(rootApp: NavbarApp): HTMLElement {
@@ -406,6 +410,8 @@ function renderSystrayItem(item: SystrayItem): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `o-systray-item ${item.className} dropdown-toggle`;
+  applyNavbarControlChrome(button);
+  button.dataset.systrayKey = item.key;
   button.setAttribute("aria-label", item.label);
   button.setAttribute("role", "menuitem");
   const icon = document.createElement("i");
@@ -431,7 +437,7 @@ function renderSystrayMenu(key: string, items: readonly SystrayMenuEntry[], onAc
     const button = document.createElement("button");
     button.type = "button";
     button.className = entry.active ? "dropdown-item active" : "dropdown-item";
-    button.setAttribute("role", "none");
+    button.setAttribute("role", "menuitem");
     button.dataset.systrayItem = entry.label;
     if (entry.action) {
       button.dataset.systrayAction = entry.action.type;
@@ -545,6 +551,32 @@ function firstChildWithClass(root: HTMLElement, className: string): HTMLElement 
   return null;
 }
 
+function applyNavbarControlChrome(element: HTMLElement): void {
+  appendInlineStyle(element, "height:26px !important;min-height:26px !important;max-height:26px !important;align-self:center !important;align-items:center !important;justify-content:center !important;line-height:26px !important;overflow:hidden !important;");
+}
+
+function enforceNavbarControlChrome(root: HTMLElement): void {
+  const selectors = ".o_menu_toggle, .o_nav_entry, .o-systray-item, .o_switch_company_menu, .o_user_menu, .o_debug_manager, .o_web_studio_navbar_item";
+  if (typeof root.querySelectorAll === "function") {
+    for (const element of Array.from(root.querySelectorAll(selectors)) as HTMLElement[]) applyNavbarControlChrome(element);
+    return;
+  }
+  visitNavbarControls(root, applyNavbarControlChrome);
+}
+
+function appendInlineStyle(element: HTMLElement, declaration: string): void {
+  const existing = element.getAttribute("style");
+  element.setAttribute("style", existing && existing.trim() ? `${existing};${declaration}` : declaration);
+}
+
+function visitNavbarControls(root: HTMLElement, visitor: (element: HTMLElement) => void): void {
+  const classes = String(root.className ?? "").split(/\s+/);
+  if (classes.some((className) => ["o_menu_toggle", "o_nav_entry", "o-systray-item", "o_switch_company_menu", "o_user_menu", "o_debug_manager", "o_web_studio_navbar_item"].includes(className))) {
+    visitor(root);
+  }
+  for (const child of Array.from(root.children ?? [])) visitNavbarControls(child as HTMLElement, visitor);
+}
+
 function menuContains(entry: NavbarApp, menuId: string): boolean {
   if (String(entry.id) === menuId) return true;
   return Boolean(entry.children?.some((child) => menuContains(child, menuId)));
@@ -565,6 +597,7 @@ function renderCompanySwitcher(companyName: string): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "o-systray-item o_switch_company_menu o-company-switcher dropdown-toggle";
+  applyNavbarControlChrome(button);
   button.setAttribute("aria-label", "Company");
   button.setAttribute("role", "menuitem");
   const label = document.createElement("span");
@@ -808,7 +841,9 @@ function renderDebugItem(): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "o-systray-item o_debug_manager dropdown-toggle";
-  button.setAttribute("aria-label", "Debug");
+  applyNavbarControlChrome(button);
+  button.setAttribute("aria-label", "Open developer tools");
+  button.setAttribute("title", "Open developer tools");
   button.setAttribute("role", "none");
   const icon = document.createElement("i");
   icon.className = "o-systray-icon o_debug_icon";
@@ -817,16 +852,17 @@ function renderDebugItem(): HTMLElement {
   return button;
 }
 
-function renderDebugToolsItem(): HTMLElement {
+function renderStudioItem(onAction?: (action: NavbarSystrayAction) => void): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "o-systray-item o_debug_tools dropdown-toggle";
-  button.setAttribute("aria-label", "Developer tools");
+  button.className = "o-systray-item o_web_studio_navbar_item o_nav_entry";
+  applyNavbarControlChrome(button);
+  button.dataset.systrayKey = "studio";
+  button.setAttribute("aria-label", "Odoo Studio");
+  button.setAttribute("title", "Odoo Studio");
   button.setAttribute("role", "menuitem");
-  const icon = document.createElement("i");
-  icon.className = "o-systray-icon o_debug_tools_icon";
-  icon.setAttribute("aria-hidden", "true");
-  button.append(icon);
+  button.textContent = "Odoo Studio";
+  button.addEventListener("click", () => onAction?.({ type: "open-studio" }));
   return button;
 }
 
@@ -834,6 +870,7 @@ function renderUserMenu(userName: string, databaseName?: string): HTMLElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "o-systray-item o_user_menu o-user-menu-button dropdown-toggle";
+  applyNavbarControlChrome(button);
   button.setAttribute("aria-label", "User menu");
   button.setAttribute("role", "menuitem");
   const avatar = document.createElement("span");
@@ -884,13 +921,6 @@ function debugMenuItems(): SystrayMenuEntry[] {
     { label: "Record Rules", action: { type: "view-record-rules" } },
     { label: "Become Superuser", action: { type: "become-superuser" } },
     { label: "Leave Debug Mode", action: { type: "leave-debug-mode" } }
-  ];
-}
-
-function debugToolsMenuItems(): SystrayMenuEntry[] {
-  return [
-    { label: "Open Developer Tools", action: { type: "open-debug-tools" } },
-    { label: "View Metadata", action: { type: "view-metadata" } }
   ];
 }
 

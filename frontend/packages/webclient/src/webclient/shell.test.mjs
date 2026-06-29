@@ -106,6 +106,9 @@ assert.equal(findAll(shell, (node) => String(node.className).includes("o-mobile-
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_app_name")).length, 2);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o-systray-counter") && node.hidden === false && node.textContent === "4").length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_activity_menu")).length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayKey === "messages" && node.dataset?.launcherHidden === "true" && node.hidden === true).length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayKey === "activities" && node.dataset?.launcherHidden === "true" && node.hidden === true).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_debug_manager") && node.attributes?.role === "menuitem").length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_user_avatar") && node.textContent === "A").length, 1);
 assert.equal(findAll(shell, (node) => node.dataset?.appKey === "apps").length, 0);
 assert.equal(findAll(shell, (node) => node.dataset?.menuId === "1").length, 2);
@@ -116,6 +119,9 @@ assert.equal(shell.dataset.view, "action");
 assert.equal(document.body.dataset.view, "action");
 assert.equal(document.body.dataset.homeMenuMode, undefined);
 assert.equal(String(shell.className).includes("o_home_menu_background"), false);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayKey === "messages" && node.dataset?.launcherHidden === "false" && node.hidden === false).length, 1);
+assert.equal(findAll(shell, (node) => node.dataset?.systrayKey === "activities" && node.dataset?.launcherHidden === "false" && node.hidden === false).length, 1);
+assert.equal(findAll(shell, (node) => String(node.className).includes("o_debug_manager") && node.attributes?.role === "none").length, 1);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "1");
 assert.equal(findAll(shell, (node) => String(node.className).split(/\s+/).includes("o_home_menu")).length, 0);
 assert.equal(findAll(shell, (node) => String(node.className).includes("o_action_marker") && node.dataset?.openedApp === "1").length, 1);
@@ -194,7 +200,7 @@ assert.deepEqual(catalogOpened, [
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Apps");
 assert.equal(findAll(catalogShell, (node) => String(node.className).includes("o_main_navbar"))[0].dataset.activeMenuId, "12");
 assert.equal(findAll(catalogShell, (node) => node.dataset?.menuId === "12" && String(node.className).includes("o_nav_entry active")).length, 1);
-assert.deepEqual(findAll(catalogShell, (node) => String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), ["Apps"]);
+assert.deepEqual(findAll(catalogShell, (node) => node.dataset?.menuId && String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), ["Apps"]);
 
 const directContextOpened = [];
 const directContextShell = createWebClientShell({
@@ -212,9 +218,10 @@ const directContextShell = createWebClientShell({
     21: { id: 21, name: "General Settings", actionID: 121, children: [] },
     22: { id: 22, name: "Users & Companies", children: [25] },
     23: { id: 23, name: "Translations", actionID: 123, children: [] },
-    24: { id: 24, name: "Technical", children: [26] },
+    24: { id: 24, name: "Technical", children: [26, 27] },
     25: { id: 25, name: "Users", actionID: 125, children: [] },
-    26: { id: 26, name: "Server Actions", actionID: 126, children: [] }
+    26: { id: 26, name: "Server Actions", actionID: 126, children: [] },
+    27: { id: 27, name: "Privileges", actionID: 127, children: [] }
   },
   onOpenApp(app) {
     directContextOpened.push(app.id);
@@ -224,13 +231,16 @@ assert.equal(directContextShell.setMenuContext(26), true);
 const directContextNavbar = findAll(directContextShell, (node) => String(node.className).includes("o_main_navbar"))[0];
 assert.equal(directContextNavbar.dataset.activeMenuId, "24");
 assert.equal(findAll(directContextShell, (node) => String(node.className).includes("o_menu_brand"))[0].textContent, "Settings");
-assert.deepEqual(findAll(directContextShell, (node) => String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), [
+assert.deepEqual(findAll(directContextShell, (node) => node.dataset?.menuId && String(node.className).split(/\s+/).includes("o_nav_entry")).map((node) => node.textContent), [
   "General Settings",
   "Users & Companies",
   "Translations",
   "Technical"
 ]);
 assert.equal(findAll(directContextShell, (node) => node.dataset?.menuId === "24" && String(node.className).includes("active")).length, 1);
+const usersCompaniesEntry = findAll(directContextShell, (node) => node.dataset?.menuId === "22")[0];
+usersCompaniesEntry.listeners.click[0]({ stopPropagation() {} });
+assert.equal(findAll(directContextShell, (node) => node.dataset?.menuId === "27" && node.textContent === "Privileges").length >= 1, true);
 assert.deepEqual(directContextOpened, []);
 
 const technicalOpened = [];

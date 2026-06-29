@@ -203,15 +203,19 @@ export const scenarios = [
       await setViewport(page, desktopViewport());
       await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?debug=1&smoke=${++navigationCounter}`) });
       await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "systray TS webclient ready");
+      if (await evaluate(page, `document.querySelector(".o_web_client")?.dataset.view === "apps"`)) {
+        await clickExactText(page, ".o_web_client .o_home_menu .o_app", "Settings", ".o_app_name");
+        await waitFor(page, `document.querySelector(".o_web_client")?.dataset.view === "action"`, "systray action view active");
+      }
       const systrayCount = await waitForCount(page, ".o_web_client .o_menu_systray", 1, "TS systray");
       const selectors = [
         ".o_web_client .o_mail_systray_item",
         ".o_web_client .o_activity_menu",
         ".o_web_client .o_switch_company_menu",
         ".o_web_client .o_debug_manager",
-        ".o_web_client .o_debug_tools",
         ".o_web_client .o_user_menu"
       ];
+      await waitForCount(page, ".o_web_client .o_web_studio_navbar_item", 1, "Odoo Studio systray control");
       const actionStatusBefore = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus || ""`);
       for (const selector of selectors) {
         await waitForCount(page, selector, 1, `systray item ${selector}`);
@@ -219,7 +223,7 @@ export const scenarios = [
         await waitFor(page, `(() => {
           const button = document.querySelector(${JSON.stringify(selector)});
           const menu = button?.nextElementSibling;
-          return button?.getAttribute("aria-expanded") === "true" && menu?.classList.contains("show") && menu.querySelectorAll("[role='menuitem']").length >= 1;
+          return button?.getAttribute("aria-expanded") === "true" && menu?.classList.contains("show") && menu.querySelectorAll("[role='menuitem'], [role='menuitemcheckbox']").length >= 1;
         })()`, `systray dropdown opens ${selector}`);
         await evaluate(page, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`);
         await waitFor(page, `(() => !document.querySelector(".o_web_client .o_menu_systray .dropdown-menu.show"))()`, `systray dropdown escape closes ${selector}`);
@@ -731,12 +735,23 @@ export const scenarios = [
     name: "default-technical-form-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      const opened = await openDefaultServerActionsList(page, config, desktopViewport());
+      const opened = await openDefaultServerActionsList(page, config, desktopViewport(), { preferredName: "Base: Auto-vacuum internal data" });
       const { action_id: actionID, menu_id: menuID, record_id: recordID } = opened.route_state;
       await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${encodeURIComponent(actionID)}&model=ir.actions.server&view_type=form&id=${encodeURIComponent(recordID)}&menu_id=${encodeURIComponent(menuID)}`) });
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS technical form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form'] .gorp-form-view", 1, "TS Server Actions form");
       const fieldCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-view .gorp-form-field", 1, "TS Server Actions form fields");
+      const formIdentityState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const form = root?.querySelector(".gorp-form-view");
+        return {
+          breadcrumb: root?.querySelector(".o_control_panel_breadcrumbs .breadcrumb-item.active, .o_control_panel_breadcrumbs .active")?.textContent?.trim() || "",
+          text: form?.textContent || ""
+        };
+      })()`);
+      if (!formIdentityState.text.includes("Base: Auto-vacuum internal data")) {
+        throw new Error(`TS Server Actions form opened wrong record: ${JSON.stringify(formIdentityState)}`);
+      }
       const formControlState = await evaluate(page, `(() => ({
         search_inputs: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_input").length,
         search_toggles: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-view='form'] .o_searchview_dropdown_toggler").length
@@ -866,7 +881,7 @@ export const scenarios = [
         const hash = window.location.hash || "";
         return hash.includes("model=ir.actions.server") && hash.includes("view_type=form") && hash.includes("id=") ? hash : "";
       })()`, "TS technical form hash");
-      return { title, hash, opened, form_count: formCount, field_count: fieldCount, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, contextual_button_count: contextualButtonCount, scheduled_smart_button_count: smartButtonCount, server_action_chrome_state: serverActionChromeState, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
+      return { title, hash, opened, form_count: formCount, field_count: fieldCount, form_identity_state: formIdentityState, form_control_state: formControlState, form_toolbar_state: formToolbarState, server_action_band_count: serverActionBandCount, server_action_notebook_count: serverActionNotebookCount, code_viewer_count: codeViewerCount, selection_pill_count: selectionPillCount, contextual_button_count: contextualButtonCount, scheduled_smart_button_count: smartButtonCount, server_action_chrome_state: serverActionChromeState, state_radio_count: stateRadioCount, code_editor_count: codeEditorCount, relation_link_count: relationLinkCount, relation_state: relationState, relation_editor_count: relationEditorCount, relation_dropdown_state: relationDropdownState, relation_option_count: relationOptionCount, relation_editor_state: editorState, relation_selected_state: selectedState };
     }
   },
   {
@@ -1005,7 +1020,33 @@ export const scenarios = [
       if (!x2ManyKeyboardState.active_descendant || x2ManyKeyboardState.active_count !== 1 || (x2ManyKeyboardState.button_count > 1 && x2ManyKeyboardState.active_index === "0")) {
         throw new Error(`relation x2many dropdown keyboard state invalid: ${JSON.stringify(x2ManyKeyboardState)}`);
       }
-      return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state, relation_x2many_initial_state: x2ManyInitialState, relation_x2many_keyboard_state: x2ManyKeyboardState };
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${encodeURIComponent(actionID)}&model=ir.actions.server&view_type=form&id=${encodeURIComponent(recordID)}&menu_id=${encodeURIComponent(menuID)}`) });
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS relation dropdown final form ready");
+      await clickSelector(page, ".o_web_client .o_action_manager [data-form-action='edit']");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'][data-relation='ir.model']", 1, "relation dropdown final editor");
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-dropdown-toggle");
+      await waitForCount(page, ".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id'] .gorp-many2one-option", 2, "relation dropdown final open-state options");
+      const finalState = await evaluate(page, `(() => {
+        const action = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.actions.server'][data-view='form']");
+        const many2one = action?.querySelector(".gorp-many2one-editor[data-field='model_id']");
+        const x2many = action?.querySelector(".gorp-x2many-editor[data-field='group_ids']");
+        const dropdown = many2one?.querySelector(".gorp-many2one-dropdown");
+        const options = [...(many2one?.querySelectorAll(".gorp-many2one-option") || [])];
+        return {
+          many2one_open: dropdown?.hidden === false,
+          x2many_open: x2many?.querySelector(".gorp-x2many-dropdown")?.hidden === false,
+          placement: many2one?.dataset.dropdownPlacement || "",
+          dropdown_placement: dropdown?.dataset.placement || "",
+          selected_count: options.filter((node) => node.dataset.selected === "true").length,
+          active_count: options.filter((node) => node.dataset.active === "true").length,
+          option_count: options.length,
+          labels: options.map((node) => node.textContent.trim()).filter(Boolean)
+        };
+      })()`);
+      if (!finalState.many2one_open || finalState.x2many_open || finalState.placement !== "bottom-start" || finalState.dropdown_placement !== "bottom-start" || finalState.option_count < 2 || finalState.selected_count < 1 || finalState.active_count < 1) {
+        throw new Error(`relation dropdown final screenshot state invalid: ${JSON.stringify(finalState)}`);
+      }
+      return { opened, relation_dropdown_initial_state: initialState, relation_dropdown_state: state, relation_x2many_initial_state: x2ManyInitialState, relation_x2many_keyboard_state: x2ManyKeyboardState, relation_dropdown_final_state: finalState };
     }
   },
   {
@@ -1284,7 +1325,15 @@ export const scenarios = [
         };
       })()`);
       if (JSON.stringify(listState.headers) !== JSON.stringify(["Privilege", "Name"])) throw new Error(`Groups list invalid: ${JSON.stringify(listState)}`);
-      await clickFirst(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row");
+      const roleAdminRow = await evaluate(page, `(() => {
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row")];
+        const row = rows.find((node) => node.textContent.includes("Role / Administrator"));
+        if (!row) return "";
+        row.dataset.smokeTarget = "role-admin-group";
+        return row.textContent.trim();
+      })()`);
+      if (!roleAdminRow) throw new Error(`Role / Administrator group row missing: ${JSON.stringify(listState)}`);
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='list'] .gorp-list-view tbody tr.o_data_row[data-smoke-target='role-admin-group']");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "TS Groups form action ready");
       const formCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-view", 1, "TS Groups form");
       const notebookCount = await waitForCount(page, ".o_web_client .o_action_manager .gorp-form-notebook.o_notebook", 1, "TS Groups form notebook");
@@ -1292,25 +1341,39 @@ export const scenarios = [
       const state = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager .gorp-form-notebook.o_notebook");
         const actionManager = document.querySelector(".o_web_client .o_action_manager");
+        const form = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-view");
         const sheet = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-sheet.o_form_sheet");
         const usersGrid = document.querySelector(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-groups-users-list[data-field='user_ids']");
-        const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
-        const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
-        const smartButtons = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-access-smart-button")].map((node) => node.textContent.trim()).filter(Boolean);
-        return {
+        const pager = document.querySelector(".o_web_client .o_control_panel_navigation .o_pager");
+	        const tabs = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-tab[role='tab']")];
+	        const pages = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-form-notebook-page[role='tabpanel']")];
+	        const smartButtons = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-access-smart-button")].map((node) => node.textContent.trim()).filter(Boolean);
+	        const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+        const apiKeyDurationField = form?.querySelector("input[data-field='api_key_duration'], output[data-field='api_key_duration'], .gorp-field-value[data-field='api_key_duration']");
+        const apiKeyDuration = apiKeyDurationField?.value || apiKeyDurationField?.textContent?.trim() || "";
+	        return {
           notebook_id: root?.dataset?.notebook || "",
           tab_labels: tabs.map((node) => node.textContent.trim()),
           selected_tabs: tabs.map((node) => node.getAttribute("aria-selected")),
           visible_pages: pages.filter((node) => !node.hidden).length,
+          form_text: form?.textContent || "",
           smart_buttons: smartButtons,
           action_width: Math.round(actionManager?.getBoundingClientRect?.().width || 0),
           sheet_width: Math.round(sheet?.getBoundingClientRect?.().width || 0),
           users_grid_count: usersGrid ? 1 : 0,
           users_headers: [...(usersGrid?.querySelectorAll("th") || [])].map((node) => node.textContent.trim()).filter(Boolean),
-          users_add_line: usersGrid?.querySelector(".gorp-groups-users-add")?.textContent?.trim() || "",
-          users_blank_rows: usersGrid?.querySelectorAll(".gorp-groups-users-blank-row")?.length || 0
-        };
-      })()`);
+	          users_rows: [...(usersGrid?.querySelectorAll("tbody tr") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean)).filter((row) => row.length),
+	          users_add_line: usersGrid?.querySelector(".gorp-groups-users-add")?.textContent?.trim() || "",
+	          users_blank_rows: usersGrid?.querySelectorAll(".gorp-groups-users-blank-row")?.length || 0,
+	          labels,
+	          api_key_duration: apiKeyDuration,
+	          pager_value: pager?.querySelector(".o_pager_value")?.textContent?.trim() || "",
+	          pager_limit: pager?.querySelector(".o_pager_limit")?.textContent?.trim() || "",
+	          pager_previous_disabled: pager?.querySelector(".o_pager_previous")?.disabled === true,
+	          pager_next_disabled: pager?.querySelector(".o_pager_next")?.disabled === true,
+	          action_menu_count: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-model='res.groups'][data-view='form'] .gorp-form-action-menu, .o_web_client .o_control_panel .gorp-form-action-menu[data-model='res.groups']").length
+	        };
+	      })()`);
       for (const tab of ["Users", "Inherited", "Menus", "Views", "Access Rights", "Record Rules", "Notes"]) {
         if (!state.tab_labels.includes(tab)) throw new Error(`Groups notebook tab missing ${tab}: ${JSON.stringify(state)}`);
       }
@@ -1320,9 +1383,12 @@ export const scenarios = [
       if (state.sheet_width < Math.min(1180, Math.floor(state.action_width * 0.92))) throw new Error(`Groups sheet width too narrow: ${JSON.stringify(state)}`);
       if (state.users_grid_count !== 1) throw new Error(`Groups Users grid missing: ${JSON.stringify(state)}`);
       if (JSON.stringify(state.users_headers) !== JSON.stringify(["Name", "Login", "Role"])) throw new Error(`Groups Users grid headers invalid: ${JSON.stringify(state)}`);
-      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
-      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
-      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
+      if (!state.form_text.includes("Role / Administrator")) throw new Error(`Groups form title mismatch: ${JSON.stringify(state)}`);
+	      if (!state.users_rows.some((row) => row[0] === "Administrator" && row[1] === "admin")) throw new Error(`Groups Users grid populated Administrator row missing: ${JSON.stringify(state)}`);
+	      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
+	      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
+	      if (!state.labels.includes("Group Name") || state.api_key_duration !== "0.00" || state.action_menu_count < 1 || state.pager_limit !== "13" || !state.pager_value || state.pager_previous_disabled || state.pager_next_disabled) throw new Error(`Groups form chrome invalid: ${JSON.stringify(state)}`);
+	      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
   {
@@ -2971,10 +3037,13 @@ export const scenarios = [
           navbar_sections: [...document.querySelectorAll(".o_web_client .o_navbar_sections .o_nav_entry")].map((node) => node.textContent.trim()).filter(Boolean),
           pager: action?.querySelector(".o_pager")?.textContent?.trim() || "",
           create_button_count: action?.querySelectorAll("[data-create-action='true']").length || 0,
+          top_actions: [...(action?.querySelectorAll("[data-catalog-action]") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           sidebar_count: sidebar ? 1 : 0,
           sidebar_labels: [...(sidebar?.querySelectorAll(".o_search_panel_label") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           first_cards: cards.slice(0, 24).map((card) => card.querySelector(".o_kanban_record_title, .o_app_name")?.textContent?.trim() || ""),
           first_card_actions: [...(cards[0]?.querySelectorAll(".o_module_actions button, .o_module_info_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          first_card_technical_code: cards[0]?.querySelector(".o_module_technical_name")?.textContent?.trim() || "",
+          first_card_image_count: cards[0]?.querySelectorAll(".o_module_icon_container .o_module_icon").length || 0,
           first_card_text: firstText.replace(/\\s+/g, " ").trim(),
           first_card_width: Math.round(firstRect?.width || 0),
           first_card_height: Math.round(firstRect?.height || 0),
@@ -3000,19 +3069,23 @@ export const scenarios = [
         state.window_count !== 1 ||
         state.renderer_count !== 1 ||
         state.brand !== "Apps" ||
-        state.catalog_total !== "83" ||
-        state.catalog_visible_count !== "83" ||
-        !state.pager.includes("1-83") ||
-        state.create_button_count !== 0 ||
-        state.sidebar_count !== 1 ||
-        JSON.stringify(state.sidebar_labels.slice(0, expectedSidebar.length)) !== JSON.stringify(expectedSidebar) ||
-        state.module_card_count !== 83 ||
-        state.module_state_count !== 83 ||
+        state.catalog_total !== "77" ||
+        state.catalog_visible_count !== "77" ||
+        !state.pager.includes("1-77") ||
+	        state.create_button_count !== 0 ||
+	        JSON.stringify(state.top_actions) !== JSON.stringify(["Update Apps List", "Apply Scheduled Upgrades", "Import Module"]) ||
+	        state.sidebar_count !== 1 ||
+	        JSON.stringify(state.sidebar_labels.slice(0, expectedSidebar.length)) !== JSON.stringify(expectedSidebar) ||
+	        !state.sidebar_labels.includes("Technical") ||
+        state.module_card_count !== 77 ||
+        state.module_state_count !== 77 ||
         state.install_button_count < 60 ||
         state.activate_button_count < 60 ||
         state.learn_more_count < 60 ||
-        state.info_button_count !== 83 ||
-        state.generated_icon_count !== 83 ||
+        state.info_button_count !== 77 ||
+        state.generated_icon_count !== 77 ||
+        state.first_card_technical_code !== "sale_management" ||
+        state.first_card_image_count !== 1 ||
         state.generic_field_count !== 0 ||
         state.first_cards[0] !== "Sales" ||
         JSON.stringify(state.first_card_actions) !== JSON.stringify(["Activate", "Learn More"]) ||
@@ -3073,14 +3146,52 @@ export const scenarios = [
     name: "default-apps-catalog-detail-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {
-      await openDefaultAppsCatalogForModule(page, config, "ai", "apps_catalog_detail");
-      const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai']", 1, "AI module card for detail");
-      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='ai'] .o_module_info_button");
-      const modalCount = await waitForCount(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'][data-dialog-open='true']", 1, "Apps Module Info modal");
-      const modalTitle = await textContent(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .modal-title");
-      if (!modalTitle.includes("Module Info")) throw new Error(`Apps Module Info modal title invalid: ${modalTitle}`);
-      await clickSelector(page, ".o_web_client .gorp-action-dialog[data-model='ir.module.module'] .btn-close");
-      return { module: "ai", card_count: cardCount, modal_count: modalCount };
+      await openDefaultAppsCatalog(page, config, desktopViewport(), "apps_catalog_detail");
+      const cardCount = await waitForCount(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='equity']", 1, "Equity module card for detail");
+      await clickSelector(page, ".o_web_client .gorp-apps-catalog-card[data-module-name='equity'] .o_module_info_button");
+      const formCount = await waitForCount(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'][data-module-info-action='equity']", 1, "Apps Module Info action form");
+      const tabCount = await waitForCount(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'] .gorp-module-info-notebook .gorp-form-notebook-tab", 2, "Apps Module Info tabs");
+      const state = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form']");
+        const moduleBody = root?.querySelector(".gorp-module-info-body");
+        return {
+          breadcrumb: [...(root?.querySelectorAll(".o_breadcrumb .breadcrumb-item") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          tabs: [...(root?.querySelectorAll(".gorp-module-info-notebook .gorp-form-notebook-tab") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          author: root?.querySelector(".o_module_author")?.textContent?.trim() || "",
+          activate_count: root?.querySelectorAll(".o_module_install_button").length || 0,
+          control_panel_height: Math.round(root?.querySelector(".gorp-module-info-control-panel")?.getBoundingClientRect?.().height || 0),
+          dialog_count: document.querySelectorAll(".o_web_client .gorp-action-dialog[data-model='ir.module.module']").length || 0,
+          icon_count: root?.querySelectorAll(".gorp-module-info-icon[alt='Binary file']").length || 0,
+          information_labels: [...(root?.querySelectorAll(".gorp-form-notebook-page[data-page='information'] .o_form_label") || [])].map((node) => node.textContent.trim().replace(/\\?$/, "")).filter(Boolean),
+          information_values: [...(root?.querySelectorAll(".gorp-form-notebook-page[data-page='information'] .o_field_widget") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          text: moduleBody?.textContent || ""
+        };
+      })()`);
+      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
+        throw new Error(`Apps Module Info action form invalid: ${JSON.stringify(state)}`);
+      }
+      await clickExactText(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'] .gorp-form-notebook-tab", "Technical Data");
+      const technicalState = await evaluate(page, `(() => {
+        const root = document.querySelector(".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form']");
+        return {
+          selected_tab: root?.querySelector(".gorp-module-info-notebook .gorp-form-notebook-tab[aria-selected='true']")?.textContent?.trim() || "",
+          labels: [...(root?.querySelectorAll(".gorp-form-notebook-page:not([hidden]) .o_form_label") || [])].map((node) => node.textContent.trim().replace(/\\?$/, "")).filter(Boolean),
+          checkbox_state: [...(root?.querySelectorAll(".gorp-form-notebook-page:not([hidden]) input[type='checkbox']") || [])].map((node) => ({ field: node.dataset.field || "", checked: node.checked, disabled: node.disabled })),
+          table_titles: [...(root?.querySelectorAll(".gorp-form-notebook-page:not([hidden]) .gorp-module-info-relation-title") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          dependency_rows: [...(root?.querySelectorAll(".gorp-form-notebook-page:not([hidden]) [data-module-info-table='dependencies'] tbody tr") || [])].map((node) => node.textContent.trim()).filter(Boolean),
+          exclusion_table_count: root?.querySelectorAll(".gorp-form-notebook-page:not([hidden]) [data-module-info-table='exclusions']").length || 0,
+          text: root?.querySelector(".gorp-form-notebook-page:not([hidden])")?.textContent || ""
+        };
+      })()`);
+      for (const label of ["Demo Data", "Application", "Status"]) {
+        if (!technicalState.labels.includes(label)) throw new Error(`Apps Module Info Technical Data missing ${label}: ${JSON.stringify(technicalState)}`);
+      }
+      if (JSON.stringify(technicalState.checkbox_state) !== JSON.stringify([{ field: "demo-data", checked: false, disabled: true }, { field: "application", checked: true, disabled: true }]) || JSON.stringify(technicalState.table_titles) !== JSON.stringify(["DEPENDENCIES", "EXCLUSIONS"]) || !technicalState.dependency_rows.some((row) => row.includes("portal") && row.includes("Not Installed")) || technicalState.exclusion_table_count !== 1) {
+        throw new Error(`Apps Module Info Technical Data structure invalid: ${JSON.stringify(technicalState)}`);
+      }
+      await delay(250);
+      await waitFor(page, `document.querySelector(".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'][data-module-info-action='equity'] .gorp-form-notebook-tab[aria-selected='true']")?.textContent?.trim() === "Technical Data"`, "Apps Module Info final screenshot state");
+      return { module: "equity", card_count: cardCount, form_count: formCount, tab_count: tabCount, state, technical_state: technicalState };
     }
   },
   {
@@ -3103,10 +3214,14 @@ export const scenarios = [
           chips: [...document.querySelectorAll(".o_web_client .o_action_manager .o_searchview_facet .o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean),
           role_badge: list?.querySelector(".gorp-user-role-badge")?.textContent?.trim() || "",
           avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0,
+          avatar_header_text: list?.querySelector("th[data-name='avatar_128'] .o_list_header_button")?.textContent?.trim() || "",
+          avatar_header_label: list?.querySelector("th[data-name='avatar_128'] .o_list_header_button")?.getAttribute("aria-label") || "",
+          avatar_cell_label: list?.querySelector("tbody tr.o_data_row td[data-field='avatar_128']")?.getAttribute("aria-label") || "",
+          avatar_image_label: list?.querySelector(".gorp-user-list-avatar-cell")?.getAttribute("aria-label") || "",
           text: list?.textContent || ""
         };
       })()`);
-      if (JSON.stringify(state.headers) !== JSON.stringify(["Name", "Login", "Role"]) || state.row_count !== 1 || !state.chips.includes("Internal Users") || state.role_badge !== "Administrator" || state.avatar_count < 1 || !state.text.includes("Administrator")) {
+      if (JSON.stringify(state.headers) !== JSON.stringify(["Name", "Login", "Role"]) || state.row_count !== 1 || !state.chips.includes("Internal Users") || state.role_badge !== "Administrator" || state.avatar_count < 1 || state.avatar_header_text !== "" || state.avatar_header_label !== "" || state.avatar_cell_label !== "Binary file" || state.avatar_image_label !== "Binary file" || !state.text.includes("Administrator")) {
         throw new Error(`Users list parity invalid: ${JSON.stringify(state)}`);
       }
       return state;
@@ -3156,10 +3271,14 @@ export const scenarios = [
           headers: [...(list?.querySelectorAll(".o_list_header_button") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           text: list?.textContent || "",
           role_badge: list?.querySelector(".gorp-user-role-badge")?.textContent?.trim() || "",
-          avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0
+          avatar_count: list?.querySelectorAll(".gorp-user-avatar.o_avatar").length || 0,
+          avatar_header_text: list?.querySelector("th[data-name='avatar_128'] .o_list_header_button")?.textContent?.trim() || "",
+          avatar_header_label: list?.querySelector("th[data-name='avatar_128'] .o_list_header_button")?.getAttribute("aria-label") || "",
+          avatar_cell_label: list?.querySelector("tbody tr.o_data_row td[data-field='avatar_128']")?.getAttribute("aria-label") || "",
+          avatar_image_label: list?.querySelector(".gorp-user-list-avatar-cell")?.getAttribute("aria-label") || ""
         };
       })()`);
-      if (JSON.stringify(listState.headers) !== JSON.stringify(["Name", "Login", "Role"]) || listState.role_badge !== "Administrator" || listState.avatar_count < 1 || (!listState.text.includes("Administrator") && !listState.text.includes("admin"))) {
+      if (JSON.stringify(listState.headers) !== JSON.stringify(["Name", "Login", "Role"]) || listState.role_badge !== "Administrator" || listState.avatar_count < 1 || listState.avatar_header_text !== "" || listState.avatar_header_label !== "" || listState.avatar_cell_label !== "Binary file" || listState.avatar_image_label !== "Binary file" || (!listState.text.includes("Administrator") && !listState.text.includes("admin"))) {
         throw new Error(`Users list invalid: ${JSON.stringify(listState)}`);
       }
       await clickSelector(page, ".o_web_client .o_data_row");
@@ -3180,9 +3299,16 @@ export const scenarios = [
 	          parseFloat(groupWidgetStyle.borderBottomWidth || "0") > 0 ||
 	          parseFloat(groupWidgetStyle.borderLeftWidth || "0") > 0
 	        ));
-	        const identity = form?.querySelector(".gorp-user-identity.o_user_identity_block");
-	        const smartButtons = [...(form?.querySelectorAll(".gorp-access-smart-button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
-	        const text = form?.textContent || "";
+		        const identity = form?.querySelector(".gorp-user-identity.o_user_identity_block");
+		        const smartButtons = [...(form?.querySelectorAll(".gorp-access-smart-button") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+		        const identityLines = [...(identity?.querySelectorAll(".gorp-user-identity-inline") || [])].map((node) => ({
+		          field: node.dataset.field || "",
+		          text: node.querySelector("input")?.value || node.querySelector("input")?.placeholder || node.textContent.trim(),
+		          label: node.getAttribute("aria-label") || "",
+		          icon: node.querySelector("i")?.className || ""
+		        }));
+		        const verticalIdentityLabels = [...(identity?.querySelectorAll(".gorp-user-identity-label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
+		        const text = form?.textContent || "";
         return {
           has_form: Boolean(form),
           labels,
@@ -3203,8 +3329,12 @@ export const scenarios = [
 	          extra_right_rows: groupWidget?.querySelectorAll(".gorp-res-user-access-extra-rights .gorp-res-user-group-option").length || 0,
 	          boxed_access_chrome: boxedAccessChrome,
 	          access_width_ratio: groupWidget && sheet ? Number((groupWidget.getBoundingClientRect().width / sheet.getBoundingClientRect().width).toFixed(2)) : 0,
-	          has_identity_block: Boolean(identity),
-          identity_title: identity?.querySelector(".gorp-form-title")?.textContent?.trim() || "",
+		          has_identity_block: Boolean(identity),
+		          add_photo: identity?.querySelector(".gorp-user-add-photo")?.textContent?.trim() || "",
+		          identity_lines: identityLines,
+		          vertical_identity_labels: verticalIdentityLabels,
+		          action_menu_count: document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-model='res.users'][data-view='form'] .gorp-form-action-menu, .o_web_client .o_control_panel .gorp-form-action-menu[data-model='res.users']").length,
+	          identity_title: identity?.querySelector(".gorp-form-title")?.textContent?.trim() || "",
           related_partner: identity?.querySelector(".gorp-user-related-partner")?.textContent?.trim() || "",
           smart_buttons: smartButtons,
           has_identity_value: text.includes("Administrator") || text.includes("admin")
@@ -3226,9 +3356,13 @@ export const scenarios = [
 	      if (masterValues.get("Contact") !== "Creation" || masterValues.get("Export") !== "Allowed") {
 	        throw new Error(`Users master data access values invalid: ${JSON.stringify(formState)}`);
 	      }
-      if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
-        throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
-      }
+	      if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
+	        throw new Error(`Users form invalid: ${JSON.stringify(formState)}`);
+	      }
+	      const identityByField = new Map(formState.identity_lines.map((item) => [item.field, item]));
+	      if (formState.add_photo !== "Add Photo" || formState.vertical_identity_labels.length || identityByField.get("login")?.text !== "admin" || identityByField.get("email")?.label !== "Email" || !identityByField.get("email")?.icon?.includes("oi-envelope-closed") || identityByField.get("phone")?.label !== "Phone" || !identityByField.get("phone")?.icon?.includes("oi-phone") || formState.action_menu_count < 1) {
+	        throw new Error(`Users identity/action chrome invalid: ${JSON.stringify(formState)}`);
+	      }
       return { list_rows: listRows, list_state: listState, form_state: formState };
     }
   },
@@ -3611,12 +3745,14 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	      banner_close_visible: Boolean(bannerClose) && bannerCloseStyle?.display !== "none" && bannerCloseStyle?.visibility !== "hidden" && (bannerCloseRect?.width || 0) >= 20 && (bannerCloseRect?.height || 0) >= 20,
 	      banner_top_px: bannerRect ? Math.round(bannerRect.top) : 0,
 	      banner_width_px: bannerRect ? Math.round(bannerRect.width) : 0,
-	      launcher_mail_activity_visible_count: [...document.querySelectorAll(".o_web_client[data-view='apps'] .o_mail_systray_item, .o_web_client[data-view='apps'] .o_activity_menu")]
-	        .filter((node) => {
-	          const style = getComputedStyle(node);
-	          const rect = node.getBoundingClientRect();
-	          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-	        }).length,
+		      launcher_mail_activity_visible_count: [...document.querySelectorAll(".o_web_client[data-view='apps'] .o_mail_systray_item, .o_web_client[data-view='apps'] .o_activity_menu")]
+		        .filter((node) => {
+		          const style = getComputedStyle(node);
+		          const rect = node.getBoundingClientRect();
+		          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+		        }).length,
+		      developer_tools_count: document.querySelectorAll(".o_web_client[data-view='apps'] .o_debug_manager[aria-label='Open developer tools']").length,
+		      studio_count: document.querySelectorAll(".o_web_client[data-view='apps'] .o_web_studio_navbar_item[aria-label='Odoo Studio']").length,
 	      user_name_display: userNameStyle?.display || "",
 	      database_badge_text: databaseName?.textContent?.trim() || "",
 	      database_badge_count: document.querySelectorAll(".o_web_client .o_database_name").length,
@@ -3654,9 +3790,11 @@ async function assertEnterpriseLauncherSnapshot(page) {
 	  if (snapshot.search_margin_bottom_px > 1) issues.push(`idle search margin ${snapshot.search_margin_bottom_px}`);
 	  if (snapshot.banner_count !== 1 || !snapshot.banner_visible) issues.push(`registration banner missing ${JSON.stringify({ count: snapshot.banner_count, visible: snapshot.banner_visible })}`);
 	  if (!snapshot.banner_text.includes("You will be able to register your database once you have installed your first app.")) issues.push(`registration banner text ${snapshot.banner_text}`);
-	  if (snapshot.banner_close_text !== "\u00d7") issues.push(`registration close text ${snapshot.banner_close_text}`);
-	  if (!snapshot.banner_close_visible) issues.push("registration close hidden");
-	  if (snapshot.launcher_mail_activity_visible_count !== 2) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
+		  if (snapshot.banner_close_text !== "Dismiss") issues.push(`registration close text ${snapshot.banner_close_text}`);
+		  if (!snapshot.banner_close_visible) issues.push("registration close hidden");
+		      if (snapshot.launcher_mail_activity_visible_count !== 0) issues.push(`launcher mail/activity systray visible ${snapshot.launcher_mail_activity_visible_count}`);
+		      if (snapshot.developer_tools_count !== 1) issues.push(`developer tools control count ${snapshot.developer_tools_count}`);
+		      if (snapshot.studio_count !== 1) issues.push(`studio control count ${snapshot.studio_count}`);
 	  if (snapshot.user_name_display === "none") issues.push("launcher user name hidden");
 	  if (snapshot.database_badge_count !== 1 || !snapshot.database_badge_text) issues.push(`launcher database badge ${JSON.stringify({ count: snapshot.database_badge_count, text: snapshot.database_badge_text })}`);
 	  if (snapshot.app_card_left_px < 240 || snapshot.app_card_left_px > 330) issues.push(`app card left ${snapshot.app_card_left_px}`);
@@ -3844,7 +3982,7 @@ async function openServerActionsList(page, config, viewport) {
   await waitForCount(page, "#rows .o_list_renderer", 1, "technical list renderer");
 }
 
-async function openDefaultServerActionsList(page, config, viewport) {
+async function openDefaultServerActionsList(page, config, viewport, options = {}) {
   await setViewport(page, viewport);
   await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&server_actions_auth=1`) });
   await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "Server Actions auth document ready");
@@ -3875,12 +4013,20 @@ async function openDefaultServerActionsList(page, config, viewport) {
       record_id: row?.dataset?.id || ""
     };
   })()`);
+  const preferredName = typeof options.preferredName === "string" ? options.preferredName : "";
+  const preferredRows = preferredName ? await webCallKW(page, config, "ir.actions.server", "search_read", {
+    args: [[["name", "=", preferredName]]],
+    kwargs: { fields: ["id", "name", "display_name", "model_id", "usage", "ir_cron_ids"], limit: 1 }
+  }) : [];
   const relationRecords = await webCallKW(page, config, "ir.actions.server", "search_read", {
     args: [[]],
-    kwargs: { fields: ["id", "model_id", "usage", "ir_cron_ids"], limit: 30, order: "id" }
+    kwargs: { fields: ["id", "name", "display_name", "model_id", "usage", "ir_cron_ids"], limit: 30, order: "id" }
   });
+  const preferredRecord = (record) => preferredName && String(record?.name || record?.display_name || "") === preferredName;
   const scheduledRecord = Array.isArray(relationRecords)
-    ? relationRecords.find((record) => (Array.isArray(record?.model_id) || Number(record?.model_id)) && (record?.usage === "ir_cron" || (Array.isArray(record?.ir_cron_ids) && record.ir_cron_ids.length > 0)))
+    ? (Array.isArray(preferredRows) ? preferredRows.find((record) => preferredRecord(record)) : null) ||
+      relationRecords.find((record) => preferredRecord(record)) ||
+      relationRecords.find((record) => (Array.isArray(record?.model_id) || Number(record?.model_id)) && (record?.usage === "ir_cron" || (Array.isArray(record?.ir_cron_ids) && record.ir_cron_ids.length > 0)))
     : null;
   const relationRecord = Array.isArray(relationRecords)
     ? scheduledRecord || relationRecords.find((record) => Array.isArray(record?.model_id) || Number(record?.model_id))

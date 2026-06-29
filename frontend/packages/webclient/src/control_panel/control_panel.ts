@@ -157,7 +157,7 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
   counter.className = "o_pager_counter";
   const value = document.createElement("span");
   value.className = "o_pager_value";
-  value.textContent = `${first}-${last}`;
+  value.textContent = pager.limit <= 1 ? String(first) : `${first}-${last}`;
   const limit = pager.totalLimited
     ? document.createElement("button")
     : document.createElement("span");
