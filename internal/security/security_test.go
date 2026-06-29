@@ -689,6 +689,8 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"['&', ('company_id', 'in', [False] + company_ids), '|', ('pricelist_id', '=', False), ('pricelist_id.company_id', 'in', [False] + company_ids)]",
 		"[('user_id','in',[False,user.id])]",
 		"[('user_id', 'in', user.ids)]",
+		"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id','in',[False,user.id])]",
+		"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id', 'in', user.ids)]",
 		"[('commercial_partner_id', '=', user.commercial_partner_id.id)]",
 		"[('id', 'child_of', user.commercial_partner_id.id)]",
 		"[('partner_id', '=', user.partner_id.id)]",
@@ -738,6 +740,11 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('user_id','in',[False,user.id])]", map[string]any{"user_id": int64(10)}},
 		{"[('user_id','in',[False,user.id])]", map[string]any{"user_id": false}},
 		{"[('user_id', 'in', user.ids)]", map[string]any{"user_id": int64(10)}},
+		{"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id','in',[False,user.id])]", map[string]any{"user_id": false, "user_ids": []int64{}}},
+		{"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id','in',[False,user.id])]", map[string]any{"user_id": int64(10), "user_ids": []int64{}}},
+		{"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id','in',[False,user.id])]", map[string]any{"user_id": false, "user_ids": []int64{10}}},
+		{"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id', 'in', user.ids)]", map[string]any{"user_id": int64(10), "user_ids": []int64{}}},
+		{"['|', ('user_ids', 'in', user.id), '&', ('user_ids', 'in', [False]), ('user_id', 'in', user.ids)]", map[string]any{"user_id": false, "user_ids": []int64{10}}},
 		{"[('commercial_partner_id', '=', user.commercial_partner_id.id)]", map[string]any{"commercial_partner_id": int64(30)}},
 		{"[('id', 'child_of', user.commercial_partner_id.id)]", map[string]any{"id": int64(31), "commercial_partner_id": int64(30)}},
 		{"[('partner_id', '=', user.partner_id.id)]", map[string]any{"partner_id": int64(20)}},
@@ -1024,11 +1031,13 @@ func TestLoadedOdoo19BaseACLAndRecordRules(t *testing.T) {
 	assertRecordRule(t, engine, portalUserID, "res.users", map[string]any{"share": false, "company_ids": []int64{mainCompanyID}, "commercial_partner_id": portalCommercialID}, true)
 	assertRecordRule(t, engine, portalUserID, "res.users", map[string]any{"share": false, "company_ids": []int64{mainCompanyID}, "commercial_partner_id": publicCommercialID}, false)
 	assertRecordRule(t, engine, adminID, "res.partner", map[string]any{"id": otherPartnerID, "company_id": int64(999), "partner_share": true}, false)
-	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false}, true)
-	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": employeeUserID}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false, "user_ids": []int64{}}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": employeeUserID, "user_ids": []int64{}}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false, "user_ids": []int64{employeeUserID}}, true)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": false, "user_ids": []int64{portalUserID}}, false)
 	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID, "user_ids": []int64{employeeUserID}}, true)
 	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID, "user_ids": []int64{portalUserID}}, false)
-	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID}, false)
+	assertRecordRule(t, engine, employeeUserID, "ir.filters", map[string]any{"user_id": portalUserID, "user_ids": []int64{}}, false)
 }
 
 func TestPersistedSecurityLoadsPrincipals(t *testing.T) {

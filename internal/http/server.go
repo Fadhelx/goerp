@@ -24011,7 +24011,7 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 	for _, row := range rows {
 		filterUserID := int64Value(row["user_id"])
 		filterSharedUserIDs := int64Slice(row["user_ids"])
-		if filterUserID != 0 && filterUserID != userID && !containsHTTPInt64(filterSharedUserIDs, userID) {
+		if !filterVisibleToHTTPUser(userID, filterUserID, filterSharedUserIDs) {
 			continue
 		}
 		filterActionID := int64Value(row["action_id"])
@@ -24037,6 +24037,13 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 		})
 	}
 	return out
+}
+
+func filterVisibleToHTTPUser(userID int64, filterUserID int64, filterUserIDs []int64) bool {
+	if len(filterUserIDs) > 0 {
+		return containsHTTPInt64(filterUserIDs, userID)
+	}
+	return filterUserID == 0 || filterUserID == userID
 }
 
 func toolbarBindings(env *record.Env, modelName string, viewType view.Type, groups map[int64]bool) map[string]any {

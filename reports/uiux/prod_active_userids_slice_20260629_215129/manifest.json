@@ -1,0 +1,666 @@
+{
+  "generated_at": "2026-06-29T18:54:21.153Z",
+  "base_url": "https://goerp.fadhelalqaidoomxyz.xyz/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "settings-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "settings-desktop.png",
+      "sha256": "acf75c6936dbb89a8daac7b818e7e157c1b12278878f692f5608368df5563d81",
+      "assertions": {
+        "settings_blocks": 1,
+        "setting_boxes": 30,
+        "settings_state": {
+          "brand": "Settings",
+          "nav_sections": [
+            "General Settings",
+            "Users & Companies",
+            "Translations",
+            "Technical"
+          ],
+          "labels": [
+            "Invite",
+            "Manage Users",
+            "Languages",
+            "Manage Companies",
+            "Manage Companies",
+            "Manage Groups",
+            "Default Access Rights",
+            "Manage API Keys",
+            "Server Actions",
+            "Scheduled Actions",
+            "Automation Rules",
+            "Views",
+            "Models",
+            "Fields",
+            "Access Rights",
+            "Record Rules",
+            "Outgoing Mail Servers",
+            "Incoming Mail Servers",
+            "Email Templates",
+            "Apps",
+            "AI Apps"
+          ],
+          "generic_open_count": 0,
+          "grid_count": 9,
+          "block_titles": [
+            "Users",
+            "Languages",
+            "Companies",
+            "Contacts",
+            "Permissions",
+            "Integrations",
+            "Developer Tools",
+            "About",
+            "Technical"
+          ],
+          "target_models": [
+            [
+              "Manage Users",
+              "res.users"
+            ],
+            [
+              "Languages",
+              "res.lang"
+            ],
+            [
+              "Manage Companies",
+              "res.company"
+            ],
+            [
+              "Manage Companies",
+              "res.company"
+            ],
+            [
+              "Manage Groups",
+              "res.groups"
+            ],
+            [
+              "Default Access Rights",
+              "ir.model.access"
+            ],
+            [
+              "Manage API Keys",
+              "res.users.apikeys"
+            ],
+            [
+              "Server Actions",
+              "ir.actions.server"
+            ],
+            [
+              "Scheduled Actions",
+              "ir.cron"
+            ],
+            [
+              "Automation Rules",
+              "base.automation"
+            ],
+            [
+              "Views",
+              "ir.ui.view"
+            ],
+            [
+              "Models",
+              "ir.model"
+            ],
+            [
+              "Fields",
+              "ir.model.fields"
+            ],
+            [
+              "Access Rights",
+              "ir.model.access"
+            ],
+            [
+              "Record Rules",
+              "ir.rule"
+            ],
+            [
+              "Outgoing Mail Servers",
+              "ir.mail_server"
+            ],
+            [
+              "Incoming Mail Servers",
+              "fetchmail.server"
+            ],
+            [
+              "Email Templates",
+              "mail.template"
+            ],
+            [
+              "Apps",
+              "ir.module.module"
+            ],
+            [
+              "AI Apps",
+              "ir.module.module"
+            ]
+          ],
+          "has_manage_users": true,
+          "has_manage_groups": true,
+          "has_server_actions": true,
+          "has_scheduled_actions": true,
+          "has_automation": true,
+          "has_views": true,
+          "has_models": true,
+          "has_fields": true,
+          "has_access_rights": true,
+          "has_record_rules": true,
+          "has_mail": true,
+          "has_apps": true,
+          "has_ai": true
+        }
+      },
+      "duration_ms": 6595
+    },
+    {
+      "name": "default-webclient-action-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-webclient-action-desktop.png",
+      "sha256": "acf75c6936dbb89a8daac7b818e7e157c1b12278878f692f5608368df5563d81",
+      "assertions": {
+        "title": "Settings",
+        "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1",
+        "window_count": 1,
+        "control_panel_count": 1,
+        "settings_count": 1,
+        "settings_targets": {
+          "count": 20,
+          "ids": [
+            "users",
+            "languages",
+            "company_records",
+            "companies",
+            "groups",
+            "default_access_rights",
+            "api_keys",
+            "server_actions",
+            "scheduled_actions",
+            "automation_rules",
+            "views",
+            "models",
+            "fields",
+            "access_rights",
+            "record_rules",
+            "mail_servers",
+            "fetchmail_servers",
+            "email_templates",
+            "apps",
+            "ai"
+          ],
+          "models": {
+            "users": "res.users",
+            "languages": "res.lang",
+            "company_records": "res.company",
+            "companies": "res.company",
+            "groups": "res.groups",
+            "default_access_rights": "ir.model.access",
+            "api_keys": "res.users.apikeys",
+            "server_actions": "ir.actions.server",
+            "scheduled_actions": "ir.cron",
+            "automation_rules": "base.automation",
+            "views": "ir.ui.view",
+            "models": "ir.model",
+            "fields": "ir.model.fields",
+            "access_rights": "ir.model.access",
+            "record_rules": "ir.rule",
+            "mail_servers": "ir.mail_server",
+            "fetchmail_servers": "fetchmail.server",
+            "email_templates": "mail.template",
+            "apps": "ir.module.module",
+            "ai": "ir.module.module"
+          },
+          "labels": {
+            "users": "Manage Users",
+            "languages": "Languages",
+            "company_records": "Manage Companies",
+            "companies": "Manage Companies",
+            "groups": "Manage Groups",
+            "default_access_rights": "Default Access Rights",
+            "api_keys": "Manage API Keys",
+            "server_actions": "Server Actions",
+            "scheduled_actions": "Scheduled Actions",
+            "automation_rules": "Automation Rules",
+            "views": "Views",
+            "models": "Models",
+            "fields": "Fields",
+            "access_rights": "Access Rights",
+            "record_rules": "Record Rules",
+            "mail_servers": "Outgoing Mail Servers",
+            "fetchmail_servers": "Incoming Mail Servers",
+            "email_templates": "Email Templates",
+            "apps": "Apps",
+            "ai": "AI Apps"
+          },
+          "gridCount": 9,
+          "actionBoxCount": 20,
+          "inviteCount": 1,
+          "appTabs": [
+            "General Settings"
+          ],
+          "blockTitles": [
+            "Users",
+            "Languages",
+            "Companies",
+            "Contacts",
+            "Permissions",
+            "Integrations",
+            "Developer Tools",
+            "About",
+            "Technical"
+          ],
+          "text": "\n    .gorp-settings-parity { display: grid !important; grid-template-columns: 182px minmax(0, 1fr) !important; grid-template-rows: auto minmax(0, 1fr) !important; min-height: calc(100vh - 102px) !important; background: #262a36 !important; color: #e4e4e4 !important; }\n    .gorp-settings-parity.gorp-settings-embedded { grid-template-rows: minmax(0, 1fr) !important; }\n    .gorp-settings-parity .o_settings_search_panel { grid-column: 1 / -1; grid-row: 1; min-height: 44px; padding: 8px 16px; background: #262a36; border-bottom: 1px solid #3a3f4e; }\n    .gorp-settings-parity .o_settings_search_wrapper { display: flex; align-items: center; max-width: 420px; min-height: 30px; border: 1px solid #00a09d; border-radius: 3px; background: #20232d; color: #e4e4e4; }\n    .gorp-settings-parity .o_settings_search_icon::before { content: \"⌕\"; display: inline-block; width: 30px; color: #d7d9e0; text-align: center; font-size: 18px; line-height: 28px; }\n    .gorp-settings-parity .o_settings_search_dropdown::before { content: \"▾\"; }\n    .gorp-settings-parity .o_settings_search { min-height: 30px; border: 0; background: transparent; color: #f4f5f7; }\n    .gorp-settings-parity .o_settings_sidebar { grid-column: 1 !important; grid-row: 2 !important; min-width: 0 !important; width: auto !important; padding: 0 !important; background: #1d2029 !important; border-right: 1px solid #3a3f4e !important; color: #e4e4e4 !important; }\n    .gorp-settings-parity.gorp-settings-embedded .o_settings_sidebar { grid-row: 1 !important; }\n    .gorp-settings-parity .o_settings_tab { display: flex !important; align-items: center !important; gap: 10px !important; width: 100% !important; min-height: 42px !important; padding: 0 16px !important; border: 0 !important; border-left: 3px solid transparent !important; background: transparent !important; color: #f4f5f7 !important; text-align: left !important; font-size: 14px !important; line-height: 20px !important; font-weight: 700 !important; }\n    .gorp-settings-parity .o_settings_tab_icon { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 4px; background: conic-gradient(from 0deg, #c060a1 0 25%, #35a6d9 0 50%, #ef5350 0 75%, #2fc6bd 0 100%); box-shadow: inset 0 0 0 4px #263445; }\n    .gorp-settings-parity .o_settings_tab_label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n    .gorp-settings-parity .o_settings_tab.active { border-left-color: #00a09d !important; background: #163b3f !important; color: #fff !important; }\n    .gorp-settings-parity .o_setting_container { grid-column: 2 !important; grid-row: 2 !important; min-width: 0 !important; padding: 0 0 48px !important; overflow: auto !important; background: #262a36 !important; color: #e4e4e4 !important; }\n    .gorp-settings-parity.gorp-settings-embedded .o_setting_container { grid-row: 1 !important; }\n    .gorp-settings-parity .app_settings_block { max-width: none !important; margin: 0 !important; color: #e4e4e4 !important; }\n    .gorp-settings-parity .o_settings_app_title { display: none !important; }\n    .gorp-settings-parity .o_settings_block { margin: 0 !important; border-top: 0 !important; }\n    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 12px 32px; background: #262a36 !important; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }\n    .gorp-settings-parity .o_setting_grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 !important; padding: 32px 72px 34px !important; }\n    .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) !important; gap: 12px !important; min-height: 56px !important; padding: 0 24px 10px 0 !important; color: #e4e4e4 !important; border-left: 1px solid #3a3f4e !important; border-top: 0 !important; }\n    .gorp-settings-parity .o_setting_left_pane { display: flex; justify-content: center; padding-top: 2px; }\n    .gorp-settings-parity .o_setting_right_pane { min-width: 0; }\n    .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7; font-weight: 600; }\n    .gorp-settings-parity .text-muted { color: #aeb4c2 !important; }\n    .gorp-settings-parity .o_setting_buttons { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 8px; }\n    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #8ddad8 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 700; }\n    .gorp-settings-parity .o_setting_action::before, .gorp-settings-parity .o_setting_link::before { content: \"➜\"; margin-right: 6px; }\n    .gorp-settings-parity .o_setting_action:hover, .gorp-settings-parity .o_setting_action:focus-visible { color: #8ddad8 !important; text-decoration: underline; }\n    .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59; color: #f4f5f7; border: 1px solid #5f6270; border-radius: 0; }\n    .gorp-settings-parity .gorp-settings-many2one { position: relative; display: inline-flex; align-items: stretch; min-width: 180px; }\n    .gorp-settings-parity .gorp-settings-many2one input { padding-right: 28px; width: 100%; }\n    .gorp-settings-parity .gorp-settings-many2one-toggle { position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border: 0; border-left: 1px solid #5f6270; background: transparent; color: #c7c9d1; }\n    @media (max-width: 1024px) {\n      .gorp-settings-parity { display: block !important; min-height: 0 !important; }\n      .gorp-settings-parity .o_settings_sidebar { display: flex !important; gap: 0 !important; width: 100% !important; height: 40px !important; max-height: 40px !important; min-height: 0 !important; box-sizing: border-box !important; padding: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; border-right: 0 !important; border-bottom: 1px solid #3a3f4e !important; background: #20232d !important; }\n      .gorp-settings-parity .o_settings_tab { flex: 0 0 auto !important; width: auto !important; min-height: 40px !important; padding: 0 16px !important; border-left: 0 !important; border-bottom: 0 !important; white-space: nowrap !important; }\n      .gorp-settings-parity .o_settings_tab.active { background: #875a7b !important; color: #fff !important; }\n      .gorp-settings-parity .o_settings_tab_icon { display: none; }\n      .gorp-settings-parity .o_setting_container { display: block !important; width: 100% !important; padding: 0 0 32px !important; overflow: visible !important; }\n      .gorp-settings-parity .app_settings_block { margin: 0; max-width: none; }\n      .gorp-settings-parity .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }\n      .gorp-settings-parity .o_settings_block_title { padding: 12px 16px !important; background: #262a36 !important; }\n      .gorp-settings-parity .o_setting_grid { display: block !important; padding: 40px 16px 32px 40px !important; }\n      .gorp-settings-parity .o_setting_box { display: grid !important; grid-template-columns: 0 minmax(0, 1fr) !important; min-height: 52px !important; padding: 0 0 18px 14px !important; border-left: 1px solid #3a3f4e !important; }\n      .gorp-settings-parity .o_setting_left_pane { display: none; }\n    }\n    .gorp-settings-parity.gorp-settings-mobile { display: block !important; min-height: 0 !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_sidebar { display: flex !important; gap: 0 !important; width: 100% !important; height: 40px !important; max-height: 40px !important; min-height: 0 !important; box-sizing: border-box !important; padding: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; border-right: 0 !important; border-bottom: 1px solid #3a3f4e !important; background: #20232d !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab { flex: 0 0 auto !important; width: auto !important; min-height: 40px !important; padding: 0 16px !important; border-left: 0 !important; border-bottom: 0 !important; white-space: nowrap !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab.active { background: #875a7b !important; color: #fff !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab_icon { display: none; }\n    .gorp-settings-parity.gorp-settings-mobile .o_setting_container { display: block !important; width: 100% !important; padding: 0 0 32px !important; overflow: visible !important; }\n    .gorp-settings-parity.gorp-settings-mobile .app_settings_block { margin: 0; max-width: none; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }\n    .gorp-settings-parity.gorp-settings-mobile .o_settings_block_title { padding: 12px 16px !important; background: #262a36 !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_setting_grid { display: block !important; padding: 40px 16px 32px 40px !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_setting_box { display: grid !important; grid-template-columns: 0 minmax(0, 1fr) !important; min-height: 52px !important; padding: 0 0 18px 14px !important; border-left: 1px solid #3a3f4e !important; }\n    .gorp-settings-parity.gorp-settings-mobile .o_setting_left_pane { display: none; }\n  General SettingsGeneral SettingsUsersInvite New UsersEmailInvite1 Active UserActive Users1Manage UsersLanguages1 LanguageLanguages1LanguagesCompaniesMy CompanyCompanies1Manage CompaniesDocument LayoutChoose the layout of your documentsLayoutLayout1 CompanyCompanies1Manage CompaniesContactsGroupsManage access groups and inherited permissions.Groups0Manage GroupsPermissionsDefault Access RightsSet custom access rights for new usersDefault Access Rights0Default Access RightsAPI KeysAPI Keys allow your users to access Odoo with external tools when multi-factor authentication is enabled.API Keys0Manage API KeysImport & ExportAllow users to import data from CSV/XLS/XLSX/ODS filesIntegrationsMail PluginIntegrate with mail client pluginsMail PluginConfigureOAuth AuthenticationUse external accounts to log in (Google, Facebook, etc.)OAuth AuthenticationConfigureLDAP AuthenticationUse LDAP credentials to log inLDAP AuthenticationConfigureDeveloper ToolsActivate the developer mode (with assets)Developer Mode AssetsActivateActivate the developer mode (with tests assets)Developer Mode TestsActivateLoad demo dataDemo DataLoadAboutOdoo 19.0+e (Enterprise Edition)Database expiration: July 28, 2026AboutOdoo Enterprise Edition License V1.0TechnicalServer ActionsAutomate backend actions and contextual operations.Server Actions0Server ActionsScheduled ActionsReview automated jobs and execution schedules.Scheduled Actions0Scheduled ActionsAutomation RulesConfigure automated record rules and triggers.Automated Actions0Automation RulesViewsInspect backend views and inherited layouts.Views0ViewsModelsInspect model metadata and technical models.Models0ModelsFieldsInspect model fields and technical field definitions.Fields0FieldsAccess RightsManage model permissions.Access Rights0Access RightsRecord RulesManage record-level security rules.Record Rules0Record RulesOutgoing Mail ServersConfigure outgoing email delivery servers.Outgoing Mail Servers0Outgoing Mail ServersIncoming Mail ServersConfigure incoming email fetch servers.Incoming Mail Servers0Incoming Mail ServersEmail TemplatesMaintain mail templates.Email Templates0Email TemplatesAppsInstall and manage apps.Installed Apps0AppsAI AppsOpen AI app modules.AI Modules0AI AppsNo settings found.",
+          "missing": []
+        },
+        "settings_chrome": {
+          "cp_search_count": 1,
+          "internal_search_count": 0,
+          "view_switcher_count": 0,
+          "control_height": 59,
+          "search_top": 55,
+          "settings_top": 105,
+          "title_color": "rgb(244, 245, 247)",
+          "title_bg": "rgb(38, 42, 54)",
+          "low_contrast_action_count": 0,
+          "low_contrast_muted_count": 0,
+          "action_color_samples": [
+            {
+              "color": "rgb(255, 255, 255)",
+              "style": "color:#fff !important;",
+              "text": "Invite"
+            },
+            {
+              "color": "rgb(141, 218, 216)",
+              "style": "color:#8ddad8 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:700;",
+              "text": "Manage Users"
+            },
+            {
+              "color": "rgb(141, 218, 216)",
+              "style": "color:#8ddad8 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:700;",
+              "text": "Languages"
+            }
+          ],
+          "muted_color_samples": [
+            {
+              "color": "rgb(174, 180, 194)",
+              "style": "color:#aeb4c2 !important;",
+              "text": "Choose the layout of your documents"
+            },
+            {
+              "color": "rgb(174, 180, 194)",
+              "style": "color:#aeb4c2 !important;",
+              "text": "Manage access groups and inherited permissions."
+            },
+            {
+              "color": "rgb(174, 180, 194)",
+              "style": "color:#aeb4c2 !important;",
+              "text": "Set custom access rights for new users"
+            }
+          ]
+        },
+        "topbar_state": {
+          "contract": true,
+          "height": 46,
+          "background": "rgb(38, 42, 54)",
+          "launcher_width": 36,
+          "launcher_dot": "rgb(135, 90, 123)",
+          "systray_count": 6
+        },
+        "visible_setting_count": 30,
+        "visible_label_count": 43,
+        "raw_technical_label_count": 0,
+        "empty_setting_label_count": 0,
+        "save_disabled": true,
+        "discard_disabled": true
+      },
+      "duration_ms": 7167
+    },
+    {
+      "name": "default-technical-search-desktop",
+      "status": "failed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "error": "enterprise polish style audit failed: control panel min-height 56; list header bg rgb(27, 29, 38)",
+      "duration_ms": 17396
+    },
+    {
+      "name": "default-technical-form-desktop",
+      "status": "failed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "error": "timed out waiting for TS Server Actions many2one relation link",
+      "duration_ms": 86826
+    },
+    {
+      "name": "default-relation-dropdown-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dropdown-desktop.png",
+      "sha256": "b112eb4e86ae95e94001f8f0b31518555b270c35055756e2ae7b63bc6c4435f7",
+      "assertions": {
+        "opened": {
+          "action_card_count": 1,
+          "window_count": 1,
+          "row_count": 7,
+          "chips": [
+            "Top-level actions"
+          ],
+          "route_state": {
+            "action_id": "7",
+            "menu_id": "13",
+            "record_id": "64",
+            "scheduled_action": true
+          }
+        },
+        "relation_dropdown_initial_state": {
+          "placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        },
+        "relation_dropdown_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "dropdown_theme": "odoo-dark",
+          "dropdown_bg": "rgb(75, 77, 89)",
+          "dropdown_color": "rgb(244, 245, 247)",
+          "active_option_bg": "rgb(87, 90, 102)",
+          "active_option_color": "rgb(244, 245, 247)",
+          "input_value": "mail",
+          "expanded": "true",
+          "active_descendant": "m2o-model_id-option-12",
+          "option_count": 1,
+          "selected_count": 0,
+          "active_count": 1,
+          "labels": [
+            "Mail Server"
+          ],
+          "raw_label_count": 0,
+          "create_count": 0,
+          "create_edit_count": 0,
+          "search_more_label": "Search more...",
+          "dropdown_width": 240,
+          "input_width": 556
+        },
+        "relation_x2many_initial_state": {
+          "open": true,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "dropdown_width_source": "field",
+          "expanded": "true",
+          "active_descendant": "x2m-group_ids-option-0",
+          "active_index": "0",
+          "active_count": 1,
+          "button_count": 11,
+          "option_count": 8,
+          "labels": [
+            "Role / User",
+            "Email Marketing / User",
+            "Default access for new users",
+            "OI Base / User",
+            "Workflow / User",
+            "Delegation / User",
+            "Workflow Advance / User",
+            "Login As / User"
+          ]
+        },
+        "relation_x2many_keyboard_state": {
+          "active_descendant": "x2m-group_ids-option-1",
+          "active_index": "1",
+          "active_count": 1,
+          "button_count": 11
+        },
+        "relation_dropdown_final_state": {
+          "many2one_open": true,
+          "x2many_open": false,
+          "placement": "bottom-start",
+          "dropdown_placement": "bottom-start",
+          "selected_count": 1,
+          "active_count": 1,
+          "option_count": 9,
+          "labels": [
+            "Deletion",
+            "Automation Rule",
+            "Wizard",
+            "Export",
+            "Import",
+            "Install",
+            "Uninstall",
+            "Update",
+            "Upgrade"
+          ]
+        }
+      },
+      "duration_ms": 29689
+    },
+    {
+      "name": "default-relation-dialog-actions-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-relation-dialog-actions-desktop.png",
+      "sha256": "32437a2f1250c8ab90d17891f1d70baa22906fd964cc28b497d7ce6e821e4652",
+      "assertions": {
+        "form_count": 1,
+        "rendered_state": {
+          "initial": {
+            "editor_count": 1,
+            "open_count": 1,
+            "open_hidden": true,
+            "open_disabled": true,
+            "open_class": "gorp-many2one-open o_external_button btn btn-link text-action px-1",
+            "no_open": ""
+          },
+          "after_create": {
+            "res_id": "99",
+            "input_value": "Created Record",
+            "open_hidden": false,
+            "open_disabled": false,
+            "open_res_id": "99",
+            "open_label": "Open: Partner",
+            "open_tooltip": "Internal link"
+          },
+          "calls": [
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "omega",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_search",
+              "args": [],
+              "kwargs": {
+                "name": "new acme",
+                "domain": [],
+                "operator": "ilike",
+                "limit": 1,
+                "context": {
+                  "lang": "en_US"
+                }
+              }
+            },
+            {
+              "model": "res.partner",
+              "method": "name_create",
+              "args": [
+                "new acme"
+              ],
+              "kwargs": {
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "new acme"
+                },
+                "create_name_field": "name"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Create Partner",
+                "res_model": "res.partner",
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new",
+                "context": {
+                  "lang": "en_US",
+                  "default_name": "omega"
+                }
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            },
+            {
+              "action": {
+                "type": "ir.actions.act_window",
+                "name": "Open: Partner",
+                "res_model": "res.partner",
+                "res_id": 99,
+                "views": [
+                  [
+                    false,
+                    "form"
+                  ]
+                ],
+                "view_mode": "form",
+                "target": "new"
+              },
+              "additionalContext": {
+                "lang": "en_US"
+              }
+            }
+          ]
+        }
+      },
+      "duration_ms": 6839
+    },
+    {
+      "name": "default-mobile-launcher-parity",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-mobile-launcher-parity.png",
+      "sha256": "55043c7e4668d8bd0d10ae6e075f478e5349fa77b31b4d37d14b298335782329",
+      "assertions": {
+        "app_count": 2,
+        "launcher_state": {
+          "launcher_bg": "rgb(0, 5, 17)",
+          "launcher_bg_image": "radial-gradient(at 50% 120%, rgba(0, 5, 17, 0.88) 0%, rgba(0, 5, 17, 0.6) 36%, rgba(0, 5, 17, 0.14) 66%, rgba(0, 5, 17, 0) 100%), radial-gradient(at 18% 20%, rgba(10, 38, 52, 0.98) 0%, rgba(8, 34, 48, 0.86) 32%, rgba(4, 12, 25, 0.68) 68%, rgba(4, 12, 25, 0) 100%), radial-gradient(circle at 31% 18%, rgba(46, 78, 96, 0.72) 0%, rgba(23, 47, 66, 0.36) 30%, rgba(0, 5, 17, 0) 58%), radial-gradient(circle at 83% 52%, rgba(40, 32, 75, 0.58) 0%, rgba(14, 10, 35, 0.32) 34%, rgba(0, 5, 17, 0) 62%), url(\"https://goerp.fadhelalqaidoomxyz.xyz/web_enterprise/static/img/background-dark.jpg?v=cleanroom-20260628b\")",
+          "draggable_count": 2,
+          "first_row_count": 2,
+          "icon_width_px": 70,
+          "icon_height_px": 70,
+          "hidden_search_count": 1,
+          "banner_count": 1,
+          "search_hidden": true,
+          "user_avatar_visible": true,
+          "systray_visible_count": 3,
+          "horizontal_overflow_px": 0
+        },
+        "settings_content_count": 1,
+        "settings_control_panel_count": 1,
+        "settings_open_state": {
+          "shell_view": "action",
+          "body_view": "action",
+          "shell_home_mode": "",
+          "body_home_mode": "",
+          "home_count": 0,
+          "banner_count": 0,
+          "settings_count": 1,
+          "control_panel_count": 1,
+          "hash": "#action=3&model=res.config.settings&view_type=form&menu_id=1"
+        },
+        "mobile_settings_layout": {
+          "first_block_y": 189,
+          "first_block_height": 7166,
+          "sidebar_y": 149,
+          "sidebar_height": 40,
+          "settings_style": "display:block;min-height:0;background:#262a36;color:#e4e4e4;",
+          "sidebar_style": "display:flex;order:-1;gap:0;width:100%;height:40px;max-height:40px;padding:0;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #3a3f4e;background:#20232d;",
+          "inner_width": 390,
+          "client_width": 390,
+          "visual_width": 390,
+          "title_color": "rgb(244, 245, 247)",
+          "title_bg": "rgb(38, 42, 54)",
+          "viewport_height": 844,
+          "overflow_x": 0
+        }
+      },
+      "duration_ms": 6934
+    },
+    {
+      "name": "default-webclient-mobile",
+      "status": "passed",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "mobile": true
+      },
+      "screenshot": "default-webclient-mobile.png",
+      "sha256": "55043c7e4668d8bd0d10ae6e075f478e5349fa77b31b4d37d14b298335782329",
+      "assertions": {
+        "app_count": 2,
+        "mobile_toggle_count": 1,
+        "horizontal_overflow_px": 0
+      },
+      "duration_ms": 8441
+    }
+  ],
+  "duration_ms": 170119
+}

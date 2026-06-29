@@ -13096,6 +13096,43 @@ func TestCallKWGetViewsOdooShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	selectedFilterID, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":      "Selected Share",
+		"model_id":  "res.partner",
+		"domain":    `[["category_id", "!=", false]]`,
+		"context":   "{}",
+		"sort":      "[]",
+		"user_ids":  []int64{1},
+		"action_id": int64(1),
+		"active":    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":      "Selected For Other",
+		"model_id":  "res.partner",
+		"domain":    "[]",
+		"context":   "{}",
+		"sort":      "[]",
+		"user_ids":  []int64{2},
+		"action_id": int64(1),
+		"active":    true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":      "Legacy Private Other",
+		"model_id":  "res.partner",
+		"domain":    "[]",
+		"context":   "{}",
+		"sort":      "[]",
+		"user_id":   int64(42),
+		"action_id": int64(1),
+		"active":    true,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	handler := server.Handler()
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":12,"params":{"model":"res.partner","method":"get_views","kwargs":{"views":[[8,"list"],[false,"form"],[9,"search"]],"options":{"toolbar":true,"load_filters":true,"action_id":1},"context":{"lang":"en_US"}}}}`)
 
@@ -13123,14 +13160,18 @@ func TestCallKWGetViewsOdooShape(t *testing.T) {
 		t.Fatalf("toolbar missing: %#v", listView)
 	}
 	filters := searchView["filters"].([]any)
-	if len(filters) != 2 {
+	if len(filters) != 3 {
 		t.Fatalf("filters = %#v", filters)
 	}
 	filter := filters[0].(map[string]any)
 	if int64Value(filter["id"]) != filterID || filter["name"] != "My Customers" || filter["domain"] != `[["customer_rank", ">", 0]]` || filter["context"] != `{"group_by":["company_id"]}` || filter["is_default"] != true {
 		t.Fatalf("filter = %#v", filter)
 	}
-	sharedFilter := filters[1].(map[string]any)
+	selectedFilter := filters[1].(map[string]any)
+	if int64Value(selectedFilter["id"]) != selectedFilterID || selectedFilter["name"] != "Selected Share" || !containsHTTPInt64(int64Slice(selectedFilter["user_ids"]), 1) {
+		t.Fatalf("selected filter = %#v", selectedFilter)
+	}
+	sharedFilter := filters[2].(map[string]any)
 	if int64Value(sharedFilter["id"]) != sharedFilterID || sharedFilter["name"] != "Shared With Me" || !containsHTTPInt64(int64Slice(sharedFilter["user_ids"]), 1) {
 		t.Fatalf("shared filter = %#v", sharedFilter)
 	}
