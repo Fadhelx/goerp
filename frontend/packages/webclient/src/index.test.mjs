@@ -4182,7 +4182,7 @@ assert.match(moduleInfoControlPanel.attributes.style, /height:56px !important/);
 assert.match(moduleInfoControlPanel.attributes.style, /position:relative !important/);
 assert.match(moduleInfoControlPanel.attributes.style, /flex-direction:row !important/);
 assert.match(moduleInfoControlPanel.attributes.style, /justify-content:space-between !important/);
-assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("o_control_panel_navigation"))[0].attributes.style, /position:static !important/);
+assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("gorp-module-info-navigation"))[0].attributes.style, /position:static !important/);
 assert.match(findAll(moduleInfoControlPanel, (node) => String(node.className ?? "").includes("o_pager"))[0].attributes.style, /position:static !important/);
 assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-body"))[0].attributes.style, /max-width:none !important/);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_value")).map((node) => node.textContent)[0], "1");

@@ -5687,8 +5687,8 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   control.dataset.model = "ir.module.module";
   control.setAttribute("style", "position:relative !important;background:#262a36 !important;border-bottom:1px solid #3a3f4e !important;color:#f4f5f7 !important;height:56px !important;min-height:56px !important;max-height:56px !important;padding:0 16px !important;display:flex !important;flex-direction:row !important;align-items:center !important;justify-content:space-between !important;gap:16px !important;overflow:visible !important;");
   const top = document.createElement("div");
-  top.className = "o_control_panel_navigation";
-  top.setAttribute("style", "position:static !important;inset:auto !important;transform:translateY(14px) !important;display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;height:34px !important;margin:0 !important;padding:0 !important;");
+  top.className = "gorp-module-info-navigation";
+  top.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:16px !important;flex:1 1 auto !important;min-width:0 !important;height:34px !important;margin:0 !important;padding:0 !important;");
   const breadcrumb = document.createElement("ol");
   breadcrumb.className = "breadcrumb o_breadcrumb";
   breadcrumb.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:6px !important;height:34px !important;margin:0 !important;padding:0 !important;color:#f4f5f7 !important;line-height:26px !important;white-space:nowrap !important;");
@@ -5757,7 +5757,7 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   actions.append(menus);
   actions.dataset.sourceAction = String(action.id ?? "");
   bottom.append(actions);
-  control.append(top, bottom);
+  control.append(bottom, top);
   return control;
 }
 
