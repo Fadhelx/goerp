@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -857,6 +858,7 @@ func ParseDomainForce(text string) (domain.Node, error) {
 	if text == "" {
 		return domain.And(), nil
 	}
+	text = html.UnescapeString(text)
 	var value any
 	if err := json.Unmarshal([]byte(text), &value); err == nil {
 		return domain.Parse(value)
@@ -1219,6 +1221,8 @@ func resolveValue(user User, value any, companies map[int64]Company) any {
 	switch value {
 	case "user.id":
 		return user.ID
+	case "user.login":
+		return user.Login
 	case "user.company_id.id", "user.company_id", "user.env.company.id", "user.env.company":
 		return user.CompanyID
 	case "user.company_id.ids":
@@ -1240,7 +1244,7 @@ func resolveValue(user User, value any, companies map[int64]Company) any {
 		return singletonIDSlice(firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID))
 	case "user.partner_id.commercial_partner_id", "user.partner_id.commercial_partner_id.id":
 		return firstNonZeroInt64(user.CommercialPartnerID, user.PartnerID)
-	case "user.group_ids", "user.group_ids.ids", "user.all_group_ids", "user.all_group_ids.ids":
+	case "user.group_ids", "user.group_ids.ids", "user.groups_id", "user.groups_id.ids", "user.all_group_ids", "user.all_group_ids.ids":
 		return user.GroupIDs
 	case "user.employee_id", "user.employee_id.id", "user.employee_id.parent_id", "user.employee_id.parent_id.id":
 		return int64(0)

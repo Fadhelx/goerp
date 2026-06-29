@@ -723,7 +723,9 @@ func TestParseDomainForceSupportsOdoo19BaseSecurityDomains(t *testing.T) {
 		"[('company_id', 'in', user.env.companies.ids)]",
 		"[('country_id', 'in', user.env.companies.mapped('country_id').ids + [False])]",
 		"[('country_id', 'in', [False] + user.env.companies.mapped(\"country_id\").ids)]",
+		"['&amp;', ('database_hosting', '!=', False), ('database_user_ids.login', '=', user.login)]",
 		"[('group_id', 'in', user.all_group_ids.ids)]",
+		"[('group_id', 'in', user.groups_id.ids)]",
 		"[('employee_id', 'in', user.employee_ids.ids)]",
 	}
 	for _, text := range tests {
@@ -753,7 +755,7 @@ func TestParseDomainForceSupportsOdoo19AnyDomains(t *testing.T) {
 }
 
 func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
-	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{2}, GroupIDs: []int64{7, 8}}
+	user := User{ID: 10, Login: "demo", PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{2}, GroupIDs: []int64{7, 8}}
 	tests := []struct {
 		expr string
 		row  map[string]any
@@ -783,7 +785,9 @@ func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
 		{"[('company_id', 'in', user.company_id.ids)]", map[string]any{"company_id": int64(1)}},
 		{"[('company_id', '=', user.env.company.id)]", map[string]any{"company_id": int64(1)}},
 		{"[('company_id', 'in', user.env.companies.ids)]", map[string]any{"company_id": int64(2)}},
+		{"['&amp;', ('database_hosting', '!=', False), ('database_user_ids.login', '=', user.login)]", map[string]any{"database_hosting": true, "database_user_ids": map[string]any{"login": "demo"}}},
 		{"[('group_id', 'in', user.all_group_ids.ids)]", map[string]any{"group_id": int64(7)}},
+		{"[('group_id', 'in', user.groups_id.ids)]", map[string]any{"group_id": int64(8)}},
 	}
 	for _, tt := range tests {
 		node, err := ParseDomainForce(tt.expr)
