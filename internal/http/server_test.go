@@ -13183,6 +13183,108 @@ func TestCallKWGetViewsOdooShape(t *testing.T) {
 	}
 }
 
+func TestCallKWGetViewsFiltersEmbeddedParentScope(t *testing.T) {
+	server := testServer(t)
+	if _, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":     "Normal Global",
+		"model_id": "res.partner",
+		"domain":   "[]",
+		"context":  "{}",
+		"sort":     "[]",
+		"active":   true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	matchingID, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":                   "Embedded Parent 42",
+		"model_id":               "res.partner",
+		"domain":                 `[["parent_id", "=", 42]]`,
+		"context":                "{}",
+		"sort":                   "[]",
+		"user_id":                int64(1),
+		"embedded_action_id":     int64(7),
+		"embedded_parent_res_id": int64(42),
+		"active":                 true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parentlessID, err := server.Env.Model("ir.filters").Create(map[string]any{
+		"name":               "Embedded No Parent",
+		"model_id":           "res.partner",
+		"domain":             `[["active", "=", true]]`,
+		"context":            "{}",
+		"sort":               "[]",
+		"user_id":            int64(1),
+		"embedded_action_id": int64(7),
+		"active":             true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, values := range []map[string]any{
+		{
+			"name":                   "Embedded Parent 43",
+			"model_id":               "res.partner",
+			"domain":                 "[]",
+			"context":                "{}",
+			"sort":                   "[]",
+			"user_id":                int64(1),
+			"embedded_action_id":     int64(7),
+			"embedded_parent_res_id": int64(43),
+			"active":                 true,
+		},
+		{
+			"name":                   "Different Embedded Action",
+			"model_id":               "res.partner",
+			"domain":                 "[]",
+			"context":                "{}",
+			"sort":                   "[]",
+			"user_id":                int64(1),
+			"embedded_action_id":     int64(8),
+			"embedded_parent_res_id": int64(42),
+			"active":                 true,
+		},
+	} {
+		if _, err := server.Env.Model("ir.filters").Create(values); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := server.Handler()
+	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":13,"params":{"model":"res.partner","method":"get_views","kwargs":{"views":[[9,"search"]],"options":{"load_filters":true,"embedded_action_id":7,"embedded_parent_res_id":42},"context":{"lang":"en_US"}}}}`)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/res.partner/get_views", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get_views response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSON(t, rec.Body.Bytes())
+	filters := payload["result"].(map[string]any)["views"].(map[string]any)["search"].(map[string]any)["filters"].([]any)
+	if len(filters) != 1 {
+		t.Fatalf("parent-scoped filters = %#v", filters)
+	}
+	filter := filters[0].(map[string]any)
+	if int64Value(filter["id"]) != matchingID || filter["name"] != "Embedded Parent 42" || int64Value(filter["embedded_action_id"]) != 7 || int64Value(filter["embedded_parent_res_id"]) != 42 {
+		t.Fatalf("parent-scoped filter = %#v", filter)
+	}
+
+	body = bytes.NewBufferString(`{"jsonrpc":"2.0","id":14,"params":{"model":"res.partner","method":"get_views","kwargs":{"views":[[9,"search"]],"options":{"load_filters":true,"embedded_action_id":7},"context":{"lang":"en_US"}}}}`)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/web/dataset/call_kw/res.partner/get_views", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get_views without parent response %d %s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSON(t, rec.Body.Bytes())
+	filters = payload["result"].(map[string]any)["views"].(map[string]any)["search"].(map[string]any)["filters"].([]any)
+	if len(filters) != 1 {
+		t.Fatalf("parentless filters = %#v", filters)
+	}
+	filter = filters[0].(map[string]any)
+	if int64Value(filter["id"]) != parentlessID || filter["name"] != "Embedded No Parent" || int64Value(filter["embedded_action_id"]) != 7 || filter["embedded_parent_res_id"] != false {
+		t.Fatalf("parentless filter = %#v", filter)
+	}
+}
+
 func TestCallKWReadMethodsApplyBinSizeContext(t *testing.T) {
 	registry := record.NewRegistry()
 	doc := model.New("x.document", "x_document")

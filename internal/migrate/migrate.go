@@ -146,7 +146,7 @@ var BaseMigrations = []Migration{
 	{Version: 97, Name: "res_users_settings", SQL: `CREATE TABLE IF NOT EXISTS res_users_settings (id BIGSERIAL PRIMARY KEY, user_id BIGINT, is_discuss_sidebar_category_channel_open BOOLEAN NOT NULL DEFAULT true, is_discuss_sidebar_category_chat_open BOOLEAN NOT NULL DEFAULT true)`},
 	{Version: 98, Name: "res_users_apikeys", SQL: `CREATE TABLE IF NOT EXISTS res_users_apikeys (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, user_id BIGINT, scope TEXT, key TEXT, create_date TIMESTAMPTZ)`},
 	{Version: 99, Name: "ir_attachment", SQL: `CREATE TABLE IF NOT EXISTS ir_attachment (id BIGSERIAL PRIMARY KEY, name TEXT, res_model TEXT, res_field TEXT, res_id BIGINT, company_id BIGINT, type TEXT, url TEXT, mimetype TEXT, datas TEXT, file_size BIGINT, public BOOLEAN NOT NULL DEFAULT false, access_token TEXT, checksum TEXT, has_thumbnail BOOLEAN NOT NULL DEFAULT false)`},
-	{Version: 100, Name: "ir_filters", SQL: `CREATE TABLE IF NOT EXISTS ir_filters (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, model_id TEXT, domain TEXT, context TEXT, sort TEXT, user_id BIGINT, action_id BIGINT, embedded_action_id BIGINT, is_default BOOLEAN NOT NULL DEFAULT false, active BOOLEAN NOT NULL DEFAULT true)`},
+	{Version: 100, Name: "ir_filters", SQL: `CREATE TABLE IF NOT EXISTS ir_filters (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, model_id TEXT, domain TEXT, context TEXT, sort TEXT, user_id BIGINT, action_id BIGINT, embedded_action_id BIGINT, embedded_parent_res_id BIGINT, is_default BOOLEAN NOT NULL DEFAULT false, active BOOLEAN NOT NULL DEFAULT true)`},
 	{Version: 101, Name: "ir_ui_view", SQL: `CREATE TABLE IF NOT EXISTS ir_ui_view (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, model TEXT, type TEXT, arch TEXT, key TEXT, inherit_id BIGINT, inherit_id_ref TEXT, mode TEXT, priority INTEGER, active BOOLEAN NOT NULL DEFAULT true, groups_id TEXT, primary BOOLEAN NOT NULL DEFAULT false, customize_show BOOLEAN NOT NULL DEFAULT false, track BOOLEAN NOT NULL DEFAULT false, page BOOLEAN NOT NULL DEFAULT false, website_id BIGINT)`},
 	{Version: 102, Name: "ir_asset", SQL: `CREATE TABLE IF NOT EXISTS ir_asset (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT true, bundle TEXT, directive TEXT, path TEXT, target TEXT, sequence INTEGER)`},
 	{Version: 103, Name: "ir_ui_menu", SQL: `CREATE TABLE IF NOT EXISTS ir_ui_menu (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT true, parent_id BIGINT, action TEXT, sequence INTEGER, groups_id TEXT, web_icon TEXT, web_icon_data TEXT, web_icon_data_mimetype TEXT)`},
@@ -563,6 +563,7 @@ CREATE TABLE IF NOT EXISTS mail_scheduled_message (
 `},
 	{Version: 135, Name: "base_action_metadata_parity", SQL: `
 ALTER TABLE ir_filters ADD COLUMN IF NOT EXISTS embedded_action_id BIGINT;
+ALTER TABLE ir_filters ADD COLUMN IF NOT EXISTS embedded_parent_res_id BIGINT;
 ALTER TABLE ir_actions ADD COLUMN IF NOT EXISTS xml_id TEXT;
 ALTER TABLE ir_actions ADD COLUMN IF NOT EXISTS help TEXT;
 ALTER TABLE ir_actions ADD COLUMN IF NOT EXISTS path TEXT;
@@ -2613,5 +2614,8 @@ CREATE TABLE IF NOT EXISTS ai_audit_log (
 );
 CREATE INDEX IF NOT EXISTS ai_audit_log_event_time_idx ON ai_audit_log(event_time);
 CREATE INDEX IF NOT EXISTS ai_audit_log_user_event_idx ON ai_audit_log(user_id, event_type);
+`},
+	{Version: 225, Name: "ir_filters_embedded_parent_res_id", SQL: `
+ALTER TABLE ir_filters ADD COLUMN IF NOT EXISTS embedded_parent_res_id BIGINT;
 `},
 }

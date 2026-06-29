@@ -980,8 +980,8 @@ assert.deepEqual(windowResult.search.groupBys[1].children.map((item) => [item.id
   ["group-by-group_created-day", "Day"]
 ]);
 assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorite-14"]);
-assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, item.favorite.userId, item.favorite.actionId, item.favorite.isDefault, item.favorite.canDelete]), [
-  [14, 7, 7, false, true]
+assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, item.favorite.userId, item.favorite.actionId, item.favorite.embeddedActionId, item.favorite.embeddedParentResId, item.favorite.isDefault, item.favorite.canDelete]), [
+  [14, 7, 7, undefined, undefined, false, true]
 ]);
 assert.deepEqual(windowResult.search.favorites.map((item) => item.facet.order), ["name desc"]);
 assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], create_date: "2026-06-22 09:00:00", legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
@@ -1450,7 +1450,9 @@ const favoriteWindow = renderWindowAction({
   ...windowResult,
   action: {
     ...windowResult.action,
-    __search_query: "Azure"
+    __search_query: "Azure",
+    embedded_action_id: 11,
+    embedded_parent_res_id: 42
   },
   search: {
     ...windowResult.search,
@@ -1488,6 +1490,8 @@ assert.equal(favoriteCreates[0].model, "ir.filters");
 assert.equal(favoriteCreates[0].records[0].name, "Azure");
 assert.equal(favoriteCreates[0].records[0].model_id, "res.partner");
 assert.equal(favoriteCreates[0].records[0].action_id, 7);
+assert.equal(favoriteCreates[0].records[0].embedded_action_id, 11);
+assert.equal(favoriteCreates[0].records[0].embedded_parent_res_id, 42);
 assert.equal(favoriteCreates[0].records[0].user_id, user.userId);
 assert.equal(favoriteCreates[0].records[0].is_default, false);
 assert.deepEqual(JSON.parse(favoriteCreates[0].records[0].domain), windowResult.search.state.domain);

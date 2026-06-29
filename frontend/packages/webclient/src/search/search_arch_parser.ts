@@ -23,6 +23,7 @@ export interface ParsedSearchItem {
   userId?: number;
   actionId?: number;
   embeddedActionId?: number;
+  embeddedParentResId?: number;
   isGlobal?: boolean;
   isDefault?: boolean;
 }
@@ -171,6 +172,7 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
     const userId = numberValue(raw.user_id);
     const actionId = numberValue(raw.action_id);
     const embeddedActionId = numberValue(raw.embedded_action_id);
+    const embeddedParentResId = numberValue(raw.embedded_parent_res_id);
     const name = stringValue(raw.name) || stringValue(raw.id) || `favorite_${index + 1}`;
     const parsedContext = parseContextAttribute(raw.context);
     const groupBy = normalizeGroupByDescriptors(groupByFromAny(raw.group_by ?? parsedContext.group_by), undefined);
@@ -188,6 +190,7 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
       userId,
       actionId,
       embeddedActionId,
+      embeddedParentResId,
       isGlobal: userId === undefined,
       isDefault: raw.is_default === true || contextDefaultActive(context, name)
     });

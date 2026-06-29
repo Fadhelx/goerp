@@ -75,6 +75,7 @@ func TestBaseMigrationsIncludeAutomationAndMail(t *testing.T) {
 		"res_users_apikeys",
 		"ir_attachment",
 		"ir_filters",
+		"ir_filters_embedded_parent_res_id",
 		"ir_ui_view",
 		"ir_asset",
 		"ir_ui_menu",
@@ -1423,7 +1424,7 @@ func TestActionWindowMigrationExposeOdooFields(t *testing.T) {
 	if !strings.Contains(sqlByName["ir_act_report_xml"], "paperformat_id") {
 		t.Fatalf("ir_act_report_xml missing paperformat_id: %s", sqlByName["ir_act_report_xml"])
 	}
-	for _, token := range []string{"embedded_action_id", "ir_actions", "ir_actions_server_history", "server_action_history_wizard", "ir_embedded_actions", "report_paperformat", `"default"`} {
+	for _, token := range []string{"embedded_action_id", "embedded_parent_res_id", "ir_actions", "ir_actions_server_history", "server_action_history_wizard", "ir_embedded_actions", "report_paperformat", `"default"`} {
 		if !strings.Contains(sqlByName["base_action_metadata_parity"], token) {
 			t.Fatalf("base_action_metadata_parity missing %s: %s", token, sqlByName["base_action_metadata_parity"])
 		}

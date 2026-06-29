@@ -19,6 +19,7 @@ export interface ControlPanelFavoriteMetadata {
   userId?: number;
   actionId?: number;
   embeddedActionId?: number;
+  embeddedParentResId?: number;
   isDefault?: boolean;
   isGlobal?: boolean;
   canDelete?: boolean;

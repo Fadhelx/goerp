@@ -24000,12 +24000,13 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 	if err != nil || len(found.IDs()) == 0 {
 		return []any{}
 	}
-	rows, err := env.Model("ir.filters").Browse(found.IDs()...).Read("id", "name", "model_id", "domain", "context", "sort", "user_id", "user_ids", "action_id", "embedded_action_id", "is_default", "active")
+	rows, err := env.Model("ir.filters").Browse(found.IDs()...).Read("id", "name", "model_id", "domain", "context", "sort", "user_id", "user_ids", "action_id", "embedded_action_id", "embedded_parent_res_id", "is_default", "active")
 	if err != nil {
 		return []any{}
 	}
 	actionID := int64Value(options["action_id"])
 	embeddedActionID := int64Value(options["embedded_action_id"])
+	embeddedParentResID := int64Value(options["embedded_parent_res_id"])
 	userID := env.Context().UserID
 	out := make([]any, 0, len(rows))
 	for _, row := range rows {
@@ -24019,21 +24020,34 @@ func searchViewFilterPayload(env *record.Env, modelName string, options map[stri
 			continue
 		}
 		filterEmbeddedActionID := int64Value(row["embedded_action_id"])
-		if filterEmbeddedActionID != 0 && filterEmbeddedActionID != embeddedActionID {
+		if embeddedActionID != 0 {
+			if filterEmbeddedActionID != embeddedActionID {
+				continue
+			}
+		} else if filterEmbeddedActionID != 0 {
+			continue
+		}
+		filterEmbeddedParentResID := int64Value(row["embedded_parent_res_id"])
+		if embeddedActionID != 0 && embeddedParentResID != 0 {
+			if filterEmbeddedParentResID != embeddedParentResID {
+				continue
+			}
+		} else if filterEmbeddedParentResID != 0 {
 			continue
 		}
 		out = append(out, map[string]any{
-			"id":                 int64Value(row["id"]),
-			"name":               stringValue(row["name"]),
-			"model_id":           stringValue(row["model_id"]),
-			"domain":             firstNonEmptyHTTPString(stringValue(row["domain"]), "[]"),
-			"context":            firstNonEmptyHTTPString(stringValue(row["context"]), "{}"),
-			"sort":               firstNonEmptyHTTPString(stringValue(row["sort"]), "[]"),
-			"user_id":            falseIfZero(filterUserID),
-			"user_ids":           filterSharedUserIDs,
-			"action_id":          falseIfZero(filterActionID),
-			"embedded_action_id": falseIfZero(filterEmbeddedActionID),
-			"is_default":         truthyHTTPValue(row["is_default"]),
+			"id":                     int64Value(row["id"]),
+			"name":                   stringValue(row["name"]),
+			"model_id":               stringValue(row["model_id"]),
+			"domain":                 firstNonEmptyHTTPString(stringValue(row["domain"]), "[]"),
+			"context":                firstNonEmptyHTTPString(stringValue(row["context"]), "{}"),
+			"sort":                   firstNonEmptyHTTPString(stringValue(row["sort"]), "[]"),
+			"user_id":                falseIfZero(filterUserID),
+			"user_ids":               filterSharedUserIDs,
+			"action_id":              falseIfZero(filterActionID),
+			"embedded_action_id":     falseIfZero(filterEmbeddedActionID),
+			"embedded_parent_res_id": falseIfZero(filterEmbeddedParentResID),
+			"is_default":             truthyHTTPValue(row["is_default"]),
 		})
 	}
 	return out

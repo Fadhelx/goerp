@@ -679,7 +679,7 @@ func TestSecurityModelsExposeOdooFields(t *testing.T) {
 	assertFields(t, models["ir.demo.failure"], "name")
 	assertFields(t, models["ir.demo.failure.wizard"], "failure_id")
 	assertFields(t, models["ir.attachment"], "name", "res_model", "res_field", "res_id", "company_id", "type", "url", "mimetype", "datas", "file_size", "public", "access_token", "checksum", "has_thumbnail")
-	assertFields(t, models["ir.filters"], "name", "model_id", "domain", "context", "sort", "user_id", "user_ids", "action_id", "embedded_action_id", "is_default", "active")
+	assertFields(t, models["ir.filters"], "name", "model_id", "domain", "context", "sort", "user_id", "user_ids", "action_id", "embedded_action_id", "embedded_parent_res_id", "is_default", "active")
 	assertFields(t, models["ir.ui.view"], "name", "model", "type", "arch", "key", "inherit_id", "inherit_id_ref", "mode", "priority", "active", "groups_id", "primary", "customize_show", "track", "page", "website_id")
 	assertFields(t, models["ir.asset"], "name", "active", "bundle", "directive", "path", "target", "sequence")
 	assertFields(t, models["ir.ui.menu"], "name", "active", "parent_id", "action", "sequence", "groups_id", "web_icon", "web_icon_data", "web_icon_data_mimetype")

@@ -3208,6 +3208,10 @@ function persistCurrentSearchFavorite(
   };
   const actionID = numericActionID(result.action.id);
   if (actionID !== undefined) values.action_id = actionID;
+  const embeddedActionID = numericActionID(result.action.embedded_action_id);
+  if (embeddedActionID !== undefined) values.embedded_action_id = embeddedActionID;
+  const embeddedParentResID = numericActionID(result.action.embedded_parent_res_id);
+  if (embeddedParentResID !== undefined) values.embedded_parent_res_id = embeddedParentResID;
   if (!isGlobal && user.userId > 0) values.user_id = user.userId;
   void orm.create("ir.filters", [values]).then(() => {
     options.services?.notification?.add("Favorite saved", { type: "success" });
@@ -14137,6 +14141,7 @@ function parsedFavoriteMetadata(item: ParsedSearchItem): ActionControlPanelMenuI
     userId: item.userId,
     actionId: item.actionId,
     embeddedActionId: item.embeddedActionId,
+    embeddedParentResId: item.embeddedParentResId,
     isDefault: item.isDefault === true,
     isGlobal: item.isGlobal === true,
     canDelete: item.filterId !== undefined && item.userId !== undefined
