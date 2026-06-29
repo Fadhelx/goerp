@@ -2061,12 +2061,16 @@ let genericRelationOptions = findAll(genericRelation, (node) => String(node.clas
 const genericRelationDropdown = findAll(genericRelation, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-many2one-dropdown"))[0];
 assert.equal(genericRelationDropdown.dataset.placement, "bottom-start");
 assert.equal(genericRelationDropdown.dataset.widthSource, "field");
+assert.equal(genericRelationDropdown.dataset.theme, "odoo-dark");
+assert.match(genericRelationDropdown.attributes.style, /background:#4b4d59 !important/);
 assert.deepEqual(genericRelationOptions.map((node) => node.textContent), ["Contact", "Mail", "Mail Server", "Message"]);
 assert.equal(genericRelationOptions[0].dataset.selected, "true");
 assert.equal(genericRelationOptions[0].dataset.active, "true");
+assert.match(genericRelationOptions[0].attributes.style, /background:#575a66 !important/);
 assert.equal(genericRelationInput.attributes["aria-activedescendant"], genericRelationOptions[0].id);
 genericRelationInput.dispatchEvent(new TestEvent("keydown", { key: "ArrowDown" }));
 assert.equal(genericRelationOptions[1].dataset.active, "true");
+assert.match(genericRelationOptions[1].attributes.style, /background:#575a66 !important/);
 genericRelationInput.dispatchEvent(new TestEvent("keydown", { key: "Enter" }));
 assert.equal(genericRelation.dataset.resId, "81");
 assert.equal(genericRelationInput.value, "Mail");
@@ -2103,7 +2107,10 @@ assert.equal(genericGroups.dataset.dropdownPlacement, "bottom-start");
 const genericGroupsDropdown = findAll(genericGroups, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-x2many-dropdown"))[0];
 assert.equal(genericGroupsDropdown.dataset.placement, "bottom-start");
 assert.equal(genericGroupsDropdown.dataset.widthSource, "field");
+assert.equal(genericGroupsDropdown.dataset.theme, "odoo-dark");
+assert.match(genericGroupsDropdown.attributes.style, /background:#4b4d59 !important/);
 assert.equal(genericGroupOptions[0].dataset.active, "true");
+assert.match(genericGroupOptions[0].attributes.style, /background:#575a66 !important/);
 assert.equal(Boolean(genericGroupsInput.attributes["aria-activedescendant"]), true);
 assert.deepEqual(genericGroupOptions.map((node) => node.textContent), ["Sales / Manager"]);
 assert.equal(findAll(genericGroups, (node) => String(node.className ?? "").includes("gorp-x2many-create")).length, 0);
@@ -2126,6 +2133,7 @@ assert.equal(genericLineOwner.dataset.dropdownPlacement, "bottom-start");
 const genericLineOwnerDropdown = findAll(genericLineOwner, (node) => String(node.className ?? "").split(/\s+/).includes("gorp-many2one-dropdown"))[0];
 assert.equal(genericLineOwnerDropdown.dataset.placement, "bottom-start");
 assert.equal(genericLineOwnerDropdown.dataset.widthSource, "field");
+assert.equal(genericLineOwnerDropdown.dataset.theme, "odoo-dark");
 const genericLineOwnerOptions = findAll(genericLineOwner, (node) => String(node.className ?? "").includes("gorp-many2one-option"));
 assert.deepEqual(genericLineOwnerOptions.map((node) => node.textContent), ["Administrator", "Demo User"]);
 genericLineOwnerOptions[1].dispatchEvent(new TestEvent("click"));
@@ -2777,10 +2785,13 @@ assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.fi
 assert.equal(findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === "privilege_id" && node.attributes?.role === "combobox" && node.value === "Role").length, 1);
 for (const fieldName of ["name", "privilege_id", "api_key_duration"]) {
   const control = findAll(roleAdministratorFallbackWindow, (node) => node.dataset?.field === fieldName && String(node.className ?? "").includes("gorp-form-control"))[0];
-  assert.match(control.attributes.style, /background:#fff !important/);
-  assert.match(control.attributes.style, /color:#1f2933 !important/);
+  assert.match(control.attributes.style, /background:#4b4d59 !important/);
+  assert.match(control.attributes.style, /color:#f4f5f7 !important/);
   assert.match(control.attributes.style, /min-width:181px !important/);
 }
+const roleAdministratorFallbackSheet = findAll(roleAdministratorFallbackWindow, (node) => String(node.className ?? "").includes("gorp-form-sheet"))[0];
+assert.match(roleAdministratorFallbackSheet.attributes.style, /background:#262a36 !important/);
+assert.match(roleAdministratorFallbackSheet.attributes.style, /color:#e4e4e4 !important/);
 
 const groupsListParityWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -6154,8 +6165,8 @@ const selects = findAll(groupField, (node) => node.tag === "select");
 assert.equal(selects.length, 2);
 const salesSelect = selects.find((node) => node.dataset.privilegeId === "100");
 assert.equal(salesSelect.value, "10");
-assert.match(salesSelect.attributes.style, /background:#fff !important/);
-assert.match(salesSelect.attributes.style, /color:#1f2933 !important/);
+assert.match(salesSelect.attributes.style, /background:#4b4d59 !important/);
+assert.match(salesSelect.attributes.style, /color:#f4f5f7 !important/);
 assert.match(salesSelect.attributes.style, /width:360px !important/);
 assert.equal(findAll(salesSelect, (node) => node.tag === "option")[0].textContent, "No Sales");
 const managerOption = findAll(salesSelect, (node) => node.tag === "option").find((node) => node.dataset.groupId === "11");

@@ -1152,6 +1152,24 @@ function generalSettingsArch(): string {
       <block title="Contacts">
         <setting id="groups" string="Groups" help="Manage access groups and inherited permissions."><field name="security_group_count" readonly="1"/></setting>
       </block>
+      <block title="Permissions">
+        <setting id="default_access_rights" string="Default Access Rights" help="Set custom access rights for new users"><field name="default_access_right_count" readonly="1"/></setting>
+        <setting id="api_keys" string="API Keys" help="API Keys allow your users to access Odoo with external tools when multi-factor authentication is enabled."><field name="api_key_count" readonly="1"/></setting>
+        <setting id="import_export" string="Import &amp; Export" help="Allow users to import data from CSV/XLS/XLSX/ODS files"><field name="allow_import_export"/></setting>
+      </block>
+      <block title="Integrations">
+        <setting id="mail_plugin" string="Mail Plugin" help="Integrate with mail client plugins"><field name="mail_plugin_state" readonly="1"/></setting>
+        <setting id="oauth_authentication" string="OAuth Authentication" help="Use external accounts to log in (Google, Facebook, etc.)"><field name="oauth_state" readonly="1"/></setting>
+        <setting id="ldap_authentication" string="LDAP Authentication" help="Use LDAP credentials to log in"><field name="ldap_state" readonly="1"/></setting>
+      </block>
+      <block title="Developer Tools">
+        <setting id="developer_mode_assets" string="Activate the developer mode (with assets)"><field name="developer_assets_state" readonly="1"/></setting>
+        <setting id="developer_mode_tests" string="Activate the developer mode (with tests assets)"><field name="developer_tests_state" readonly="1"/></setting>
+        <setting id="load_demo_data" string="Load demo data"><field name="demo_data_state" readonly="1"/></setting>
+      </block>
+      <block title="About">
+        <setting id="about" string="Odoo 19.0+e (Enterprise Edition)" help="Database expiration: July 28, 2026"><field name="about_state" readonly="1"/></setting>
+      </block>
       <block title="Technical">
         <setting id="server_actions" string="Server Actions" help="Automate backend actions and contextual operations."><field name="server_action_count" readonly="1"/></setting>
         <setting id="scheduled_actions" string="Scheduled Actions" help="Review automated jobs and execution schedules."><field name="scheduled_action_count" readonly="1"/></setting>
@@ -1179,6 +1197,16 @@ function generalSettingsFields(): Record<string, unknown> {
     security_group_count: readonlyIntegerField("Groups"),
     company_count: readonlyIntegerField("Companies"),
     document_layout_state: { type: "char", string: "Layout", readonly: true },
+    default_access_right_count: readonlyIntegerField("Default Access Rights"),
+    api_key_count: readonlyIntegerField("API Keys"),
+    allow_import_export: { type: "boolean", string: "Import & Export" },
+    mail_plugin_state: { type: "char", string: "Mail Plugin", readonly: true },
+    oauth_state: { type: "char", string: "OAuth Authentication", readonly: true },
+    ldap_state: { type: "char", string: "LDAP Authentication", readonly: true },
+    developer_assets_state: { type: "char", string: "Developer Mode Assets", readonly: true },
+    developer_tests_state: { type: "char", string: "Developer Mode Tests", readonly: true },
+    demo_data_state: { type: "char", string: "Demo Data", readonly: true },
+    about_state: { type: "char", string: "About", readonly: true },
     server_action_count: readonlyIntegerField("Server Actions"),
     scheduled_action_count: readonlyIntegerField("Scheduled Actions"),
     automation_rule_count: readonlyIntegerField("Automated Actions"),
@@ -1208,6 +1236,16 @@ function generalSettingsValues(): Record<string, unknown> {
     security_group_count: 0,
     company_count: 1,
     document_layout_state: "Layout",
+    default_access_right_count: 0,
+    api_key_count: 0,
+    allow_import_export: true,
+    mail_plugin_state: "Configure",
+    oauth_state: "Configure",
+    ldap_state: "Configure",
+    developer_assets_state: "Activate",
+    developer_tests_state: "Activate",
+    demo_data_state: "Load",
+    about_state: "Odoo Enterprise Edition License V1.0",
     server_action_count: 0,
     scheduled_action_count: 0,
     automation_rule_count: 0,
@@ -1245,6 +1283,7 @@ function attachGeneralSettingsNavigation(
     button.className = "o_setting_action o_setting_link";
     button.dataset.settingsTarget = target.id;
     if (target.model) button.dataset.settingsTargetModel = target.model;
+    button.setAttribute("style", "color:#f4f5f7 !important;background:transparent;border:0;padding:0;text-align:left;font-weight:500;");
     button.textContent = settingsTargetButtonLabel(target);
     button.addEventListener("click", () => {
       void openSettingsNavigationTarget(env, menus, settingsApp, outlet, target).catch((error) => {
@@ -1268,6 +1307,7 @@ function attachInviteUsersAction(root: HTMLElement): void {
   button.type = "button";
   button.className = "btn btn-primary o_setting_action o_setting_invite";
   button.dataset.settingsAction = "invite-users";
+  button.setAttribute("style", "color:#fff !important;");
   button.textContent = "Invite";
   actions.append(button);
   if (fields) fields.append(actions);
@@ -1281,6 +1321,8 @@ function settingsNavigationTargets(): SettingsNavigationTarget[] {
     { id: "companies", names: ["Companies"], model: "res.company" },
     { id: "company_records", names: ["Companies"], model: "res.company" },
     { id: "languages", names: ["Languages"], model: "res.lang" },
+    { id: "default_access_rights", names: ["Access Rights"], model: "ir.model.access" },
+    { id: "api_keys", names: ["API Keys"], model: "res.users.apikeys" },
     { id: "server_actions", names: ["Server Actions"], model: "ir.actions.server" },
     { id: "scheduled_actions", names: ["Scheduled Actions"], model: "ir.cron" },
     { id: "automation_rules", names: ["Automation Rules", "Automated Actions"], model: "base.automation" },
@@ -1302,6 +1344,8 @@ function settingsTargetButtonLabel(target: SettingsNavigationTarget): string {
     users: "Manage Users",
     groups: "Manage Groups",
     companies: "Manage Companies",
+    default_access_rights: "Default Access Rights",
+    api_keys: "Manage API Keys",
     users_access: "Manage Users",
     groups_access: "Manage Groups",
     company_records: "Manage Companies",

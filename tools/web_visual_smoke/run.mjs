@@ -457,6 +457,8 @@ export const scenarios = [
           "languages",
           "company_records",
           "companies",
+          "default_access_rights",
+          "api_keys",
           "server_actions",
           "scheduled_actions",
           "automation_rules",
@@ -480,37 +482,72 @@ export const scenarios = [
         const inviteCount = document.querySelectorAll(".o_web_client .o_action_manager [data-settings-action='invite-users']").length;
         const appTabs = [...document.querySelectorAll(".o_web_client .o_action_manager .o_settings_tab")].map((node) => node.textContent.trim()).filter(Boolean);
         const blockTitles = [...document.querySelectorAll(".o_web_client .o_action_manager .o_settings_block_title")].map((node) => node.textContent.trim()).filter(Boolean);
+        const text = document.querySelector(".o_web_client .o_action_manager .o_settings_container")?.textContent || "";
         const missing = required.filter((id) => !ids.includes(id));
-        return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, inviteCount, appTabs, blockTitles, missing };
+        return { count: buttons.length, ids, models, labels, gridCount, actionBoxCount, inviteCount, appTabs, blockTitles, text, missing };
       })()`);
       const settingsChrome = await evaluate(page, `(() => {
         const root = document.querySelector(".o_web_client .o_action_manager");
         const controlPanel = root?.querySelector(".o_control_panel");
         const settings = root?.querySelector(".o_settings_container");
+        const title = settings?.querySelector(".o_settings_block_title");
+        const luminance = (value) => {
+          const match = String(value || "").match(/rgba?\\(([^)]+)\\)/i);
+          const srgb = String(value || "").match(/color\\(srgb\\s+([0-9.]+)\\s+([0-9.]+)\\s+([0-9.]+)/i);
+          const parts = match
+            ? match[1].split(",").slice(0, 3).map((part) => Number.parseFloat(part.trim()))
+            : srgb
+              ? srgb.slice(1, 4).map((part) => Number.parseFloat(part) * 255)
+              : [];
+          const [red, green, blue] = parts;
+          if (![red, green, blue].every(Number.isFinite)) return 0;
+          return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        };
+        const actionColors = [...(settings?.querySelectorAll(".o_setting_action") || [])]
+          .map((node) => ({ color: getComputedStyle(node).color, style: node.getAttribute("style") || "", text: node.textContent?.trim() || "" }));
+        const mutedColors = [...(settings?.querySelectorAll(".text-muted") || [])]
+          .map((node) => ({ color: getComputedStyle(node).color, style: node.getAttribute("style") || "", text: node.textContent?.trim() || "" }));
+        const lowContrastActions = actionColors.filter((item) => luminance(item.color) < 180);
+        const lowContrastMuted = mutedColors.filter((item) => luminance(item.color) < 150);
         const cpSearch = controlPanel?.querySelector(".o_cp_searchview");
         const internalSearch = settings?.querySelector(".o_settings_search_panel");
         const switchers = controlPanel?.querySelectorAll(".o_switch_view, .o_view_switcher button, [data-view-switch]").length || 0;
         const controlRect = controlPanel?.getBoundingClientRect();
         const searchRect = cpSearch?.getBoundingClientRect();
         const settingsRect = settings?.getBoundingClientRect();
+        const titleStyle = title ? getComputedStyle(title) : null;
         return {
           cp_search_count: cpSearch ? 1 : 0,
           internal_search_count: internalSearch ? 1 : 0,
           view_switcher_count: switchers,
           control_height: Math.round(controlRect?.height || 0),
           search_top: Math.round(searchRect?.top || 0),
-          settings_top: Math.round(settingsRect?.top || 0)
+          settings_top: Math.round(settingsRect?.top || 0),
+          title_color: titleStyle?.color || "",
+          title_bg: titleStyle?.backgroundColor || "",
+          low_contrast_action_count: lowContrastActions.length,
+          low_contrast_muted_count: lowContrastMuted.length,
+          action_color_samples: actionColors.slice(0, 3),
+          muted_color_samples: mutedColors.slice(0, 3)
         };
       })()`);
       if (settingsChrome.cp_search_count !== 1 || settingsChrome.internal_search_count !== 0 || settingsChrome.view_switcher_count !== 0 || settingsChrome.settings_top - settingsChrome.search_top > 80) {
         throw new Error(`TS Settings chrome invalid: ${JSON.stringify(settingsChrome)}`);
       }
+      if (settingsChrome.title_color !== "rgb(244, 245, 247)" || settingsChrome.title_bg !== "rgb(38, 42, 54)") {
+        throw new Error(`TS Settings dark title contrast invalid: ${JSON.stringify(settingsChrome)}`);
+      }
+      if (settingsChrome.low_contrast_action_count || settingsChrome.low_contrast_muted_count) {
+        throw new Error(`TS Settings secondary text contrast invalid: ${JSON.stringify(settingsChrome)}`);
+      }
       if (settingsTargets.missing.length) {
         throw new Error(`TS Settings navigation targets missing: ${settingsTargets.missing.join(", ")}`);
       }
       const genericOpenLabels = Object.values(settingsTargets.labels).filter((label) => String(label).startsWith("Open "));
-      const expectedBlocks = ["Users", "Languages", "Companies", "Contacts", "Technical"];
+      const expectedBlocks = ["Users", "Languages", "Companies", "Contacts", "Permissions", "Integrations", "Developer Tools", "About", "Technical"];
       const expectedTechnicalTargets = {
+        default_access_rights: ["Default Access Rights", "ir.model.access"],
+        api_keys: ["Manage API Keys", "res.users.apikeys"],
         server_actions: ["Server Actions", "ir.actions.server"],
         scheduled_actions: ["Scheduled Actions", "ir.cron"],
         automation_rules: ["Automation Rules", "base.automation"],
@@ -528,7 +565,8 @@ export const scenarios = [
       const invalidTechnicalTargets = Object.entries(expectedTechnicalTargets)
         .filter(([id, [label, model]]) => settingsTargets.labels[id] !== label || settingsTargets.models[id] !== model)
         .map(([id]) => id);
-      if (settingsTargets.gridCount !== 5 || settingsTargets.actionBoxCount !== 18 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || invalidTechnicalTargets.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
+      const missingBreadthLabels = ["Default Access Rights", "API Keys", "Import & Export", "Integrations", "Developer Tools", "About"].filter((label) => !settingsTargets.text.includes(label));
+      if (settingsTargets.gridCount !== 9 || settingsTargets.actionBoxCount !== 20 || settingsTargets.inviteCount !== 1 || genericOpenLabels.length || invalidTechnicalTargets.length || missingBreadthLabels.length || settingsTargets.labels.users !== "Manage Users" || settingsTargets.labels.languages !== "Languages" || JSON.stringify(settingsTargets.appTabs) !== JSON.stringify(["General Settings"]) || JSON.stringify(settingsTargets.blockTitles) !== JSON.stringify(expectedBlocks)) {
         throw new Error(`TS Settings action layout invalid: ${JSON.stringify(settingsTargets)}`);
       }
       const saveDisabled = await evaluate(page, `document.querySelector(".o_web_client .o_action_manager [data-settings-action='save']")?.disabled === true`);
@@ -955,12 +993,20 @@ export const scenarios = [
         const editor = document.querySelector(".o_web_client .o_action_manager .gorp-many2one-editor[data-field='model_id']");
         const input = editor?.querySelector("input");
         const dropdown = editor?.querySelector(".gorp-many2one-dropdown");
+        const dropdownStyle = dropdown ? getComputedStyle(dropdown) : null;
         const options = [...(editor?.querySelectorAll(".gorp-many2one-option") || [])];
+        const activeOption = options.find((node) => node.dataset.active === "true");
+        const activeStyle = activeOption ? getComputedStyle(activeOption) : null;
         return {
           open: dropdown?.hidden === false,
           placement: editor?.dataset.dropdownPlacement || "",
           dropdown_placement: dropdown?.dataset.placement || "",
           dropdown_width_source: dropdown?.dataset.widthSource || "",
+          dropdown_theme: dropdown?.dataset.theme || "",
+          dropdown_bg: dropdownStyle?.backgroundColor || "",
+          dropdown_color: dropdownStyle?.color || "",
+          active_option_bg: activeStyle?.backgroundColor || "",
+          active_option_color: activeStyle?.color || "",
           input_value: input?.value || "",
           expanded: input?.getAttribute("aria-expanded") || "",
           active_descendant: input?.getAttribute("aria-activedescendant") || "",
@@ -976,7 +1022,7 @@ export const scenarios = [
           input_width: Math.round(input?.getBoundingClientRect().width || 0)
         };
       })()`);
-      if (!state.open || state.placement !== "bottom-start" || state.dropdown_placement !== "bottom-start" || state.dropdown_width_source !== "field" || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
+      if (!state.open || state.placement !== "bottom-start" || state.dropdown_placement !== "bottom-start" || state.dropdown_width_source !== "field" || state.dropdown_theme !== "odoo-dark" || state.dropdown_bg !== "rgb(75, 77, 89)" || state.dropdown_color !== "rgb(244, 245, 247)" || state.active_option_bg !== "rgb(87, 90, 102)" || state.active_option_color !== "rgb(244, 245, 247)" || state.input_value !== "mail" || state.expanded !== "true" || state.option_count !== 1 || state.active_count < 1 || JSON.stringify(state.labels) !== JSON.stringify(["Mail Server"]) || state.raw_label_count !== 0 || state.create_count !== 0 || state.create_edit_count !== 0 || state.search_more_label !== "Search more..." || state.dropdown_width < 155 || state.dropdown_width > state.input_width + 4) {
         throw new Error(`relation dropdown parity state invalid: ${JSON.stringify(state)}`);
       }
       await setInput(page, ".o_web_client .o_action_manager .gorp-x2many-editor[data-field='group_ids'] input", "user");
@@ -1351,6 +1397,7 @@ export const scenarios = [
         const labels = [...(form?.querySelectorAll(".o_form_label") || [])].map((node) => node.textContent.trim()).filter(Boolean);
         const apiKeyDurationField = form?.querySelector("input[data-field='api_key_duration'], output[data-field='api_key_duration'], .gorp-field-value[data-field='api_key_duration']");
         const apiKeyDuration = apiKeyDurationField?.value || apiKeyDurationField?.textContent?.trim() || "";
+        const sheetStyle = sheet ? getComputedStyle(sheet) : null;
         const readonlyControls = [...(form?.querySelectorAll("input.gorp-form-control.o_readonly_modifier[data-field='name'], input.gorp-form-control.o_readonly_modifier[data-field='privilege_id'], input.gorp-form-control.o_readonly_modifier[data-field='api_key_duration']") || [])].map((node) => {
           const style = getComputedStyle(node);
           const rect = node.getBoundingClientRect();
@@ -1371,6 +1418,8 @@ export const scenarios = [
           smart_buttons: smartButtons,
           action_width: Math.round(actionManager?.getBoundingClientRect?.().width || 0),
           sheet_width: Math.round(sheet?.getBoundingClientRect?.().width || 0),
+          sheet_bg: sheetStyle?.backgroundColor || "",
+          sheet_color: sheetStyle?.color || "",
           users_grid_count: usersGrid ? 1 : 0,
           users_headers: [...(usersGrid?.querySelectorAll("th") || [])].map((node) => node.textContent.trim()).filter(Boolean),
 	          users_rows: [...(usersGrid?.querySelectorAll("tbody tr") || [])].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent.trim()).filter(Boolean)).filter((row) => row.length),
@@ -1400,7 +1449,8 @@ export const scenarios = [
 	      if (state.users_add_line !== "Add a line") throw new Error(`Groups Users Add a line missing: ${JSON.stringify(state)}`);
 	      if (state.users_blank_rows < 4) throw new Error(`Groups Users blank rows missing: ${JSON.stringify(state)}`);
 	      if (!state.labels.includes("Group Name") || state.api_key_duration !== "0.00" || state.action_menu_count < 1 || state.pager_limit !== "13" || !state.pager_value || state.pager_previous_disabled || state.pager_next_disabled) throw new Error(`Groups form chrome invalid: ${JSON.stringify(state)}`);
-	      if (state.readonly_controls.length < 3 || state.readonly_controls.some((control) => control.bg !== "rgb(255, 255, 255)" || control.color !== "rgb(31, 41, 51)" || control.width < 160)) throw new Error(`Groups form readonly controls invalid: ${JSON.stringify(state)}`);
+	      if (state.sheet_bg !== "rgb(38, 42, 54)" || state.sheet_color !== "rgb(228, 228, 228)") throw new Error(`Groups form sheet dark chrome invalid: ${JSON.stringify(state)}`);
+	      if (state.readonly_controls.length < 3 || state.readonly_controls.some((control) => !isDarkAdminControl(control.bg, control.color) || control.width < 160)) throw new Error(`Groups form readonly controls invalid: ${JSON.stringify(state)}`);
 	      return { action_card_count: actionCardCount, list_count: listCount, row_count: rowCount, list_state: listState, form_count: formCount, notebook_count: notebookCount, tab_count: tabCount, ...state };
     }
   },
@@ -2699,7 +2749,34 @@ export const scenarios = [
       if (settingsOpenState.shell_view !== "action" || settingsOpenState.body_view !== "action" || settingsOpenState.shell_home_mode || settingsOpenState.body_home_mode || settingsOpenState.home_count !== 0 || settingsOpenState.banner_count !== 0 || settingsOpenState.settings_count !== 1 || settingsOpenState.control_panel_count !== 1 || !settingsOpenState.hash.includes("model=res.config.settings")) {
         throw new Error(`mobile launcher Settings action invalid: ${JSON.stringify(settingsOpenState)}`);
       }
-      return { app_count: appCount, launcher_state: launcherState, settings_content_count: settingsContentCount, settings_control_panel_count: settingsControlPanelCount, settings_open_state: settingsOpenState };
+      const mobileSettingsLayout = await evaluate(page, `(() => {
+        const settings = document.querySelector("main.o_web_client .o_action_manager .o_settings_container");
+        const firstBlock = settings?.querySelector(".app_settings_block");
+        const sidebar = settings?.querySelector(".o_settings_sidebar");
+        const title = settings?.querySelector(".o_settings_block_title");
+        const blockRect = firstBlock?.getBoundingClientRect();
+        const sidebarRect = sidebar?.getBoundingClientRect();
+        const titleStyle = title ? getComputedStyle(title) : null;
+        return {
+          first_block_y: Math.round(blockRect?.top || 0),
+          first_block_height: Math.round(blockRect?.height || 0),
+          sidebar_y: Math.round(sidebarRect?.top || 0),
+          sidebar_height: Math.round(sidebarRect?.height || 0),
+          settings_style: settings?.getAttribute("style") || "",
+          sidebar_style: sidebar?.getAttribute("style") || "",
+          inner_width: window.innerWidth,
+          client_width: document.documentElement.clientWidth,
+          visual_width: window.visualViewport?.width || 0,
+          title_color: titleStyle?.color || "",
+          title_bg: titleStyle?.backgroundColor || "",
+          viewport_height: window.innerHeight,
+          overflow_x: document.documentElement.scrollWidth - window.innerWidth
+        };
+      })()`);
+      if (mobileSettingsLayout.first_block_y > 320 || mobileSettingsLayout.sidebar_height > 120 || mobileSettingsLayout.title_color !== "rgb(244, 245, 247)" || mobileSettingsLayout.title_bg !== "rgb(38, 42, 54)" || mobileSettingsLayout.overflow_x > 1) {
+        throw new Error(`mobile Settings first viewport invalid: ${JSON.stringify(mobileSettingsLayout)}`);
+      }
+      return { app_count: appCount, launcher_state: launcherState, settings_content_count: settingsContentCount, settings_control_panel_count: settingsControlPanelCount, settings_open_state: settingsOpenState, mobile_settings_layout: mobileSettingsLayout };
     }
   },
   {
@@ -3404,7 +3481,7 @@ export const scenarios = [
 	      if (masterValues.get("Contact") !== "Creation" || masterValues.get("Export") !== "Allowed") {
 	        throw new Error(`Users master data access values invalid: ${JSON.stringify(formState)}`);
 	      }
-	      if (formState.master_data_values.some((item) => item.style.bg !== "rgb(255, 255, 255)" || item.style.color !== "rgb(31, 41, 51)" || item.style.width < 320)) {
+	      if (formState.master_data_values.some((item) => !isDarkAdminControl(item.style.bg, item.style.color) || item.style.width < 320)) {
 	        throw new Error(`Users master data controls invalid: ${JSON.stringify(formState)}`);
 	      }
 	      if (!formState.has_form || !formState.has_identity_block || formState.identity_title !== "Administrator" || !formState.has_identity_value || !formState.has_access_notebook || !formState.has_group_widget) {
@@ -3880,6 +3957,26 @@ function isDarkLauncherBackground(value) {
   if (![red, green, blue].every(Number.isFinite)) return false;
   const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
   return luminance < 120;
+}
+
+function isDarkAdminControl(background, color) {
+  return colorLuminance(background) < 120 && colorLuminance(color) > 180;
+}
+
+function colorLuminance(value) {
+  const match = String(value || "").match(/rgba?\(([^)]+)\)/i);
+  const srgb = String(value || "").match(/color\(srgb\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)/i);
+  const parts = match
+    ? match[1]
+      .split(",")
+      .slice(0, 3)
+      .map((part) => Number.parseFloat(part.trim()))
+    : srgb
+      ? srgb.slice(1, 4).map((part) => Number.parseFloat(part) * 255)
+      : [];
+  const [red, green, blue] = parts;
+  if (![red, green, blue].every(Number.isFinite)) return Number.NaN;
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 }
 
 function isEnterpriseHomeBackgroundImage(value) {

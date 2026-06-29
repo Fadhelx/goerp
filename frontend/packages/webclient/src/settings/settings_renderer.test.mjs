@@ -156,6 +156,11 @@ const root = renderSettingsView({ arch, fields, values, activeApp: "workflow" },
 });
 
 assert.ok(hasClass(root, "o_settings_container"));
+assert.ok(hasClass(root, "gorp-settings-parity"));
+const settingsParityStyle = findAll(root, (node) => node.tag === "style" && node.dataset?.settingsParity === "odoo19-dark")[0];
+assert.ok(settingsParityStyle.textContent.includes("@media (max-width: 1024px)"));
+assert.ok(settingsParityStyle.textContent.includes(".gorp-settings-parity .o_settings_block_title"));
+assert.ok(settingsParityStyle.textContent.includes(".gorp-settings-parity .o_setting_action"));
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_panel")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_wrapper")).length, 1);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_search_icon")).length, 1);
@@ -181,6 +186,8 @@ settingsSearch.value = "";
 settingsSearch.dispatchEvent(new TestEvent("input"));
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_no_result"))[0].hidden, true);
 assert.equal(findAll(root, (node) => hasClass(node, "o_settings_block_title"))[1].textContent, "Activate Workflow on");
+assert.match(findAll(root, (node) => hasClass(node, "o_settings_block_title"))[1].attributes.style, /color:#f4f5f7/);
+assert.match(findAll(root, (node) => hasClass(node, "text-muted"))[0].attributes.style, /color:#aeb4c2/);
 assert.equal(findAll(root, (node) => node.dataset?.settingId === "hidden_option").length, 0);
 assert.equal(findAll(root, (node) => node.dataset?.field === "is_enterprise").length, 0);
 

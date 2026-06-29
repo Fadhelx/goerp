@@ -2283,6 +2283,43 @@ function applyUserPreferencesChrome(form: HTMLElement): void {
   }
 }
 
+function applyAdminFormChrome(form: HTMLElement): void {
+  form.dataset.enterpriseDark = "true";
+  const body = form.querySelector?.(".gorp-form-body.o_form_sheet_bg") as HTMLElement | null;
+  body?.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
+  const sheet = form.querySelector?.(".gorp-form-sheet.o_form_sheet") as HTMLElement | null;
+  sheet?.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  for (const node of Array.from(form.querySelectorAll?.(".oe_title h1, .gorp-form-title, .gorp-user-identity-title, .gorp-res-user-access-section h2") ?? [])) {
+    (node as HTMLElement).setAttribute("style", mergeInlineStyle((node as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;"));
+  }
+  for (const label of Array.from(form.querySelectorAll?.(".o_form_label, .gorp-res-user-access-label, .gorp-user-identity-label") ?? [])) {
+    (label as HTMLElement).setAttribute("style", mergeInlineStyle((label as HTMLElement).getAttribute("style"), "color:#c7c9d1 !important;"));
+  }
+  for (const control of Array.from(form.querySelectorAll?.("input.o_input, textarea.o_input, select.o_input, .gorp-form-control.o_input") ?? [])) {
+    const element = control as HTMLElement & { type?: string };
+    if (["checkbox", "radio"].includes(String(element.type || "").toLowerCase())) continue;
+    element.setAttribute("style", mergeInlineStyle(element.getAttribute("style"), "background:#4b4d59 !important;color:#f4f5f7 !important;border:1px solid #5f6270 !important;border-radius:0 !important;box-shadow:none !important;"));
+  }
+  for (const toggle of Array.from(form.querySelectorAll?.(".gorp-many2one-dropdown-toggle, .gorp-settings-many2one-toggle") ?? [])) {
+    (toggle as HTMLElement).setAttribute("style", mergeInlineStyle((toggle as HTMLElement).getAttribute("style"), "background:#4b4d59 !important;color:#d7d9e1 !important;border-color:#5f6270 !important;box-shadow:none !important;"));
+  }
+  for (const output of Array.from(form.querySelectorAll?.(".gorp-field-value, .gorp-many2one-value, .gorp-many2one-link, output.o_field_widget") ?? [])) {
+    (output as HTMLElement).setAttribute("style", mergeInlineStyle((output as HTMLElement).getAttribute("style"), "color:#f4f5f7 !important;background:transparent !important;"));
+  }
+  for (const notebook of Array.from(form.querySelectorAll?.(".gorp-form-notebook, .gorp-form-notebook-pages, .gorp-form-notebook-page") ?? [])) {
+    (notebook as HTMLElement).setAttribute("style", mergeInlineStyle((notebook as HTMLElement).getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
+  }
+  for (const tab of Array.from(form.querySelectorAll?.(".gorp-form-notebook-tab") ?? [])) {
+    (tab as HTMLElement).setAttribute("style", mergeInlineStyle((tab as HTMLElement).getAttribute("style"), "color:#e4e4e4 !important;background:transparent !important;border-color:#3a3f4e !important;"));
+  }
+  for (const grid of Array.from(form.querySelectorAll?.(".gorp-groups-users-list table, .gorp-groups-users-list th, .gorp-groups-users-list td") ?? [])) {
+    (grid as HTMLElement).setAttribute("style", mergeInlineStyle((grid as HTMLElement).getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border-color:#3a3f4e !important;"));
+  }
+  for (const smart of Array.from(form.querySelectorAll?.(".gorp-access-smart-button") ?? [])) {
+    (smart as HTMLElement).setAttribute("style", mergeInlineStyle((smart as HTMLElement).getAttribute("style"), "background:#303442 !important;color:#f4f5f7 !important;border:1px solid #3a3f4e !important;"));
+  }
+}
+
 function userPreferencesFields(fields: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
   const out = { ...fields };
   for (const name of ["name", "login", "email", "company_id", "partner_id", "lang", "color_scheme", "notification_type", "signature"]) {
@@ -8355,9 +8392,15 @@ function renderFormView(
   }
   const body = document.createElement("div");
   body.className = "gorp-form-body o-list-content o-form-content o_form_sheet_bg";
+  if (model === "res.users" || model === "res.groups") {
+    body.setAttribute("style", mergeInlineStyle(body.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;"));
+  }
   if (serverActionForm) body.append(renderServerActionContextualButton(recordValues, form));
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet";
+  if (model === "res.users" || model === "res.groups") {
+    sheet.setAttribute("style", mergeInlineStyle(sheet.getAttribute("style"), "background:#262a36 !important;color:#e4e4e4 !important;border:1px solid #3a3f4e !important;box-shadow:none !important;"));
+  }
   if (scheduledActionForm) sheet.append(renderScheduledActionRunButton(recordValues, form));
   if (model === "res.users") {
     sheet.append(renderUserIdentityBlock(recordValues));
@@ -8393,6 +8436,7 @@ function renderFormView(
   body.append(sheet);
   form.append(body);
   if (viewHasChatter(arch)) form.append(renderChatterContainer(model, recordID, options));
+  if (model === "res.users" || model === "res.groups") applyAdminFormChrome(form);
   return form;
 }
 
@@ -9294,7 +9338,7 @@ function renderReadonlyGroupFormControl(fieldName: string, value: unknown, value
   const input = document.createElement("input");
   input.className = "gorp-form-control o_input o_field_widget o_readonly_modifier";
   input.dataset.field = fieldName;
-  input.setAttribute("style", "width:181px !important;min-width:181px !important;max-width:181px !important;min-height:31px !important;background:#fff !important;color:#1f2933 !important;border:1px solid #d8dadd !important;border-radius:0 !important;padding:6px 8px !important;box-shadow:none !important;");
+  input.setAttribute("style", "width:181px !important;min-width:181px !important;max-width:181px !important;min-height:31px !important;background:#4b4d59 !important;color:#f4f5f7 !important;border:1px solid #5f6270 !important;border-radius:0 !important;padding:6px 8px !important;box-shadow:none !important;");
   input.readOnly = true;
   input.setAttribute("readonly", "readonly");
   if (fieldName === "privilege_id") {
@@ -10046,6 +10090,7 @@ function renderOne2ManyMany2OneCellEditor(
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
   dropdown.id = uniqueId("m2o-dropdown-");
   dropdown.setAttribute("role", "listbox");
+  applyRelationDropdownChrome(dropdown);
   dropdown.hidden = true;
   input.setAttribute("aria-controls", dropdown.id);
   toggle.setAttribute("aria-controls", dropdown.id);
@@ -10103,6 +10148,7 @@ function renderOne2ManyMany2OneCellEditor(
       create.className = "gorp-many2one-create o_m2o_dropdown_option_create dropdown-item";
       create.dataset.command = "quickCreate";
       create.textContent = `Create "${normalizedQuery}"`;
+      applyRelationDropdownItemChrome(create);
       create.addEventListener("click", () => {
         void quickCreate(normalizedQuery);
       });
@@ -10114,6 +10160,7 @@ function renderOne2ManyMany2OneCellEditor(
       createEditButton.className = "gorp-many2one-create-edit o_m2o_dropdown_option_create_edit dropdown-item";
       createEditButton.dataset.command = "createEdit";
       createEditButton.textContent = "Create and edit...";
+      applyRelationDropdownItemChrome(createEditButton);
       createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
       dropdown.append(createEditButton);
     }
@@ -10123,6 +10170,7 @@ function renderOne2ManyMany2OneCellEditor(
       searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
       searchMore.textContent = "Search more...";
+      applyRelationDropdownItemChrome(searchMore);
       searchMore.addEventListener("click", () => {
         void search(query, false, config.searchMoreLimit, true);
       });
@@ -10140,6 +10188,7 @@ function renderOne2ManyMany2OneCellEditor(
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
       empty.textContent = "No records found";
+      applyRelationDropdownEmptyChrome(empty);
       dropdown.append(empty);
       appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
@@ -10156,6 +10205,7 @@ function renderOne2ManyMany2OneCellEditor(
       option.setAttribute("role", "option");
       option.setAttribute("aria-selected", selected ? "true" : "false");
       setMany2OneDropdownItemID(option, column.name);
+      applyRelationDropdownItemChrome(option, selected, selected);
       option.addEventListener("click", () => {
         row.values[column.name] = [item.id, item.displayName];
         root.dataset.resId = String(item.id);
@@ -11368,6 +11418,7 @@ function renderMany2OneEditor(
   dropdown.className = "gorp-many2one-dropdown o_m2o_dropdown dropdown-menu";
   dropdown.id = uniqueId("m2o-dropdown-");
   dropdown.setAttribute("role", "listbox");
+  applyRelationDropdownChrome(dropdown);
   dropdown.hidden = true;
   input.setAttribute("aria-controls", dropdown.id);
   toggle.setAttribute("aria-controls", dropdown.id);
@@ -11448,6 +11499,7 @@ function renderMany2OneEditor(
       create.className = "gorp-many2one-create o_m2o_dropdown_option_create dropdown-item";
       create.dataset.command = "quickCreate";
       create.textContent = `Create "${normalizedQuery}"`;
+      applyRelationDropdownItemChrome(create);
       create.addEventListener("click", () => {
         void quickCreate(normalizedQuery);
       });
@@ -11459,6 +11511,7 @@ function renderMany2OneEditor(
       createEditButton.className = "gorp-many2one-create-edit o_m2o_dropdown_option_create_edit dropdown-item";
       createEditButton.dataset.command = "createEdit";
       createEditButton.textContent = "Create and edit...";
+      applyRelationDropdownItemChrome(createEditButton);
       createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
       dropdown.append(createEditButton);
     }
@@ -11468,6 +11521,7 @@ function renderMany2OneEditor(
       searchMore.className = "gorp-many2one-search-more o_m2o_dropdown_option o_m2o_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
       searchMore.textContent = "Search more...";
+      applyRelationDropdownItemChrome(searchMore);
       searchMore.addEventListener("click", () => {
         void search({ allowEmpty: true, clearSelection: false, query, limit: config.searchMoreLimit, searchMore: true });
       });
@@ -11489,6 +11543,7 @@ function renderMany2OneEditor(
       const empty = document.createElement("span");
       empty.className = "gorp-many2one-empty text-muted";
       empty.textContent = "No records found";
+      applyRelationDropdownEmptyChrome(empty);
       dropdown.append(empty);
       appendCommands(query, 0, searchMoreExpanded);
       setMany2OneDropdownActiveItem(dropdown, input, -1);
@@ -11506,6 +11561,7 @@ function renderMany2OneEditor(
       option.setAttribute("role", "option");
       option.setAttribute("aria-selected", selected ? "true" : "false");
       setMany2OneDropdownItemID(option, node.name);
+      applyRelationDropdownItemChrome(option, selected, selected);
       option.addEventListener("click", () => {
         values[node.name] = [item.id, item.displayName];
         root.dataset.resId = String(item.id);
@@ -11657,6 +11713,7 @@ function setMany2OneDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputEl
     for (const button of buttons) {
       button.className = toggleClassToken(String(button.className ?? ""), "active", false);
       button.dataset.active = "false";
+      applyRelationDropdownItemChrome(button, false, button.dataset.selected === "true");
     }
     input.removeAttribute("aria-activedescendant");
     return -1;
@@ -11668,6 +11725,7 @@ function setMany2OneDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputEl
     const active = buttonIndex === nextIndex;
     button.className = toggleClassToken(String(button.className ?? ""), "active", active);
     button.dataset.active = active ? "true" : "false";
+    applyRelationDropdownItemChrome(button, active, button.dataset.selected === "true");
     if (active) input.setAttribute("aria-activedescendant", button.id);
   });
   return nextIndex;
@@ -11801,6 +11859,38 @@ function mergeInlineStyle(current: string | null, declaration: string): string {
   const base = String(current ?? "").trim().replace(/;$/, "");
   const addition = declaration.trim();
   return base ? `${base}; ${addition}` : addition;
+}
+
+function applyRelationDropdownChrome(dropdown: HTMLElement): void {
+  dropdown.dataset.theme = "odoo-dark";
+  dropdown.setAttribute(
+    "style",
+    mergeInlineStyle(
+      dropdown.getAttribute("style"),
+      "background:#4b4d59 !important;color:#f4f5f7 !important;border:1px solid #5f6270 !important;border-radius:3px !important;box-shadow:0 8px 18px rgba(0,0,0,.34) !important;padding:4px 0 !important;"
+    )
+  );
+}
+
+function applyRelationDropdownItemChrome(item: HTMLElement, active = false, selected = false): void {
+  const background = active ? "#575a66" : selected ? "#515461" : "transparent";
+  item.setAttribute(
+    "style",
+    mergeInlineStyle(
+      item.getAttribute("style"),
+      `min-height:28px !important;padding:5px 12px !important;background:${background} !important;color:#f4f5f7 !important;border:0 !important;border-radius:0 !important;text-align:left !important;box-shadow:none !important;`
+    )
+  );
+}
+
+function applyRelationDropdownEmptyChrome(item: HTMLElement): void {
+  item.setAttribute(
+    "style",
+    mergeInlineStyle(
+      item.getAttribute("style"),
+      "display:block !important;min-height:28px !important;padding:5px 12px !important;color:#c7c9d1 !important;background:transparent !important;"
+    )
+  );
 }
 
 function createSvgRuntimeElement(tagName: string): SVGElement {
@@ -11988,6 +12078,7 @@ function renderMany2ManyTagEditor(
   const dropdown = document.createElement("div");
   dropdown.className = "gorp-x2many-dropdown o_m2m_dropdown dropdown-menu";
   dropdown.setAttribute("role", "listbox");
+  applyRelationDropdownChrome(dropdown);
   dropdown.hidden = true;
   let searchSequence = 0;
   const closeDropdown = () => {
@@ -12073,6 +12164,7 @@ function renderMany2ManyTagEditor(
       create.className = "gorp-x2many-create o_m2m_dropdown_option_create dropdown-item";
       create.dataset.command = "quickCreate";
       create.textContent = `Create "${normalizedQuery}"`;
+      applyRelationDropdownItemChrome(create);
       create.addEventListener("click", () => {
         void quickCreate(normalizedQuery);
       });
@@ -12084,6 +12176,7 @@ function renderMany2ManyTagEditor(
       createEditButton.className = "gorp-x2many-create-edit o_m2m_dropdown_option_create_edit dropdown-item";
       createEditButton.dataset.command = "createEdit";
       createEditButton.textContent = "Create and edit...";
+      applyRelationDropdownItemChrome(createEditButton);
       createEditButton.addEventListener("click", () => createEdit(normalizedQuery));
       dropdown.append(createEditButton);
     }
@@ -12093,6 +12186,7 @@ function renderMany2ManyTagEditor(
       searchMore.className = "gorp-x2many-search-more o_m2m_dropdown_option_search_more dropdown-item";
       searchMore.dataset.command = "searchMore";
       searchMore.textContent = "Search more...";
+      applyRelationDropdownItemChrome(searchMore);
       searchMore.addEventListener("click", () => {
         void search(config.searchMoreLimit, true);
       });
@@ -12107,6 +12201,7 @@ function renderMany2ManyTagEditor(
       const empty = document.createElement("span");
       empty.className = "gorp-x2many-empty text-muted";
       empty.textContent = "No records found";
+      applyRelationDropdownEmptyChrome(empty);
       dropdown.append(empty);
       appendCommands(query, 0, searchMoreExpanded);
       openDropdown();
@@ -12120,6 +12215,7 @@ function renderMany2ManyTagEditor(
       option.dataset.resId = String(item.id);
       option.textContent = item.displayName;
       option.setAttribute("role", "option");
+      applyRelationDropdownItemChrome(option);
       option.addEventListener("click", () => {
         addSelectedItem(item);
       });
@@ -12207,6 +12303,7 @@ function setX2ManyDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputElem
     for (const button of buttons) {
       button.className = toggleClassToken(String(button.className ?? ""), "active", false);
       button.dataset.active = "false";
+      applyRelationDropdownItemChrome(button);
     }
     input.removeAttribute("aria-activedescendant");
     return -1;
@@ -12218,6 +12315,7 @@ function setX2ManyDropdownActiveItem(dropdown: HTMLElement, input: HTMLInputElem
     if (!button.id) button.id = `x2m-${input.dataset.field || "field"}-option-${buttonIndex}`;
     button.className = toggleClassToken(String(button.className ?? ""), "active", active);
     button.dataset.active = active ? "true" : "false";
+    applyRelationDropdownItemChrome(button, active);
     if (active) input.setAttribute("aria-activedescendant", button.id);
   });
   return nextIndex;
@@ -12585,7 +12683,7 @@ function renderResUserPrivilegeRow(
   const select = document.createElement("select");
   select.className = "gorp-res-user-access-select o_input";
   select.dataset.privilegeId = String(privilege.id);
-  select.setAttribute("style", "width:360px !important;min-height:30px !important;background:#fff !important;color:#1f2933 !important;border:1px solid #d8dadd !important;border-radius:0 !important;padding:3px 24px 3px 0 !important;box-shadow:none !important;");
+  select.setAttribute("style", "width:360px !important;min-height:30px !important;background:#4b4d59 !important;color:#f4f5f7 !important;border:1px solid #5f6270 !important;border-radius:0 !important;padding:3px 24px 3px 0 !important;box-shadow:none !important;");
   const empty = document.createElement("option");
   empty.value = "";
   empty.textContent = privilege.placeholder;

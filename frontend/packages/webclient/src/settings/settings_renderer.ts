@@ -92,7 +92,7 @@ export function renderSettingsView(
 ): HTMLElement {
   const state = createSettingsRendererState(input);
   const root = document.createElement("section");
-  root.className = "o_settings_container o_form_view";
+  root.className = `o_settings_container o_form_view gorp-settings-parity${settingsMobileViewport() ? " gorp-settings-mobile" : ""}`;
   root.dataset.search = state.search;
   let activeAppId = state.activeAppId;
   if (activeAppId) root.dataset.activeApp = activeAppId;
@@ -181,10 +181,96 @@ export function renderSettingsView(
     if (emit) callbacks.onAppSelect?.(app);
   }
   search?.addEventListener("input", applySearch);
+  root.append(settingsParityStyleElement());
   if (toolbar) root.append(toolbar);
   root.append(sidebar, content);
+  scheduleMobileSettingsChrome(root, sidebar, content);
   applySearch();
   return root;
+}
+
+function scheduleMobileSettingsChrome(root: HTMLElement, sidebar: HTMLElement, content: HTMLElement): void {
+  applyMobileSettingsChrome(root, sidebar, content);
+  globalThis.requestAnimationFrame?.(() => applyMobileSettingsChrome(root, sidebar, content));
+  setTimeout(() => applyMobileSettingsChrome(root, sidebar, content), 0);
+}
+
+function applyMobileSettingsChrome(root: HTMLElement, sidebar: HTMLElement, content: HTMLElement): void {
+  const viewport = (globalThis as typeof globalThis & { visualViewport?: { width?: number } }).visualViewport;
+  const rootWidth = root.getBoundingClientRect?.().width || 0;
+  const width = rootWidth || viewport?.width || globalThis.innerWidth || document.documentElement?.clientWidth || 0;
+  const height = globalThis.innerHeight || document.documentElement?.clientHeight || 0;
+  if (width > 575 && height > 860) return;
+  root.setAttribute("style", "display:block;min-height:0;background:#262a36;color:#e4e4e4;");
+  sidebar.setAttribute("style", "display:flex;order:-1;gap:6px;width:100%;height:74px;max-height:74px;padding:8px 10px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #3a3f4e;background:#262a36;");
+  content.setAttribute("style", "padding:12px 14px 32px;overflow:visible;background:#262a36;color:#e4e4e4;");
+  for (const tab of Array.from(sidebar.children)) {
+    (tab as HTMLElement).setAttribute("style", "flex:0 0 auto;width:auto;min-height:32px;padding:6px 11px;border-left:0;border-bottom:2px solid transparent;white-space:nowrap;");
+  }
+}
+
+function settingsParityStyleElement(): HTMLElement {
+  const style = document.createElement("style");
+  style.dataset.settingsParity = "odoo19-dark";
+  style.textContent = `
+    .gorp-settings-parity { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: calc(100vh - 102px); background: #262a36; color: #e4e4e4; }
+    .gorp-settings-parity .o_settings_search_panel { grid-column: 1 / -1; min-height: 44px; padding: 8px 16px; background: #262a36; border-bottom: 1px solid #3a3f4e; }
+    .gorp-settings-parity .o_settings_search_wrapper { display: flex; align-items: center; max-width: 420px; min-height: 30px; border: 1px solid #4b4d59; background: #303442; color: #e4e4e4; }
+    .gorp-settings-parity .o_settings_search { min-height: 30px; border: 0; background: transparent; color: #f4f5f7; }
+    .gorp-settings-parity .o_settings_sidebar { grid-column: 1; grid-row: 2; min-width: 0; padding: 10px 0; background: #262a36; border-right: 1px solid #3a3f4e; color: #e4e4e4; }
+    .gorp-settings-parity .o_settings_tab { width: 100%; min-height: 34px; padding: 7px 16px; border: 0; border-left: 3px solid transparent; background: transparent; color: #c7c9d1; text-align: left; font-size: 14px; line-height: 20px; font-weight: 500; }
+    .gorp-settings-parity .o_settings_tab.active { border-left-color: #00a09d; background: #303442; color: #f4f5f7; }
+    .gorp-settings-parity .o_setting_container { grid-column: 2; grid-row: 2; min-width: 0; padding: 20px 32px 48px; overflow: auto; background: #262a36; color: #e4e4e4; }
+    .gorp-settings-parity .app_settings_block { max-width: 1180px; margin: 0 auto; color: #e4e4e4; }
+    .gorp-settings-parity .o_settings_app_title { margin: 0 0 18px; color: #f4f5f7; font-size: 24px; line-height: 32px; font-weight: 600; }
+    .gorp-settings-parity .o_settings_block { margin: 0 0 22px; border-top: 1px solid #3a3f4e; }
+    .gorp-settings-parity .o_settings_block_title { margin: 0; padding: 11px 0 8px; background: #262a36; color: #f4f5f7; font-size: 14px; line-height: 20px; font-weight: 700; }
+    .gorp-settings-parity .o_setting_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
+    .gorp-settings-parity .o_setting_box { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; min-height: 54px; padding: 11px 0; color: #e4e4e4; border-top: 1px solid rgba(58, 63, 78, .7); }
+    .gorp-settings-parity .o_form_label, .gorp-settings-parity .o_setting_field_label { color: #f4f5f7; font-weight: 600; }
+    .gorp-settings-parity .text-muted { color: #aeb4c2 !important; }
+    .gorp-settings-parity .o_setting_buttons { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .gorp-settings-parity .o_setting_action, .gorp-settings-parity .o_setting_link { color: #f4f5f7 !important; background: transparent; border: 0; padding: 0; text-align: left; font-weight: 500; }
+    .gorp-settings-parity .o_setting_action:hover, .gorp-settings-parity .o_setting_action:focus-visible { color: #8ddad8 !important; text-decoration: underline; }
+    .gorp-settings-parity input.o_input, .gorp-settings-parity select, .gorp-settings-parity .form-select { min-height: 30px; background: #4b4d59; color: #f4f5f7; border: 1px solid #5f6270; border-radius: 0; }
+    .gorp-settings-parity .gorp-settings-many2one { position: relative; display: inline-flex; align-items: stretch; min-width: 180px; }
+    .gorp-settings-parity .gorp-settings-many2one input { padding-right: 28px; width: 100%; }
+    .gorp-settings-parity .gorp-settings-many2one-toggle { position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border: 0; border-left: 1px solid #5f6270; background: transparent; color: #c7c9d1; }
+    @media (max-width: 1024px) {
+      .gorp-settings-parity { display: block; min-height: 0; }
+      .gorp-settings-parity .o_settings_sidebar { display: flex; gap: 6px; width: 100%; height: 74px; max-height: 74px; min-height: 0; box-sizing: border-box; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #3a3f4e; }
+      .gorp-settings-parity .o_settings_tab { flex: 0 0 auto; width: auto; min-height: 32px; padding: 6px 11px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+      .gorp-settings-parity .o_settings_tab.active { border-bottom-color: #00a09d; background: #303442; }
+      .gorp-settings-parity .o_setting_container { padding: 12px 14px 32px; overflow: visible; }
+      .gorp-settings-parity .app_settings_block { margin: 0; max-width: none; }
+      .gorp-settings-parity .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }
+      .gorp-settings-parity .o_setting_grid { display: block; }
+      .gorp-settings-parity .o_setting_box { grid-template-columns: 34px minmax(0, 1fr); min-height: 46px; padding: 9px 0; }
+    }
+    .gorp-settings-parity.gorp-settings-mobile { display: block; min-height: 0; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_sidebar { display: flex; gap: 6px; width: 100%; height: 74px; max-height: 74px; min-height: 0; box-sizing: border-box; padding: 8px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #3a3f4e; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab { flex: 0 0 auto; width: auto; min-height: 32px; padding: 6px 11px; border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_tab.active { border-bottom-color: #00a09d; background: #303442; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_container { padding: 12px 14px 32px; overflow: visible; }
+    .gorp-settings-parity.gorp-settings-mobile .app_settings_block { margin: 0; max-width: none; }
+    .gorp-settings-parity.gorp-settings-mobile .o_settings_app_title { margin-bottom: 12px; font-size: 20px; line-height: 26px; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_grid { display: block; }
+    .gorp-settings-parity.gorp-settings-mobile .o_setting_box { grid-template-columns: 34px minmax(0, 1fr); min-height: 46px; padding: 9px 0; }
+  `;
+  return style;
+}
+
+function settingsMobileViewport(): boolean {
+  const runtime = globalThis as typeof globalThis & {
+    innerWidth?: number;
+    visualViewport?: { width?: number };
+    screen?: { width?: number };
+    navigator?: { maxTouchPoints?: number };
+  };
+  const widths = [runtime.visualViewport?.width, runtime.innerWidth, runtime.screen?.width]
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+  if (widths.some((width) => width <= 1024)) return true;
+  return Boolean(runtime.navigator?.maxTouchPoints && runtime.screen?.width && runtime.screen.width <= 1024);
 }
 
 function renderAppTab(app: SettingsApp, active: boolean, onSelect: () => void): HTMLElement {
@@ -243,6 +329,7 @@ function renderBlock(
   if (block.title) {
     const title = document.createElement("h2");
     title.className = "o_settings_block_title";
+    title.setAttribute("style", "background:#262a36;color:#f4f5f7;");
     title.textContent = block.title;
     section.append(title);
   }
@@ -295,6 +382,7 @@ function renderSetting(
   if (setting.help) {
     const help = document.createElement("div");
     help.className = "text-muted";
+    help.setAttribute("style", "color:#aeb4c2 !important;");
     help.textContent = setting.help;
     right.append(help);
   }
