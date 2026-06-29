@@ -23,6 +23,7 @@ import {
 } from "./search/search_arch_parser.js";
 import {
   renderControlPanel as renderActionControlPanel,
+  type ControlPanelAddFavoriteOptions as ActionControlPanelAddFavoriteOptions,
   type ControlPanelMenuItem as ActionControlPanelMenuItem,
   type ControlPanelPager as ActionControlPanelPager,
   type ControlPanelSearchSuggestion as ActionControlPanelSearchSuggestion,
@@ -88,6 +89,7 @@ export {
   createControlPanelState,
   renderControlPanel,
   type ControlPanelCallbacks,
+  type ControlPanelAddFavoriteOptions,
   type ControlPanelMenuItem,
   type ControlPanelPager,
   type ControlPanelSearchState,
@@ -3026,8 +3028,8 @@ function renderWindowActionControlPanel(
       dispatchSearchUtilityEvent(root, "action:search-custom-filter", result);
     },
     onAddCustomGroup: () => dispatchSearchUtilityEvent(root, "action:search-custom-group", result),
-    onAddFavorite: () => {
-      if (persistCurrentSearchFavorite(result, root, options)) return;
+    onAddFavorite: (favoriteOptions) => {
+      if (persistCurrentSearchFavorite(result, root, options, favoriteOptions)) return;
       dispatchSearchUtilityEvent(root, "action:search-add-favorite", result);
     }
   });
@@ -3143,23 +3145,30 @@ function deleteSearchFavorite(
   return true;
 }
 
-function persistCurrentSearchFavorite(result: WindowActionResult, root: HTMLElement, options: RenderWindowActionOptions): boolean {
+function persistCurrentSearchFavorite(
+  result: WindowActionResult,
+  root: HTMLElement,
+  options: RenderWindowActionOptions,
+  favoriteOptions: ActionControlPanelAddFavoriteOptions = {}
+): boolean {
   const orm = options.services?.orm;
   if (!orm) return false;
   const state = result.search?.state;
   if (!state) return false;
+  const favoriteName = String(favoriteOptions.name ?? "").trim() || currentSearchFavoriteName(result);
+  const isGlobal = favoriteOptions.isGlobal === true;
   const values: Record<string, unknown> = {
-    name: currentSearchFavoriteName(result),
+    name: favoriteName,
     model_id: result.resModel,
     domain: JSON.stringify(state.domain ?? []),
     context: JSON.stringify(currentSearchFavoriteContext(state)),
     sort: "[]",
     active: true,
-    is_default: false
+    is_default: favoriteOptions.isDefault === true
   };
   const actionID = numericActionID(result.action.id);
   if (actionID !== undefined) values.action_id = actionID;
-  if (user.userId > 0) values.user_id = user.userId;
+  if (!isGlobal && user.userId > 0) values.user_id = user.userId;
   void orm.create("ir.filters", [values]).then(() => {
     options.services?.notification?.add("Favorite saved", { type: "success" });
     if (options.services?.action) {

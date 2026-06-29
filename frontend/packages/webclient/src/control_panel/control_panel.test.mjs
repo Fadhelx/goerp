@@ -121,7 +121,7 @@ const root = renderControlPanel(normalized, {
   onDeleteFavorite: (item) => events.push(["deleteFavorite", item.favorite?.id]),
   onAddCustomFilter: () => events.push(["customFilter"]),
   onAddCustomGroup: () => events.push(["customGroup"]),
-  onAddFavorite: () => events.push(["addFavorite"])
+  onAddFavorite: (favorite) => events.push(["addFavorite", favorite])
 });
 
 assert.ok(String(root.className).includes("o_control_panel"));
@@ -166,7 +166,14 @@ assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite
 assert.equal(findAll(root, (node) => String(node.className).includes("selected"))[0].attributes["aria-checked"], "true");
 assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_filter")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu")).length, 1);
-assert.equal(findAll(root, (node) => String(node.className).includes("o_add_favorite")).length, 1);
+assert.equal(findAll(root, (node) => hasClass(node, "o_add_favorite")).length, 1);
+assert.equal(findAll(root, (node) => String(node.className).includes("o_add_favorite_menu")).length, 1);
+const favoriteNameInput = findAll(root, (node) => node.dataset?.favoriteInput === "name")[0];
+const favoriteDefaultInput = findAll(root, (node) => node.dataset?.favoriteOption === "default")[0];
+const favoriteGlobalInput = findAll(root, (node) => node.dataset?.favoriteOption === "global")[0];
+favoriteNameInput.value = "Default Customers";
+favoriteDefaultInput.checked = true;
+favoriteGlobalInput.checked = true;
 assert.equal(findAll(root, (node) => String(node.className).includes("o_group_by_menu_item")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_item")).length, 1);
 assert.equal(findAll(root, (node) => String(node.className).includes("o_favorite_row")).length, 1);
@@ -216,7 +223,7 @@ findAll(root, (node) => String(node.className).includes("o_facet_remove"))[0].di
 findAll(root, (node) => String(node.className).includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_add_custom_group_menu"))[0].dispatchEvent(new TestEvent("click"));
 findAll(root, (node) => String(node.className).includes("o_favorite_delete"))[0].dispatchEvent(new TestEvent("click"));
-findAll(root, (node) => String(node.className).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
+findAll(root, (node) => hasClass(node, "o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
 
 assert.deepEqual(events, [
   ["search", "beta"],
@@ -230,7 +237,7 @@ assert.deepEqual(events, [
   ["customFilter"],
   ["customGroup"],
   ["deleteFavorite", 7],
-  ["addFavorite"]
+  ["addFavorite", { name: "Default Customers", isDefault: true, isGlobal: true }]
 ]);
 
 const firstPageRoot = renderControlPanel({ title: "First", pager: { offset: 0, limit: 20, total: 45 } }, {

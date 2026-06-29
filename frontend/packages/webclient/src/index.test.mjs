@@ -1373,7 +1373,7 @@ const favoriteWindow = renderWindowAction({
     }
   }
 });
-findAll(favoriteWindow, (node) => String(node.className).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
+findAll(favoriteWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 await Promise.resolve();
 assert.equal(favoriteCreates.length, 1);
@@ -1381,10 +1381,22 @@ assert.equal(favoriteCreates[0].model, "ir.filters");
 assert.equal(favoriteCreates[0].records[0].name, "Azure");
 assert.equal(favoriteCreates[0].records[0].model_id, "res.partner");
 assert.equal(favoriteCreates[0].records[0].action_id, 7);
+assert.equal(favoriteCreates[0].records[0].user_id, user.userId);
+assert.equal(favoriteCreates[0].records[0].is_default, false);
 assert.deepEqual(JSON.parse(favoriteCreates[0].records[0].domain), windowResult.search.state.domain);
 assert.equal(favoriteActionCalls.length, 1);
 assert.equal(favoriteActionCalls[0].action.__search_query, "Azure");
 assert.deepEqual(favoriteNotifications, [{ message: "Favorite saved", options: { type: "success" } }]);
+findAll(favoriteWindow, (node) => node.dataset?.favoriteInput === "name")[0].value = "Shared Azure";
+findAll(favoriteWindow, (node) => node.dataset?.favoriteOption === "default")[0].checked = true;
+findAll(favoriteWindow, (node) => node.dataset?.favoriteOption === "global")[0].checked = true;
+findAll(favoriteWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_add_favorite"))[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(favoriteCreates.length, 2);
+assert.equal(favoriteCreates[1].records[0].name, "Shared Azure");
+assert.equal(favoriteCreates[1].records[0].is_default, true);
+assert.equal("user_id" in favoriteCreates[1].records[0], false);
 
 const favoriteDeletes = [];
 const favoriteDeleteActionCalls = [];
@@ -5014,7 +5026,7 @@ const actionMenuRunWindow = renderWindowAction({
   }
 });
 const actionMenuRunButton = findAll(actionMenuRunWindow, (node) => node.dataset?.actionId === "710")[0];
-const actionMenuRunCheckbox = findAll(actionMenuRunWindow, (node) => node.tag === "input" && node.type === "checkbox")[0];
+const actionMenuRunCheckbox = findAll(actionMenuRunWindow, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "91")[0];
 actionMenuRunCheckbox.checked = true;
 actionMenuRunCheckbox.dispatchEvent(new TestEvent("change"));
 actionMenuRunButton.dispatchEvent(new TestEvent("click"));
@@ -5153,7 +5165,7 @@ const reportDomainWindow = renderWindowAction({
 let printLoadedEvent;
 const reportDomainShell = reportDomainWindow.children[1];
 reportDomainShell.addEventListener("action-menu:print-loaded", (event) => { printLoadedEvent = event.detail; });
-const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
+const reportDomainCheckbox = findAll(reportDomainShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "84")[0];
 reportDomainCheckbox.checked = true;
 reportDomainCheckbox.dispatchEvent(new TestEvent("change"));
 const reportDomainToggle = findAll(reportDomainWindow, (node) => node.dataset?.actionMenuToggle === "print")[0];
@@ -5316,7 +5328,7 @@ assert.deepEqual(staticButtons.map((button) => [button.dataset.staticAction, but
   ["delete", "50", "fa fa-trash-o", true]
 ]);
 assert.ok(String(staticButtons[4].className).includes("text-danger"));
-const staticCheckbox = findAll(staticActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
+const staticCheckbox = findAll(staticActionShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "85")[0];
 staticCheckbox.checked = true;
 staticCheckbox.dispatchEvent(new TestEvent("change"));
   assert.deepEqual(staticButtons.map((button) => button.disabled), [false, false, false, false, false]);
@@ -5631,8 +5643,8 @@ const parentTemplateWindow = renderWindowAction({
   debug: true
 });
 const parentTemplateShell = parentTemplateWindow.children[1];
-findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
-findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
+findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "90")[0].checked = true;
+findAll(parentTemplateShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "90")[0].dispatchEvent(new TestEvent("change"));
 findAll(parentTemplateWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const parentTemplateDialog = findAll(parentTemplateShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -5712,8 +5724,8 @@ const mobileActionWindow = renderWindowAction({
   }
 });
 const mobileActionShell = mobileActionWindow.children[1];
-findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
-findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
+findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "91")[0].checked = true;
+findAll(mobileActionShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "91")[0].dispatchEvent(new TestEvent("change"));
 findAll(mobileActionWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const mobileExportDialog = findAll(mobileActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -5760,8 +5772,8 @@ const responsiveActionWindow = renderWindowAction({
 });
 const responsiveActionShell = responsiveActionWindow.children[1];
 const resizeListenerCount = (windowListeners.resize ?? []).length;
-findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].checked = true;
-findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox")[0].dispatchEvent(new TestEvent("change"));
+findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "92")[0].checked = true;
+findAll(responsiveActionShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "92")[0].dispatchEvent(new TestEvent("change"));
 findAll(responsiveActionWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));
 await new Promise((resolve) => setTimeout(resolve, 0));
 const responsiveExportDialog = findAll(responsiveActionShell, (node) => node.dataset?.exportDialog === "res.partner").at(-1);
@@ -5832,7 +5844,7 @@ const accountantWindow = renderWindowAction({
   }
 });
 const accountantShell = accountantWindow.children[1];
-const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input" && node.type === "checkbox")[0];
+const accountantCheckbox = findAll(accountantShell, (node) => node.tag === "input" && node.type === "checkbox" && node.dataset?.recordId === "91")[0];
 accountantCheckbox.checked = true;
 accountantCheckbox.dispatchEvent(new TestEvent("change"));
 findAll(accountantWindow, (node) => node.dataset?.staticAction === "export")[0].dispatchEvent(new TestEvent("click"));

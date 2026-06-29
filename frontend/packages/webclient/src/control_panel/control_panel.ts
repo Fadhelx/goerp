@@ -24,6 +24,12 @@ export interface ControlPanelFavoriteMetadata {
   canDelete?: boolean;
 }
 
+export interface ControlPanelAddFavoriteOptions {
+  name?: string;
+  isDefault?: boolean;
+  isGlobal?: boolean;
+}
+
 export interface ControlPanelMenuItem {
   id: string;
   label: string;
@@ -77,7 +83,7 @@ export interface ControlPanelCallbacks {
   onSearchSuggestion?: (suggestion: ControlPanelSearchSuggestion) => void;
   onAddCustomFilter?: () => void;
   onAddCustomGroup?: () => void;
-  onAddFavorite?: () => void;
+  onAddFavorite?: (options: ControlPanelAddFavoriteOptions) => void;
 }
 
 export function createControlPanelState(state: ControlPanelState): ControlPanelState {
@@ -312,7 +318,7 @@ function renderMenuLane(
     customFilter?: () => void;
     customGroup?: () => void;
     favorite?: boolean;
-    addFavorite?: () => void;
+    addFavorite?: (favorite: ControlPanelAddFavoriteOptions) => void;
     deleteFavorite?: (item: ControlPanelMenuItem) => void;
   } = {}
 ): HTMLElement {
@@ -371,14 +377,46 @@ function renderMenuLane(
   }
   if (options.favorite) {
     if (items.length) root.append(dropdownDivider());
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "o_menu_item o_add_favorite o-dropdown-item dropdown-item";
-    button.textContent = "Save current search";
-    button.addEventListener("click", () => options.addFavorite?.());
-    root.append(button);
+    root.append(renderFavoriteSaveForm(options.addFavorite));
   }
   return root;
+}
+
+function renderFavoriteSaveForm(addFavorite: ((favorite: ControlPanelAddFavoriteOptions) => void) | undefined): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "o_add_favorite_menu";
+  const name = document.createElement("input");
+  name.type = "text";
+  name.className = "o_add_favorite_name o_input";
+  name.dataset.favoriteInput = "name";
+  name.placeholder = "Favorite name";
+  name.setAttribute("aria-label", "Favorite name");
+  const defaultOption = favoriteOption("default", "Use by default");
+  const sharedOption = favoriteOption("global", "Share with all users");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "o_menu_item o_add_favorite o-dropdown-item dropdown-item";
+  button.dataset.favoriteAction = "save";
+  button.textContent = "Save current search";
+  button.addEventListener("click", () => addFavorite?.({
+    name: name.value.trim(),
+    isDefault: defaultOption.input.checked === true,
+    isGlobal: sharedOption.input.checked === true
+  }));
+  root.append(name, defaultOption.label, sharedOption.label, button);
+  return root;
+}
+
+function favoriteOption(option: "default" | "global", text: string): { label: HTMLElement; input: HTMLInputElement } {
+  const label = document.createElement("label");
+  label.className = `o_favorite_option o_favorite_${option}`;
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.dataset.favoriteOption = option;
+  const caption = document.createElement("span");
+  caption.textContent = text;
+  label.append(input, caption);
+  return { label, input };
 }
 
 function renderMenuItem(
