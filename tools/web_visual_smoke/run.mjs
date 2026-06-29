@@ -3176,15 +3176,15 @@ export const scenarios = [
           activate_in_control_panel_count: root?.querySelectorAll(".gorp-module-info-control-panel .o_module_install_button").length || 0,
           control_panel_rect: (() => {
             const rect = root?.querySelector(".gorp-module-info-control-panel")?.getBoundingClientRect?.();
-            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+            return { x: Math.round(rect?.x || 0), y: Math.round(rect?.y || 0), width: Math.round(rect?.width || 0), height: Math.round(rect?.height || 0) };
           })(),
           breadcrumb_rect: (() => {
             const rect = root?.querySelector(".gorp-module-info-control-panel .o_breadcrumb")?.getBoundingClientRect?.();
-            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+            return { x: Math.round(rect?.x || 0), y: Math.round(rect?.y || 0), right: Math.round(rect?.right || 0), height: Math.round(rect?.height || 0) };
           })(),
           pager_rect: (() => {
             const rect = root?.querySelector(".gorp-module-info-control-panel .o_pager")?.getBoundingClientRect?.();
-            return { y: Math.round(rect?.y || 0), height: Math.round(rect?.height || 0) };
+            return { x: Math.round(rect?.x || 0), y: Math.round(rect?.y || 0), right: Math.round(rect?.right || 0), height: Math.round(rect?.height || 0) };
           })(),
           body_rect: (() => {
             const rect = moduleBody?.getBoundingClientRect?.();
@@ -3206,7 +3206,7 @@ export const scenarios = [
           text: moduleBody?.textContent || ""
         };
       })()`);
-      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.activate_in_sheet_count !== 1 || state.activate_in_control_panel_count !== 0 || state.control_panel_rect.y < 44 || state.breadcrumb_rect.y < state.control_panel_rect.y || state.pager_rect.y < state.control_panel_rect.y || state.body_rect.width < 1200 || state.sheet_rect.width < 1180 || state.sheet_rect.x > 24 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || state.icon_rect.width !== 88 || state.icon_rect.height !== 88 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
+      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.activate_in_sheet_count !== 1 || state.activate_in_control_panel_count !== 0 || state.control_panel_rect.y < 44 || state.breadcrumb_rect.x < state.control_panel_rect.x || state.pager_rect.x < state.control_panel_rect.x || state.breadcrumb_rect.right > state.control_panel_rect.x + state.control_panel_rect.width || state.pager_rect.right > state.control_panel_rect.x + state.control_panel_rect.width || state.breadcrumb_rect.y < state.control_panel_rect.y || state.pager_rect.y < state.control_panel_rect.y || state.body_rect.width < 1200 || state.sheet_rect.width < 1180 || state.sheet_rect.x > 24 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || state.icon_rect.width !== 88 || state.icon_rect.height !== 88 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
         throw new Error(`Apps Module Info action form invalid: ${JSON.stringify(state)}`);
       }
       await clickExactText(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'] .gorp-form-notebook-tab", "Technical Data");

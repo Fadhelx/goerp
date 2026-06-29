@@ -5736,8 +5736,8 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   pager.append(value, sep, limit, previous, next);
   top.append(breadcrumb, pager);
   const bottom = document.createElement("div");
-  bottom.className = "o_control_panel_main d-flex align-items-center justify-content-between";
-  bottom.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;min-height:34px !important;margin:0 !important;padding:0 !important;");
+  bottom.className = "gorp-module-info-actions-row";
+  bottom.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;width:auto !important;min-height:34px !important;margin:0 !important;padding:0 !important;");
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions";
   actions.setAttribute("style", "position:static !important;inset:auto !important;transform:none !important;display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;");
