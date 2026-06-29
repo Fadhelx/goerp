@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-06-29T17:24:50.668Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-custom-filter-dialog-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-custom-filter-dialog-desktop.png",
+      "sha256": "ee2121cd1e51d2c0369f2183010ab47b079bb8c77abb51681254f4676ff2a6c8",
+      "assertions": {
+        "baseline_rows": 7,
+        "filtered_state": {
+          "rows": 3,
+          "label": "Model",
+          "values": [
+            "mail"
+          ],
+          "text_has_mail": true,
+          "raw_field_text": false
+        },
+        "restored_rows": 7,
+        "typed_state": {
+          "rows": 7,
+          "label": "Type",
+          "values": [
+            "Execute Code"
+          ],
+          "raw_value_text": false
+        }
+      },
+      "duration_ms": 1098
+    }
+  ],
+  "duration_ms": 1251
+}

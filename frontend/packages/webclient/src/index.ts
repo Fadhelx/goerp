@@ -3232,6 +3232,7 @@ interface CustomFilterFieldOption {
   name: string;
   label: string;
   type: string;
+  choices: Array<[string, string]>;
 }
 
 interface CustomFilterOperatorOption {
@@ -3249,7 +3250,6 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   if (!options.services?.action || result.activeView === "form") return false;
   const fields = customFilterFieldOptions(result);
   if (!fields.length) return false;
-  const operators = customFilterOperatorOptions();
   const overlay = document.createElement("section");
   overlay.className = "o_dialog gorp-custom-filter-dialog modal-open";
   overlay.dataset.customFilterDialog = result.resModel;
@@ -3294,19 +3294,26 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   operatorSelect.className = "o_input o_custom_filter_operator";
   operatorSelect.dataset.customFilterOperator = "true";
   operatorSelect.setAttribute("aria-label", "Operator");
-  for (const operator of operators) {
-    const option = document.createElement("option");
-    option.value = operator.value;
-    option.textContent = operator.label;
-    operatorSelect.append(option);
-  }
-  operatorSelect.value = operators[0].value;
-  const valueInput = document.createElement("input");
-  valueInput.className = "o_input o_custom_filter_value";
-  valueInput.dataset.customFilterValue = "true";
-  valueInput.type = "text";
-  valueInput.placeholder = "Value";
-  row.append(fieldSelect, operatorSelect, valueInput);
+  const valueSlot = document.createElement("span");
+  valueSlot.className = "o_custom_filter_value_slot";
+  let valueControl = renderCustomFilterValueControl(fields[0]);
+  const updateControls = () => {
+    const field = customFilterFieldByName(fields, fieldSelect.value);
+    const currentOperator = operatorSelect.value;
+    const operators = customFilterOperatorOptions(field);
+    operatorSelect.replaceChildren(...operators.map((operator) => {
+      const option = document.createElement("option");
+      option.value = operator.value;
+      option.textContent = operator.label;
+      return option;
+    }));
+    operatorSelect.value = operators.some((operator) => operator.value === currentOperator) ? currentOperator : operators[0]?.value ?? "=";
+    valueControl = renderCustomFilterValueControl(field);
+    valueSlot.replaceChildren(valueControl);
+  };
+  fieldSelect.addEventListener("change", updateControls);
+  updateControls();
+  row.append(fieldSelect, operatorSelect, valueSlot);
   body.append(row);
 
   const footer = document.createElement("footer");
@@ -3323,7 +3330,14 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   cancel.textContent = "Cancel";
   cancel.addEventListener("click", () => removeDescendant(root, overlay));
   apply.addEventListener("click", () => {
-    const facet = customFilterFacet(result, fields, fieldSelect.value, operatorSelect.value, valueInput.value);
+    const facet = customFilterFacet(
+      result,
+      fields,
+      fieldSelect.value,
+      operatorSelect.value,
+      valueControl.value,
+      customFilterValueLabel(valueControl)
+    );
     if (!facet) return;
     const currentFacets = result.search?.state.facets ?? [];
     const nextAction = actionWithCurrentSearch(result, [...currentFacets.map(cloneSearchFacet), facet]);
@@ -3337,7 +3351,7 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   modal.append(dialog);
   overlay.append(modal);
   root.append(overlay);
-  valueInput.focus?.();
+  valueControl.focus?.();
   return true;
 }
 
@@ -3449,7 +3463,12 @@ function customFilterFieldOptions(result: WindowActionResult): CustomFilterField
     const key = label.toLowerCase();
     if (seenLabels.has(key)) continue;
     seenLabels.add(key);
-    options.push({ name, label, type: fieldTypeValue(description) });
+    options.push({
+      name,
+      label,
+      type: fieldTypeValue(description),
+      choices: selectionOptionsForField(description, result.resModel, name)
+    });
   }
   return options;
 }
@@ -3500,13 +3519,102 @@ function isCustomGroupableField(description: unknown): boolean {
   return ["char", "selection", "many2one", "boolean", "integer", "date", "datetime"].includes(type);
 }
 
-function customFilterOperatorOptions(): CustomFilterOperatorOption[] {
+function customFilterFieldByName(fields: readonly CustomFilterFieldOption[], fieldName: string): CustomFilterFieldOption {
+  return fields.find((item) => item.name === fieldName) ?? fields[0];
+}
+
+function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFilterOperatorOption[] {
+  const type = field?.type ?? "";
+  if (type === "boolean" || type === "selection") {
+    return [
+      { value: "=", label: "is" },
+      { value: "!=", label: "is not" }
+    ];
+  }
+  if (type === "date" || type === "datetime") {
+    return [
+      { value: "=", label: "is on" },
+      { value: "!=", label: "is not on" },
+      { value: ">", label: "is after" },
+      { value: "<", label: "is before" },
+      { value: ">=", label: "is on or after" },
+      { value: "<=", label: "is on or before" }
+    ];
+  }
+  if (type === "integer" || type === "float" || type === "monetary") {
+    return [
+      { value: "=", label: "is equal to" },
+      { value: "!=", label: "is not equal to" },
+      { value: ">", label: "is greater than" },
+      { value: "<", label: "is less than" },
+      { value: ">=", label: "is greater than or equal to" },
+      { value: "<=", label: "is less than or equal to" }
+    ];
+  }
   return [
     { value: "ilike", label: "contains" },
     { value: "not ilike", label: "does not contain" },
     { value: "=", label: "is equal to" },
     { value: "!=", label: "is not equal to" }
   ];
+}
+
+function renderCustomFilterValueControl(field: CustomFilterFieldOption): HTMLInputElement | HTMLSelectElement {
+  if (field.type === "boolean") {
+    const select = document.createElement("select");
+    decorateCustomFilterValueControl(select, field);
+    for (const [value, label] of [["true", "True"], ["false", "False"]] as const) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.append(option);
+    }
+    select.value = "true";
+    return select;
+  }
+  if (field.type === "selection" && field.choices.length) {
+    const select = document.createElement("select");
+    decorateCustomFilterValueControl(select, field);
+    for (const [value, label] of field.choices) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.append(option);
+    }
+    select.value = field.choices[0]?.[0] ?? "";
+    return select;
+  }
+  const input = document.createElement("input");
+  decorateCustomFilterValueControl(input, field);
+  input.type = customFilterInputType(field.type);
+  if (field.type === "integer") input.step = "1";
+  if (field.type === "float" || field.type === "monetary") input.step = "any";
+  input.placeholder = field.type === "date" || field.type === "datetime" ? "Date" : "Value";
+  return input;
+}
+
+function decorateCustomFilterValueControl<T extends HTMLInputElement | HTMLSelectElement>(control: T, field: CustomFilterFieldOption): T {
+  control.className = "o_input o_custom_filter_value";
+  control.dataset.customFilterValue = "true";
+  control.dataset.customFilterValueType = field.type;
+  control.setAttribute("aria-label", "Value");
+  return control;
+}
+
+function customFilterInputType(fieldType: string): string {
+  if (fieldType === "integer" || fieldType === "float" || fieldType === "monetary") return "number";
+  if (fieldType === "date") return "date";
+  if (fieldType === "datetime") return "datetime-local";
+  return "text";
+}
+
+function customFilterValueLabel(control: HTMLInputElement | HTMLSelectElement): string {
+  if (control.tagName === "SELECT") {
+    const selected = Array.from(control.children).find((option) => (option as HTMLOptionElement).value === control.value);
+    const label = selected?.textContent?.trim();
+    if (label) return label;
+  }
+  return String(control.value ?? "").trim();
 }
 
 function customGroupFacet(
@@ -3542,18 +3650,20 @@ function customFilterFacet(
   fields: readonly CustomFilterFieldOption[],
   fieldName: string,
   operator: string,
-  value: string
+  value: string,
+  valueLabel?: string
 ): SearchFacet | null {
   const field = fields.find((item) => item.name === fieldName) ?? fields[0];
   const cleanValue = String(value ?? "").trim();
   if (!field || !cleanValue) return null;
-  const op = customFilterOperatorOptions().some((item) => item.value === operator) ? operator : "ilike";
+  const op = customFilterOperatorOptions(field).some((item) => item.value === operator) ? operator : customFilterOperatorOptions(field)[0]?.value ?? "=";
+  const label = String(valueLabel ?? cleanValue).trim() || cleanValue;
   return {
     id: customFilterFacetID(field.name, op, cleanValue),
     type: "text",
-    label: cleanValue,
+    label,
     categoryLabel: field.label,
-    valueLabels: [cleanValue],
+    valueLabels: [label],
     field: field.name,
     operator: op,
     value: customFilterValue(field.type, op, cleanValue)
@@ -3571,7 +3681,7 @@ function customFilterValue(fieldType: string, operator: string, value: string): 
   if (fieldType === "boolean" && (operator === "=" || operator === "!=")) {
     return ["1", "true", "yes", "y"].includes(value.toLowerCase());
   }
-  if ((fieldType === "integer" || fieldType === "float" || fieldType === "monetary") && (operator === "=" || operator === "!=")) {
+  if ((fieldType === "integer" || fieldType === "float" || fieldType === "monetary") && ["=", "!=", ">", "<", ">=", "<="].includes(operator)) {
     const numeric = Number(value);
     if (Number.isFinite(numeric)) return fieldType === "integer" ? Math.trunc(numeric) : numeric;
   }

@@ -2658,6 +2658,84 @@ assert.deepEqual(serverActionCustomFilterCalls[2].action.__search_facets.map((fa
   ["custom-group-create_date-week", "groupBy", "create_date", "week", "Created On", ["Week"]]
 ]);
 
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const booleanCustomFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+const booleanCustomFilterField = findAll(booleanCustomFilterDialog, (node) => node.dataset?.customFilterField === "true")[0];
+booleanCustomFilterField.value = "active";
+booleanCustomFilterField.dispatchEvent(new TestEvent("change"));
+const booleanCustomFilterOperator = findAll(booleanCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const booleanCustomFilterValue = findAll(booleanCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+assert.equal(booleanCustomFilterValue.tag, "select");
+assert.equal(booleanCustomFilterValue.dataset.customFilterValueType, "boolean");
+assert.deepEqual(findAll(booleanCustomFilterOperator, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["=", "is"], ["!=", "is not"]]);
+booleanCustomFilterValue.value = "false";
+findAll(booleanCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[3].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.value
+]), [
+  ["custom-active-false", "text", "active", "=", "Active", ["False"], false]
+]);
+
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const selectionCustomFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+const selectionCustomFilterField = findAll(selectionCustomFilterDialog, (node) => node.dataset?.customFilterField === "true")[0];
+selectionCustomFilterField.value = "state";
+selectionCustomFilterField.dispatchEvent(new TestEvent("change"));
+const selectionCustomFilterOperator = findAll(selectionCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const selectionCustomFilterValue = findAll(selectionCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+assert.equal(selectionCustomFilterValue.tag, "select");
+assert.equal(selectionCustomFilterValue.dataset.customFilterValueType, "selection");
+assert.deepEqual(findAll(selectionCustomFilterOperator, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["=", "is"], ["!=", "is not"]]);
+assert.equal(findAll(selectionCustomFilterValue, (node) => node.tag === "option").map((node) => node.textContent).includes("Execute Code"), true);
+selectionCustomFilterValue.value = "code";
+findAll(selectionCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[4].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.value
+]), [
+  ["custom-state-code", "text", "state", "=", "Type", ["Execute Code"], "code"]
+]);
+
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const dateCustomFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+const dateCustomFilterField = findAll(dateCustomFilterDialog, (node) => node.dataset?.customFilterField === "true")[0];
+dateCustomFilterField.value = "create_date";
+dateCustomFilterField.dispatchEvent(new TestEvent("change"));
+const dateCustomFilterOperator = findAll(dateCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const dateCustomFilterValue = findAll(dateCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+assert.equal(dateCustomFilterValue.tag, "input");
+assert.equal(dateCustomFilterValue.type, "datetime-local");
+assert.equal(dateCustomFilterValue.dataset.customFilterValueType, "datetime");
+assert.equal(findAll(dateCustomFilterOperator, (node) => node.tag === "option").map((node) => node.value).includes(">"), true);
+dateCustomFilterOperator.value = ">";
+dateCustomFilterValue.value = "2026-06-29T10:30";
+findAll(dateCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[5].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.value
+]), [
+  ["custom-create_date-2026-06-29t10-30", "text", "create_date", ">", "Created On", ["2026-06-29T10:30"], "2026-06-29T10:30"]
+]);
+
 const x2ManyOpenCalls = [];
 const x2ManyFormWindow = renderWindowAction({
   type: "ir.actions.act_window",

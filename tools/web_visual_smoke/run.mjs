@@ -1800,7 +1800,46 @@ export const scenarios = [
       await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='custom-model_name-ilike-mail'] .o_facet_remove");
       await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "custom filter removed action ready");
       const restoredRows = await waitForCount(page, ".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row", opened.row_count, "custom filter restored rows");
-      return { baseline_rows: opened.row_count, filtered_state: appliedState, restored_rows: restoredRows };
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_add_custom_filter");
+      const typedDialogState = await waitFor(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-custom-filter-dialog.o_dialog");
+        const field = dialog?.querySelector("[data-custom-filter-field='true']");
+        if (!dialog || !field) return null;
+        field.value = "state";
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        const operator = dialog.querySelector("[data-custom-filter-operator='true']");
+        const value = dialog.querySelector("[data-custom-filter-value='true']");
+        if (!operator || !value) return null;
+        value.value = "code";
+        value.dispatchEvent(new Event("change", { bubbles: true }));
+        return {
+          field: field.value,
+          operator: operator.value,
+          operator_values: [...operator.querySelectorAll("option")].map((option) => option.value),
+          value_tag: value.tagName,
+          value_type: value.dataset.customFilterValueType || "",
+          value: value.value,
+          value_labels: [...value.querySelectorAll("option")].map((option) => option.textContent.trim()).filter(Boolean)
+        };
+      })()`, "typed custom filter dialog controls");
+      if (typedDialogState.field !== "state" || typedDialogState.operator !== "=" || typedDialogState.value_tag !== "SELECT" || typedDialogState.value_type !== "selection" || typedDialogState.value !== "code" || !typedDialogState.operator_values.includes("!=") || !typedDialogState.value_labels.includes("Execute Code")) {
+        throw new Error(`typed custom filter dialog invalid: ${JSON.stringify(typedDialogState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-custom-filter-apply='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "typed custom filter applied action ready");
+      const typedAppliedState = await waitFor(page, `(() => {
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-list-view tbody tr.o_data_row")];
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id^='custom-state']");
+        if (!facet || !rows.length) return null;
+        const label = facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "";
+        const values = [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
+        return { rows: rows.length, label, values, raw_value_text: facet.textContent.includes("code") };
+      })()`, "typed custom filter facet and filtered rows");
+      if (typedAppliedState.label !== "Type" || typedAppliedState.values[0] !== "Execute Code" || typedAppliedState.raw_value_text) {
+        throw new Error(`typed custom filter applied state invalid: ${JSON.stringify(typedAppliedState)}`);
+      }
+      return { baseline_rows: opened.row_count, filtered_state: appliedState, restored_rows: restoredRows, typed_state: typedAppliedState };
     }
   },
   {
