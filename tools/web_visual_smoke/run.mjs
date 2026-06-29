@@ -732,7 +732,17 @@ export const scenarios = [
       if (!state.body_modal_open || state.dialog_open !== "true" || state.backdrop_count !== 1 || !state.backdrop_in_dialog || state.modal_role !== "dialog" || state.close_label !== "Close" || !state.title || state.body_count !== 1 || state.body_control_panel_count !== 0 || state.footer_save_count !== 1 || state.footer_discard_count !== 1 || state.footer_bottom > state.viewport_height || state.width < 360 || state.height < 180) {
         throw new Error(`target-new dialog state invalid: ${JSON.stringify(state)}`);
       }
-      return { dialog_count: dialogCount, backdrop_count: backdropCount, state };
+      await clickSelector(page, ".o_web_client .o_action_manager .gorp-action-dialog .gorp-action-dialog-backdrop");
+      const closedState = await waitFor(page, `(() => {
+        const action = document.querySelector(".o_web_client .o_action_manager");
+        return !document.body.classList.contains("modal-open") && !action?.querySelector(".gorp-action-dialog[data-dialog-open='true']")
+          ? { dialog_status: action?.dataset.tsDialogStatus || "", dialog_count: action?.querySelectorAll(".gorp-action-dialog").length || 0, body_modal_open: document.body.classList.contains("modal-open") }
+          : null;
+      })()`, "TS target-new action dialog backdrop closes");
+      if (closedState.body_modal_open || closedState.dialog_count !== 0 || closedState.dialog_status !== "closed") {
+        throw new Error(`target-new dialog backdrop close invalid: ${JSON.stringify(closedState)}`);
+      }
+      return { dialog_count: dialogCount, backdrop_count: backdropCount, state, closed_state: closedState };
     }
   },
   {

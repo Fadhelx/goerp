@@ -3197,6 +3197,30 @@ assert.equal(findAll(renderedDialog, (node) => String(node.className).includes("
 findAll(renderedDialog, (node) => String(node.className).includes("btn-close"))[0].dispatchEvent(new TestEvent("click"));
 assert.equal(renderedDialog.dataset.dialogOpen, "false");
 assert.deepEqual(dialogCloseEvents, [{ model: "res.partner" }]);
+findAll(renderedDialog, (node) => String(node.className).includes("gorp-action-dialog-backdrop"))[0].dispatchEvent(new TestEvent("click"));
+assert.deepEqual(dialogCloseEvents, [{ model: "res.partner" }]);
+
+const backdropCloseEvents = [];
+const renderedBackdropDialog = renderWindowActionDialog({
+  ...windowResult,
+  action: { ...windowResult.action, name: "Backdrop Wizard", target: "new" }
+});
+renderedBackdropDialog.addEventListener("dialog:close", (event) => backdropCloseEvents.push(event.detail));
+findAll(renderedBackdropDialog, (node) => String(node.className).includes("gorp-action-dialog-backdrop"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(renderedBackdropDialog.dataset.dialogOpen, "false");
+assert.deepEqual(backdropCloseEvents, [{ model: "res.partner" }]);
+
+const escapeCloseEvents = [];
+const renderedEscapeDialog = renderWindowActionDialog({
+  ...windowResult,
+  action: { ...windowResult.action, name: "Escape Wizard", target: "new" }
+});
+renderedEscapeDialog.addEventListener("dialog:close", (event) => escapeCloseEvents.push(event.detail));
+renderedEscapeDialog.dispatchEvent(new TestEvent("keydown", { key: "Enter" }));
+assert.equal(renderedEscapeDialog.dataset.dialogOpen, "true");
+renderedEscapeDialog.dispatchEvent(new TestEvent("keydown", { key: "Escape" }));
+assert.equal(renderedEscapeDialog.dataset.dialogOpen, "false");
+assert.deepEqual(escapeCloseEvents, [{ model: "res.partner" }]);
 
 const formDialog = renderWindowActionDialog({
   ...windowResult,

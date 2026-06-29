@@ -2008,17 +2008,20 @@ export function renderWindowActionDialog(result: WindowActionResult, options: Re
   close.className = "btn-close";
   close.setAttribute("aria-label", "Close");
   if (userPreferencesDialog) close.setAttribute("style", "color:#aeb4c2;");
-  close.addEventListener("click", () => {
+  const closeDialog = () => {
+    if (overlay.dataset.dialogOpen === "false") return;
     overlay.dataset.dialogOpen = "false";
     overlay.dispatchEvent(new CustomEvent("dialog:close", {
       bubbles: true,
       detail: { model: result.resModel }
     }));
-  });
+  };
+  close.addEventListener("click", closeDialog);
+  backdrop.addEventListener("click", closeDialog);
   overlay.addEventListener("keydown", (event) => {
     if ((event as KeyboardEvent).key !== "Escape") return;
     event.preventDefault();
-    close.dispatchEvent(new CustomEvent("click"));
+    closeDialog();
   });
   header.append(title, close);
   const body = document.createElement("div");
