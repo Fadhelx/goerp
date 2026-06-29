@@ -13,6 +13,7 @@ export interface SearchFacet {
   domain?: readonly unknown[];
   context?: Record<string, unknown>;
   groupBy?: readonly string[];
+  order?: string;
   interval?: SearchDateInterval;
   group?: string | number;
   dateFilterID?: string;

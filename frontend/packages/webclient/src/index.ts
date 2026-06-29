@@ -3196,12 +3196,13 @@ function persistCurrentSearchFavorite(
   if (!state) return false;
   const favoriteName = String(favoriteOptions.name ?? "").trim() || currentSearchFavoriteName(result);
   const isGlobal = favoriteOptions.isGlobal === true;
+  const sort = currentSearchFavoriteSort(result);
   const values: Record<string, unknown> = {
     name: favoriteName,
     model_id: result.resModel,
     domain: JSON.stringify(state.domain ?? []),
     context: JSON.stringify(currentSearchFavoriteContext(state)),
-    sort: "[]",
+    sort: JSON.stringify(sort ? [sort] : []),
     active: true,
     is_default: favoriteOptions.isDefault === true
   };
@@ -3841,6 +3842,14 @@ function actionWithCurrentSearch(result: WindowActionResult, facets: readonly Se
     ...result.action,
     __search_facets: facets.map(cloneSearchFacet)
   };
+  const order = searchFacetOrder(facets);
+  if (order) {
+    nextAction.order = order;
+    nextAction.__search_order_applied = true;
+  } else if (nextAction.__search_order_applied === true) {
+    delete nextAction.order;
+    delete nextAction.__search_order_applied;
+  }
   delete nextAction.__pager_offset;
   delete nextAction.__pager_total;
   const query = String(result.search?.state.query ?? "").trim();
@@ -3926,6 +3935,11 @@ function currentSearchFavoriteContext(state: SearchModelState): Record<string, u
   return context;
 }
 
+function currentSearchFavoriteSort(result: WindowActionResult): string | undefined {
+  const order = typeof result.action.order === "string" ? result.action.order.trim() : "";
+  return order || searchStateOrder(result.search?.state);
+}
+
 function numericActionID(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
@@ -3998,6 +4012,15 @@ function cloneSearchFacet(facet: SearchFacet): SearchFacet {
     groupBy: facet.groupBy ? [...facet.groupBy] : undefined,
     valueLabels: facet.valueLabels ? [...facet.valueLabels] : undefined
   };
+}
+
+function searchStateOrder(state: SearchModelState | undefined): string | undefined {
+  return searchFacetOrder(state?.facets ?? []);
+}
+
+function searchFacetOrder(facets: readonly SearchFacet[]): string | undefined {
+  const favorite = [...facets].reverse().find((facet) => facet.type === "favorite" && typeof facet.order === "string" && facet.order.trim());
+  return favorite?.order?.trim() || undefined;
 }
 
 function searchSuggestionFacet(suggestion: ActionControlPanelSearchSuggestion): SearchFacet | null {
@@ -13597,13 +13620,14 @@ async function loadWindowActionRecords(
   const countLimit = actionPagerCountLimit(action, activeView, viewDescriptions);
   const readLimit = numberActionValue(action.limit, 80);
   const readOffset = actionPagerOffset(action);
+  const searchOrder = searchStateOrder(searchState);
   const searchReadKwargs: Record<string, unknown> = {
     context: readContext,
     specification,
     limit: readLimit,
     offset: readOffset,
     ...(searchState?.groupBy.length ? { groupby: [...searchState.groupBy] } : {}),
-    ...(typeof action.order === "string" ? { order: action.order } : {})
+    ...(searchOrder ? { order: searchOrder } : typeof action.order === "string" ? { order: action.order } : {})
   };
   if (exactTotal === undefined) searchReadKwargs.count_limit = countLimit + 1;
   const result = await orm.webSearchRead<{ records?: Record<string, unknown>[]; length?: number }>(
@@ -14249,6 +14273,7 @@ function searchFacetsFromAction(action: Record<string, unknown>): SearchFacet[] 
       ...(Array.isArray(raw.domain) ? { domain: [...raw.domain] } : {}),
       ...(isRecord(raw.context) ? { context: { ...raw.context } } : {}),
       ...(Array.isArray(raw.groupBy) ? { groupBy: raw.groupBy.map((item) => String(item)) } : {}),
+      ...(typeof raw.order === "string" ? { order: raw.order } : {}),
       ...(typeof raw.interval === "string" ? { interval: raw.interval as SearchFacet["interval"] } : {}),
       ...(raw.group !== undefined ? { group: raw.group as string | number } : {}),
       ...(typeof raw.dateFilterID === "string" ? { dateFilterID: raw.dateFilterID } : {}),

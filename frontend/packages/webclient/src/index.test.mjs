@@ -910,6 +910,7 @@ const actionServices = createWebClientServices({
                 domain: "[('supplier_rank', '>', 0)]",
                 context: "{'search_default_supplier': 1}",
                 group_by: ["user_id"],
+                sort: "['name desc']",
                 user_id: 7,
                 action_id: 7,
                 is_default: false
@@ -982,6 +983,7 @@ assert.deepEqual(windowResult.search.favorites.map((item) => item.id), ["favorit
 assert.deepEqual(windowResult.search.favorites.map((item) => [item.favorite.id, item.favorite.userId, item.favorite.actionId, item.favorite.isDefault, item.favorite.canDelete]), [
   [14, 7, 7, false, true]
 ]);
+assert.deepEqual(windowResult.search.favorites.map((item) => item.facet.order), ["name desc"]);
 assert.deepEqual(windowResult.records, [{ id: 1, name: "Azure Interior", company_id: [3, "My Company"], create_date: "2026-06-22 09:00:00", legacy_note: "hidden", column_note: "hidden", move_type: "entry", payment_state: "not_paid", line_ids: [] }]);
 
 const defaultFacetRequests = [];
@@ -1032,6 +1034,43 @@ for (const [model, expectedLabel, expectedDomain] of defaultFacetCases) {
   const rendered = renderWindowAction(result);
   assert.equal(findAll(rendered, (node) => node.className === "o_facet_value")[0].textContent, expectedLabel);
 }
+
+const defaultFavoriteSortRequests = [];
+const defaultFavoriteSortServices = createWebClientServices({
+  transport(request) {
+    defaultFavoriteSortRequests.push(request);
+    if (request.route.endsWith("/get_views")) {
+      return Promise.resolve({
+        views: {
+          list: { arch: "<list><field name=\"name\"/></list>", id: 111 },
+          search: {
+            arch: "<search/>",
+            id: 112,
+            filters: [{
+              id: 51,
+              name: "Recent Partners",
+              domain: "[('active', '=', True)]",
+              sort: "['name desc']",
+              is_default: true
+            }]
+          }
+        },
+        models: { "res.partner": { fields: { name: { type: "char", string: "Name" }, active: { type: "boolean", string: "Active" } } } }
+      });
+    }
+    if (request.route.endsWith("/web_search_read")) return Promise.resolve({ length: 0, records: [] });
+    return Promise.resolve({});
+  }
+});
+const defaultFavoriteSortResult = await defaultFavoriteSortServices.action.doAction({
+  type: "ir.actions.act_window",
+  name: "Partners",
+  res_model: "res.partner",
+  views: [[false, "list"], [false, "search"]]
+});
+const defaultFavoriteSortRead = defaultFavoriteSortRequests.find((request) => request.route === "/web/dataset/call_kw/res.partner/web_search_read");
+assert.equal(defaultFavoriteSortRead.params.kwargs.order, "name desc");
+assert.deepEqual(defaultFavoriteSortResult.search.state.facets.map((facet) => [facet.id, facet.type, facet.order]), [["favorite-51", "favorite", "name desc"]]);
 
 const renderedWindow = renderWindowAction(windowResult);
 assert.equal(renderedWindow.className, "gorp-window-action");
@@ -1159,14 +1198,22 @@ assert.deepEqual(controlActionCalls[4].action.__search_facets.map((facet) => [fa
   ["filter-customer", "filter", undefined, undefined, undefined, undefined],
   ["group-by-group_created-year", "groupBy", "create_date", "year", "Created", ["Year"]]
 ]);
-findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
+findAll(controlActionWindow, (node) => node.dataset?.menuItemId === "favorite-14")[0].dispatchEvent(new TestEvent("click"));
 await Promise.resolve();
 assert.equal(controlActionCalls.length, 6);
-assert.deepEqual(controlActionCalls[5].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
-assert.equal(controlActionCalls[5].action.view_mode, "form,list");
-assert.equal(controlActionCalls[5].action.view_type, "form");
-assert.equal("__pager_offset" in controlActionCalls[5].action, false);
-assert.deepEqual(controlActionCalls[5].options, { additionalContext: {}, replaceLastAction: true });
+assert.deepEqual(controlActionCalls[5].action.__search_facets.map((facet) => [facet.id, facet.type, facet.order]), [
+  ["favorite-14", "favorite", "name desc"]
+]);
+assert.equal(controlActionCalls[5].action.order, "name desc");
+assert.equal(controlActionCalls[5].action.__search_order_applied, true);
+findAll(controlActionWindow, (node) => node.dataset?.viewType === "form")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.equal(controlActionCalls.length, 7);
+assert.deepEqual(controlActionCalls[6].action.views.slice(0, 2), [[false, "form"], [8, "list"]]);
+assert.equal(controlActionCalls[6].action.view_mode, "form,list");
+assert.equal(controlActionCalls[6].action.view_type, "form");
+assert.equal("__pager_offset" in controlActionCalls[6].action, false);
+assert.deepEqual(controlActionCalls[6].options, { additionalContext: {}, replaceLastAction: true });
 
 const liveSearchCalls = [];
 const liveSearchWindow = renderWindowAction({

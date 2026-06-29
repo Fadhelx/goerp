@@ -12,6 +12,7 @@ export interface ParsedSearchItem {
   domain?: readonly unknown[];
   context?: Record<string, unknown>;
   groupBy?: readonly string[];
+  order?: string;
   dateField?: string;
   fieldType?: string;
   defaultPeriod?: readonly string[];
@@ -140,7 +141,8 @@ export function searchItemFacet(item: ParsedSearchItem): SearchFacet {
       label: item.label,
       domain: item.domain,
       context: item.context,
-      groupBy: item.groupBy
+      groupBy: item.groupBy,
+      order: item.order
     };
   }
   return {
@@ -172,6 +174,7 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
     const name = stringValue(raw.name) || stringValue(raw.id) || `favorite_${index + 1}`;
     const parsedContext = parseContextAttribute(raw.context);
     const groupBy = normalizeGroupByDescriptors(groupByFromAny(raw.group_by ?? parsedContext.group_by), undefined);
+    const order = favoriteSort(raw.sort);
     out.push({
       id: `favorite-${stringValue(raw.id) || name}`,
       name,
@@ -181,6 +184,7 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
       domain: parseDomainAttribute(raw.domain, context),
       context: parsedContext,
       groupBy,
+      order,
       userId,
       actionId,
       embeddedActionId,
@@ -189,6 +193,22 @@ function parseIrFilters(filters: readonly unknown[], context: Record<string, unk
     });
   }
   return out;
+}
+
+function favoriteSort(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+    return parts.length ? parts.join(", ") : undefined;
+  }
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "[]") return undefined;
+  const parsed = parsePythonish(trimmed);
+  if (Array.isArray(parsed)) {
+    const parts = parsed.map((item) => String(item ?? "").trim()).filter(Boolean);
+    return parts.length ? parts.join(", ") : undefined;
+  }
+  return trimmed;
 }
 
 function searchArchNodes(arch: string): SearchArchNode[] {

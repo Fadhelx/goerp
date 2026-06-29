@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-29T18:28:22.768Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-search-menu-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-search-menu-desktop.png",
+      "sha256": "1b96a14b3c7b8a1f47a6ea600222220a02bb935bc7f30f70605025cf7cb7c979",
+      "assertions": {
+        "filter_items": 3,
+        "group_by_items": 4,
+        "favorite_items": 1
+      },
+      "duration_ms": 769
+    }
+  ],
+  "duration_ms": 944
+}
