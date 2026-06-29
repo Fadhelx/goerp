@@ -2921,6 +2921,7 @@ function renderWindowActionControlPanel(
     }));
   const controlPanel = renderActionControlPanel({
     title: typeof result.action.name === "string" ? result.action.name : result.resModel,
+    mobile: renderWindowActionIsSmall(options),
     pager: activePager,
     views: isSettings ? [] : views,
     search: isSettings ? {
@@ -3040,6 +3041,14 @@ function renderWindowActionControlPanel(
   const mainButtons = findDescendantByClass(controlPanel, "o_control_panel_main_buttons");
   if (createButton && mainButtons) mainButtons.append(createButton);
   return controlPanel;
+}
+
+function renderWindowActionIsSmall(options: RenderWindowActionOptions): boolean {
+  if (typeof options.isSmall === "function") return Boolean(options.isSmall());
+  if (typeof options.isSmall === "boolean") return options.isSmall;
+  const browser = windowActionBrowser();
+  if (typeof browser?.matchMedia === "function") return browser.matchMedia("(max-width: 767px)").matches;
+  return typeof browser?.innerWidth === "number" ? browser.innerWidth < 768 : false;
 }
 
 function formActionPager(result: WindowActionResult): ActionControlPanelPager | undefined {
@@ -7535,7 +7544,7 @@ async function openExportDataDialog(
   renderTemplateControls();
   renderAvailableExportFields(availableList, state.availableFields, state, selectedList, fields, options);
   renderExportDialogSelectedFields(selectedList, state, availableList, fields, options);
-  const browser = exportDialogBrowser();
+  const browser = windowActionBrowser();
   const onResize = () => {
     const nextIsSmall = exportDialogIsSmall(options);
     if (state.isSmall === nextIsSmall) return;
@@ -7586,14 +7595,10 @@ async function openExportDataDialog(
 }
 
 function exportDialogIsSmall(options: RenderWindowActionOptions): boolean {
-  if (typeof options.isSmall === "function") return Boolean(options.isSmall());
-  if (typeof options.isSmall === "boolean") return options.isSmall;
-  const browser = exportDialogBrowser();
-  if (typeof browser?.matchMedia === "function") return browser.matchMedia("(max-width: 767px)").matches;
-  return typeof browser?.innerWidth === "number" ? browser.innerWidth < 768 : false;
+  return renderWindowActionIsSmall(options);
 }
 
-function exportDialogBrowser(): (Window & typeof globalThis) | undefined {
+function windowActionBrowser(): (Window & typeof globalThis) | undefined {
   return typeof globalThis.window === "object" ? globalThis.window : undefined;
 }
 

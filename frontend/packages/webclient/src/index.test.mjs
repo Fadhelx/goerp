@@ -1001,6 +1001,25 @@ const renderedMenuIDs = findAll(renderedWindow, (node) => node.dataset?.menuItem
 for (const id of ["filter-customer", "filter-created_on", "filter-created_on-year", "group-by-group_company", "group-by-group_created", "group-by-group_created-month", "favorite-14"]) {
   assert.ok(renderedMenuIDs.includes(id), `missing menu id ${id}`);
 }
+const renderedMobileSearchWindow = renderWindowAction(windowResult, { isSmall: true });
+assert.ok(String(renderedMobileSearchWindow.children[0].className).split(/\s+/).includes("o_mobile_control_panel"));
+const renderedMobileSearchRoot = findAll(renderedMobileSearchWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_mobile_search"))[0];
+const renderedMobileSearchPanel = findAll(renderedMobileSearchWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_mobile_search_panel"))[0];
+const renderedMobileSearchToggler = findAll(renderedMobileSearchWindow, (node) => String(node.className ?? "").split(/\s+/).includes("o_searchview_dropdown_toggler"))[0];
+assert.equal(renderedMobileSearchRoot.dataset.mobileSearch, "true");
+assert.equal(renderedMobileSearchRoot.dataset.mobileSearchOpen, "false");
+assert.equal(renderedMobileSearchPanel.dataset.mobileSearchPanel, "true");
+assert.equal(renderedMobileSearchPanel.attributes.role, "dialog");
+assert.equal(findAll(renderedMobileSearchPanel, (node) => String(node.className ?? "").split(/\s+/).includes("o_mobile_search_close")).length, 1);
+renderedMobileSearchToggler.dispatchEvent(new TestEvent("click"));
+assert.equal(renderedMobileSearchToggler.attributes["aria-expanded"], "true");
+assert.equal(renderedMobileSearchRoot.dataset.mobileSearchOpen, "true");
+assert.equal(renderedMobileSearchPanel.hidden, false);
+assert.ok(String(renderedMobileSearchPanel.className).split(/\s+/).includes("show"));
+findAll(renderedMobileSearchPanel, (node) => String(node.className ?? "").split(/\s+/).includes("o_mobile_search_close"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(renderedMobileSearchToggler.attributes["aria-expanded"], "false");
+assert.equal(renderedMobileSearchRoot.dataset.mobileSearchOpen, "false");
+assert.equal(renderedMobileSearchPanel.hidden, true);
 assert.equal(findAll(renderedWindow, (node) => node.className === "o_facet_value")[0].textContent, "Customers");
 assert.ok(String(renderedWindow.children[1].className).includes("gorp-list-shell"));
 assert.ok(String(renderedWindow.children[1].className).includes("o-list-view"));

@@ -1589,6 +1589,52 @@ export const scenarios = [
     }
   },
   {
+    name: "default-mobile-search-panel",
+    viewport: { width: 390, height: 844, mobile: true },
+    run: async (page, config) => {
+      await openDefaultServerActionsList(page, config, mobileViewport());
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await waitForCount(page, ".o_web_client .o_action_manager .o_mobile_search_panel[data-mobile-search-panel='true'].show", 1, "TS mobile search panel");
+      const panelState = await waitFor(page, `(() => {
+        const control = document.querySelector(".o_web_client .o_action_manager .o_mobile_control_panel");
+        const root = document.querySelector(".o_web_client .o_action_manager .o_mobile_search[data-mobile-search='true']");
+        const panel = document.querySelector(".o_web_client .o_action_manager .o_mobile_search_panel[data-mobile-search-panel='true']");
+        if (!control || !root || !panel || panel.hidden) return null;
+        const rect = panel.getBoundingClientRect();
+        return {
+          control_mobile: control.dataset.mobile === "true",
+          root_open: root.dataset.mobileSearchOpen === "true",
+          role: panel.getAttribute("role") || "",
+          header_count: panel.querySelectorAll(".o_mobile_search_header").length,
+          close_count: panel.querySelectorAll(".o_mobile_search_close").length,
+          filter_items: panel.querySelectorAll(".o_filter_menu .o_menu_item").length,
+          group_items: panel.querySelectorAll(".o_group_by_menu .o_menu_item").length,
+          favorite_items: panel.querySelectorAll(".o_favorite_menu .o_menu_item").length,
+          width_px: Math.round(rect.width),
+          viewport_width_px: window.innerWidth,
+          overflow_px: document.documentElement.scrollWidth - window.innerWidth
+        };
+      })()`, "mobile search panel state");
+      if (!panelState.control_mobile || !panelState.root_open || panelState.role !== "dialog" || panelState.header_count !== 1 || panelState.close_count !== 1) {
+        throw new Error(`mobile search panel chrome invalid: ${JSON.stringify(panelState)}`);
+      }
+      if (panelState.filter_items < 1 || panelState.group_items < 1 || panelState.favorite_items < 1) {
+        throw new Error(`mobile search panel lanes invalid: ${JSON.stringify(panelState)}`);
+      }
+      if (panelState.width_px < 320 || panelState.width_px > panelState.viewport_width_px || panelState.overflow_px > 1) {
+        throw new Error(`mobile search panel layout invalid: ${JSON.stringify(panelState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager .o_mobile_search_close");
+      await waitFor(page, `(() => {
+        const root = document.querySelector(".o_web_client .o_action_manager .o_mobile_search");
+        const panel = document.querySelector(".o_web_client .o_action_manager .o_mobile_search_panel");
+        const toggle = document.querySelector(".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+        return root?.dataset.mobileSearchOpen === "false" && panel?.hidden === true && toggle?.getAttribute("aria-expanded") === "false";
+      })()`, "mobile search panel closes");
+      return panelState;
+    }
+  },
+  {
     name: "default-date-groupby-menu-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

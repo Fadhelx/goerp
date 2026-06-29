@@ -150,6 +150,7 @@ assert.equal(searchOptionsToggler.attributes["aria-expanded"], "false");
 assert.equal(searchOptionsMenu.hidden, true);
 assert.equal(hasClass(searchOptionsMenu, "o_search_options"), true);
 assert.equal(hasClass(searchOptionsMenu, "o_search_bar_menu"), true);
+assert.equal(hasClass(searchOptionsMenu, "o_mobile_search_panel"), false);
 assert.equal(hasClass(searchOptionsMenu, "show"), false);
 searchOptionsToggler.dispatchEvent(new TestEvent("click"));
 assert.equal(searchOptionsToggler.attributes["aria-expanded"], "true");
@@ -239,6 +240,36 @@ assert.deepEqual(events, [
   ["deleteFavorite", 7],
   ["addFavorite", { name: "Default Customers", isDefault: true, isGlobal: true }]
 ]);
+
+const mobileRoot = renderControlPanel({ ...normalized, mobile: true }, {});
+assert.equal(hasClass(mobileRoot, "o_mobile_control_panel"), true);
+assert.equal(mobileRoot.dataset.mobile, "true");
+const mobileSearch = findAll(mobileRoot, (node) => hasClass(node, "o_mobile_search"))[0];
+const mobileSearchToggler = findAll(mobileRoot, (node) => hasClass(node, "o_searchview_dropdown_toggler"))[0];
+const mobileSearchPanel = findAll(mobileRoot, (node) => hasClass(node, "o_mobile_search_panel"))[0];
+assert.ok(mobileSearch);
+assert.ok(mobileSearchPanel);
+assert.equal(mobileSearch.dataset.mobileSearch, "true");
+assert.equal(mobileSearch.dataset.mobileSearchOpen, "false");
+assert.equal(mobileSearchPanel.dataset.mobileSearchPanel, "true");
+assert.equal(mobileSearchPanel.attributes.role, "dialog");
+assert.equal(mobileSearchPanel.attributes["aria-label"], "Search options");
+assert.equal(mobileSearchPanel.hidden, true);
+assert.equal(findAll(mobileSearchPanel, (node) => hasClass(node, "o_mobile_search_header")).length, 1);
+assert.equal(findAll(mobileSearchPanel, (node) => hasClass(node, "o_mobile_search_close")).length, 1);
+assert.equal(findAll(mobileSearchPanel, (node) => hasClass(node, "o_filter_menu")).length, 1);
+assert.equal(findAll(mobileSearchPanel, (node) => hasClass(node, "o_group_by_menu")).length, 1);
+assert.equal(findAll(mobileSearchPanel, (node) => hasClass(node, "o_favorite_menu")).length, 1);
+mobileSearchToggler.dispatchEvent(new TestEvent("click"));
+assert.equal(mobileSearchToggler.attributes["aria-expanded"], "true");
+assert.equal(mobileSearch.dataset.mobileSearchOpen, "true");
+assert.equal(mobileSearchPanel.hidden, false);
+assert.equal(hasClass(mobileSearchPanel, "show"), true);
+findAll(mobileSearchPanel, (node) => hasClass(node, "o_mobile_search_close"))[0].dispatchEvent(new TestEvent("click"));
+assert.equal(mobileSearchToggler.attributes["aria-expanded"], "false");
+assert.equal(mobileSearch.dataset.mobileSearchOpen, "false");
+assert.equal(mobileSearchPanel.hidden, true);
+assert.equal(hasClass(mobileSearchPanel, "show"), false);
 
 const firstPageRoot = renderControlPanel({ title: "First", pager: { offset: 0, limit: 20, total: 45 } }, {
   onPagerPrevious: () => events.push(["firstPrevious"]),

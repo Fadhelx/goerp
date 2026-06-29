@@ -66,6 +66,7 @@ export interface ControlPanelState {
   filters?: readonly ControlPanelMenuItem[];
   groupBys?: readonly ControlPanelMenuItem[];
   favorites?: readonly ControlPanelMenuItem[];
+  mobile?: boolean;
 }
 
 export interface ControlPanelCallbacks {
@@ -100,14 +101,18 @@ export function createControlPanelState(state: ControlPanelState): ControlPanelS
     } : undefined,
     filters: [...(state.filters ?? [])].map(normalizeMenuItem),
     groupBys: [...(state.groupBys ?? [])].map(normalizeMenuItem),
-    favorites: [...(state.favorites ?? [])].map(normalizeMenuItem)
+    favorites: [...(state.favorites ?? [])].map(normalizeMenuItem),
+    mobile: state.mobile === true
   };
 }
 
 export function renderControlPanel(state: ControlPanelState, callbacks: ControlPanelCallbacks = {}): HTMLElement {
   const normalized = createControlPanelState(state);
   const root = document.createElement("section");
-  root.className = "o_control_panel d-flex flex-column gap-3 px-3 pt-2 pb-3";
+  root.className = normalized.mobile
+    ? "o_control_panel o_mobile_control_panel d-flex flex-column gap-3 px-3 pt-2 pb-3"
+    : "o_control_panel d-flex flex-column gap-3 px-3 pt-2 pb-3";
+  if (normalized.mobile) root.dataset.mobile = "true";
 
   const main = document.createElement("div");
   main.className = "o_control_panel_main d-flex flex-wrap flex-lg-nowrap justify-content-between align-items-lg-start gap-2 gap-lg-3 flex-grow-1";
@@ -183,9 +188,17 @@ function renderPager(pager: ControlPanelPager | undefined, callbacks: ControlPan
 }
 
 function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks): HTMLElement {
+  const isMobile = state.mobile === true;
   const root = document.createElement("div");
-  root.className = "o_cp_searchview d-flex input-group";
+  root.className = isMobile
+    ? "o_cp_searchview o_mobile_search d-flex input-group position-relative w-100"
+    : "o_cp_searchview d-flex input-group";
   root.setAttribute("role", "search");
+  if (isMobile) {
+    root.dataset.mobileSearch = "true";
+    root.dataset.mobileSearchOpen = "false";
+    root.setAttribute("style", "min-width:0;max-width:100%;");
+  }
   const searchView = document.createElement("div");
   searchView.className = "o_searchview form-control d-flex align-items-center py-1 border-end-0";
   searchView.setAttribute("role", "search");
@@ -220,16 +233,28 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   dropdown.setAttribute("aria-label", "Search options");
   dropdown.setAttribute("aria-expanded", "false");
   const menu = document.createElement("div");
-  const menuClassName = "o_search_options o_search_bar_menu o-dropdown--menu dropdown-menu";
+  const menuClassName = isMobile
+    ? "o_search_options o_search_bar_menu o_mobile_search_panel o-dropdown--menu dropdown-menu position-absolute start-0 end-0 w-100 mt-1 p-2 shadow"
+    : "o_search_options o_search_bar_menu o-dropdown--menu dropdown-menu";
   menu.className = menuClassName;
   menu.hidden = true;
+  if (isMobile) {
+    menu.dataset.mobileSearchPanel = "true";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Search options");
+    menu.setAttribute("aria-modal", "false");
+    menu.setAttribute("style", "box-sizing:border-box;width:100%;max-width:calc(100vw - 1rem);overflow-x:hidden;");
+  }
   let menuOpen = false;
-  dropdown.addEventListener("click", () => {
-    menuOpen = !menuOpen;
+  const setMenuOpen = (open: boolean) => {
+    menuOpen = open;
     dropdown.setAttribute("aria-expanded", menuOpen ? "true" : "false");
     menu.hidden = !menuOpen;
     menu.className = menuOpen ? `${menuClassName} show` : menuClassName;
-  });
+    if (isMobile) root.dataset.mobileSearchOpen = menuOpen ? "true" : "false";
+  };
+  dropdown.addEventListener("click", () => setMenuOpen(!menuOpen));
+  if (isMobile) menu.append(renderMobileSearchHeader(() => setMenuOpen(false)));
   menu.append(
     renderMenuLane("o_filter_menu", "Filters", state.filters ?? [], callbacks.onFilter, { customFilter: callbacks.onAddCustomFilter }),
     renderMenuLane("o_group_by_menu", "Group By", state.groupBys ?? [], callbacks.onGroupBy, { customGroup: callbacks.onAddCustomGroup }),
@@ -241,6 +266,23 @@ function renderSearch(state: ControlPanelState, callbacks: ControlPanelCallbacks
   );
   root.append(searchView, autocomplete, dropdown, menu);
   return root;
+}
+
+function renderMobileSearchHeader(onClose: () => void): HTMLElement {
+  const header = document.createElement("div");
+  header.className = "o_mobile_search_header d-flex align-items-center justify-content-between border-bottom pb-2 mb-2";
+  const title = document.createElement("span");
+  title.className = "o_mobile_search_title fw-semibold";
+  title.textContent = "Search";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "o_mobile_search_close btn btn-link p-0";
+  close.setAttribute("aria-label", "Close search options");
+  close.setAttribute("title", "Close search options");
+  close.textContent = "x";
+  close.addEventListener("click", onClose);
+  header.append(title, close);
+  return header;
 }
 
 function renderSearchAutocomplete(search: ControlPanelSearchState | undefined, callbacks: ControlPanelCallbacks): HTMLElement {
