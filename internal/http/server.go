@@ -326,10 +326,12 @@ func (s Server) mailMessagePost(w http.ResponseWriter, r *http.Request) {
 		writeRPCError(w, envelope, http.StatusForbidden, err)
 		return
 	}
-	writeRPCOrJSON(w, envelope, map[string]any{
+	result := map[string]any{
 		"message_id": messageID,
 		"store_data": map[string]any{"mail.message": []map[string]any{{"id": messageID}}},
-	})
+	}
+	s.publishMailMessageBus(env, messageID, "mail.record/insert", result["store_data"].(map[string]any))
+	writeRPCOrJSON(w, envelope, result)
 }
 
 func mailPostPartnerIDs(env *record.Env, post map[string]any) ([]int64, error) {

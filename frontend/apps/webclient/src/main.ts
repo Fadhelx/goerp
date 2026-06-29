@@ -13,6 +13,7 @@ import {
   type ActionService,
   type ActionServiceOptions,
   type RPCRequest,
+  type SearchFacet,
   type SessionService,
   type WebClientRouteState,
   type WebClientServices,
@@ -20,9 +21,13 @@ import {
 } from "../../../packages/webclient/src/index.js";
 import {
   agentChatActionTag,
+  createAiAdjustSearchEvents,
+  createAiOpenMenuInvocation,
   createAgentChatActionHandler,
   createAIPromptButtonStorageKey,
   createAIPromptButtonStorageValue,
+  isAiNaturalLanguageEventName,
+  isAiOpenMenuEventName,
   type AiAgentChatThreadLookup,
   type AiMailThread
 } from "../../../packages/ai/src/index.js";
@@ -104,6 +109,7 @@ export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrap
     };
     await restoreActionFromHash(env, menus as HomeMenuPayload, shell);
     globalThis.addEventListener?.("hashchange", restoreCurrentHash);
+    startAIBusPolling(env, menus as HomeMenuPayload, shell, session);
   }
   globalThis.document.documentElement.dataset.tsWebclient = "ready";
   globalThis.dispatchEvent(new CustomEvent("goerp:webclient-ready", {
@@ -286,6 +292,296 @@ function aiSessionIdentifier(): string {
   const generated = `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   document.documentElement.dataset.aiSessionIdentifier = generated;
   return generated;
+}
+
+interface GoERPBusEvent {
+  id?: number;
+  type?: string;
+  name?: string;
+  payload?: Record<string, unknown>;
+}
+
+interface AIBusPollingState {
+  lastID: number;
+  polling: boolean;
+  stopped: boolean;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
+function startAIBusPolling(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: RenderedWebClientShell,
+  session: Record<string, unknown>
+): void {
+  const uid = numericUserID(session.uid);
+  if (!uid) return;
+  const state: AIBusPollingState = { lastID: 0, polling: false, stopped: false };
+  const poll = () => {
+    void pollAIBusOnce(env, menus, shell, state, uid).catch(() => undefined);
+  };
+  const manualPoll = () => poll();
+  globalThis.addEventListener?.("goerp:ai-bus-poll", manualPoll);
+  globalThis.addEventListener?.("beforeunload", () => {
+    state.stopped = true;
+    if (state.timer) clearTimeout(state.timer);
+  });
+  scheduleAIBusPoll(state, poll, 4000);
+}
+
+function scheduleAIBusPoll(state: AIBusPollingState, callback: () => void, delayMs: number): void {
+  if (state.stopped) return;
+  state.timer = setTimeout(callback, delayMs);
+  (state.timer as unknown as { unref?: () => void }).unref?.();
+}
+
+async function pollAIBusOnce(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: RenderedWebClientShell,
+  state: AIBusPollingState,
+  userID: number
+): Promise<void> {
+  if (state.stopped || state.polling) return;
+  state.polling = true;
+  try {
+    const payload = await fetchJSON<unknown>("/bus/poll", {
+      channels: [`user/${userID}`],
+      last_id: state.lastID
+    });
+    for (const event of normalizeBusEvents(payload)) {
+      if (typeof event.id === "number" && event.id > state.lastID) state.lastID = event.id;
+      await handleAIBusEvent(env, menus, shell, event);
+    }
+  } finally {
+    state.polling = false;
+    scheduleAIBusPoll(state, () => {
+      void pollAIBusOnce(env, menus, shell, state, userID).catch(() => undefined);
+    }, 4000);
+  }
+}
+
+function normalizeBusEvents(payload: unknown): GoERPBusEvent[] {
+  const events = Array.isArray(payload) ? payload : isRecord(payload) && Array.isArray(payload.result) ? payload.result : [];
+  return events.filter(isRecord).map((event) => ({
+    id: typeof event.id === "number" ? event.id : numericUserID(event.id) || undefined,
+    type: firstText(event.type),
+    name: firstText(event.name),
+    payload: isRecord(event.payload) ? event.payload : {}
+  }));
+}
+
+async function handleAIBusEvent(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: RenderedWebClientShell,
+  event: GoERPBusEvent
+): Promise<void> {
+  const eventName = firstText(event.name, event.type);
+  if (!isAiNaturalLanguageEventName(eventName)) return;
+  const payload = event.payload ?? {};
+  if (isAiOpenMenuEventName(eventName)) {
+    await applyAIOpenMenuEvent(env, menus, shell, eventName, payload);
+    return;
+  }
+  await applyAIAdjustSearchEvent(env, menus, shell, payload);
+}
+
+async function applyAIOpenMenuEvent(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: RenderedWebClientShell,
+  eventName: "AI_OPEN_MENU_LIST" | "AI_OPEN_MENU_KANBAN" | "AI_OPEN_MENU_PIVOT" | "AI_OPEN_MENU_GRAPH",
+  payload: Record<string, unknown>
+): Promise<void> {
+  const menuID = numericUserID(payload.menuID);
+  if (!menuID) return;
+  const app = routeMenuApp(menus, menuID);
+  if (!app) return;
+  const actionID = menuActionID(app);
+  if (typeof actionID !== "number") return;
+  const invocation = createAiOpenMenuInvocation(eventName, { ...payload, menuID }, { id: menuID, actionID }, aiSessionIdentifier());
+  if (!invocation) return;
+  const outlet = findDescendantByClass(shell, "o_action_manager");
+  if (!outlet) return;
+  setShellActionView(shell);
+  shell.setMenuContext(menuID);
+  const actionHost = createActionHost(env, outlet, app);
+  const loadedAction = await actionHost.loadAction(invocation.action.id as ActionRequest, { menu_id: menuID });
+  await actionHost.doAction(actionWithAIProps(loadedAction, invocation.options.viewType, invocation.options.props.ai), {
+    additionalContext: { menu_id: menuID },
+    clearBreadcrumbs: true,
+    stackPosition: "clear"
+  });
+}
+
+async function applyAIAdjustSearchEvent(
+  env: ReturnType<typeof makeEnv>,
+  menus: HomeMenuPayload,
+  shell: RenderedWebClientShell,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const events = createAiAdjustSearchEvents(payload, aiSessionIdentifier());
+  if (!events.length) return;
+  const current = (env.services.action as ActionService | undefined)?.current?.action;
+  if (!current || current.type !== "ir.actions.act_window") return;
+  const outlet = findDescendantByClass(shell, "o_action_manager");
+  if (!outlet) return;
+  const route = parseRouteState(globalThis.location?.hash ?? "");
+  const menuID = routeID(route.menu_id ?? current.menu_id);
+  const app = menuID !== undefined ? routeMenuApp(menus, menuID) : undefined;
+  setShellActionView(shell);
+  if (menuID !== undefined) shell.setMenuContext(menuID);
+  const actionHost = createActionHost(env, outlet, app);
+  let nextAction = { ...current };
+  for (const event of events) {
+    env.bus.trigger(event.name, event.detail);
+    globalThis.dispatchEvent?.(new CustomEvent(event.name, { detail: event.detail }));
+    nextAction = actionWithAIAdjustSearch(nextAction, event.detail);
+  }
+  await actionHost.doAction(nextAction, {
+    additionalContext: menuID !== undefined ? { menu_id: menuID } : {},
+    replaceLastAction: true
+  });
+}
+
+function actionWithAIProps(action: Record<string, unknown>, viewType: string, props: Record<string, unknown>): Record<string, unknown> {
+  const next = actionWithRouteState(action, { view_type: viewType });
+  const facets = aiSearchFacetsFromPayload(props);
+  if (facets.length) next.__search_facets = facets;
+  const query = aiSearchQuery(props.search);
+  if (query) next.__search_query = query;
+  next.__ai_model = aiModelProps(props);
+  return next;
+}
+
+function actionWithAIAdjustSearch(action: Record<string, unknown>, detail: Record<string, unknown>): Record<string, unknown> {
+  const switchViewType = firstText(detail.switchViewType);
+  const next = switchViewType ? actionWithRouteState(action, { view_type: switchViewType }) : { ...action };
+  let facets = Array.isArray(next.__search_facets)
+    ? next.__search_facets.filter(isRecord).map(aiCloneSearchFacet)
+    : [];
+  facets = removeAIFacets(facets, stringList(detail.removeFacets));
+  facets = toggleAIFacets(facets, aiFilterFacets(stringList(detail.toggleFilters)));
+  facets = toggleAIFacets(facets, aiGroupByFacets(stringList(detail.toggleGroupBys)));
+  facets = upsertAICustomDomainFacet(facets, detail.customDomain);
+  if (facets.length) next.__search_facets = facets;
+  else delete next.__search_facets;
+  const query = aiSearchQuery(detail.applySearches);
+  if (query) next.__search_query = query;
+  next.__ai_model = aiModelProps(detail);
+  return next;
+}
+
+function aiSearchFacetsFromPayload(payload: Record<string, unknown>): SearchFacet[] {
+  return [
+    ...aiFilterFacets(stringList(payload.selectedFilters)),
+    ...aiGroupByFacets([...stringList(payload.selectedGroupBys), ...stringList(payload.groupBys), ...stringList(payload.rowGroupBys)]),
+    ...aiCustomDomainFacet(payload.customDomain)
+  ];
+}
+
+function aiFilterFacets(values: readonly string[]): SearchFacet[] {
+  return values.map((value) => {
+    const label = humanizeAIName(value);
+    return {
+      id: `ai-filter-${slugAIValue(value)}`,
+      type: "filter",
+      label,
+      valueLabels: [label]
+    };
+  });
+}
+
+function aiGroupByFacets(values: readonly string[]): SearchFacet[] {
+  return values.map((value) => {
+    const descriptor = value.trim();
+    const [field] = descriptor.split(":");
+    const label = humanizeAIName(field || descriptor);
+    return {
+      id: `ai-group-by-${slugAIValue(descriptor)}`,
+      type: "groupBy",
+      label,
+      valueLabels: [label],
+      field: field || descriptor,
+      groupBy: [descriptor]
+    };
+  });
+}
+
+function aiCustomDomainFacet(value: unknown): SearchFacet[] {
+  if (!Array.isArray(value)) return [];
+  return [{
+    id: "ai-custom-domain",
+    type: "filter",
+    label: "AI Domain",
+    valueLabels: ["AI Domain"],
+    domain: [...value]
+  }];
+}
+
+function aiSearchQuery(value: unknown): string {
+  return stringList(value).join(" ").trim();
+}
+
+function aiModelProps(value: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of ["measures", "measure", "mode", "order", "stacked", "cumulated", "sortedColumn", "colGroupBys"]) {
+    if (value[key] !== undefined) out[key] = value[key];
+  }
+  return out;
+}
+
+function removeAIFacets(facets: SearchFacet[], removeValues: readonly string[]): SearchFacet[] {
+  if (!removeValues.length) return facets;
+  const remove = new Set(removeValues.flatMap((value) => [value, slugAIValue(value), `ai-filter-${slugAIValue(value)}`, `ai-group-by-${slugAIValue(value)}`]));
+  return facets.filter((facet) => !remove.has(facet.id) && !remove.has(facet.label) && !(facet.groupBy ?? []).some((item) => remove.has(item)));
+}
+
+function toggleAIFacets(facets: SearchFacet[], toggles: readonly SearchFacet[]): SearchFacet[] {
+  let out = facets;
+  for (const facet of toggles) {
+    const index = out.findIndex((item) => item.id === facet.id || item.label === facet.label || sameAIGroupBy(item, facet));
+    out = index >= 0 ? out.filter((_item, itemIndex) => itemIndex !== index) : [...out, facet];
+  }
+  return out;
+}
+
+function upsertAICustomDomainFacet(facets: SearchFacet[], value: unknown): SearchFacet[] {
+  const custom = aiCustomDomainFacet(value)[0];
+  if (!custom) return facets;
+  return [...facets.filter((facet) => facet.id !== custom.id), custom];
+}
+
+function sameAIGroupBy(left: SearchFacet, right: SearchFacet): boolean {
+  if (!left.groupBy?.length || !right.groupBy?.length) return false;
+  return left.groupBy.some((item) => right.groupBy?.includes(item));
+}
+
+function aiCloneSearchFacet(facet: Record<string, unknown>): SearchFacet {
+  return {
+    ...facet,
+    id: firstText(facet.id) || `ai-facet-${Math.random().toString(36).slice(2)}`,
+    type: firstText(facet.type) as SearchFacet["type"] || "filter",
+    label: firstText(facet.label) || "AI",
+    valueLabels: stringList(facet.valueLabels),
+    domain: Array.isArray(facet.domain) ? [...facet.domain] : undefined,
+    context: isRecord(facet.context) ? { ...facet.context } : undefined,
+    groupBy: stringList(facet.groupBy)
+  };
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+}
+
+function slugAIValue(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_:.]+/g, "-").replace(/^-+|-+$/g, "") || "value";
+}
+
+function humanizeAIName(value: string): string {
+  return value.replace(/[:._-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (char) => char.toUpperCase()) || "AI";
 }
 
 async function restoreActionFromHash(

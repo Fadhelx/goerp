@@ -1709,6 +1709,57 @@ func TestMailMessagePostRouteAttachmentTokens(t *testing.T) {
 	}
 }
 
+func TestMailMessagePostPublishesBusInsert(t *testing.T) {
+	server := testMailThreadServer(t)
+	server.Bus = notifications.NewBus(100)
+	partnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Bus Thread", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, err := server.Env.Model("res.users").Create(map[string]any{"login": "bus-poster", "name": "Bus Poster", "active": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groupID, err := server.Env.Model("res.groups").Create(map[string]any{"name": "Internal"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Env.Model("res.users").Browse(userID).Write(map[string]any{"groups_id": []int64{groupID}}); err != nil {
+		t.Fatal(err)
+	}
+	engine := security.NewEngine()
+	engine.Groups[groupID] = security.Group{ID: groupID, Name: "Internal"}
+	engine.Users[userID] = security.User{ID: userID, Login: "bus-poster", Active: true, GroupIDs: []int64{groupID}}
+	engine.ACLs = []security.ACL{
+		{Model: "res.partner", GroupID: groupID, Active: true, PermRead: true},
+		{Model: "mail.message", GroupID: groupID, Active: true, PermCreate: true, PermRead: true},
+	}
+	server.Env.WithPolicy(engine)
+	server.Env = server.Env.WithContext(record.Context{UserID: userID, CompanyID: 1, CompanyIDs: []int64{1}})
+	sub := server.Bus.Subscribe(userBusChannel(userID), 0)
+	defer sub.Close()
+
+	rec := httptest.NewRecorder()
+	body := bytes.NewBufferString(fmt.Sprintf(`{"thread_model":"res.partner","thread_id":%d,"post_data":{"body":"<p>Bus</p>","message_type":"comment"}}`, partnerID))
+	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/mail/message/post", body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("mail message post response %d %s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSON(t, rec.Body.Bytes())
+	messageID := int64Value(payload["message_id"])
+	if messageID == 0 {
+		t.Fatalf("message payload = %+v", payload)
+	}
+	event := nextHTTPBusEvent(t, sub)
+	if event.Name != "mail.record/insert" {
+		t.Fatalf("post bus event name = %s", event.Name)
+	}
+	rows := event.Payload["mail.message"].([]map[string]any)
+	if len(rows) != 1 || int64Value(rows[0]["id"]) != messageID {
+		t.Fatalf("post bus payload = %+v", event.Payload)
+	}
+}
+
 func TestMailAttachmentUploadPortalPendingOwnership(t *testing.T) {
 	server := testMailThreadServer(t)
 	partnerID, err := server.Env.Model("res.partner").Create(map[string]any{"name": "Portal", "active": true})

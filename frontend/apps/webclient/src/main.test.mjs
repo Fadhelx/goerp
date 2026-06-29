@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 const events = {};
 const fetches = [];
+const busPollResponses = [];
 const localStorageData = new Map();
 let sessionResponse = {
   uid: 7,
@@ -203,6 +204,9 @@ globalThis.fetch = async (route, options = {}) => {
     };
     return { ok: true, status: 200, async json() { return { done: true }; } };
   }
+  if (route === "/bus/poll") {
+    return { ok: true, status: 200, async json() { return busPollResponses.shift() ?? []; } };
+  }
   if (route === "/web/webclient/load_menus") {
     return { ok: true, status: 200, async json() { return {
       all_menu_ids: [1, 2, 4],
@@ -234,6 +238,17 @@ globalThis.fetch = async (route, options = {}) => {
         type: "ir.actions.act_window",
         view_mode: "form",
         views: [[false, "form"]]
+      }; } };
+    }
+    if (body.action_id === 7) {
+      return { ok: true, status: 200, async json() { return {
+        id: 7,
+        name: "Server Actions",
+        res_model: "ir.actions.server",
+        type: "ir.actions.act_window",
+        view_mode: "list,form",
+        views: [[false, "list"], [false, "form"], [false, "search"]],
+        context: {}
       }; } };
     }
     if (body.action_id === "base.open_wizard") {
@@ -284,6 +299,36 @@ globalThis.fetch = async (route, options = {}) => {
     return { ok: true, status: 200, async json() { return [
       { id: 5, name: "base", shortdesc: "Base", display_name: "Base", state: "installed", summary: "Base module" }
     ]; } };
+  }
+  if (route === "/web/dataset/call_kw/ir.actions.server/get_views") {
+    return { ok: true, status: 200, async json() { return {
+      fields: {
+        name: { type: "char", string: "Name" },
+        model_id: { type: "many2one", relation: "ir.model", string: "Model" },
+        active: { type: "boolean", string: "Active" }
+      },
+      related_models: {},
+      views: {
+        list: {
+          arch: `<list><field name="name"/><field name="model_id"/><field name="active"/></list>`,
+          id: 71
+        },
+        form: {
+          arch: `<form><sheet><field name="name"/><field name="model_id"/><field name="active"/></sheet></form>`,
+          id: 72
+        },
+        search: {
+          arch: `<search><field name="name"/><filter name="active" string="Active" domain="[('active','=',True)]"/><group expand="0" string="Group By"><filter name="model_id" string="Model" context="{'group_by': 'model_id'}"/></group></search>`,
+          id: 73
+        }
+      }
+    }; } };
+  }
+  if (route === "/web/dataset/call_kw/ir.actions.server/web_search_read") {
+    return { ok: true, status: 200, async json() { return {
+      length: 1,
+      records: [{ id: 77, name: "AI Server Action", display_name: "AI Server Action", model_id: [10, "Contact"], active: true }]
+    }; } };
   }
   if (route === "/web/dataset/call_kw/res.users/action_get") {
     return { ok: true, status: 200, async json() { return {
@@ -538,6 +583,45 @@ const aiGenerateFetch = fetches.find((item) => item.route === "/ai/generate_resp
 assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).channel_id, 88);
 assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).mail_message_id, 501);
 
+fetches.length = 0;
+busPollResponses.push([{
+  id: 12,
+  type: "AI_OPEN_MENU_LIST",
+  payload: {
+    menuID: 2,
+    selectedGroupBys: ["model_id"],
+    search: ["Cleanup"],
+    customDomain: [["active", "=", true]]
+  }
+}]);
+globalThis.dispatchEvent(new CustomEvent("goerp:ai-bus-poll"));
+await flushAsync();
+let serverActionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
+assert.equal(findAll(serverActionManager, (node) => String(node.className).includes("gorp-window-action") && node.dataset?.model === "ir.actions.server" && node.dataset?.view === "list").length, 1);
+assert.equal(globalThis.location.hash.includes("action=7"), true);
+assert.equal(globalThis.location.hash.includes("menu_id=2"), true);
+let serverSearchFetch = fetches.find((item) => item.route === "/web/dataset/call_kw/ir.actions.server/web_search_read");
+let serverSearchBody = JSON.parse(serverSearchFetch.options.body);
+assert.match(JSON.stringify(serverSearchBody.kwargs.domain), /Cleanup/);
+assert.deepEqual(serverSearchBody.kwargs.groupby, ["model_id"]);
+
+busPollResponses.push([{
+  id: 13,
+  type: "AI_ADJUST_SEARCH",
+  payload: {
+    applySearches: ["Archived"],
+    toggleGroupBys: ["model_id"],
+    customDomain: [["active", "=", false]]
+  }
+}]);
+globalThis.dispatchEvent(new CustomEvent("goerp:ai-bus-poll"));
+await flushAsync();
+serverSearchFetch = fetches.filter((item) => item.route === "/web/dataset/call_kw/ir.actions.server/web_search_read").at(-1);
+serverSearchBody = JSON.parse(serverSearchFetch.options.body);
+assert.match(JSON.stringify(serverSearchBody.kwargs.domain), /Archived/);
+assert.equal(JSON.stringify(serverSearchBody.kwargs.domain).includes("false"), true);
+assert.equal(Array.isArray(serverSearchBody.kwargs.groupby), false);
+
 findAll(shell, (node) => String(node.className).includes("o_switch_company_menu"))[0].dispatchEvent(new CustomEvent("click"));
 const logIntoAlpha = findAll(shell, (node) => String(node.className).includes("log_into") && node.dataset?.companyId === "1")[0];
 logIntoAlpha.dispatchEvent(new CustomEvent("click"));
@@ -547,7 +631,9 @@ assert.equal(switchFetch.options.method, "POST");
 assert.deepEqual(JSON.parse(switchFetch.options.body), { company_id: 1, company_ids: [1, 2] });
 assert.equal(globalThis.location.href, "/web");
 
-findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).includes("o_app"))[0].dispatchEvent(new CustomEvent("click"));
+const appsTile = findAll(shell, (node) => node.dataset?.menuId === "4" && String(node.className).includes("o_app"))[0];
+if (appsTile) appsTile.dispatchEvent(new CustomEvent("click"));
+else await shell.openMenuApp(4);
 await flushAsync();
 let actionManager = findAll(shell, (node) => String(node.className).includes("o_action_manager"))[0];
 assert.equal(actionManager.dataset.tsActionStatus, "ready", allText(actionManager));
