@@ -2736,6 +2736,28 @@ assert.deepEqual(serverActionCustomFilterCalls[5].action.__search_facets.map((fa
   ["custom-create_date-2026-06-29t10-30", "text", "create_date", ">", "Created On", ["2026-06-29T10:30"], "2026-06-29T10:30"]
 ]);
 
+findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("o_add_custom_filter"))[0].dispatchEvent(new TestEvent("click"));
+const setCustomFilterDialog = findAll(serverActionCustomFilterWindow, (node) => String(node.className ?? "").includes("gorp-custom-filter-dialog"))[0];
+const setCustomFilterOperator = findAll(setCustomFilterDialog, (node) => node.dataset?.customFilterOperator === "true")[0];
+const setCustomFilterValue = findAll(setCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
+setCustomFilterOperator.value = "set";
+setCustomFilterOperator.dispatchEvent(new TestEvent("change"));
+assert.equal(setCustomFilterValue.hidden, true);
+assert.equal(setCustomFilterValue.disabled, true);
+findAll(setCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));
+await Promise.resolve();
+assert.deepEqual(serverActionCustomFilterCalls[6].action.__search_facets.map((facet) => [
+  facet.id,
+  facet.type,
+  facet.field,
+  facet.operator,
+  facet.categoryLabel,
+  facet.valueLabels,
+  facet.domain
+]), [
+  ["custom-model_name-set", "filter", undefined, undefined, "Model", ["is set"], [["model_name", "!=", false]]]
+]);
+
 const relationCustomFilterCalls = [];
 const relationCustomFilterWindow = renderWindowAction({
   type: "ir.actions.act_window",
@@ -2787,7 +2809,7 @@ const relationCustomFilterOperator = findAll(relationCustomFilterDialog, (node) 
 const relationCustomFilterValue = findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterValue === "true")[0];
 assert.equal(relationCustomFilterValue.tag, "select");
 assert.equal(relationCustomFilterValue.dataset.customFilterValueType, "many2one");
-assert.deepEqual(findAll(relationCustomFilterOperator, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["=", "is"], ["!=", "is not"]]);
+assert.deepEqual(findAll(relationCustomFilterOperator, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["=", "is"], ["!=", "is not"], ["set", "is set"], ["not set", "is not set"]]);
 assert.deepEqual(findAll(relationCustomFilterValue, (node) => node.tag === "option").map((node) => [node.value, node.textContent]), [["11", "Automatic Vacuum"], ["12", "Users"]]);
 relationCustomFilterValue.value = "11";
 findAll(relationCustomFilterDialog, (node) => node.dataset?.customFilterApply === "true")[0].dispatchEvent(new TestEvent("click"));

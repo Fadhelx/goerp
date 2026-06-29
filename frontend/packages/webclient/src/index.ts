@@ -3298,6 +3298,13 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   const valueSlot = document.createElement("span");
   valueSlot.className = "o_custom_filter_value_slot";
   let valueControl = renderCustomFilterValueControl(fields[0]);
+  const updateValueVisibility = () => {
+    const needsValue = customFilterOperatorNeedsValue(operatorSelect.value);
+    valueSlot.hidden = !needsValue;
+    valueSlot.dataset.customFilterValueRequired = needsValue ? "true" : "false";
+    valueControl.hidden = !needsValue;
+    valueControl.disabled = !needsValue;
+  };
   const updateControls = () => {
     const field = customFilterFieldByName(fields, fieldSelect.value);
     const currentOperator = operatorSelect.value;
@@ -3311,8 +3318,10 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
     operatorSelect.value = operators.some((operator) => operator.value === currentOperator) ? currentOperator : operators[0]?.value ?? "=";
     valueControl = renderCustomFilterValueControl(field);
     valueSlot.replaceChildren(valueControl);
+    updateValueVisibility();
   };
   fieldSelect.addEventListener("change", updateControls);
+  operatorSelect.addEventListener("change", updateValueVisibility);
   updateControls();
   row.append(fieldSelect, operatorSelect, valueSlot);
   body.append(row);
@@ -3352,7 +3361,7 @@ function openCustomFilterDialog(result: WindowActionResult, root: HTMLElement, o
   modal.append(dialog);
   overlay.append(modal);
   root.append(overlay);
-  valueControl.focus?.();
+  (valueControl.hidden ? operatorSelect : valueControl).focus?.();
   return true;
 }
 
@@ -3532,7 +3541,8 @@ function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFil
   if (type === "boolean" || type === "selection" || (type === "many2one" && !!field?.choices.length)) {
     return [
       { value: "=", label: "is" },
-      { value: "!=", label: "is not" }
+      { value: "!=", label: "is not" },
+      ...(type === "many2one" ? customFilterSetOperatorOptions() : [])
     ];
   }
   if (type === "date" || type === "datetime") {
@@ -3542,7 +3552,8 @@ function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFil
       { value: ">", label: "is after" },
       { value: "<", label: "is before" },
       { value: ">=", label: "is on or after" },
-      { value: "<=", label: "is on or before" }
+      { value: "<=", label: "is on or before" },
+      ...customFilterSetOperatorOptions()
     ];
   }
   if (type === "integer" || type === "float" || type === "monetary") {
@@ -3552,15 +3563,32 @@ function customFilterOperatorOptions(field?: CustomFilterFieldOption): CustomFil
       { value: ">", label: "is greater than" },
       { value: "<", label: "is less than" },
       { value: ">=", label: "is greater than or equal to" },
-      { value: "<=", label: "is less than or equal to" }
+      { value: "<=", label: "is less than or equal to" },
+      ...customFilterSetOperatorOptions()
     ];
   }
   return [
     { value: "ilike", label: "contains" },
     { value: "not ilike", label: "does not contain" },
     { value: "=", label: "is equal to" },
-    { value: "!=", label: "is not equal to" }
+    { value: "!=", label: "is not equal to" },
+    ...customFilterSetOperatorOptions()
   ];
+}
+
+function customFilterSetOperatorOptions(): CustomFilterOperatorOption[] {
+  return [
+    { value: "set", label: "is set" },
+    { value: "not set", label: "is not set" }
+  ];
+}
+
+function customFilterOperatorNeedsValue(operator: string): boolean {
+  return operator !== "set" && operator !== "not set";
+}
+
+function customFilterOperatorLabel(field: CustomFilterFieldOption, operator: string): string {
+  return customFilterOperatorOptions(field).find((item) => item.value === operator)?.label ?? operator;
 }
 
 function customFilterMany2OneChoices(result: WindowActionResult, fieldName: string, relation: string): Array<[string, string]> {
@@ -3671,9 +3699,21 @@ function customFilterFacet(
   valueLabel?: string
 ): SearchFacet | null {
   const field = fields.find((item) => item.name === fieldName) ?? fields[0];
-  const cleanValue = String(value ?? "").trim();
-  if (!field || !cleanValue) return null;
+  if (!field) return null;
   const op = customFilterOperatorOptions(field).some((item) => item.value === operator) ? operator : customFilterOperatorOptions(field)[0]?.value ?? "=";
+  if (!customFilterOperatorNeedsValue(op)) {
+    const label = customFilterOperatorLabel(field, op);
+    return {
+      id: customFilterFacetID(field.name, op, ""),
+      type: "filter",
+      label,
+      categoryLabel: field.label,
+      valueLabels: [label],
+      domain: [[field.name, op === "set" ? "!=" : "=", false]]
+    };
+  }
+  const cleanValue = String(value ?? "").trim();
+  if (!cleanValue) return null;
   const label = String(valueLabel ?? cleanValue).trim() || cleanValue;
   return {
     id: customFilterFacetID(field.name, op, cleanValue),

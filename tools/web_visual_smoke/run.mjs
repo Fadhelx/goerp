@@ -1912,6 +1912,64 @@ export const scenarios = [
     }
   },
   {
+    name: "default-custom-filter-set-operator-desktop",
+    viewport: { width: 1366, height: 900, mobile: false },
+    run: async (page, config) => {
+      await setViewport(page, desktopViewport());
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}&scheduled_actions_set_filter=1`) });
+      await waitFor(page, `document.readyState === "interactive" || document.readyState === "complete"`, "scheduled actions set filter document ready");
+      await webRequestJSON(page, config, "/web/session/authenticate", { login: "admin", password: "admin" });
+      const ids = await externalResIDs(page, config, ["base.action_ir_cron", "base.menu_ir_cron"]);
+      const actionID = Number(ids["base.action_ir_cron"] || 0);
+      const menuID = Number(ids["base.menu_ir_cron"] || 0);
+      if (!actionID || !menuID) throw new Error(`Scheduled Actions menu/action missing: ${JSON.stringify(ids)}`);
+      await page.send("Page.navigate", { url: appURL(config.baseURL, `/web?smoke=${++navigationCounter}#action=${actionID}&model=ir.cron&view_type=list&menu_id=${menuID}`) });
+      await waitFor(page, `document.documentElement.dataset.tsWebclient === "ready"`, "Scheduled Actions set filter webclient ready");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "Scheduled Actions set filter list ready");
+      const baselineRows = await waitForCount(page, ".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list'] .gorp-list-view tbody tr.o_data_row", 2, "Scheduled Actions set baseline rows");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_searchview_dropdown_toggler");
+      await clickSelector(page, ".o_web_client .o_action_manager .o_add_custom_filter");
+      const dialogState = await waitFor(page, `(() => {
+        const dialog = document.querySelector(".o_web_client .o_action_manager .gorp-custom-filter-dialog.o_dialog");
+        const field = dialog?.querySelector("[data-custom-filter-field='true']");
+        if (!dialog || !field) return null;
+        field.value = "model_id";
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        const operator = dialog.querySelector("[data-custom-filter-operator='true']");
+        const value = dialog.querySelector("[data-custom-filter-value='true']");
+        const valueSlot = dialog.querySelector(".o_custom_filter_value_slot");
+        if (!operator || !value || !valueSlot) return null;
+        operator.value = "set";
+        operator.dispatchEvent(new Event("change", { bubbles: true }));
+        return {
+          field: field.value,
+          operator: operator.value,
+          value_hidden: value.hidden === true,
+          value_disabled: value.disabled === true,
+          slot_required: valueSlot.dataset.customFilterValueRequired || "",
+          operator_labels: [...operator.querySelectorAll("option")].map((item) => item.textContent.trim()).filter(Boolean)
+        };
+      })()`, "set custom filter dialog controls");
+      if (dialogState.field !== "model_id" || dialogState.operator !== "set" || !dialogState.value_hidden || !dialogState.value_disabled || dialogState.slot_required !== "false" || !dialogState.operator_labels.includes("is set")) {
+        throw new Error(`set custom filter dialog invalid: ${JSON.stringify(dialogState)}`);
+      }
+      await clickSelector(page, ".o_web_client .o_action_manager [data-custom-filter-apply='true']");
+      await waitFor(page, `document.querySelector(".o_web_client .o_action_manager")?.dataset.tsActionStatus === "ready"`, "set custom filter applied action ready");
+      const appliedState = await waitFor(page, `(() => {
+        const rows = [...document.querySelectorAll(".o_web_client .o_action_manager .gorp-window-action[data-model='ir.cron'][data-view='list'] .gorp-list-view tbody tr.o_data_row")];
+        const facet = document.querySelector(".o_web_client .o_action_manager .o_searchview_facet[data-facet-id='custom-model_id-set']");
+        if (!facet || !rows.length) return null;
+        const label = facet.querySelector(".o_searchview_facet_label")?.textContent?.trim() || "";
+        const values = [...facet.querySelectorAll(".o_facet_value")].map((node) => node.textContent.trim()).filter(Boolean);
+        return { rows: rows.length, label, values, raw_false_text: facet.textContent.includes("false") };
+      })()`, "set custom filter facet and rows");
+      if (appliedState.rows !== baselineRows || appliedState.label !== "Model" || appliedState.values[0] !== "is set" || appliedState.raw_false_text) {
+        throw new Error(`set custom filter applied state invalid: ${JSON.stringify({ dialogState, appliedState })}`);
+      }
+      return { baseline_rows: baselineRows, dialog_state: dialogState, applied_state: appliedState };
+    }
+  },
+  {
     name: "default-custom-group-dialog-desktop",
     viewport: { width: 1366, height: 900, mobile: false },
     run: async (page, config) => {

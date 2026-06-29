@@ -1,0 +1,44 @@
+{
+  "generated_at": "2026-06-29T17:41:20.712Z",
+  "base_url": "http://127.0.0.1:8069/",
+  "chrome": "Google Chrome",
+  "scenarios": [
+    {
+      "name": "default-custom-filter-set-operator-desktop",
+      "status": "passed",
+      "viewport": {
+        "width": 1366,
+        "height": 900,
+        "mobile": false
+      },
+      "screenshot": "default-custom-filter-set-operator-desktop.png",
+      "sha256": "c75733491d09bf8318475bd8b5af24c9abf9ff8c30c837cfd17ef60e4d480348",
+      "assertions": {
+        "baseline_rows": 2,
+        "dialog_state": {
+          "field": "model_id",
+          "operator": "set",
+          "value_hidden": true,
+          "value_disabled": true,
+          "slot_required": "false",
+          "operator_labels": [
+            "is",
+            "is not",
+            "is set",
+            "is not set"
+          ]
+        },
+        "applied_state": {
+          "rows": 2,
+          "label": "Model",
+          "values": [
+            "is set"
+          ],
+          "raw_false_text": false
+        }
+      },
+      "duration_ms": 605
+    }
+  ],
+  "duration_ms": 1300
+}
