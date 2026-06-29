@@ -12,6 +12,7 @@ import {
   type ActionRouteSource,
   type ActionService,
   type ActionServiceOptions,
+  applyMailRecordInsertToChatter,
   type RPCRequest,
   type SearchFacet,
   type SessionService,
@@ -55,9 +56,17 @@ interface AIChatThreadState extends AiMailThread {
   id: number;
   model: "discuss.channel";
   status: string;
-  messages: Array<{ role: "user" | "assistant" | "system"; body: string }>;
+  messages: AIChatMessageState[];
+  env: ReturnType<typeof makeEnv>;
   container?: HTMLElement;
   promptButtons?: string[];
+}
+
+interface AIChatMessageState {
+  id?: number;
+  role: "user" | "assistant" | "system";
+  body: string;
+  localKey?: string;
 }
 
 export async function bootstrapGoERPWebClient(): Promise<GoERPWebClientBootstrapResult> {
@@ -138,6 +147,7 @@ function getOrCreateAIThread(thread: AiAgentChatThreadLookup, env: ReturnType<ty
     model: "discuss.channel",
     status: "ready",
     messages: [],
+    env,
     promptButtons: readAIPromptButtons(channelID),
     ai_prompt_buttons: readAIPromptButtons(channelID),
     open(options) {
@@ -149,20 +159,23 @@ function getOrCreateAIThread(thread: AiAgentChatThreadLookup, env: ReturnType<ty
     async post(message: string) {
       const body = message.trim();
       if (!body) return;
-      state.messages.push({ role: "user", body });
+      const localKey = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      addAIThreadMessage(state, { role: "user", body, localKey });
       state.status = "loading";
       renderAIChatPanel(state, env, { focus: true });
       try {
         const posted = await postAIUserMessage(channelID, body);
+        const postedID = postedMessageID(posted);
+        if (!postedID) throw new Error("AI message post did not return a message id.");
+        if (postedID) mergeAIThreadMessageID(state, localKey, postedID);
         await fetchJSON("/ai/generate_response", {
-          mail_message_id: numericUserID(posted.id),
+          mail_message_id: postedID,
           channel_id: channelID,
           current_view_info: currentAIViewInfo(),
           ai_session_identifier: aiSessionIdentifier()
         });
-        state.messages.push({ role: "assistant", body: "Response generated." });
       } catch (error) {
-        state.messages.push({ role: "assistant", body: error instanceof Error ? error.message : "AI request failed." });
+        addAIThreadMessage(state, { role: "assistant", body: error instanceof Error ? error.message : "AI request failed." });
       } finally {
         state.status = "ready";
         renderAIChatPanel(state, env, { focus: true });
@@ -176,7 +189,7 @@ function getOrCreateAIThread(thread: AiAgentChatThreadLookup, env: ReturnType<ty
   return state;
 }
 
-function renderAIChatPanel(thread: AIChatThreadState, env: ReturnType<typeof makeEnv>, options: { focus: true }): void {
+function renderAIChatPanel(thread: AIChatThreadState, env: ReturnType<typeof makeEnv>, options: { focus?: boolean }): void {
   let container = thread.container;
   if (!container) {
     container = document.createElement("section");
@@ -265,6 +278,19 @@ async function postAIUserMessage(channelID: number, body: string): Promise<Recor
   return { id: 0 };
 }
 
+function postedMessageID(payload: Record<string, unknown>): number {
+  const direct = numericUserID(payload.id) || numericUserID(payload.message_id);
+  if (direct) return direct;
+  const store = isRecord(payload.store_data) ? payload.store_data : undefined;
+  const rows = store && Array.isArray(store["mail.message"]) ? store["mail.message"] : [];
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const id = numericUserID(row.id);
+    if (id) return id;
+  }
+  return 0;
+}
+
 function readAIPromptButtons(channelID: number): string[] {
   const raw = globalThis.localStorage?.getItem?.(createAIPromptButtonStorageKey(channelID));
   if (!raw) return [];
@@ -335,6 +361,14 @@ function scheduleAIBusPoll(state: AIBusPollingState, callback: () => void, delay
   (state.timer as unknown as { unref?: () => void }).unref?.();
 }
 
+function aiBusChannels(userID: number): string[] {
+  const channels = [`user/${userID}`];
+  for (const channelID of aiThreadStore.keys()) {
+    channels.push(`discuss.channel/${channelID}`);
+  }
+  return [...new Set(channels)];
+}
+
 async function pollAIBusOnce(
   env: ReturnType<typeof makeEnv>,
   menus: HomeMenuPayload,
@@ -346,7 +380,7 @@ async function pollAIBusOnce(
   state.polling = true;
   try {
     const payload = await fetchJSON<unknown>("/bus/poll", {
-      channels: [`user/${userID}`],
+      channels: aiBusChannels(userID),
       last_id: state.lastID
     });
     for (const event of normalizeBusEvents(payload)) {
@@ -378,6 +412,10 @@ async function handleAIBusEvent(
   event: GoERPBusEvent
 ): Promise<void> {
   const eventName = firstText(event.name, event.type);
+  if (eventName === "mail.record/insert") {
+    applyMailRecordInsertBusEvent(shell, event.payload ?? {});
+    return;
+  }
   if (!isAiNaturalLanguageEventName(eventName)) return;
   const payload = event.payload ?? {};
   if (isAiOpenMenuEventName(eventName)) {
@@ -385,6 +423,76 @@ async function handleAIBusEvent(
     return;
   }
   await applyAIAdjustSearchEvent(env, menus, shell, payload);
+}
+
+function applyMailRecordInsertBusEvent(shell: RenderedWebClientShell, payload: Record<string, unknown>): void {
+  applyMailRecordInsertToChatter(shell, payload);
+  for (const row of mailMessageRowsFromPayload(payload)) {
+    const channelID = numericUserID(row.res_id);
+    if (!channelID || firstText(row.model) !== "discuss.channel") continue;
+    const thread = aiThreadStore.get(channelID);
+    if (!thread) continue;
+    addAIThreadMessage(thread, {
+      id: numericUserID(row.id) || undefined,
+      role: aiMessageRole(row),
+      body: aiMessageBody(row)
+    });
+    if (thread.container) renderAIChatPanel(thread, thread.env, { focus: false });
+  }
+}
+
+function mailMessageRowsFromPayload(payload: Record<string, unknown>): Record<string, unknown>[] {
+  const store = isRecord(payload.store_data) ? payload.store_data : payload;
+  const rows = store["mail.message"];
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(isRecord);
+}
+
+function addAIThreadMessage(thread: AIChatThreadState, message: AIChatMessageState): void {
+  if (!message.body.trim()) return;
+  if (message.id) {
+    const existing = thread.messages.find((item) => item.id === message.id);
+    if (existing) {
+      existing.role = message.role;
+      existing.body = message.body || existing.body;
+      return;
+    }
+  }
+  if (message.role === "user" && !message.id) {
+    const existingUser = [...thread.messages].reverse().find((item) => item.role === "user" && item.body === message.body && !item.id);
+    if (existingUser) return;
+  }
+  thread.messages.push(message);
+}
+
+function mergeAIThreadMessageID(thread: AIChatThreadState, localKey: string, id: number): void {
+  const message = thread.messages.find((item) => item.localKey === localKey);
+  if (message) message.id = id;
+}
+
+function aiMessageRole(row: Record<string, unknown>): AIChatMessageState["role"] {
+  if (row.author_is_agent === true || row.is_ai_generated === true || row.ai_generated === true) return "assistant";
+  const messageType = firstText(row.message_type);
+  if (messageType === "notification") return "system";
+  return "user";
+}
+
+function aiMessageBody(row: Record<string, unknown>): string {
+  return cleanAIMessageBody(firstText(row.body, row.body_html, row.text, row.message));
+}
+
+function cleanAIMessageBody(value: string): string {
+  return decodeAIHTMLEntities(value.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function decodeAIHTMLEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/gi, "'");
 }
 
 async function applyAIOpenMenuEvent(

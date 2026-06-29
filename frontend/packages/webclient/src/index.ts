@@ -10481,6 +10481,7 @@ function chatterAccessParams(context?: Record<string, unknown>): PortalAccessPar
 
 function renderChatterThread(thread: HTMLElement, payload: unknown): void {
   clearElementChildren(thread);
+  thread.textContent = "";
   const messages = chatterMessages(payload);
   if (messages.length === 0) {
     const empty = document.createElement("p");
@@ -10490,6 +10491,70 @@ function renderChatterThread(thread: HTMLElement, payload: unknown): void {
     return;
   }
   for (const message of messages) thread.append(renderChatterMessage(message));
+}
+
+export function applyMailRecordInsertToChatter(root: HTMLElement, payload: unknown): number {
+  const rows = mailRecordInsertMessageRows(payload);
+  if (rows.length === 0) return 0;
+  let applied = 0;
+  for (const chatter of findDescendantsByClass(root, "gorp-chatter")) {
+    const threadModel = firstText(chatter.dataset?.threadModel);
+    const threadID = chatterRecordID(chatter.dataset?.threadId);
+    if (!threadModel || threadID === undefined) continue;
+    const thread = findDescendantByClass(chatter, "gorp-chatter-thread");
+    if (!thread) continue;
+    for (const row of rows) {
+      if (firstText(row.model) !== threadModel || chatterRecordID(row.res_id) !== threadID) continue;
+      upsertChatterMessage(thread, row);
+      applied += 1;
+    }
+  }
+  return applied;
+}
+
+function mailRecordInsertMessageRows(payload: unknown): Record<string, unknown>[] {
+  if (!isRecord(payload)) return [];
+  const store = isRecord(payload.store_data) ? payload.store_data : payload;
+  const rows = store["mail.message"];
+  return Array.isArray(rows) ? rows.filter(isRecord) : [];
+}
+
+function upsertChatterMessage(thread: HTMLElement, message: Record<string, unknown>): void {
+  const id = firstValue(message.id);
+  const rendered = renderChatterMessage(message);
+  if (id !== undefined) {
+    const existing = findDirectChatterMessage(thread, String(id));
+    if (existing) {
+      replaceDirectChild(thread, existing, rendered);
+      return;
+    }
+  }
+  if (findDescendantByClass(thread, "gorp-chatter-empty") || thread.textContent === "Loading..." || thread.textContent === "Chatter unavailable") {
+    clearElementChildren(thread);
+    thread.textContent = "";
+  }
+  thread.append(rendered);
+}
+
+function findDirectChatterMessage(thread: HTMLElement, id: string): HTMLElement | undefined {
+  return Array.from(thread.children).find((child) => (child as HTMLElement).dataset?.messageId === id) as HTMLElement | undefined;
+}
+
+function replaceDirectChild(parent: HTMLElement, target: HTMLElement, replacement: HTMLElement): void {
+  const children = Array.from(parent.children) as HTMLElement[];
+  const index = children.indexOf(target);
+  if (index < 0) return;
+  children[index] = replacement;
+  parent.replaceChildren(...children);
+}
+
+function chatterRecordID(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.trim());
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
 }
 
 function chatterMessages(payload: unknown): Record<string, unknown>[] {

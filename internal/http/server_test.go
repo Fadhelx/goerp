@@ -10228,6 +10228,9 @@ func TestAIRouteGenerateResponseReturnsNullAndPosts(t *testing.T) {
 	store.history[10] = []aicontrollers.Message{{ID: 29, Body: "Earlier"}}
 	responder := &httpAIResponder{response: agents.Response{Text: "Answer", Model: "mock-chat"}}
 	server.AIChat = &aicontrollers.ChatService{Store: store, Responder: responder}
+	server.Bus = notifications.NewBus(100)
+	sub := server.Bus.Subscribe("discuss.channel/10", 0)
+	defer sub.Close()
 	handler := server.Handler()
 
 	rec := httptest.NewRecorder()
@@ -10245,6 +10248,14 @@ func TestAIRouteGenerateResponseReturnsNullAndPosts(t *testing.T) {
 	}
 	if store.posted[10][0] != "Answer" {
 		t.Fatalf("posted = %+v", store.posted)
+	}
+	event := nextHTTPBusEvent(t, sub)
+	if event.Name != "mail.record/insert" {
+		t.Fatalf("ai bus event name = %s", event.Name)
+	}
+	messageRows := event.Payload["mail.message"].([]map[string]any)
+	if len(messageRows) != 1 || messageRows[0]["body"] != "Answer" || messageRows[0]["model"] != "discuss.channel" || int64Value(messageRows[0]["res_id"]) != 10 || !accountingBoolValue(messageRows[0]["author_is_agent"]) {
+		t.Fatalf("ai bus payload = %+v", event.Payload)
 	}
 	if len(responder.requests) != 1 || responder.requests[0].UserID != 1 || responder.requests[0].CompanyID != 1 || responder.requests[0].Prompt != "Hello AI" {
 		t.Fatalf("request = %+v", responder.requests)
@@ -19634,9 +19645,9 @@ func (s *httpAIStore) DeleteChannel(_ context.Context, id int64) error {
 	return nil
 }
 
-func (s *httpAIStore) PostAssistantMessage(_ context.Context, channelID int64, body string) error {
+func (s *httpAIStore) PostAssistantMessage(_ context.Context, channelID int64, body string) (int64, error) {
 	s.posted[channelID] = append(s.posted[channelID], body)
-	return nil
+	return int64(9000 + len(s.posted[channelID])), nil
 }
 
 type httpAIResponder struct {

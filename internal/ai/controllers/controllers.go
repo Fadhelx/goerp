@@ -68,7 +68,7 @@ type ChannelStore interface {
 	Message(context.Context, int64) (Message, bool)
 	History(context.Context, int64, int) []Message
 	DeleteChannel(context.Context, int64) error
-	PostAssistantMessage(context.Context, int64, string) error
+	PostAssistantMessage(context.Context, int64, string) (int64, error)
 }
 
 type Responder interface {
@@ -180,9 +180,11 @@ func (s ChatService) GenerateResponse(ctx context.Context, request GenerateRespo
 		Model:     response.Model,
 	}
 	if strings.TrimSpace(response.Text) != "" {
-		if err := s.Store.PostAssistantMessage(ctx, channel.ID, response.Text); err != nil {
+		messageID, err := s.Store.PostAssistantMessage(ctx, channel.ID, response.Text)
+		if err != nil {
 			return GenerateResponseResult{}, err
 		}
+		result.MessageID = messageID
 		result.Posted = true
 	}
 	return result, nil

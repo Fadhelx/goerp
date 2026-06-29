@@ -579,7 +579,7 @@ func (s envAIChannelStore) DeleteChannel(_ context.Context, channelID int64) err
 	return s.env.Model("discuss.channel").Browse(channelID).Unlink()
 }
 
-func (s envAIChannelStore) PostAssistantMessage(_ context.Context, channelID int64, text string) error {
+func (s envAIChannelStore) PostAssistantMessage(_ context.Context, channelID int64, text string) (int64, error) {
 	values := map[string]any{
 		"body":         text,
 		"message_type": "comment",
@@ -590,8 +590,8 @@ func (s envAIChannelStore) PostAssistantMessage(_ context.Context, channelID int
 	if partnerID := s.channelAgentPartnerID(channelID); partnerID != 0 {
 		values["author_id"] = partnerID
 	}
-	_, err := s.env.Model("mail.message").Create(values)
-	return err
+	messageID, err := s.env.Model("mail.message").Create(values)
+	return messageID, err
 }
 
 func (s envAIChannelStore) agent(id int64) (agents.Agent, bool) {

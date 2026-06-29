@@ -326,11 +326,12 @@ func (s Server) mailMessagePost(w http.ResponseWriter, r *http.Request) {
 		writeRPCError(w, envelope, http.StatusForbidden, err)
 		return
 	}
+	storeData := mailMessageStoreData(env, messageID)
 	result := map[string]any{
 		"message_id": messageID,
-		"store_data": map[string]any{"mail.message": []map[string]any{{"id": messageID}}},
+		"store_data": storeData,
 	}
-	s.publishMailMessageBus(env, messageID, "mail.record/insert", result["store_data"].(map[string]any))
+	s.publishMailMessageBus(env, messageID, "mail.record/insert", storeData)
 	writeRPCOrJSON(w, envelope, result)
 }
 
@@ -4880,11 +4881,12 @@ func (s Server) aiGenerateResponse(w http.ResponseWriter, r *http.Request) {
 		req.UserID = env.Context().UserID
 		req.CompanyID = env.Context().CompanyID
 	}
-	_, err = service.GenerateResponse(r.Context(), req)
+	result, err := service.GenerateResponse(r.Context(), req)
 	if err != nil {
 		writeRPCError(w, envelope, aiHTTPStatus(err), err)
 		return
 	}
+	s.publishAIAssistantMessageBus(result)
 	writeRPCOrJSON(w, envelope, nil)
 }
 
@@ -27060,6 +27062,35 @@ func (s Server) publishMailMessageBus(env *record.Env, messageID any, name strin
 		return
 	}
 	s.Bus.Publish(channel, name, payload, time.Now().UTC())
+}
+
+func (s Server) publishAIAssistantMessageBus(result aicontrollers.GenerateResponseResult) {
+	if s.Bus == nil || !result.Posted || result.ChannelID == 0 || result.MessageID == 0 {
+		return
+	}
+	s.Bus.Publish(fmt.Sprintf("discuss.channel/%d", result.ChannelID), "mail.record/insert", map[string]any{
+		"mail.message": []map[string]any{{
+			"id":              result.MessageID,
+			"body":            result.Text,
+			"message_type":    "comment",
+			"model":           "discuss.channel",
+			"res_id":          result.ChannelID,
+			"author_is_agent": true,
+		}},
+	}, time.Now().UTC())
+}
+
+func mailMessageStoreData(env *record.Env, messageID int64) map[string]any {
+	fallback := map[string]any{"mail.message": []map[string]any{{"id": messageID}}}
+	if env == nil || messageID == 0 {
+		return fallback
+	}
+	fields := availableModelFields(env, "mail.message", "id", "body", "message_type", "model", "res_id", "author_id", "author_guest_id", "email_from", "date", "parent_id", "subtype_id", "partner_ids", "attachment_ids", "body_is_html")
+	rows, err := env.Model("mail.message").Browse(messageID).Read(fields...)
+	if err != nil || len(rows) == 0 {
+		return fallback
+	}
+	return map[string]any{"mail.message": rows}
 }
 
 func mailMessageBusChannel(env *record.Env, messageID int64) string {

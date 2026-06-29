@@ -76,6 +76,9 @@ func TestGenerateResponsePostsAssistantMessage(t *testing.T) {
 	if !result.Posted || result.Text != "Answer" || store.posted[10][0] != "Answer" {
 		t.Fatalf("result=%+v posted=%+v", result, store.posted)
 	}
+	if result.MessageID == 0 {
+		t.Fatalf("assistant message id = %d", result.MessageID)
+	}
 	request := responder.requests[0]
 	if request.Prompt != "Hello AI" {
 		t.Fatalf("prompt = %q", request.Prompt)
@@ -306,7 +309,7 @@ func (s *memoryStore) DeleteChannel(_ context.Context, id int64) error {
 	return nil
 }
 
-func (s *memoryStore) PostAssistantMessage(_ context.Context, channelID int64, body string) error {
+func (s *memoryStore) PostAssistantMessage(_ context.Context, channelID int64, body string) (int64, error) {
 	s.posted[channelID] = append(s.posted[channelID], body)
-	return nil
+	return int64(1000 + len(s.posted[channelID])), nil
 }

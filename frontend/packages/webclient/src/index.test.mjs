@@ -6,6 +6,7 @@ let createORMService;
 let createRPCService;
 let createWebClient;
 let createWebClientServices;
+let applyMailRecordInsertToChatter;
 let BUILTINS;
 let createDialogService;
 let createNotificationService;
@@ -214,6 +215,7 @@ if (!globalThis.CustomEvent) globalThis.CustomEvent = TestEvent;
   createRPCService,
   createWebClient,
   createWebClientServices,
+  applyMailRecordInsertToChatter,
   BUILTINS,
   createDialogService,
   createNotificationService,
@@ -4330,6 +4332,38 @@ assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").
 assert.ok(findAll(delegationMessages[0], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent.includes("Approved"));
 assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-attachment o-mail-Attachment")[0].textContent, "approval.pdf");
 assert.equal(findAll(delegationMessages[0], (node) => String(node.className ?? "") === "gorp-chatter-reaction o-mail-Reaction")[0].textContent, "ok 2");
+assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
+  "mail.message": [{
+    id: 45,
+    model: "delegation",
+    res_id: 6,
+    body: "<p>Live update</p>",
+    author_id: { id: 9, name: "Mitchell Admin" },
+    date: "2026-06-21 09:45:00"
+  }]
+}), 1);
+let liveDelegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message"));
+assert.equal(liveDelegationMessages.length, 2);
+assert.equal(liveDelegationMessages[1].dataset.messageId, "45");
+assert.equal(findAll(liveDelegationMessages[1], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Live update");
+assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
+  store_data: {
+    "mail.message": [{
+      id: 45,
+      model: "delegation",
+      res_id: 6,
+      body: "<p>Updated live update</p>",
+      author_id: { id: 9, name: "Mitchell Admin" }
+    }]
+  }
+}), 1);
+liveDelegationMessages = findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message"));
+assert.equal(liveDelegationMessages.length, 2);
+assert.equal(findAll(liveDelegationMessages[1], (node) => String(node.className ?? "").includes("o-mail-Message-body"))[0].textContent, "Updated live update");
+assert.equal(applyMailRecordInsertToChatter(delegationFormWidgetWindow, {
+  "mail.message": [{ id: 46, model: "delegation", res_id: 999, body: "<p>Wrong record</p>" }]
+}), 0);
+assert.equal(findAll(delegationChatter, (node) => String(node.className ?? "").split(/\s+/).includes("o-mail-Message")).length, 2);
 
 const invalidDirectWindowRequests = [];
 const invalidDirectWindowServices = createWebClientServices({

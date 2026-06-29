@@ -378,7 +378,12 @@ globalThis.fetch = async (route, options = {}) => {
     }; } };
   }
   if (route === "/mail/message/post") {
-    return { ok: true, status: 200, async json() { return { id: 501, body: "Show partners" }; } };
+    return { ok: true, status: 200, async json() { return {
+      message_id: 501,
+      store_data: {
+        "mail.message": [{ id: 501, body: "<p>Show partners</p>", model: "discuss.channel", res_id: 88, message_type: "comment" }]
+      }
+    }; } };
   }
   if (route === "/ai/generate_response") {
     return { ok: true, status: 200, async json() { return null; } };
@@ -577,11 +582,30 @@ assert.ok(aiPanel);
 assert.equal(aiPanel.dataset.aiChannelId, "88");
 assert.equal(findAll(aiPanel, (node) => String(node.className).includes("o-mail-AI-prompt")).length, 2);
 assert.match(allText(aiPanel), /Show partners/);
-assert.match(allText(aiPanel), /Response generated/);
+assert.doesNotMatch(allText(aiPanel), /Response generated/);
 assert.deepEqual(fetches.map((item) => item.route), ["/mail/message/post", "/ai/generate_response"]);
 const aiGenerateFetch = fetches.find((item) => item.route === "/ai/generate_response");
 assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).channel_id, 88);
 assert.deepEqual(JSON.parse(aiGenerateFetch.options.body).mail_message_id, 501);
+
+fetches.length = 0;
+busPollResponses.push([{
+  id: 11,
+  type: "mail.record/insert",
+  payload: {
+    "mail.message": [
+      { id: 501, body: "<p>Show partners</p>", model: "discuss.channel", res_id: 88, message_type: "comment" },
+      { id: 502, body: "<p>Live assistant answer</p>", model: "discuss.channel", res_id: 88, message_type: "comment", author_is_agent: true }
+    ]
+  }
+}]);
+globalThis.dispatchEvent(new CustomEvent("goerp:ai-bus-poll"));
+await flushAsync();
+const aiBusFetch = fetches.find((item) => item.route === "/bus/poll");
+assert.deepEqual(JSON.parse(aiBusFetch.options.body).channels, ["user/7", "discuss.channel/88"]);
+assert.match(allText(aiPanel), /Live assistant answer/);
+assert.equal(findAll(aiPanel, (node) => String(node.className).includes("o-user") && node.textContent === "Show partners").length, 1);
+assert.equal(findAll(aiPanel, (node) => String(node.className).includes("o-assistant") && node.textContent === "Live assistant answer").length, 1);
 
 fetches.length = 0;
 busPollResponses.push([{
