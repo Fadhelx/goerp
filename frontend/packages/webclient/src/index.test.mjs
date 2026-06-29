@@ -4180,6 +4180,9 @@ assert.deepEqual(
 );
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_module_author") && node.textContent === "By Odoo S.A.").length, 1);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-icon") && node.alt === "Binary file").length, 1);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-control-panel") && findAll(node, (child) => String(child.className ?? "").includes("o_module_install_button")).length > 0).length, 0);
+assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-title") && findAll(node, (child) => String(child.className ?? "").includes("o_module_install_button") && child.textContent === "Activate").length === 1).length, 1);
+assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-icon"))[0].attributes.style, /width:88px !important/);
 const moduleInfoLabelText = (node) => String(node.textContent ?? "").replace(/\?$/, "");
 const moduleInfoInformationPage = findAll(referenceAppsCatalogWindow, (node) => node.dataset?.page === "information" && String(node.className ?? "").includes("gorp-form-notebook-page"))[0];
 assert.deepEqual(

@@ -3159,15 +3159,21 @@ export const scenarios = [
           tabs: [...(root?.querySelectorAll(".gorp-module-info-notebook .gorp-form-notebook-tab") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           author: root?.querySelector(".o_module_author")?.textContent?.trim() || "",
           activate_count: root?.querySelectorAll(".o_module_install_button").length || 0,
+          activate_in_sheet_count: root?.querySelectorAll(".gorp-module-info-title .o_module_install_button").length || 0,
+          activate_in_control_panel_count: root?.querySelectorAll(".gorp-module-info-control-panel .o_module_install_button").length || 0,
           control_panel_height: Math.round(root?.querySelector(".gorp-module-info-control-panel")?.getBoundingClientRect?.().height || 0),
           dialog_count: document.querySelectorAll(".o_web_client .gorp-action-dialog[data-model='ir.module.module']").length || 0,
           icon_count: root?.querySelectorAll(".gorp-module-info-icon[alt='Binary file']").length || 0,
+          icon_rect: (() => {
+            const rect = root?.querySelector(".gorp-module-info-icon")?.getBoundingClientRect?.();
+            return { width: Math.round(rect?.width || 0), height: Math.round(rect?.height || 0) };
+          })(),
           information_labels: [...(root?.querySelectorAll(".gorp-form-notebook-page[data-page='information'] .o_form_label") || [])].map((node) => node.textContent.trim().replace(/\\?$/, "")).filter(Boolean),
           information_values: [...(root?.querySelectorAll(".gorp-form-notebook-page[data-page='information'] .o_field_widget") || [])].map((node) => node.textContent.trim()).filter(Boolean),
           text: moduleBody?.textContent || ""
         };
       })()`);
-      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
+      if (!state.breadcrumb.includes("Apps") || !state.breadcrumb.includes("Equity") || JSON.stringify(state.tabs) !== JSON.stringify(["Information", "Technical Data"]) || state.author !== "By Odoo S.A." || state.activate_count !== 1 || state.activate_in_sheet_count !== 1 || state.activate_in_control_panel_count !== 0 || state.control_panel_height > 90 || state.dialog_count !== 0 || state.icon_count !== 1 || state.icon_rect.width !== 88 || state.icon_rect.height !== 88 || JSON.stringify(state.information_labels) !== JSON.stringify(["Category", "Technical Name", "License", "Latest Version"]) || !state.information_values.includes("Invoicing") || !state.information_values.includes("equity") || !state.information_values.includes("LGPL Version 3") || !state.information_values.includes("19.0.1.0") || state.text.includes("Summary") || state.text.includes("Description") || state.text.includes("Website")) {
         throw new Error(`Apps Module Info action form invalid: ${JSON.stringify(state)}`);
       }
       await clickExactText(page, ".o_web_client .gorp-window-action[data-model='ir.module.module'][data-view='form'] .gorp-form-notebook-tab", "Technical Data");

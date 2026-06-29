@@ -5733,14 +5733,6 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
   const bottom = document.createElement("div");
   bottom.className = "o_control_panel_main d-flex align-items-center justify-content-between";
   bottom.setAttribute("style", "display:flex !important;align-items:center !important;gap:8px !important;flex:0 0 auto !important;min-height:26px !important;");
-  const mainButtons = document.createElement("div");
-  mainButtons.className = "o_control_panel_main_buttons";
-  const activate = document.createElement("button");
-  activate.type = "button";
-  activate.className = "btn btn-primary o_module_install_button";
-  activate.dataset.moduleAction = "button_immediate_install";
-  activate.textContent = "Activate";
-  mainButtons.append(activate);
   const actions = document.createElement("div");
   actions.className = "o_control_panel_actions";
   actions.append(renderActionMenus({
@@ -5756,7 +5748,7 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
     options: {}
   }));
   actions.dataset.sourceAction = String(action.id ?? "");
-  bottom.append(mainButtons, actions);
+  bottom.append(actions);
   control.append(top, bottom);
   return control;
 }
@@ -5767,7 +5759,7 @@ function renderVirtualModuleInfoForm(item: ModuleCatalogItem): HTMLElement {
   body.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 102px) !important;padding:18px 0 48px !important;");
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet gorp-module-info-sheet";
-  sheet.setAttribute("style", "max-width:1180px !important;background:#2a2f3b !important;border:1px solid #454a59 !important;color:#e8e9ef !important;");
+  sheet.setAttribute("style", "width:calc(100% - 32px) !important;max-width:none !important;margin:10px 16px 0 !important;box-sizing:border-box !important;background:#2a2f3b !important;border:1px solid #454a59 !important;color:#e8e9ef !important;");
   const title = document.createElement("div");
   title.className = "oe_title gorp-module-info-title";
   const h1 = document.createElement("h1");
@@ -5778,11 +5770,17 @@ function renderVirtualModuleInfoForm(item: ModuleCatalogItem): HTMLElement {
   const author = document.createElement("div");
   author.className = "o_module_author";
   author.textContent = "By Odoo S.A.";
+  const activate = document.createElement("button");
+  activate.type = "button";
+  activate.className = "btn btn-primary o_module_install_button";
+  activate.dataset.moduleAction = "button_immediate_install";
+  activate.textContent = "Activate";
   const icon = moduleCatalogIconElement(item);
   icon.className = `${icon.className} gorp-module-info-icon`;
+  icon.setAttribute("style", "position:absolute !important;top:24px !important;right:24px !important;width:88px !important;height:88px !important;border-radius:0 !important;background:#f8f9fa !important;object-fit:contain !important;");
   icon.alt = "Binary file";
   icon.removeAttribute("aria-hidden");
-  title.append(h1, summary, author, icon);
+  title.append(h1, summary, author, activate, icon);
   sheet.append(title, renderVirtualModuleInfoNotebook(item));
   body.append(sheet);
   return body;
@@ -6330,6 +6328,7 @@ function moduleCatalogStyleElement(): HTMLElement {
     .gorp-module-info-title h1 { margin: 0 0 8px !important; color: #fff !important; font-size: 33px !important; line-height: 40px !important; font-weight: 700 !important; }
     .gorp-module-info-title .o_module_summary { margin: 0 0 12px !important; color: #b1b3bc !important; font-size: 19px !important; line-height: 24px !important; font-weight: 700 !important; }
     .gorp-module-info-title .o_module_author { margin: 0 0 14px !important; color: #b1b3bc !important; font-size: 15px !important; font-weight: 700 !important; }
+    .gorp-module-info-title .o_module_install_button { min-height: 33px !important; padding: 5px 10px !important; border-radius: 4px !important; background: #875a7b !important; border-color: #875a7b !important; color: #fff !important; font-size: 14px !important; line-height: 21px !important; font-weight: 700 !important; }
     .gorp-module-info-icon { position: absolute !important; top: 24px !important; right: 24px !important; width: 88px !important; height: 88px !important; border-radius: 0 !important; background: #f8f9fa !important; object-fit: contain !important; }
     .gorp-module-info-notebook { margin: 0 -24px -24px !important; border-top: 1px solid #3a3f4e !important; }
     .gorp-module-info-notebook .gorp-form-notebook-tabs { padding-left: 24px !important; background: #262a36 !important; border-bottom: 1px solid #3a3f4e !important; }
