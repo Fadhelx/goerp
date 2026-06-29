@@ -4172,6 +4172,7 @@ assert.equal(referenceAppsCatalogWindow.dataset.moduleInfoAction, "sale_manageme
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-dialog-window-action")).length, 0);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_control_panel") && node.dataset?.model === "ir.module.module").length, 1);
 assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-control-panel"))[0].attributes.style, /height:56px !important/);
+assert.match(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("gorp-module-info-body"))[0].attributes.style, /max-width:none !important/);
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_value")).map((node) => node.textContent)[0], "1");
 assert.equal(findAll(referenceAppsCatalogWindow, (node) => String(node.className ?? "").includes("o_pager_limit")).map((node) => node.textContent)[0], "1");
 assert.deepEqual(

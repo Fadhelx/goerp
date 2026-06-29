@@ -5756,7 +5756,7 @@ function renderVirtualModuleInfoControlPanel(item: ModuleCatalogItem, action: Re
 function renderVirtualModuleInfoForm(item: ModuleCatalogItem): HTMLElement {
   const body = document.createElement("div");
   body.className = "gorp-module-info-body gorp-form-body o-list-content o-form-content o_form_sheet_bg";
-  body.setAttribute("style", "background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 102px) !important;padding:18px 0 48px !important;");
+  body.setAttribute("style", "width:100% !important;max-width:none !important;margin:0 !important;background:#262a36 !important;color:#e8e9ef !important;min-height:calc(100vh - 102px) !important;padding:18px 0 48px !important;");
   const sheet = document.createElement("section");
   sheet.className = "gorp-form-sheet o-form-sheet o_form_sheet gorp-module-info-sheet";
   sheet.setAttribute("style", "width:calc(100% - 32px) !important;max-width:none !important;margin:10px 16px 0 !important;box-sizing:border-box !important;background:#2a2f3b !important;border:1px solid #454a59 !important;color:#e8e9ef !important;");
@@ -6322,7 +6322,7 @@ function moduleCatalogStyleElement(): HTMLElement {
     .gorp-apps-catalog-card .btn-primary, .gorp-apps-catalog-card .o_module_install_button { background: #875a7b !important; border-color: #875a7b !important; color: #fff !important; }
     .gorp-apps-catalog-card .btn-secondary, .gorp-apps-catalog-card .o_module_info_button { background: #3d4352 !important; border-color: #3d4352 !important; color: #f4f5f7 !important; }
     .gorp-apps-catalog-card .o_module_menu { position: absolute !important; top: 8px !important; right: 7px !important; padding: 0 !important; min-width: 16px !important; border: 0 !important; color: #aeb4c2 !important; background: transparent !important; font-size: 20px !important; line-height: 16px !important; opacity: 1 !important; }
-    .gorp-module-info-body { background: #1b1d26 !important; color: #e4e4e4 !important; }
+    .gorp-module-info-body { width: 100% !important; max-width: none !important; margin: 0 !important; background: #1b1d26 !important; color: #e4e4e4 !important; }
     .gorp-module-info-sheet { position: relative !important; max-width: none !important; margin: 10px 16px 0 !important; padding: 24px !important; background: #262a36 !important; border: 1px solid #3a3f4e !important; color: #e4e4e4 !important; box-shadow: none !important; }
     .gorp-module-info-title { min-height: 138px !important; padding-right: 116px !important; }
     .gorp-module-info-title h1 { margin: 0 0 8px !important; color: #fff !important; font-size: 33px !important; line-height: 40px !important; font-weight: 700 !important; }
