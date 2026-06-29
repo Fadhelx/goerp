@@ -725,15 +725,17 @@ func TestParseDomainForceSupportsOdoo19AnyDomains(t *testing.T) {
 }
 
 func TestParsedOdoo19BaseSecurityDomainsEvaluate(t *testing.T) {
-	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{1, 2}, GroupIDs: []int64{7, 8}}
+	user := User{ID: 10, PartnerID: 20, CommercialPartnerID: 30, CompanyID: 1, CompanyIDs: []int64{2}, GroupIDs: []int64{7, 8}}
 	tests := []struct {
 		expr string
 		row  map[string]any
 	}{
 		{"[('create_uid','=', user.id)]", map[string]any{"create_uid": int64(10)}},
 		{"[('company_id', 'in', company_ids + [False])]", map[string]any{"company_id": int64(2)}},
+		{"[('company_id', 'in', company_ids + [False])]", map[string]any{"company_id": int64(1)}},
 		{"[('company_id', 'in', company_ids + [False])]", map[string]any{"company_id": false}},
 		{"[('company_id', 'in', [False] + company_ids)]", map[string]any{"company_id": int64(2)}},
+		{"[('company_id', 'in', [False] + company_ids)]", map[string]any{"company_id": int64(1)}},
 		{"[('company_id', 'in', [False] + company_ids)]", map[string]any{"company_id": nil}},
 		{"['&', ('company_id', 'in', [False] + company_ids), '|', ('pricelist_id', '=', False), ('pricelist_id.company_id', 'in', [False] + company_ids)]", map[string]any{"company_id": int64(2), "pricelist_id": false}},
 		{"['&', ('company_id', 'in', [False] + company_ids), '|', ('pricelist_id', '=', False), ('pricelist_id.company_id', 'in', [False] + company_ids)]", map[string]any{"company_id": false, "pricelist_id": map[string]any{"company_id": int64(1)}}},
@@ -1173,6 +1175,27 @@ func TestEvalDomainSupportsOdooOperators(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ok, err := EvalDomain(row, user, tt.node)
+			if err != nil || !ok {
+				t.Fatalf("expected match, got %v %v", ok, err)
+			}
+		})
+	}
+}
+
+func TestEvalDomainCompanyVariablesIncludeActiveCompany(t *testing.T) {
+	user := User{ID: 10, CompanyID: 2, CompanyIDs: []int64{1}}
+	tests := []struct {
+		name string
+		node domain.Node
+		row  map[string]any
+	}{
+		{"company ids", domain.Cond("company_id", domain.In, "company_ids"), map[string]any{"company_id": int64(2)}},
+		{"user company ids", domain.Cond("company_id", domain.In, "user.company_ids.ids"), map[string]any{"company_id": int64(2)}},
+		{"company ids plus false", domain.Cond("company_id", domain.In, "company_ids_plus_false"), map[string]any{"company_id": false}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, err := EvalDomain(tt.row, user, tt.node)
 			if err != nil || !ok {
 				t.Fatalf("expected match, got %v %v", ok, err)
 			}

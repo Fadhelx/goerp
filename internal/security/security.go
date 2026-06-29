@@ -1196,7 +1196,7 @@ func resolveValue(user User, value any) any {
 	case "user.company_id.id", "user.company_id":
 		return user.CompanyID
 	case "user.company_ids", "user.company_ids.ids":
-		return user.CompanyIDs
+		return userCompanyIDs(user)
 	case "user.ids":
 		return []int64{user.ID}
 	case "user.partner_id", "user.partner_id.id":
@@ -1219,10 +1219,11 @@ func resolveValue(user User, value any) any {
 	case "company_id":
 		return user.CompanyID
 	case "company_ids":
-		return user.CompanyIDs
+		return userCompanyIDs(user)
 	case "company_ids_plus_false":
-		values := make([]any, 0, len(user.CompanyIDs)+1)
-		for _, id := range user.CompanyIDs {
+		companyIDs := userCompanyIDs(user)
+		values := make([]any, 0, len(companyIDs)+1)
+		for _, id := range companyIDs {
 			values = append(values, id)
 		}
 		return append(values, false)
